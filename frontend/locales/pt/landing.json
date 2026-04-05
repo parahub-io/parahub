@@ -1,0 +1,80 @@
+{
+  "landing": {
+    "seo": {
+      "title": "Parahub — plataforma cívica open-source sem intermediários",
+      "description": "Plataforma cívica open-source para comércio P2P, pagamentos Lightning, mensagens encriptadas, governança e mapas de transporte. Sem comissões. Grátis."
+    },
+    "hero": {
+      "subtitle": "Tudo para a vida e trabalho — diretamente, abertamente, sem comissões.",
+      "tagline": "Mercado, finanças, comunicação e logística — num só aplicativo.",
+      "cta_start": "Começar",
+      "cta_philosophy": "Conhecer a Filosofia",
+      "badge": "P2P sem intermediários",
+      "cta_docs": "Por onde começar"
+    },
+    "problem": {
+      "title": "A tecnologia deve libertar, não escravizar.",
+      "point1": "Superapps cobram até 30% de comissão, monopolizam dados e decidem o que você vê.",
+      "point2": "Parahub é a alternativa open-source: seus dados, suas regras, zero comissões.",
+      "point3": "Reputação em vez de orçamento publicitário. Código aberto — audite, fork, rode seu próprio nó."
+    },
+    "features": {
+      "title": "Um app em vez de uma dúzia.",
+      "id": {
+        "title": "ID e Reputação",
+        "desc": "Construa reputação através de recomendações pessoais de quem te conhece. Sem documentos, sem autoridade central — impossível de falsificar."
+      },
+      "market": {
+        "title": "Mercado e Troca",
+        "desc": "Compre, venda ou troque diretamente. Sem dinheiro? O sistema encontra trocas em cadeia para que todos consigam o que precisam."
+      },
+      "finance": {
+        "title": "Finanças sem Bancos",
+        "desc": "Preços em EUR/USD, pagamentos instantâneos com taxas quase zero. Sem atrasos, bloqueios ou custos ocultos."
+      },
+      "governance": {
+        "title": "Contratos e Governança",
+        "desc": "Assine acordos vinculativos no chat. Resolva disputas por arbitragem comunitária. Vote diretamente ou delegue a alguém de confiança."
+      },
+      "communication": {
+        "title": "Comunicação Privada",
+        "desc": "Mensagens totalmente encriptadas integradas. Anti-spam: desconhecidos pagam micro-valor pela primeira mensagem."
+      },
+      "mobility": {
+        "title": "Mobilidade e Mapas",
+        "desc": "Boleia e transporte público sem comissões de agregadores. Rotas e rastreamento de veículos em tempo real nos mapas comunitários."
+      },
+      "learn_more": "Saiba mais"
+    },
+    "tech": {
+      "title": "Sob o capô — independência.",
+      "decentralization": {
+        "title": "Descentralização",
+        "desc": "Pagamentos, mensagens e reputação funcionam sem servidor central. Sem ponto único de controlo ou falha."
+      },
+      "opensource": {
+        "title": "Código Aberto",
+        "desc": "Cada linha de código é pública. Inspecione, melhore ou execute a sua própria cópia independente da plataforma."
+      },
+      "offline": {
+        "title": "Pronto para Offline",
+        "desc": "Redes mesh comunitárias mantêm os vizinhos conectados mesmo quando a internet cai."
+      },
+      "link": "Detalhes completos da stack tecnológica"
+    },
+    "mission": {
+      "title": "Cooperação Sem Corporações.",
+      "text": "ONG de Portugal. Zero lucro — apenas infraestrutura pública, soberania e privacidade."
+    },
+    "stats": {
+      "commission": "Comissões",
+      "opensource": "Open Source",
+      "middlemen": "Intermediários"
+    },
+    "cta": {
+      "title": "Experimente você mesmo.",
+      "text": "Grátis. Open source. Sem registro por email.",
+      "start": "Criar conta"
+    }
+  }
+}

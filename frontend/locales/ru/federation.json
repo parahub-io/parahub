@@ -1,0 +1,101 @@
+{
+  "federation": {
+    "title": "Федерация",
+    "page_title": "Федерация - Parahub",
+    "node": {
+      "title": "Узел",
+      "domain": "Домен",
+      "name": "Имя",
+      "url": "URL",
+      "registry_git": "Реестр Git",
+      "ws_url": "WebSocket",
+      "matrix": "Matrix сервер",
+      "capabilities": "Возможности",
+      "fingerprint": "PGP Отпечаток",
+      "no_manifest": "Нет манифеста узла. Запустите init_federation_node."
+    },
+    "stats": {
+      "title": "Статистика реестра",
+      "organizations": "Организации",
+      "peers": "Узлы",
+      "migrations": "Миграции",
+      "connected_peers": "Подключенные узлы"
+    },
+    "peers": {
+      "title": "Узлы-пиры",
+      "no_peers": "Нет зарегистрированных узлов",
+      "domain": "Домен",
+      "trust_level": "Уровень доверия",
+      "first_seen": "Впервые замечен",
+      "sync": "Синхр.",
+      "sync_all": "Синхронизировать все",
+      "syncing": "Синхронизация...",
+      "sync_success": "Синхронизация завершена",
+      "sync_error": "Ошибка синхронизации",
+      "discover": "Обнаружить узел",
+      "discover_url": "URL узла",
+      "discover_placeholder": "https://para.sh",
+      "discover_success": "Узел обнаружен: {domain}",
+      "discover_error": "Не удалось обнаружить узел",
+      "last_fetch": "Последняя синхр.",
+      "head": "HEAD"
+    },
+    "organizations": {
+      "title": "Организации",
+      "no_orgs": "Нет организаций в реестре",
+      "view_all": "Показать все"
+    },
+    "migrations": {
+      "title": "Миграции профилей",
+      "no_migrations": "Нет миграций профилей",
+      "from": "Откуда",
+      "to": "Куда",
+      "status": "Статус",
+      "initiated": "Начата",
+      "exported": "Данные экспортированы",
+      "signed": "Подписана",
+      "completed": "Завершена",
+      "cancelled": "Отменена",
+      "initiate": "Начать миграцию",
+      "to_node": "Целевой узел",
+      "to_hna": "Целевой HNA",
+      "to_node_placeholder": "para.sh",
+      "to_hna_placeholder": "andrey{'@'}para.sh",
+      "reason": "Причина (опционально)",
+      "cancel": "Отменить",
+      "sign": "Подписать PGP",
+      "export_data": "Экспорт данных",
+      "complete": "Завершить миграцию",
+      "confirm_cancel": "Отменить эту миграцию?",
+      "signatures": "Подписи",
+      "from_user": "Исходный пользователь",
+      "to_user": "Целевой пользователь",
+      "from_node": "Исходный узел",
+      "to_node_sig": "Целевой узел",
+      "export_hash": "SHA256 экспорта",
+      "git_commit": "Git коммит",
+      "continuity_proof": "Доказательство идентичности",
+      "same_seed": "Тот же BIP39 Seed",
+      "cross_signed": "Перекрёстная подпись"
+    },
+    "profile": {
+      "title": "Миграция",
+      "description": "Перенести профиль на другой узел Parahub",
+      "no_active": "Нет активных миграций",
+      "start_description": "Перенос идентичности, верификаций, контрактов и товаров на другой узел",
+      "warning": "Миграция перенаправит ваш HNA на новый узел. Это действие записывается в реестр федерации."
+    },
+    "search": {
+      "title": "Федеративный поиск",
+      "placeholder": "Поиск профилей и организаций по всем узлам...",
+      "search": "Искать",
+      "no_results": "Ничего не найдено"
+    },
+    "import": {
+      "title": "Импорт данных миграции",
+      "description": "Импортировать ZIP-экспорт миграции с другого узла для создания справочных записей",
+      "upload": "Импорт",
+      "success": "Импорт завершён"
+    }
+  }
+}

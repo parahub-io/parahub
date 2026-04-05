@@ -1,0 +1,125 @@
+{
+  "rides": {
+    "title": "Covoiturage",
+    "back": "Retour",
+    "not_found": "Demande non trouve",
+    "login_required": "Connectez-vous pour crer des demandes de trajet",
+    "offers": "offres",
+    "offers_title": "Offres de Conducteurs",
+    "passengers_label": "passager | passagers",
+    "reviews": "avis",
+    "open_chat": "Ouvrir le chat",
+    "accept": "Accepter",
+    "complete": "Terminer le trajet",
+    "cancel": "Annuler",
+    "cancel_request": "Annuler la demande",
+    "confirm_cancel": "Annuler cette demande de trajet ?",
+    "booking_actions": "Rservation",
+    "tabs": {
+      "find_ride": "Chercher un Trajet",
+      "give_ride": "Proposer un Trajet"
+    },
+    "create": {
+      "title": "Demander un Trajet",
+      "origin": "Arrt de dpart",
+      "origin_placeholder": "Slectionner l'arrt...",
+      "destination": "Arrt de destination",
+      "destination_placeholder": "Slectionner l'arrt...",
+      "price": "Prix",
+      "passengers": "Passagers",
+      "note": "Note",
+      "note_placeholder": "2 sacs, avec chien, etc.",
+      "submit": "Crer la Demande",
+      "creating": "Cration...",
+      "error": "chec de la cration"
+    },
+    "my_requests": {
+      "title": "Mes Demandes Actives"
+    },
+    "search": {
+      "mode_nearby": "À proximité",
+      "mode_route": "Le long de ma route",
+      "find_nearby": "Trouver des Demandes Proches",
+      "searching": "Recherche...",
+      "radius": "Rayon de recherche",
+      "route_from": "De",
+      "route_from_placeholder": "Arrêt de départ...",
+      "route_to": "À",
+      "route_to_placeholder": "Arrêt de destination...",
+      "corridor": "Largeur du corridor",
+      "search_route": "Chercher le long de la route",
+      "route_error": "Impossible de calculer l'itinéraire",
+      "detour": "Détour",
+      "no_results": "Aucune demande de trajet trouvée"
+    },
+    "offer": {
+      "title": "Proposer un Trajet",
+      "vehicle_note": "Description du vhicule",
+      "vehicle_note_placeholder": "Toyota bleue, plaque XX-00-XX",
+      "seats": "Places disponibles",
+      "submit": "Envoyer l'Offre",
+      "submitting": "Envoi...",
+      "error": "chec de l'envoi",
+      "your_offer": "Votre offre"
+    },
+    "status": {
+      "active": "Actif",
+      "closed": "Ferm"
+    },
+    "booking_status": {
+      "OFFERED": "Propos",
+      "CONFIRMED": "Confirm",
+      "COMPLETED": "Termin",
+      "CANCELLED": "Annul"
+    },
+    "review": {
+      "title": "Laisser un Avis",
+      "rating": "Note",
+      "comment": "Commentaire (optionnel)",
+      "submit": "Envoyer l'Avis"
+    },
+    "time": {
+      "now": " l'instant",
+      "minutes_ago": "il y a {n} min",
+      "hours_ago": "il y a {n}h"
+    },
+    "cta_stop": {
+      "title": "Pas envie d'attendre le bus ?",
+      "description": "Demandez un covoiturage depuis cet arrêt",
+      "button": "Demander un Trajet"
+    },
+    "stop_picker": {
+      "placeholder": "Rechercher un arrt...",
+      "no_results": "Aucun arrt trouv"
+    },
+    "landing_title": "Covoiturage communautaire",
+    "landing_meta": "Trouvez ou proposez des trajets aux arrêts de transport public. Sans commissions, avec chat chiffré. Gratuit et open-source.",
+    "landing_hero_title": "Covoiturage communautaire — d'arrêt en arrêt",
+    "landing_hero_subtitle": "Demandez un trajet à votre arrêt, recevez des offres de conducteurs et coordonnez via chat chiffré. Sans commissions, sans intermédiaires.",
+    "landing_hero_cta": "Chercher des trajets",
+    "landing_problems_title": "Problèmes que nous résolvons",
+    "landing_problem_1": "Uber et Bolt facturent des commissions élevées et pistent chaque mouvement",
+    "landing_problem_2": "Les transports en commun ne couvrent pas le dernier kilomètre dans de nombreuses zones",
+    "landing_problem_3": "Pas de moyen sûr d'organiser des trajets avec des voisins et inconnus",
+    "landing_features_title": "Fonctionnalités",
+    "landing_feature_1_title": "D'Arrêt en Arrêt",
+    "landing_feature_1_desc": "Tous les trajets partent et arrivent à des arrêts de transport public — intégré au réseau GTFS",
+    "landing_feature_2_title": "Sans Commissions",
+    "landing_feature_2_desc": "Zéro frais de plateforme. Les passagers fixent le prix, les conducteurs proposent — accord direct",
+    "landing_feature_3_title": "Chat Sécurisé",
+    "landing_feature_3_desc": "Quand un trajet est accepté, un chat Matrix chiffré entre passager et conducteur est créé automatiquement",
+    "landing_feature_4_title": "GPS Intégré",
+    "landing_feature_4_desc": "Cherchez des trajets près de vous par géolocalisation ou le long d'un itinéraire prévu",
+    "landing_feature_5_title": "Évaluations",
+    "landing_feature_5_desc": "Évaluations mutuelles 1-5 étoiles après chaque trajet pour bâtir la réputation communautaire",
+    "landing_feature_6_title": "Gratuit Pour Toujours",
+    "landing_feature_6_desc": "Open-source, sans commissions, sans publicité. Infrastructure civique, pas un produit",
+    "landing_how_title": "Comment ça marche",
+    "landing_how_1": "Créez une demande de trajet — choisissez arrêt de départ et d'arrivée",
+    "landing_how_2": "Les conducteurs voient votre demande et envoient des offres avec description du véhicule",
+    "landing_how_3": "Acceptez une offre — chat chiffré créé automatiquement pour la coordination",
+    "landing_free_title": "Gratuit pour toujours",
+    "landing_free_desc": "Partager une voiture ne devrait pas enrichir une entreprise. Parahub relie les gens directement, sans intermédiaires.",
+    "ride_meta": "Trajet de {origin} à {destination}"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "voice_chat": {
+    "title": "Chat Vocal",
+    "tap_to_talk": "Appuyez pour parler",
+    "stop_recording": "Arrêter l'enregistrement",
+    "listening": "Écoute...",
+    "transcribing": "Transcription...",
+    "thinking": "Réflexion...",
+    "speaking": "Parle...",
+    "using_tool": "Vérification",
+    "ready": "Prêt",
+    "connecting": "Connexion...",
+    "disconnected": "Déconnecté",
+    "empty": "Appuyez sur le bouton et parlez pour démarrer une conversation",
+    "you": "Vous",
+    "clear": "Effacer l'historique",
+    "cleared": "Conversation effacée",
+    "error_mic": "Accès au microphone refusé",
+    "error_mic_denied": "Accès au microphone refusé. Vérifiez les paramètres du navigateur et autorisez le microphone pour ce site.",
+    "error_mic_unavailable": "Aucun microphone trouvé. Connectez un microphone et réessayez.",
+    "error_short": "Enregistrement trop court",
+    "error_offline": "Vous êtes hors ligne. Vérifiez votre connexion internet.",
+    "error_connection": "Connexion perdue. Tentative de reconnexion...",
+    "voice_not_enabled": "Cet agent ne prend pas en charge le chat vocal.",
+    "agent_not_found": "Agent introuvable ou voix indisponible",
+    "reconnecting": "Reconnexion...",
+    "offline": "Hors ligne",
+    "retry": "Réessayer la connexion",
+    "go_back": "Retour",
+    "staff_only": "Réservé au personnel"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "voice_chat": {
+    "title": "Sprachchat",
+    "tap_to_talk": "Tippen zum Sprechen",
+    "stop_recording": "Aufnahme stoppen",
+    "listening": "Zuhören...",
+    "transcribing": "Transkribieren...",
+    "thinking": "Nachdenken...",
+    "speaking": "Sprechen...",
+    "using_tool": "Prüfen",
+    "ready": "Bereit",
+    "connecting": "Verbinden...",
+    "disconnected": "Getrennt",
+    "empty": "Taste tippen und sprechen, um ein Gespräch zu beginnen",
+    "you": "Sie",
+    "clear": "Verlauf löschen",
+    "cleared": "Gespräch gelöscht",
+    "error_mic": "Mikrofonzugriff verweigert",
+    "error_mic_denied": "Mikrofonzugriff verweigert. Prüfen Sie die Browsereinstellungen und erlauben Sie das Mikrofon für diese Seite.",
+    "error_mic_unavailable": "Kein Mikrofon gefunden. Schließen Sie ein Mikrofon an und versuchen Sie es erneut.",
+    "error_short": "Aufnahme zu kurz",
+    "error_offline": "Sie sind offline. Prüfen Sie Ihre Internetverbindung.",
+    "error_connection": "Verbindung verloren. Versuche erneut zu verbinden...",
+    "voice_not_enabled": "Dieser Agent unterstützt keinen Sprachchat.",
+    "agent_not_found": "Agent nicht gefunden oder Sprache nicht verfügbar",
+    "reconnecting": "Verbindung wird wiederhergestellt...",
+    "offline": "Offline",
+    "retry": "Verbindung erneut versuchen",
+    "go_back": "Zurück",
+    "staff_only": "Nur für Mitarbeiter"
+  }
+}

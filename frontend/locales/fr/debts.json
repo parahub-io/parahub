@@ -1,0 +1,73 @@
+{
+  "debts": {
+    "title": "Dettes et Compensation",
+    "description": "Suivez les dettes mutuelles et compensez-les par cycles",
+    "owes": " doit à ",
+    "confirmed": "confirmé",
+    "waiting": "en attente",
+    "tabs": {
+      "owed_to_me": "On me doit",
+      "i_owe": "Je dois",
+      "pending": "En attente de confirmation"
+    },
+    "create": {
+      "button": "Nouvelle Dette",
+      "title": "Créer un Enregistrement de Dette",
+      "my_role": "Je suis:",
+      "debtor": "Celui qui doit",
+      "creditor": "Le créancier",
+      "other_person": "Autre personne:",
+      "select_partner": "Sélectionner un partenaire",
+      "your_partners": "Vos Partenaires:",
+      "other": "Autres:",
+      "amount": "Montant:",
+      "currency": "Devise:",
+      "description": "Description (optionnel):",
+      "submit": "Créer",
+      "cancel": "Annuler"
+    },
+    "status": {
+      "draft": "Brouillon",
+      "pending_confirmation": "En attente de confirmation",
+      "active": "Actif",
+      "partially_settled": "Partiellement Réglé",
+      "fully_settled": "Totalement Réglé",
+      "cancelled": "Annulé"
+    },
+    "item": {
+      "owes": "{debtor} doit à {creditor}",
+      "settled": "{percent}% réglé",
+      "confirm": "Confirmer",
+      "record_payment": "Enregistrer le Paiement"
+    },
+    "empty": "Aucune dette dans cette catégorie",
+    "empty_subtitle": "Tout est en ordre ! Les dettes créées ou reçues apparaîtront ici",
+    "clearing": {
+      "title": "Cycles de Compensation de Dettes",
+      "description": "Les dettes mutuelles peuvent être compensées par cycles multi-parties"
+    },
+    "repay": {
+      "title": "Enregistrer le Paiement",
+      "debt_info": "Dette",
+      "remaining": "Restant",
+      "amount": "Montant payé",
+      "max": "Maximum",
+      "notes": "Notes (optionnel)",
+      "submit": "Enregistrer le Paiement",
+      "error_amount": "Le montant doit être positif",
+      "error_exceeds": "Le montant dépasse la dette restante"
+    },
+    "toast": {
+      "new_pending": "Nouvelle dette: {person} - {amount} {currency} (confirmation requise)",
+      "new_active": "Nouvelle dette: {person} - {amount} {currency}",
+      "confirmed": "Dette confirmée",
+      "fully_settled": "Dette totalement réglée: {amount} {currency} payé",
+      "partial_payment": "Paiement enregistré: {amount} {currency} ({remaining} {currency} restant)",
+      "partner_load_failed": "Échec du chargement du profil du partenaire"
+    },
+    "ots": {
+      "block": "Bloc Bitcoin",
+      "pending": "Ancrage sur Bitcoin..."
+    }
+  }
+}

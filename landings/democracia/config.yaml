@@ -1,0 +1,15 @@
+subdomain: democracia
+default_locale: pt
+i18n_namespace: governance
+cta_path: /governance
+from_param: democracia
+problems_count: 3
+features_count: 6
+steps_count: 3
+feature_icons:
+  - vote
+  - users
+  - shield
+  - zap
+  - globe
+  - heart

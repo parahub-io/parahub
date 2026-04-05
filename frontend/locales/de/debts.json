@@ -1,0 +1,73 @@
+{
+  "debts": {
+    "title": "Schulden & Verrechnung",
+    "description": "Gegenseitige Schulden verfolgen und durch Zyklen verrechnen",
+    "owes": " schuldet ",
+    "confirmed": "bestätigt",
+    "waiting": "wartend",
+    "tabs": {
+      "owed_to_me": "Mir geschuldet",
+      "i_owe": "Ich schulde",
+      "pending": "Bestätigung ausstehend"
+    },
+    "create": {
+      "button": "Neue Schuld",
+      "title": "Schuldeneintrag erstellen",
+      "my_role": "Ich bin:",
+      "debtor": "Derjenige, der schuldet",
+      "creditor": "Derjenige, dem geschuldet wird",
+      "other_person": "Andere Person:",
+      "select_partner": "Partner auswählen",
+      "your_partners": "Ihre Partner:",
+      "other": "Andere:",
+      "amount": "Betrag:",
+      "currency": "Währung:",
+      "description": "Beschreibung (optional):",
+      "submit": "Erstellen",
+      "cancel": "Abbrechen"
+    },
+    "status": {
+      "draft": "Entwurf",
+      "pending_confirmation": "Bestätigung ausstehend",
+      "active": "Aktiv",
+      "partially_settled": "Teilweise beglichen",
+      "fully_settled": "Vollständig beglichen",
+      "cancelled": "Storniert"
+    },
+    "item": {
+      "owes": "{debtor} schuldet {creditor}",
+      "settled": "{percent}% beglichen",
+      "confirm": "Bestätigen",
+      "record_payment": "Zahlung erfassen"
+    },
+    "empty": "Keine Schulden in dieser Kategorie",
+    "empty_subtitle": "Alles klar! Erstellte oder erhaltene Schulden erscheinen hier",
+    "clearing": {
+      "title": "Schuldenverrechnungszyklen",
+      "description": "Gegenseitige Schulden können durch mehrseitige Zyklen verrechnet werden"
+    },
+    "repay": {
+      "title": "Zahlung erfassen",
+      "debt_info": "Schuld",
+      "remaining": "Verbleibend",
+      "amount": "Gezahlter Betrag",
+      "max": "Max",
+      "notes": "Notizen (optional)",
+      "submit": "Zahlung erfassen",
+      "error_amount": "Betrag muss positiv sein",
+      "error_exceeds": "Betrag übersteigt verbleibende Schuld"
+    },
+    "toast": {
+      "new_pending": "Neue Schuld: {person} - {amount} {currency} (Bestätigung erforderlich)",
+      "new_active": "Neue Schuld: {person} - {amount} {currency}",
+      "confirmed": "Schuld bestätigt",
+      "fully_settled": "Schuld vollständig beglichen: {amount} {currency} gezahlt",
+      "partial_payment": "Zahlung erfasst: {amount} {currency} ({remaining} {currency} verbleibend)",
+      "partner_load_failed": "Partnerprofil konnte nicht geladen werden"
+    },
+    "ots": {
+      "block": "Bitcoin-Block",
+      "pending": "Wird in Bitcoin verankert..."
+    }
+  }
+}

@@ -1,0 +1,187 @@
+{
+  "energy": {
+    "title": "Energie",
+    "subtitle": "P2P-Solarenergie-Gemeinschaft",
+    "layer_title": "Energiezellen",
+    "no_cells": "Keine Energiezellen",
+    "status": {
+      "GREEN": "Überschuss verfügbar",
+      "YELLOW": "Ausgeglichen",
+      "RED": "Kein Überschuss",
+      "OFFLINE": "Inaktiv",
+      "WAITING": "Warten auf Erzeuger"
+    },
+    "role": {
+      "producer": "Erzeuger (UPAC)",
+      "consumer": "Verbraucher (Nachbar)"
+    },
+    "cell": {
+      "producers": "Erzeuger",
+      "consumers": "Nachbarn",
+      "radius": "Radius",
+      "transformer": "Transformator (PT)",
+      "price_label": "{price} €/kWh"
+    },
+    "my": {
+      "not_member": "Sie sind in keiner Energiezelle Mitglied",
+      "producer_in": "Erzeuger in {name}",
+      "consumer_in": "Verbraucher in {name}"
+    },
+    "join": {
+      "title": "Dieser Energiezelle beitreten",
+      "as_producer": "Als Erzeuger (ich habe Solaranlage)",
+      "as_consumer": "Als Verbraucher (ich bin Nachbar)"
+    },
+    "inverter": {
+      "SOLARMAN": "Solarman (Deye / Sofar)",
+      "FRONIUS": "Fronius",
+      "GROWATT": "Growatt",
+      "SMA": "SMA",
+      "SHELLY": "Shelly EM",
+      "OTHER": "Sonstiges"
+    },
+    "econ": {
+      "sell_label": "Einspeisevergütung",
+      "p2p_label": "P2P-Preis",
+      "p2p_badge": "ACC",
+      "grid_label": "Netzbezugspreis"
+    },
+    "empty": {
+      "title": "Noch keine Energiezellen",
+      "subtitle": "Seien Sie die Ersten, die eine P2P-Energiegemeinschaft in Ihrer Nachbarschaft gründen.",
+      "cta": "Energiezelle erstellen",
+      "login_cta": "Anmelden zum Erstellen"
+    },
+    "how": {
+      "title": "So funktioniert es",
+      "step1": "Ein Solarerzeuger verkauft Überschuss an die Gruppe statt ins Netz",
+      "step2": "Nachbarn erhalten günstigen Strom (~0,12 €/kWh inkl. Netztarif vs. 0,20 € aus dem Netz)",
+      "step3": "Grünes Licht signalisiert verfügbaren Überschuss — Smart Devices starten automatisch",
+      "step4": "Parahub registriert die ACC-Gruppe (Autoconsumo Coletivo — kollektiver Eigenverbrauch) bei der DGEG (portugiesische Energieregulierungsbehörde) und verwaltet die Abrechnung"
+    },
+    "detail": {
+      "created_by": "von {name}",
+      "members": "Mitglieder",
+      "technical": "Technische Details",
+      "view_on_map": "Auf Karte anzeigen",
+      "settings": "Zelleneinstellungen",
+      "price_eur_kwh": "Preis (€/kWh)",
+      "leave": "Verlassen",
+      "joined": "Energiezelle beigetreten!",
+      "left": "Energiezelle verlassen",
+      "live_production": "Live-Produktion",
+      "online": "online"
+    },
+    "form": {
+      "cell_name": "Zellenname",
+      "description": "Beschreibung",
+      "cpe_code": "CPE-Code",
+      "cpe_hint": "CPE (Código de Ponto de Entrega) — Ihr Lieferpunktcode, oben auf Ihrer Stromrechnung (z. B. PT0002...)",
+      "capacity_kw": "PV-Leistung (kW)",
+      "battery_kwh": "Batteriekapazität (kWh, optional)",
+      "inverter_type": "Wechselrichtertyp",
+      "radius_km": "Radius (km)",
+      "radius_2_lv": "2 km — Wohngebiete (Niederspannung)",
+      "radius_4_mv": "4 km — Gewerbe/Mischgebiete (Mittelspannung)",
+      "transformer_id": "Transformator-ID",
+      "transformer_hint": "E-Redes-Unterstations-ID (Format: PT-XXXXXX). Optional — leer lassen, wenn unbekannt.",
+      "location_hint": "Standort (Transformator)",
+      "use_location": "Meinen Standort verwenden",
+      "location_error": "Standort konnte nicht ermittelt werden",
+      "created": "Energiezelle erstellt!"
+    },
+
+    "relay": {
+      "title": "Smart-Relais",
+      "hint": "Schließen Sie ein Shelly (~€15) an Ihren Boiler an. Es schaltet sich automatisch ein, wenn günstige Solarenergie verfügbar ist.",
+      "add": "Relais hinzufügen",
+      "name": "Gerätename",
+      "name_placeholder": "Boiler, Poolpumpe...",
+      "type": "Relaistyp",
+      "url": "Geräte-URL",
+      "channel": "Kanal",
+      "test": "Verbindung testen",
+      "empty": "Keine Relais konfiguriert",
+      "added": "Relais hinzugefügt!",
+      "last_ok": "Funktioniert"
+    },
+
+    "shares": {
+      "title": "Investorenanteile",
+      "add": "Investor hinzufügen",
+      "total_allocated": "Vergeben: {percent}%",
+      "available": "Verfügbar: {percent}%",
+      "invested": "Investiert",
+      "share": "Anteil",
+      "no_shares": "Noch keine Investoren",
+      "confirm_remove": "Anteil dieses Investors entfernen?",
+      "profile_placeholder": "Profil-ID",
+      "percent_placeholder": "Anteil %",
+      "amount_placeholder": "Betrag €",
+      "added": "Investor hinzugefügt!",
+      "my_shares_title": "Meine Anteile",
+      "my_shares_subtitle": "Ihre Investitionen in allen Genossenschaften",
+      "total_invested": "Gesamt investiert",
+      "active_shares": "Aktive Anteile",
+      "no_my_shares": "Keine aktiven Anteile",
+      "last_payout": "Letzte Auszahlung",
+      "no_payouts": "Noch keine Auszahlungen"
+    },
+
+    "distributions": {
+      "title": "Auszahlungen",
+      "create": "Auszahlung erstellen",
+      "period": "Zeitraum",
+      "total": "Gesamtbetrag",
+      "period_placeholder": "z.B. 2026-03",
+      "amount_placeholder": "Betrag €",
+      "status_DRAFT": "Entwurf",
+      "status_APPROVED": "Genehmigt",
+      "status_DISTRIBUTED": "Ausgezahlt",
+      "approve": "Genehmigen und generieren",
+      "lines_paid": "{paid}/{total} bezahlt",
+      "mark_paid": "Als bezahlt markieren",
+      "no_distributions": "Noch keine Auszahlungen",
+      "created": "Auszahlung erstellt!",
+      "approved": "Auszahlung genehmigt — {count} Zeilen generiert"
+    },
+
+    "cooperative": {
+      "label": "Genossenschaft (optional)",
+      "none": "Keine Genossenschaft",
+      "create_new": "Neue Genossenschaft erstellen",
+      "name_placeholder": "Name der Genossenschaft",
+      "created": "Genossenschaft erstellt!"
+    },
+
+    "landing_title": "Kostenlose P2P-Solarenergie",
+    "landing_meta": "Kostenlose Open-Source-Plattform zum Teilen von Solarenergie unter Nachbarn — Kollektiver Eigenverbrauch (DL 15/2022)",
+    "landing_hero_title": "Verkaufen Sie Solarenergie an Ihre Nachbarn — nicht ans Netz",
+    "landing_hero_subtitle": "Kollektiver Eigenverbrauch legalisiert durch DL 15/2022. Erzeuger verdient 0,08 €/kWh (statt 0,05 € Einspeisung). Nachbar zahlt ~0,12 € inkl. Netztarif (statt 0,20 € Netz). 40% Ersparnis.",
+    "landing_hero_cta": "Energiezelle erstellen",
+    "landing_problems_title": "Das aktuelle Problem",
+    "landing_problem_1": "Solarüberschuss wird für 0,05 €/kWh ins Netz eingespeist — praktisch verschenkt",
+    "landing_problem_2": "Nachbarn zahlen 0,20 €/kWh vom Netz, obwohl nebenan Solarpanels stehen",
+    "landing_problem_3": "Eine ACC-Gruppe bei der DGEG zu gründen ist bürokratisch und unzugänglich",
+    "landing_features_title": "Was wir bieten",
+    "landing_feature_1_title": "P2P-Energiehandel",
+    "landing_feature_1_desc": "Verkaufen Sie Solarüberschuss direkt an Nachbarn — 60% mehr als der Netz-Einspeisetarif",
+    "landing_feature_2_title": "Echtzeit-Überwachung",
+    "landing_feature_2_desc": "Live-Dashboard mit Zellstatus: grün (Überschuss), gelb (ausgeglichen), rot (kein Überschuss)",
+    "landing_feature_3_title": "Intelligente Automatisierung",
+    "landing_feature_3_desc": "Intelligente Geräte starten automatisch, wenn Überschussenergie verfügbar ist",
+    "landing_feature_4_title": "Rechtliche Konformität",
+    "landing_feature_4_desc": "DL 15/2022 und EU-Richtlinie 2024/1711 legalisieren Energy Sharing. Alle EU-Staaten müssen bis Juli 2026 umsetzen — wir übernehmen die DGEG-Registrierung",
+    "landing_feature_5_title": "Energiekarte",
+    "landing_feature_5_desc": "Sehen Sie Energiezellen auf der Karte, finden und treten Sie nahen Energiegemeinschaften bei",
+    "landing_feature_6_title": "Für immer kostenlos",
+    "landing_feature_6_desc": "Open-Source, ohne Abonnement. 1% EGAC-Verwaltungsgebühr — keine weiteren Kosten. Gemeinschaftsinfrastruktur, kein Produkt",
+    "landing_how_title": "So funktioniert es",
+    "landing_how_1": "Installieren Sie Solarpanels und erstellen Sie eine Energiezelle",
+    "landing_how_2": "Nachbarn im Umkreis von 2 km treten Ihrer Zelle bei",
+    "landing_how_3": "Parahub übernimmt die ACC-Registrierung bei der DGEG und die Abrechnung",
+    "eu_note": "EU-Richtlinie 2024/1711 verpflichtet alle Mitgliedstaaten zur Einführung von Energy Sharing bis Juli 2026. Die EU-Kommission schätzt Einsparungen von 500–1.100 €/Jahr pro Haushalt.",
+    "landing_free_title": "Für immer kostenlos",
+    "landing_free_desc": "Parahub ist öffentliche Infrastruktur. Die Energiewende sollte kein Geld kosten."
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "rides": {
+    "title": "Rides",
+    "back": "Back to rides",
+    "not_found": "Request not found",
+    "login_required": "Log in to create ride requests",
+    "offers": "offers",
+    "offers_title": "Driver Offers",
+    "passengers_label": "passenger | passengers",
+    "reviews": "reviews",
+    "open_chat": "Open chat",
+    "accept": "Accept",
+    "complete": "Complete ride",
+    "cancel": "Cancel",
+    "cancel_request": "Cancel request",
+    "confirm_cancel": "Cancel this ride request?",
+    "booking_actions": "Booking",
+    "tabs": {
+      "find_ride": "Find a Ride",
+      "give_ride": "Give a Ride"
+    },
+    "create": {
+      "title": "Request a Ride",
+      "origin": "Pickup stop",
+      "origin_placeholder": "Select pickup stop...",
+      "destination": "Destination stop",
+      "destination_placeholder": "Select destination stop...",
+      "price": "Price",
+      "passengers": "Passengers",
+      "note": "Note",
+      "note_placeholder": "2 bags, with dog, etc.",
+      "submit": "Create Request",
+      "creating": "Creating...",
+      "error": "Failed to create request"
+    },
+    "my_requests": {
+      "title": "My Active Requests"
+    },
+    "search": {
+      "mode_nearby": "Nearby",
+      "mode_route": "Along my route",
+      "find_nearby": "Find Requests Nearby",
+      "searching": "Searching...",
+      "radius": "Search radius",
+      "route_from": "From",
+      "route_from_placeholder": "Your starting stop...",
+      "route_to": "To",
+      "route_to_placeholder": "Your destination stop...",
+      "corridor": "Corridor width",
+      "search_route": "Search along route",
+      "route_error": "Could not calculate route",
+      "detour": "Detour",
+      "no_results": "No ride requests found"
+    },
+    "offer": {
+      "title": "Offer to Drive",
+      "vehicle_note": "Vehicle description",
+      "vehicle_note_placeholder": "Blue Toyota, plate XX-00-XX",
+      "seats": "Available seats",
+      "submit": "Send Offer",
+      "submitting": "Sending...",
+      "error": "Failed to send offer",
+      "your_offer": "Your offer"
+    },
+    "status": {
+      "active": "Active",
+      "closed": "Closed"
+    },
+    "booking_status": {
+      "OFFERED": "Offered",
+      "CONFIRMED": "Confirmed",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    },
+    "review": {
+      "title": "Leave a Review",
+      "rating": "Rating",
+      "comment": "Comment (optional)",
+      "submit": "Submit Review"
+    },
+    "time": {
+      "now": "just now",
+      "minutes_ago": "{n} min ago",
+      "hours_ago": "{n}h ago"
+    },
+    "cta_stop": {
+      "title": "Can't wait for the bus?",
+      "description": "Request a carpool ride from this stop",
+      "button": "Request a Ride"
+    },
+    "stop_picker": {
+      "placeholder": "Search stop...",
+      "no_results": "No stops found"
+    },
+    "landing_title": "Community rideshare",
+    "landing_meta": "Find or offer rides at public transit stops. No commissions, with encrypted chat. Free and open-source.",
+    "landing_hero_title": "Community rideshare — stop to stop",
+    "landing_hero_subtitle": "Request a ride at your stop, get offers from drivers and coordinate via encrypted chat. No commissions, no middlemen.",
+    "landing_hero_cta": "Find rides",
+    "landing_problems_title": "Problems we solve",
+    "landing_problem_1": "Uber and Bolt charge high commissions and track every move",
+    "landing_problem_2": "Public transit doesn't cover the last mile in many areas",
+    "landing_problem_3": "No safe way to arrange rides with neighbors and strangers",
+    "landing_features_title": "Features",
+    "landing_feature_1_title": "Stop to Stop",
+    "landing_feature_1_desc": "All rides start and end at public transit stops — integrated with the GTFS network",
+    "landing_feature_2_title": "No Commissions",
+    "landing_feature_2_desc": "Zero platform fees. Passengers set the price, drivers offer — direct agreement",
+    "landing_feature_3_title": "Secure Chat",
+    "landing_feature_3_desc": "When a ride is accepted, an encrypted Matrix chat between passenger and driver is created automatically",
+    "landing_feature_4_title": "GPS Integrated",
+    "landing_feature_4_desc": "Search for rides near you by geolocation or along a planned route",
+    "landing_feature_5_title": "Reviews",
+    "landing_feature_5_desc": "Mutual 1-5 star reviews after each ride build community reputation",
+    "landing_feature_6_title": "Free Forever",
+    "landing_feature_6_desc": "Open-source, no commissions, no ads. Civic infrastructure, not a product",
+    "landing_how_title": "How it works",
+    "landing_how_1": "Create a ride request — choose origin and destination stops",
+    "landing_how_2": "Drivers see your request and send offers with vehicle description",
+    "landing_how_3": "Accept an offer — encrypted chat created automatically for coordination",
+    "landing_free_title": "Free forever",
+    "landing_free_desc": "Sharing a car should not enrich a corporation. Parahub connects people directly, no middlemen.",
+    "ride_meta": "Ride from {origin} to {destination}"
+  }
+}

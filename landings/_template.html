@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="{{ locale_code }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t.landing_title }} - Parahub</title>
+  <meta name="description" content="{{ t.landing_meta }}">
+  <link rel="canonical" href="https://{{ subdomain }}.parahub.io{{ locale_path }}">
+
+  <!-- OG -->
+  <meta property="og:title" content="{{ t.landing_hero_title }}">
+  <meta property="og:description" content="{{ t.landing_meta }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://{{ subdomain }}.parahub.io{{ locale_path }}">
+  <meta property="og:site_name" content="Parahub">
+  <meta property="og:image" content="https://{{ subdomain }}.parahub.io/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="{{ og_locale }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ t.landing_hero_title }}">
+  <meta name="twitter:description" content="{{ t.landing_meta }}">
+  <meta name="twitter:image" content="https://{{ subdomain }}.parahub.io/og.png">
+
+  <!-- hreflang -->
+  {% for alt in alternates %}
+  <link rel="alternate" hreflang="{{ alt.lang }}" href="https://{{ subdomain }}.parahub.io{{ alt.path }}">
+  {% endfor %}
+  <link rel="alternate" hreflang="x-default" href="https://{{ subdomain }}.parahub.io/">
+
+  <!-- JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "{{ t.landing_hero_title | e }}",
+    "description": "{{ t.landing_meta | e }}",
+    "url": "https://{{ subdomain }}.parahub.io{{ locale_path }}",
+    "inLanguage": "{{ locale_lang }}",
+    "isPartOf": { "@type": "WebSite", "name": "Parahub", "url": "https://parahub.io" },
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR", "description": "{{ t.landing_free_desc | e }}" }
+  }
+  </script>
+
+  <link rel="icon" href="https://parahub.io/favicon.ico">
+  <style>{{ inline_css }}</style>
+  <!-- Plausible -->
+  <script defer data-domain="parahub.io" src="https://parahub.io/plausible/js/script.file-downloads.outbound-links.js"></script>
+</head>
+<body class="bg-white text-neutral-900">
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 text-white py-20 sm:py-32">
+    <div class="absolute inset-0 opacity-10" style="background: radial-gradient(ellipse at 30% 50%, #FFE216 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, #0891B2 0%, transparent 60%);"></div>
+    <div class="relative max-w-4xl mx-auto px-6 text-center">
+      <img src="https://parahub.io/logo.svg" alt="Parahub" class="h-12 mx-auto mb-8 invert" loading="eager" width="48" height="48">
+      <h1 class="text-3xl sm:text-5xl font-bold leading-tight mb-6">{{ t.landing_hero_title }}</h1>
+      <p class="text-lg sm:text-xl text-neutral-300 mb-10 max-w-2xl mx-auto">{{ t.landing_hero_subtitle }}</p>
+      <a href="{{ cta_url }}" class="inline-block px-8 py-4 bg-primary text-neutral-900 font-bold rounded-lg text-lg hover:bg-primary-400 transition-colors shadow-lg shadow-primary/20">
+        {{ t.landing_hero_cta }}
+      </a>
+    </div>
+  </section>
+
+  <!-- Problems -->
+  <section class="py-16 sm:py-24">
+    <div class="max-w-4xl mx-auto px-6">
+      <h2 class="text-2xl sm:text-3xl font-bold mb-8 text-center">{{ t.landing_problems_title }}</h2>
+      <div class="grid sm:grid-cols-3 gap-6">
+        {% for problem in problems %}
+        <div class="bg-red-50 rounded-lg p-6 border border-red-100">
+          <p class="text-red-800 font-medium">{{ problem }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="py-16 sm:py-24 bg-neutral-50">
+    <div class="max-w-4xl mx-auto px-6">
+      <h2 class="text-2xl sm:text-3xl font-bold mb-8 text-center">{{ t.landing_features_title }}</h2>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for feature in features %}
+        <div class="bg-white rounded-lg p-6 border border-neutral-200 hover:border-primary transition-colors">
+          <div class="w-8 h-8 text-secondary mb-3">{{ feature.icon }}</div>
+          <h3 class="font-bold mb-2">{{ feature.title }}</h3>
+          <p class="text-sm text-neutral-600">{{ feature.desc }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="py-16 sm:py-24">
+    <div class="max-w-3xl mx-auto px-6">
+      <h2 class="text-2xl sm:text-3xl font-bold mb-8 text-center">{{ t.landing_how_title }}</h2>
+      <div class="space-y-6">
+        {% for step in steps %}
+        <div class="flex gap-4 items-start">
+          <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center font-bold text-neutral-900 flex-shrink-0">{{ loop.index }}</div>
+          <p class="text-lg text-neutral-700 pt-1.5">{{ step }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Free forever -->
+  <section class="py-16 sm:py-24 bg-primary-100">
+    <div class="max-w-3xl mx-auto px-6 text-center">
+      <h2 class="text-2xl sm:text-3xl font-bold mb-4">{{ t.landing_free_title }}</h2>
+      <p class="text-lg text-neutral-700 mb-8">{{ t.landing_free_desc }}</p>
+      <a href="{{ cta_url }}" class="inline-block px-8 py-4 bg-neutral-900 text-white font-bold rounded-lg text-lg hover:bg-neutral-800 transition-colors">
+        {{ t.landing_hero_cta }}
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-8 bg-neutral-900 text-neutral-400 text-center text-sm">
+    {% if cross_links %}
+    <div class="flex flex-wrap justify-center gap-3 mb-4 max-w-3xl mx-auto px-6">
+      {% for link in cross_links %}
+      <a href="{{ link.url }}" class="hover:text-primary transition-colors">{{ link.label }}</a>
+      {% endfor %}
+    </div>
+    <div class="border-t border-neutral-800 max-w-xs mx-auto mb-4"></div>
+    {% endif %}
+    <div class="flex flex-wrap justify-center gap-4 mb-4">
+      {% for alt in alternates %}
+      <a href="{{ alt.path }}" class="hover:text-white transition-colors {% if alt.code == locale_code %}text-white font-bold{% endif %}">{{ alt.name }}</a>
+      {% endfor %}
+    </div>
+    <p>&copy; {{ year }} <a href="https://parahub.io" class="hover:text-white">Parahub</a> &mdash; {{ footer_tagline }}</p>
+  </footer>
+
+</body>
+</html>

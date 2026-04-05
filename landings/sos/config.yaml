@@ -1,0 +1,22 @@
+subdomain: sos
+default_locale: pt
+i18n_namespace: parasos
+cta_path: /sos
+from_param: sos
+og_locale: pt_PT
+
+# Sections — reference translation keys by index
+problems_count: 3
+features_count: 8
+steps_count: 3
+
+# Lucide icon names for each feature (SVGs inlined by generator)
+feature_icons:
+  - bell
+  - clock
+  - users
+  - eye
+  - lock
+  - activity
+  - eye-off
+  - volume-2

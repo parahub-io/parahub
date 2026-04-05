@@ -1,0 +1,27 @@
+{
+  "support_voice": {
+    "title": "Sprachsupport",
+    "subtitle": "Fragen Sie alles über Parahub",
+    "bot_name": "Support",
+    "empty": "Tippen Sie auf die Taste und stellen Sie Ihre Frage",
+    "hint": "Fragen Sie zu Funktionen, Nutzung der Plattform oder anderen Themen",
+    "back_to_about": "Zurück zu Über uns",
+    "error_too_many": "Zu viele aktive Verbindungen. Schließen Sie andere Tabs und versuchen Sie es erneut.",
+    "type_placeholder": "Schreiben Sie Ihre Frage...",
+    "errors": {
+      "init_failed": "Sprachdienst konnte nicht gestartet werden. Versuchen Sie es später erneut.",
+      "rate_limit": "Zu viele Anfragen. Bitte warten Sie einen Moment.",
+      "daily_limit": "Tageslimit erreicht. Versuchen Sie es morgen erneut oder schreiben Sie an support{'@'}parahub.io",
+      "busy": "Ihre vorherige Anfrage wird noch verarbeitet.",
+      "empty_message": "Bitte geben Sie eine Nachricht ein.",
+      "text_long": "Die Nachricht ist zu lang.",
+      "nothing_to_replay": "Nichts zum Abspielen.",
+      "replay_failed": "Wiedergabe fehlgeschlagen. Versuchen Sie es erneut.",
+      "processing_failed": "Verarbeitung fehlgeschlagen. Versuchen Sie es erneut.",
+      "voice_failed": "Sprachverarbeitung fehlgeschlagen. Versuchen Sie es erneut.",
+      "not_ready": "Der Dienst ist noch nicht bereit. Bitte warten.",
+      "audio_short": "Die Aufnahme war zu kurz.",
+      "audio_large": "Die Audiodatei ist zu groß."
+    }
+  }
+}

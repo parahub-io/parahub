@@ -1,0 +1,16 @@
+{
+  "en": {
+    "terms": {
+      "title": "Terms of Service for Parahub Instance",
+      "version": "Version",
+      "effective_date": "Effective Date",
+      "important_notice": {
+        "title": "IMPORTANT: PLEASE READ CAREFULLY!",
+        "text": "Simple text without any special characters or placeholders.",
+        "operator": "Parahub - Associação",
+        "manifesto": "Parahub Manifesto",
+        "code_of_conduct": "Parahub Code of Conduct"
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "arbiter_stats": {
+    "title": "Статистика арбитра",
+    "not_found": "Профиль арбитра не найден",
+    "total_cases": "Дела",
+    "avg_rating": "Рейтинг",
+    "escalation_rate": "Эскалации",
+    "avg_days": "Ср. дней",
+    "verdict_breakdown": "Распределение решений",
+    "rating_distribution": "Распределение оценок",
+    "total_awarded": "Всего присуждено",
+    "recent_verdicts": "Последние решения",
+    "no_cases": "Дел ещё нет",
+    "no_ratings": "Оценок ещё нет",
+    "view_stats": "Статистика арбитра",
+    "badge": "Арбитр"
+  }
+}

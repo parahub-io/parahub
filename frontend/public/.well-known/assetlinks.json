@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.parahub.app",
+      "sha256_cert_fingerprints": [
+        "31:74:6C:F6:58:1A:6E:C7:0A:FC:51:1C:E6:B0:6F:56:89:F2:1A:BB:FF:CE:60:CC:26:CB:9B:03:FB:85:47:BB"
+      ]
+    }
+  }
+]

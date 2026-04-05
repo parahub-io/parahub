@@ -1,0 +1,32 @@
+{
+  "voice_chat": {
+    "title": "Chat de Voz",
+    "tap_to_talk": "Toque para falar",
+    "stop_recording": "Parar gravação",
+    "listening": "A ouvir...",
+    "transcribing": "A transcrever...",
+    "thinking": "A pensar...",
+    "speaking": "A falar...",
+    "using_tool": "A verificar",
+    "ready": "Pronto",
+    "connecting": "A ligar...",
+    "disconnected": "Desligado",
+    "empty": "Toque no botão e fale para iniciar uma conversa",
+    "you": "Você",
+    "clear": "Limpar histórico",
+    "cleared": "Conversa limpa",
+    "error_mic": "Acesso ao microfone negado",
+    "error_mic_denied": "Acesso ao microfone negado. Verifique as definições do navegador e permita o microfone para este site.",
+    "error_mic_unavailable": "Nenhum microfone encontrado. Ligue um microfone e tente novamente.",
+    "error_short": "Gravação demasiado curta",
+    "error_offline": "Está offline. Verifique a sua ligação à internet.",
+    "error_connection": "Ligação perdida. A tentar reconectar...",
+    "voice_not_enabled": "Este agente não suporta chat de voz.",
+    "agent_not_found": "Agente não encontrado ou voz indisponível",
+    "reconnecting": "A reconectar...",
+    "offline": "Offline",
+    "retry": "Tentar novamente",
+    "go_back": "Voltar",
+    "staff_only": "Apenas pessoal autorizado"
+  }
+}

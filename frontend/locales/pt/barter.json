@@ -1,0 +1,70 @@
+{
+  "barter": {
+    "title": "Oportunidades de Troca",
+    "description": "Cadeias de troca multipartidárias baseadas nas suas ofertas e pedidos",
+    "view_chains": "Ver cadeias de troca",
+    "promo": {
+      "title": "Troca Direta",
+      "tagline": "Troque sem dinheiro - crie ofertas e pedidos para encontrar correspondências",
+      "description": "Parahub encontra cadeias de troca multipartidárias onde todos conseguem o que querem sem usar dinheiro.",
+      "how_it_works": "Crie ofertas (o que você tem) e pedidos (o que você precisa). Nosso algoritmo encontra trocas de 2, 3 ou mais partes automaticamente.",
+      "learn_more": "Saiba Mais"
+    },
+    "stats": {
+      "chains_found": "Cadeias encontradas",
+      "two_way": "Trocas de 2 vias",
+      "three_way": "Trocas de 3 vias"
+    },
+    "chain": {
+      "way_exchange": "Troca de {count} vias",
+      "swaps": "{count} troca | {count} trocas",
+      "propose": "Propor Troca",
+      "offers": "{user} oferece:",
+      "receives": "{user} recebe:"
+    },
+    "exchange": {
+      "you_can_offer": "Você pode oferecer",
+      "they_can_offer": "Eles podem oferecer",
+      "offers": "oferece",
+      "receives": "recebe"
+    },
+    "empty": {
+      "title": "Ainda sem oportunidades de troca",
+      "description": "Crie anúncios (o que oferece e o que quer) para encontrar parceiros de troca",
+      "create_listing": "Criar Anúncio"
+    },
+    "loading": "Procurando oportunidades de troca...",
+    "landing_title": "Troca direta sem dinheiro",
+    "landing_meta": "Troque bens e serviços sem dinheiro. O sistema encontra cadeias de troca multilateral automaticamente. Gratuito e open-source.",
+    "landing_hero_title": "Troca direta — sem dinheiro, sem intermediários",
+    "landing_hero_subtitle": "Publique o que tem e o que precisa. O algoritmo encontra cadeias de troca entre 2 a 5 participantes — mesmo quando a troca direta não é possível.",
+    "landing_hero_cta": "Começar a trocar",
+    "landing_problems_title": "Problemas que resolvemos",
+    "landing_problem_1": "Trocar sem dinheiro parece impossível quando ninguém quer o que temos para oferecer diretamente",
+    "landing_problem_2": "Encontrar cadeias de troca multilateral manualmente é impraticável",
+    "landing_problem_3": "Sem confiança entre desconhecidos para trocar sem intermediário",
+    "landing_features_title": "Funcionalidades",
+    "landing_feature_1_title": "Troca Multilateral",
+    "landing_feature_1_desc": "O algoritmo encontra ciclos de 2 a 7 participantes onde todos recebem o que querem — mesmo sem troca direta",
+    "landing_feature_2_title": "Deteção Automática",
+    "landing_feature_2_desc": "Motor Neo4j em grafo analisa todas as ofertas e pedidos para encontrar correspondências possíveis",
+    "landing_feature_3_title": "Web of Trust",
+    "landing_feature_3_desc": "Reputação construída por verificações presenciais. Sem confiança cega — cada participante é verificado",
+    "landing_feature_4_title": "Chat de Grupo",
+    "landing_feature_4_desc": "Quando uma cadeia é encontrada, cria-se automaticamente um chat Matrix encriptado com todos os participantes",
+    "landing_feature_5_title": "Sem Fronteiras",
+    "landing_feature_5_desc": "Funciona entre cidades e países — qualquer pessoa na plataforma pode participar em cadeias de troca",
+    "landing_feature_6_title": "Gratuito Para Sempre",
+    "landing_feature_6_desc": "Open-source, sem comissões, sem publicidade. Infraestrutura cívica, não um produto",
+    "landing_how_title": "Como funciona",
+    "landing_how_1": "Publique o que oferece e o que procura no mercado",
+    "landing_how_2": "O algoritmo analisa todas as ofertas e encontra cadeias de troca possíveis",
+    "landing_how_3": "Todos os participantes aprovam e coordenam a troca via chat encriptado",
+    "landing_free_title": "Gratuito para sempre",
+    "landing_free_desc": "A economia não precisa de dinheiro para funcionar. O Parahub prova que a troca direta é possível à escala.",
+    "errors": {
+      "load_failed": "Falha ao carregar oportunidades de troca",
+      "chat_failed": "Falha ao criar sala de chat. Tente novamente."
+    }
+  }
+}

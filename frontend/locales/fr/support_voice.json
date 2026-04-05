@@ -1,0 +1,27 @@
+{
+  "support_voice": {
+    "title": "Support vocal",
+    "subtitle": "Posez vos questions sur Parahub",
+    "bot_name": "Support",
+    "empty": "Appuyez sur le bouton et posez votre question",
+    "hint": "Posez des questions sur les fonctionnalités, l'utilisation de la plateforme ou autre chose",
+    "back_to_about": "Retour à À propos",
+    "error_too_many": "Trop de connexions actives. Fermez d'autres onglets et réessayez.",
+    "type_placeholder": "Tapez votre question...",
+    "errors": {
+      "init_failed": "Échec de l'initialisation du service vocal. Réessayez plus tard.",
+      "rate_limit": "Trop de requêtes. Veuillez patienter.",
+      "daily_limit": "Limite quotidienne atteinte. Réessayez demain ou écrivez à support{'@'}parahub.io",
+      "busy": "Votre demande précédente est encore en cours de traitement.",
+      "empty_message": "Veuillez saisir un message.",
+      "text_long": "Le message est trop long.",
+      "nothing_to_replay": "Rien à réécouter.",
+      "replay_failed": "Échec de la réécoute. Réessayez.",
+      "processing_failed": "Échec du traitement. Réessayez.",
+      "voice_failed": "Échec du traitement vocal. Réessayez.",
+      "not_ready": "Le service n'est pas encore prêt. Veuillez patienter.",
+      "audio_short": "L'enregistrement était trop court.",
+      "audio_large": "Le fichier audio est trop volumineux."
+    }
+  }
+}

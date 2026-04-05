@@ -1,0 +1,187 @@
+{
+  "energy": {
+    "title": "Energia",
+    "subtitle": "Comunidade de Energia Solar P2P",
+    "layer_title": "Células de Energia",
+    "no_cells": "Sem células de energia",
+    "status": {
+      "GREEN": "Excedente disponível",
+      "YELLOW": "Equilibrado",
+      "RED": "Sem excedente",
+      "OFFLINE": "Inativa",
+      "WAITING": "À espera de produtores"
+    },
+    "role": {
+      "producer": "Produtor (UPAC)",
+      "consumer": "Consumidor (vizinho)"
+    },
+    "cell": {
+      "producers": "Produtores",
+      "consumers": "Vizinhos",
+      "radius": "Raio",
+      "transformer": "Posto de Transformação (PT)",
+      "price_label": "{price} €/kWh"
+    },
+    "my": {
+      "not_member": "Não participa em nenhuma célula de energia",
+      "producer_in": "Produtor em {name}",
+      "consumer_in": "Consumidor em {name}"
+    },
+    "join": {
+      "title": "Aderir a esta célula de energia",
+      "as_producer": "Como produtor (tenho painéis solares)",
+      "as_consumer": "Como consumidor (sou vizinho)"
+    },
+    "inverter": {
+      "SOLARMAN": "Solarman (Deye / Sofar)",
+      "FRONIUS": "Fronius",
+      "GROWATT": "Growatt",
+      "SMA": "SMA",
+      "SHELLY": "Shelly EM",
+      "OTHER": "Outro"
+    },
+    "econ": {
+      "sell_label": "Venda à rede",
+      "p2p_label": "Preço P2P",
+      "p2p_badge": "ACC",
+      "grid_label": "Compra da rede"
+    },
+    "empty": {
+      "title": "Sem células de energia",
+      "subtitle": "Seja o primeiro a criar uma comunidade de energia P2P no seu bairro.",
+      "cta": "Criar célula de energia",
+      "login_cta": "Entrar para criar"
+    },
+    "how": {
+      "title": "Como funciona",
+      "step1": "Um produtor solar vende excedentes ao grupo em vez de à rede",
+      "step2": "Os vizinhos recebem energia barata (~0,12 €/kWh incl. tarifa de rede vs 0,20 € da rede)",
+      "step3": "Luz verde sinaliza excedente disponível — dispositivos inteligentes ligam automaticamente",
+      "step4": "A Parahub regista o grupo ACC (Autoconsumo Coletivo) na DGEG (Direção-Geral de Energia e Geologia) e gere a faturação"
+    },
+    "detail": {
+      "created_by": "por {name}",
+      "members": "Membros",
+      "technical": "Detalhes técnicos",
+      "view_on_map": "Ver no mapa",
+      "settings": "Definições da célula",
+      "price_eur_kwh": "Preço (€/kWh)",
+      "leave": "Sair",
+      "joined": "Aderiu à célula de energia!",
+      "left": "Saiu da célula de energia",
+      "live_production": "Produção em tempo real",
+      "online": "online"
+    },
+    "form": {
+      "cell_name": "Nome da célula",
+      "description": "Descrição",
+      "cpe_code": "Código CPE",
+      "cpe_hint": "CPE (Código de Ponto de Entrega) — o código do seu ponto de entrega, encontra-se no topo da sua fatura de eletricidade (ex. PT0002...)",
+      "capacity_kw": "Potência instalada (kW)",
+      "battery_kwh": "Capacidade da bateria (kWh, opcional)",
+      "inverter_type": "Tipo de inversor",
+      "radius_km": "Raio (km)",
+      "radius_2_lv": "2 km — residencial (Baixa Tensão)",
+      "radius_4_mv": "4 km — comercial/misto (Média Tensão)",
+      "transformer_id": "ID do Posto de Transformação",
+      "transformer_hint": "ID da subestação E-Redes (formato: PT-XXXXXX). Opcional — deixe em branco se não souber.",
+      "location_hint": "Localização (posto de transformação)",
+      "use_location": "Usar a minha localização",
+      "location_error": "Não foi possível obter a localização",
+      "created": "Célula de energia criada!"
+    },
+
+    "relay": {
+      "title": "Relés Inteligentes",
+      "hint": "Ligue um Shelly (~€15) ao seu termoacumulador. Liga-se automaticamente quando há energia solar barata disponível.",
+      "add": "Adicionar relé",
+      "name": "Nome do dispositivo",
+      "name_placeholder": "Termoacumulador, Bomba da piscina...",
+      "type": "Tipo de relé",
+      "url": "URL do dispositivo",
+      "channel": "Canal",
+      "test": "Testar ligação",
+      "empty": "Nenhum relé configurado",
+      "added": "Relé adicionado!",
+      "last_ok": "A funcionar"
+    },
+
+    "shares": {
+      "title": "Participações dos investidores",
+      "add": "Adicionar investidor",
+      "total_allocated": "Alocado: {percent}%",
+      "available": "Disponível: {percent}%",
+      "invested": "Investido",
+      "share": "Participação",
+      "no_shares": "Sem investidores ainda",
+      "confirm_remove": "Remover a participação deste investidor?",
+      "profile_placeholder": "ID do perfil",
+      "percent_placeholder": "Participação %",
+      "amount_placeholder": "Montante €",
+      "added": "Investidor adicionado!",
+      "my_shares_title": "As minhas participações",
+      "my_shares_subtitle": "Os seus investimentos em todas as cooperativas",
+      "total_invested": "Total investido",
+      "active_shares": "Participações ativas",
+      "no_my_shares": "Não tem participações ativas",
+      "last_payout": "Último pagamento",
+      "no_payouts": "Sem pagamentos ainda"
+    },
+
+    "distributions": {
+      "title": "Pagamentos",
+      "create": "Criar pagamento",
+      "period": "Período",
+      "total": "Montante total",
+      "period_placeholder": "ex. 2026-03",
+      "amount_placeholder": "Montante €",
+      "status_DRAFT": "Rascunho",
+      "status_APPROVED": "Aprovado",
+      "status_DISTRIBUTED": "Distribuído",
+      "approve": "Aprovar e gerar",
+      "lines_paid": "{paid}/{total} pagos",
+      "mark_paid": "Marcar como pago",
+      "no_distributions": "Sem pagamentos ainda",
+      "created": "Pagamento criado!",
+      "approved": "Pagamento aprovado — {count} linhas geradas"
+    },
+
+    "cooperative": {
+      "label": "Cooperativa (opcional)",
+      "none": "Sem cooperativa",
+      "create_new": "Criar nova cooperativa",
+      "name_placeholder": "Nome da cooperativa",
+      "created": "Cooperativa criada!"
+    },
+
+    "landing_title": "Energia solar P2P gratuita",
+    "landing_meta": "Plataforma gratuita e open-source de partilha de energia solar entre vizinhos — Autoconsumo Coletivo (DL 15/2022)",
+    "landing_hero_title": "Venda energia solar aos vizinhos — não à rede",
+    "landing_hero_subtitle": "Autoconsumo Coletivo legalizado pelo DL 15/2022. Produtor ganha 0,08 €/kWh (vs 0,05 € à rede). Vizinho paga ~0,12 € incl. tarifa de rede (vs 0,20 € da rede). 40% de poupança.",
+    "landing_hero_cta": "Criar célula de energia",
+    "landing_problems_title": "O problema atual",
+    "landing_problem_1": "Excedente solar vendido à rede por 0,05 €/kWh — quase de graça",
+    "landing_problem_2": "Vizinhos pagam 0,20 €/kWh da rede quando há painéis solares ao lado",
+    "landing_problem_3": "Criar um grupo ACC na DGEG é burocrático e inacessível",
+    "landing_features_title": "O que oferecemos",
+    "landing_feature_1_title": "Comércio P2P de Energia",
+    "landing_feature_1_desc": "Venda excedente solar diretamente aos vizinhos — 60% mais que a tarifa de rede",
+    "landing_feature_2_title": "Monitorização em Tempo Real",
+    "landing_feature_2_desc": "Dashboard ao vivo com estado da célula: verde (excedente), amarelo (equilibrado), vermelho (sem excedente)",
+    "landing_feature_3_title": "Automação Inteligente",
+    "landing_feature_3_desc": "Dispositivos inteligentes ligam automaticamente quando há excedente disponível",
+    "landing_feature_4_title": "Conformidade Legal",
+    "landing_feature_4_desc": "DL 15/2022 e Diretiva UE 2024/1711 legalizam a partilha de energia. Todos os estados da UE devem implementar até julho de 2026 — tratamos do registo DGEG",
+    "landing_feature_5_title": "Mapa de Energia",
+    "landing_feature_5_desc": "Veja células de energia no mapa, encontre e adira a comunidades energéticas próximas",
+    "landing_feature_6_title": "Gratuito Para Sempre",
+    "landing_feature_6_desc": "Open-source, sem subscrição. Taxa EGAC de 1% para gestão — sem mais custos. Infraestrutura comunitária, não um produto",
+    "landing_how_title": "Como funciona",
+    "landing_how_1": "Instale painéis solares e crie uma célula de energia",
+    "landing_how_2": "Vizinhos num raio de 2 km aderem à sua célula",
+    "landing_how_3": "A Parahub trata do registo ACC na DGEG e gere a faturação",
+    "eu_note": "Diretiva UE 2024/1711 obriga a partilha de energia em todos os estados-membros até julho de 2026. A Comissão Europeia estima poupanças de €500–1.100/ano por agregado.",
+    "landing_free_title": "Gratuito para sempre",
+    "landing_free_desc": "Parahub é infraestrutura cívica. A transição energética não devia custar dinheiro."
+  }
+}

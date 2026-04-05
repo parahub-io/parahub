@@ -1,0 +1,8 @@
+{
+  "messages": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "placeholder": "Type a message...",
+    "send": "Send"
+  }
+}

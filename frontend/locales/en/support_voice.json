@@ -1,0 +1,27 @@
+{
+  "support_voice": {
+    "title": "Voice Support",
+    "subtitle": "Ask anything about Parahub",
+    "bot_name": "Support",
+    "empty": "Type a question or tap the mic button to talk",
+    "hint": "Ask about features, how to use the platform, or anything else",
+    "back_to_about": "Back to About",
+    "error_too_many": "Too many active connections. Please close other tabs and try again.",
+    "type_placeholder": "Type your question...",
+    "errors": {
+      "init_failed": "Voice service initialization failed. Please try again later.",
+      "rate_limit": "Too many requests. Please wait a moment.",
+      "daily_limit": "Daily limit reached. Please try again tomorrow or email support{'@'}parahub.io",
+      "busy": "Still processing your previous request.",
+      "empty_message": "Please enter a message.",
+      "text_long": "Message is too long.",
+      "nothing_to_replay": "Nothing to replay.",
+      "replay_failed": "Replay failed. Please try again.",
+      "processing_failed": "Processing failed. Please try again.",
+      "voice_failed": "Voice processing failed. Please try again.",
+      "not_ready": "Service is not ready yet. Please wait.",
+      "audio_short": "Recording was too short.",
+      "audio_large": "Audio file is too large."
+    }
+  }
+}

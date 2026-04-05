@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль - Parahub</title>
+    <!-- Skip navigation -->
+    <style>
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 6px;
+            background: #FFC107;
+            color: black;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            z-index: 1000;
+        }
+        
+        .skip-link:focus {
+            top: 6px;
+        }
+        
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background-color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .profile-container {
+            text-align: center;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            background: white;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .user-info {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .info-value {
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .logout-btn {
+            margin-top: 30px;
+            padding: 12px 30px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .logout-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+        
+        .welcome-message {
+            color: #28a745;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #28a745;
+            padding-bottom: 5px;
+        }
+        
+        .traccar-credentials {
+            background: #e3f2fd;
+            border: 1px solid #2196F3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .credentials-item {
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .credentials-label {
+            font-weight: 600;
+            color: #1565C0;
+        }
+        
+        .credentials-value {
+            font-family: monospace;
+            background: #fff;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .device-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .device-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .device-type {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .device-location {
+            background: #f0f8ff;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .btn-primary {
+            background: #1a6e2f;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            margin: 5px 5px 5px 0;
+            display: inline-block;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+        
+        .btn-primary:hover {
+            background: #155d28;
+        }
+        
+        .btn-primary:focus {
+            outline: 2px solid #FFC107;
+            outline-offset: 2px;
+        }
+        
+        .btn-secondary {
+            background: #1565c0;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            margin: 5px 5px 5px 0;
+            display: inline-block;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+        
+        .btn-secondary:hover {
+            background: #1255aa;
+        }
+        
+        .btn-secondary:focus {
+            outline: 2px solid #FFC107;
+            outline-offset: 2px;
+        }
+        
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <!-- Skip link -->
+    <a href="#main-content" class="skip-link">Перейти к основному содержанию</a>
+    
+    <!-- ARIA live regions -->
+    <div id="announcements" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+    <div id="urgent-announcements" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
+    
+    <main id="main-content" role="main">
+    <div class="profile-container">
+        <h1>Добро пожаловать в Parahub!</h1>
+        
+        <div class="welcome-message">
+            Вы успешно вошли в систему
+        </div>
+        
+        <div class="user-info">
+            <div class="info-row">
+                <span class="info-label">Имя</span>
+                <span class="info-value">{{ user.first_name|default:"Не указано" }}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Фамилия</span>
+                <span class="info-value">{{ user.last_name|default:"Не указано" }}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value">{{ user.email }}</span>
+            </div>
+        </div>
+        
+        <!-- Секция IoT устройств -->
+        <section class="section" aria-labelledby="iot-devices-title">
+            <div id="iot-devices-title" class="section-title">🛰️ Мои IoT устройства</div>
+            <div id="iot-devices" aria-live="polite">
+                <div class="loading">Загрузка устройств...</div>
+            </div>
+            <div style="margin-top: 15px;">
+                <a href="/iot/" class="btn-primary">Управление устройствами</a>
+            </div>
+        </section>
+        
+        <!-- Секция Traccar -->
+        <section class="section" aria-labelledby="traccar-title">
+            <div id="traccar-title" class="section-title">📍 GPS Мониторинг (Traccar)</div>
+            <div id="traccar-info" aria-live="polite">
+                <div class="loading">Загрузка данных Traccar...</div>
+            </div>
+        </section>
+        
+        <a href="{% url 'direct_logout' %}" class="logout-btn">Выйти</a>
+    </div>
+    </main>
+
+    <script>
+        // API базовый URL
+        const API_BASE = '/api/v1';
+        
+        // Временная заглушка для аутентификации (пока нет JWT)
+        const API_HEADERS = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer demo-token'  // Fallback для демо-режима
+        };
+        
+        // Загружаем данные при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadIoTDevices();
+            loadTraccarInfo();
+        });
+        
+        async function loadIoTDevices() {
+            const deviceContainer = document.getElementById('iot-devices');
+            
+            try {
+                const response = await fetch(`${API_BASE}/iot/devices`, {
+                    headers: API_HEADERS
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load devices');
+                }
+                
+                const devices = await response.json();
+                displayDevices(devices);
+            } catch (error) {
+                console.error('Error loading devices:', error);
+                deviceContainer.innerHTML = '<div>Ошибка загрузки устройств. Возможно, вы не авторизованы.</div>';
+            }
+        }
+        
+        function displayDevices(devices) {
+            const container = document.getElementById('iot-devices');
+            
+            if (devices.length === 0) {
+                container.innerHTML = '<div>У вас пока нет IoT устройств.</div>';
+                return;
+            }
+            
+            // Показываем только последние 3 устройства в профиле
+            const displayDevices = devices.slice(0, 3);
+            
+            container.innerHTML = displayDevices.map(device => `
+                <article class="device-card" role="article" aria-labelledby="device-${device.id}-name">
+                    <div class="device-header">
+                        <span id="device-${device.id}-name" class="device-name">${device.name}</span>
+                        <span class="device-type">${getDeviceTypeLabel(device.device_type)}</span>
+                    </div>
+                    ${device.imei ? `<div><strong>IMEI:</strong> ${device.imei}</div>` : ''}
+                    <div><strong>ID:</strong> ${device.id}</div>
+                    <div><strong>Статус:</strong> <span role="status">${device.last_seen ? 'Online' : 'Offline'}</span></div>
+                    ${device.device_type === 'TRACKER' ? `
+                        <div id="location-${device.id}" class="device-location" aria-live="polite">
+                            Загрузка координат...
+                        </div>
+                    ` : ''}
+                </article>
+            `).join('');
+
+            if (devices.length > 3) {
+                container.innerHTML += `<div>И еще ${devices.length - 3} устройств...</div>`;
+            }
+
+            // Загружаем координаты для трекеров
+            displayDevices.filter(d => d.device_type === 'TRACKER').forEach(device => {
+                loadDeviceLocation(device.id);
+            });
+        }
+        
+        async function loadDeviceLocation(deviceCri) {
+            const locationDiv = document.getElementById(`location-${deviceCri}`);
+            if (!locationDiv) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/iot/devices/${deviceCri}/location`, {
+                    headers: API_HEADERS
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load location');
+                }
+                
+                const location = await response.json();
+                
+                if (location) {
+                    locationDiv.innerHTML = `
+                        <div><strong>📍 Местоположение:</strong></div>
+                        <div>Широта: ${location.lat.toFixed(6)}</div>
+                        <div>Долгота: ${location.lon.toFixed(6)}</div>
+                        ${location.speed !== null ? `<div>Скорость: ${location.speed.toFixed(1)} км/ч</div>` : ''}
+                    `;
+                } else {
+                    locationDiv.innerHTML = 'Нет данных о местоположении';
+                }
+            } catch (error) {
+                console.error('Error loading location:', error);
+                locationDiv.innerHTML = 'Ошибка загрузки координат';
+            }
+        }
+        
+        async function loadTraccarInfo() {
+            const traccarContainer = document.getElementById('traccar-info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/iot/traccar/credentials`, {
+                    headers: API_HEADERS
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load Traccar info');
+                }
+                
+                const credentials = await response.json();
+                displayTraccarInfo(credentials);
+            } catch (error) {
+                console.error('Error loading Traccar info:', error);
+                traccarContainer.innerHTML = `
+                    <div>Ошибка загрузки данных Traccar.</div>
+                    <div style="margin-top: 10px;">
+                        <a href="https://traccar.parahub.io/" target="_blank" class="btn-secondary">
+                            Открыть Traccar
+                        </a>
+                    </div>
+                `;
+            }
+        }
+        
+        function displayTraccarInfo(credentials) {
+            const container = document.getElementById('traccar-info');
+            
+            // Теперь всегда показываем учетные данные, так как аккаунт создается автоматически
+            container.innerHTML = `
+                <div class="traccar-credentials">
+                    <div class="credentials-item">
+                        <span class="credentials-label">Email для входа:</span>
+                        <span class="credentials-value">${credentials.login_email}</span>
+                    </div>
+                    <div class="credentials-item">
+                        <span class="credentials-label">Пароль:</span>
+                        <span class="credentials-value">${credentials.password}</span>
+                    </div>
+                </div>
+                <div>
+                    <a href="${credentials.traccar_url}" target="_blank" class="btn-secondary">
+                        Открыть Traccar Dashboard
+                    </a>
+                </div>
+            `;
+        }
+        
+        function getDeviceTypeLabel(type) {
+            const labels = {
+                'TRACKER': 'GPS Трекер',
+                'SENSOR': 'Датчик',
+                'ACTUATOR': 'Исполнительное',
+                'GATEWAY': 'Шлюз',
+                'MESH_ROUTER': 'Mesh Роутер'
+            };
+            return labels[type] || type;
+        }
+    </script>
+</body>
+</html>

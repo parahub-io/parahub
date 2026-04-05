@@ -1,0 +1,521 @@
+#!/bin/bash
+set -euo pipefail
+
+# =============================================================================
+# Parahub Instance Bootstrap Script
+# Generates secrets, creates .env, copies configs, initializes infrastructure
+# =============================================================================
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+info()  { echo -e "${CYAN}[INFO]${NC} $1"; }
+ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
+err()   { echo -e "${RED}[ERROR]${NC} $1" >&2; }
+step()  { echo -e "\n${BOLD}==> $1${NC}"; }
+
+# ==================== Parse flags ====================
+
+FORCE=false
+SKIP_DOCKER=false
+SKIP_FRONTEND=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --force)         FORCE=true ;;
+        --skip-docker)   SKIP_DOCKER=true ;;
+        --skip-frontend) SKIP_FRONTEND=true ;;
+        --help|-h)
+            echo "Usage: $0 [--force] [--skip-docker] [--skip-frontend]"
+            echo ""
+            echo "  --force          Overwrite existing .env file"
+            echo "  --skip-docker    Skip docker compose up"
+            echo "  --skip-frontend  Skip npm install and frontend build"
+            exit 0
+            ;;
+        *)
+            err "Unknown option: $arg"
+            exit 1
+            ;;
+    esac
+done
+
+# ==================== 1. Prerequisites ====================
+
+step "Checking prerequisites"
+
+# Must be in git root / project dir
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR"
+
+if [[ ! -f "$PROJECT_DIR/manage.py" || ! -f "$PROJECT_DIR/docker-compose.yml" ]]; then
+    err "Must be run from Parahub project root (manage.py not found in $PROJECT_DIR)"
+    exit 1
+fi
+
+cd "$PROJECT_DIR"
+ok "Project directory: $PROJECT_DIR"
+
+# Check required tools
+MISSING=()
+for cmd in python3 openssl docker node npm; do
+    if ! command -v "$cmd" &>/dev/null; then
+        MISSING+=("$cmd")
+    fi
+done
+
+# docker compose (plugin, not docker-compose binary)
+if ! docker compose version &>/dev/null 2>&1; then
+    MISSING+=("docker compose")
+fi
+
+if [[ ${#MISSING[@]} -gt 0 ]]; then
+    err "Missing required tools: ${MISSING[*]}"
+    exit 1
+fi
+ok "All required tools found"
+
+# Check .env
+if [[ -f ".env" && "$FORCE" != true ]]; then
+    err ".env already exists. Use --force to overwrite."
+    exit 1
+fi
+if [[ -f ".env" && "$FORCE" == true ]]; then
+    warn "Overwriting existing .env (--force)"
+fi
+
+# ==================== 2. Generate secrets ====================
+
+step "Generating secrets"
+
+gen_b64()  { openssl rand -base64 "$1" | tr -d '\n'; }
+gen_hex()  { openssl rand -hex "$1" | tr -d '\n'; }
+# Base64 without special chars (safe for Neo4j and URLs)
+gen_alnum() { openssl rand -base64 "$1" | tr -dc 'A-Za-z0-9' | head -c "$1"; }
+
+SECRET_KEY=$(python3 -c "
+import sys; sys.path.insert(0, '.')
+from django.core.management.utils import get_random_secret_key
+print(get_random_secret_key(), end='')
+" 2>/dev/null || python3 -c "
+import secrets, string
+chars = string.ascii_letters + string.digits + '!@#\$%^&*(-_=+)'
+print(''.join(secrets.choice(chars) for _ in range(50)), end='')
+")
+
+DB_PASSWORD=$(gen_b64 24)
+TRACCAR_DB_PASSWORD=$(gen_b64 24)
+SYNAPSE_DB_PASSWORD=$(gen_b64 24)
+NEO4J_PASSWORD=$(gen_alnum 24)
+
+ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode(), end='')" 2>/dev/null || echo "")
+if [[ -z "$ENCRYPTION_KEY" ]]; then
+    warn "cryptography package not installed, ENCRYPTION_KEY left empty (install later: pip install cryptography)"
+fi
+
+SYNAPSE_REGISTRATION_SHARED_SECRET=$(gen_hex 32)
+SYNAPSE_MACAROON_KEY=$(gen_hex 32)
+SYNAPSE_ADMIN_USER="sysadmin_$(gen_hex 4)"
+SYNAPSE_ADMIN_PASSWORD=$(gen_b64 16)
+
+TRACCAR_OIDC_CLIENT_SECRET=$(gen_b64 32)
+SYNAPSE_OIDC_CLIENT_SECRET=$(gen_b64 32)
+GITEA_OIDC_CLIENT_SECRET=$(gen_b64 32)
+
+JITSI_JWT_SECRET=$(gen_hex 64)
+JICOFO_AUTH_PASSWORD=$(gen_hex 32)
+JVB_AUTH_PASSWORD=$(gen_hex 32)
+TURN_SECRET=$(gen_hex 32)
+
+MESH_HEARTBEAT_KEY=$(gen_b64 24)
+SUPERUSER_PASSWORD=$(gen_b64 16)
+
+ok "All secrets generated"
+
+# ==================== 3. Interactive questions ====================
+
+step "Configuration"
+
+read -rp "Domain [parahub.io]: " DOMAIN
+DOMAIN="${DOMAIN:-parahub.io}"
+
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+read -rp "Configure Google OAuth? [y/N]: " GOOGLE_OAUTH
+if [[ "$GOOGLE_OAUTH" =~ ^[Yy] ]]; then
+    read -rp "  Google Client ID: " GOOGLE_CLIENT_ID
+    read -rp "  Google Client Secret: " GOOGLE_CLIENT_SECRET
+fi
+
+ok "Domain: $DOMAIN"
+
+# ==================== 4. Create .env ====================
+
+step "Creating .env"
+
+DATABASE_URL="postgres://parahub:${DB_PASSWORD}@localhost:5432/parahub"
+VAPID_ADMIN_EMAIL="admin@${DOMAIN}"
+
+cat > .env << ENVEOF
+# =============================================================================
+# Parahub Environment Configuration
+# Generated by install.sh on $(date -Iseconds)
+# =============================================================================
+
+# ==================== DJANGO CORE ====================
+SECRET_KEY=${SECRET_KEY}
+DEBUG=False
+ALLOWED_HOSTS=localhost,127.0.0.1,${DOMAIN}
+CSRF_TRUSTED_ORIGINS=https://${DOMAIN}
+CORS_ALLOWED_ORIGINS=https://${DOMAIN}
+SECURE_SSL_REDIRECT=False
+SITE_URL=https://${DOMAIN}
+# DJANGO_LOG_LEVEL=INFO
+
+# ==================== DATABASES ====================
+# Main PostgreSQL (PostGIS)
+DATABASE_URL=${DATABASE_URL}
+DB_PASSWORD=${DB_PASSWORD}
+
+# Traccar PostgreSQL
+TRACCAR_DB_PASSWORD=${TRACCAR_DB_PASSWORD}
+TRACCAR_EMAIL_DOMAIN=${DOMAIN}
+TRACCAR_PUBLIC_HOST=
+# TRACCAR_DB_HOST=localhost
+# TRACCAR_DB_PORT=5435
+# TRACCAR_DB_NAME=traccar
+# TRACCAR_DB_USER=traccar
+
+# Synapse PostgreSQL
+SYNAPSE_DB_PASSWORD=${SYNAPSE_DB_PASSWORD}
+
+# Neo4j Graph Database
+NEO4J_PASSWORD=${NEO4J_PASSWORD}
+# NEO4J_URI=bolt://localhost:7687
+# NEO4J_USER=neo4j
+# NEO4J_DATABASE=neo4j
+
+# Redis (defaults to localhost:6379)
+# REDIS_HOST=127.0.0.1
+# REDIS_URL=redis://localhost:6379/1
+
+# OpenMapTiles (optional)
+# OPENMAPTILES_DB_HOST=localhost
+# OPENMAPTILES_DB_PASSWORD=openmaptiles
+# OPENMAPTILES_DB_PORT=5439
+
+# ==================== AUTHENTICATION ====================
+# Google OAuth (https://console.cloud.google.com/)
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+
+# Encryption key for mail passwords
+ENCRYPTION_KEY=${ENCRYPTION_KEY}
+
+# ==================== AI / VOICE ====================
+# ElevenLabs API key for voice support bot (optional)
+# ELEVENLABS_API_KEY=
+
+# ==================== FIREBASE (FCM Push) ====================
+# Path to Firebase service account JSON for native push notifications (optional)
+# FIREBASE_SERVICE_ACCOUNT=/opt/parahub/.secrets/firebase-service-account.json
+
+# ==================== OIDC INTEGRATION ====================
+OIDC_ISSUER=https://${DOMAIN}
+TRACCAR_OIDC_CLIENT_SECRET=${TRACCAR_OIDC_CLIENT_SECRET}
+SYNAPSE_OIDC_CLIENT_SECRET=${SYNAPSE_OIDC_CLIENT_SECRET}
+GITEA_OIDC_CLIENT_SECRET=${GITEA_OIDC_CLIENT_SECRET}
+
+# ==================== MATRIX / SYNAPSE ====================
+SYNAPSE_REGISTRATION_SHARED_SECRET=${SYNAPSE_REGISTRATION_SHARED_SECRET}
+SYNAPSE_ADMIN_TOKEN=
+SYNAPSE_ADMIN_USER=${SYNAPSE_ADMIN_USER}
+SYNAPSE_ADMIN_PASSWORD=${SYNAPSE_ADMIN_PASSWORD}
+
+# ==================== WEB PUSH (VAPID) ====================
+# Generate: npx web-push generate-vapid-keys
+VAPID_PRIVATE_KEY_PEM=""
+VAPID_PUBLIC_KEY=
+VAPID_ADMIN_EMAIL=${VAPID_ADMIN_EMAIL}
+
+# ==================== JITSI MEET ====================
+JITSI_JWT_SECRET=${JITSI_JWT_SECRET}
+JICOFO_AUTH_PASSWORD=${JICOFO_AUTH_PASSWORD}
+JVB_AUTH_PASSWORD=${JVB_AUTH_PASSWORD}
+
+# ==================== TURN SERVER ====================
+TURN_SECRET=${TURN_SECRET}
+
+# ==================== EMAIL / MAILCOW ====================
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=127.0.0.1
+EMAIL_PORT=25
+EMAIL_USE_TLS=False
+EMAIL_USE_SSL=False
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+
+MAILCOW_API_URL=https://127.0.0.1:8444
+MAILCOW_API_KEY=
+MAILCOW_DOMAIN=${DOMAIN}
+MAILCOW_DEFAULT_QUOTA_MB=1024
+
+# ==================== MESH NETWORK ====================
+MESH_HEARTBEAT_KEY=${MESH_HEARTBEAT_KEY}
+MESH_DEFAULT_OWNER_PROFILE_ID=
+MESH_SSH_KEY_PATH=~/.ssh/id_ed25519
+MESH_VPS_WG_PUBKEY=
+MESH_VPS_WG_ENDPOINT=
+# MESH_SUBSCRIPTION_PRICE_SATS=50000
+# MESH_SUBSCRIPTION_DURATION_DAYS=30
+# MESH_LNBITS_URL=
+# MESH_LNBITS_INVOICE_KEY=
+
+# ==================== FEDERATION ====================
+FEDERATION_ENABLED=False
+FEDERATION_DOMAIN=${DOMAIN}
+FEDERATION_NODE_PGP_FINGERPRINT=
+
+# ==================== AUDIT ====================
+# AUDIT_LOG_PUBLIC_GIT_REMOTE=
+OPENTIMESTAMPS_ENABLED=True
+
+# ==================== ANALYTICS (optional) ====================
+# PLAUSIBLE_DB_PASSWORD=
+# PLAUSIBLE_SECRET_KEY=
+
+# ==================== GITEA ====================
+# DB_PASSWORD is reused for Gitea (same main PostgreSQL)
+
+# ==================== SUPERUSER ====================
+SUPERUSER_PASSWORD=${SUPERUSER_PASSWORD}
+ENVEOF
+
+chmod 600 .env
+ok ".env created (permissions: 600)"
+
+# ==================== 5. Generate OIDC RSA key ====================
+
+step "Generating OIDC RSA key"
+
+if [[ -f "oidc_rsa_key.pem" && "$FORCE" != true ]]; then
+    warn "oidc_rsa_key.pem already exists, skipping"
+else
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out oidc_rsa_key.pem 2>/dev/null
+    chmod 600 oidc_rsa_key.pem
+    ok "oidc_rsa_key.pem generated"
+fi
+
+# ==================== 6. Generate VAPID keys ====================
+
+step "Generating VAPID keys"
+
+VAPID_GENERATED=false
+if python3 -c "import py_vapid" 2>/dev/null; then
+    VAPID_OUTPUT=$(python3 -c "
+from py_vapid import Vapid
+import base64
+v = Vapid()
+v.generate_keys()
+raw_priv = v.private_key.private_bytes(
+    encoding=__import__('cryptography.hazmat.primitives.serialization', fromlist=['Encoding']).Encoding.PEM,
+    format=__import__('cryptography.hazmat.primitives.serialization', fromlist=['PrivateFormat']).PrivateFormat.PKCS8,
+    encryption_algorithm=__import__('cryptography.hazmat.primitives.serialization', fromlist=['NoEncryption']).NoEncryption()
+).decode()
+pub_numbers = v.private_key.public_key().public_numbers()
+x = pub_numbers.x.to_bytes(32, 'big')
+y = pub_numbers.y.to_bytes(32, 'big')
+pub_uncompressed = b'\x04' + x + y
+pub_b64url = base64.urlsafe_b64encode(pub_uncompressed).rstrip(b'=').decode()
+print(raw_priv)
+print('---SEPARATOR---')
+print(pub_b64url)
+")
+    VAPID_PRIVATE=$(echo "$VAPID_OUTPUT" | sed '/---SEPARATOR---/,$d')
+    VAPID_PUBLIC=$(echo "$VAPID_OUTPUT" | sed -n '/---SEPARATOR---/{n;p;}')
+
+    # Escape PEM for .env (multiline → single line with literal \n)
+    VAPID_PRIVATE_ESCAPED=$(echo "$VAPID_PRIVATE" | sed ':a;N;$!ba;s/\n/\\n/g')
+
+    sed -i "s|^VAPID_PRIVATE_KEY_PEM=.*|VAPID_PRIVATE_KEY_PEM=\"${VAPID_PRIVATE_ESCAPED}\"|" .env
+    sed -i "s|^VAPID_PUBLIC_KEY=.*|VAPID_PUBLIC_KEY=${VAPID_PUBLIC}|" .env
+    VAPID_GENERATED=true
+    ok "VAPID keys generated and written to .env"
+else
+    warn "py_vapid not installed, VAPID keys left empty (install later: pip install py_vapid)"
+fi
+
+# ==================== 7. Copy and configure config files ====================
+
+step "Copying config files"
+
+# Traccar
+if [[ -f "traccar/traccar.xml.example" ]]; then
+    if [[ -f "traccar/traccar.xml" && "$FORCE" != true ]]; then
+        warn "traccar/traccar.xml already exists, skipping"
+    else
+        cp traccar/traccar.xml.example traccar/traccar.xml
+        sed -i "s|<entry key='database.password'>CHANGE_ME</entry>|<entry key='database.password'>${TRACCAR_DB_PASSWORD}</entry>|" traccar/traccar.xml
+        sed -i "s|<entry key='openid.clientSecret'>CHANGE_ME</entry>|<entry key='openid.clientSecret'>${TRACCAR_OIDC_CLIENT_SECRET}</entry>|" traccar/traccar.xml
+        if [[ "$DOMAIN" != "parahub.io" ]]; then
+            sed -i "s|parahub\.io|${DOMAIN}|g" traccar/traccar.xml
+        fi
+        ok "traccar/traccar.xml configured"
+    fi
+else
+    warn "traccar/traccar.xml.example not found, skipping"
+fi
+
+# Synapse homeserver.yaml
+if [[ -f "synapse/config/homeserver.yaml.example" ]]; then
+    if [[ -f "synapse/config/homeserver.yaml" && "$FORCE" != true ]]; then
+        warn "synapse/config/homeserver.yaml already exists, skipping"
+    else
+        cp synapse/config/homeserver.yaml.example synapse/config/homeserver.yaml
+        sed -i "s|password: \"CHANGE_ME\"|password: \"${SYNAPSE_DB_PASSWORD}\"|" synapse/config/homeserver.yaml
+        sed -i "s|registration_shared_secret: \"CHANGE_ME\"|registration_shared_secret: \"${SYNAPSE_REGISTRATION_SHARED_SECRET}\"|" synapse/config/homeserver.yaml
+        sed -i "s|macaroon_secret_key: \"CHANGE_ME\"|macaroon_secret_key: \"${SYNAPSE_MACAROON_KEY}\"|" synapse/config/homeserver.yaml
+        if [[ "$DOMAIN" != "parahub.io" ]]; then
+            sed -i "s|parahub\.io|${DOMAIN}|g" synapse/config/homeserver.yaml
+        fi
+        ok "synapse/config/homeserver.yaml configured"
+    fi
+else
+    warn "synapse/config/homeserver.yaml.example not found, skipping"
+fi
+
+# ==================== 8. Docker Compose ====================
+
+if [[ "$SKIP_DOCKER" == true ]]; then
+    step "Skipping Docker Compose (--skip-docker)"
+else
+    step "Starting Docker Compose services"
+
+    docker compose up -d
+
+    info "Waiting for databases to become healthy..."
+    TIMEOUT=120
+    ELAPSED=0
+    while [[ $ELAPSED -lt $TIMEOUT ]]; do
+        UNHEALTHY=$(docker compose ps --format json 2>/dev/null | python3 -c "
+import sys, json
+unhealthy = []
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        svc = json.loads(line)
+        health = svc.get('Health', '')
+        name = svc.get('Name', svc.get('Service', ''))
+        if health and health != 'healthy':
+            unhealthy.append(name)
+    except json.JSONDecodeError:
+        pass
+print(' '.join(unhealthy))
+" 2>/dev/null)
+
+        if [[ -z "$UNHEALTHY" ]]; then
+            break
+        fi
+        sleep 5
+        ELAPSED=$((ELAPSED + 5))
+        echo -n "."
+    done
+    echo ""
+
+    if [[ $ELAPSED -ge $TIMEOUT ]]; then
+        warn "Timeout waiting for services. Still unhealthy: $UNHEALTHY"
+        warn "Continuing anyway - check with: docker compose ps"
+    else
+        ok "All Docker services healthy"
+    fi
+fi
+
+# ==================== 9. Django initialization ====================
+
+step "Initializing Django"
+
+info "Running migrations..."
+python3 manage.py migrate --no-input
+
+info "Creating superuser..."
+SUPERUSER_PASSWORD="$SUPERUSER_PASSWORD" python3 manage.py create_superuser_account
+
+info "Setting up Django site..."
+python3 manage.py setup_site
+
+if python3 manage.py help init_neo4j &>/dev/null 2>&1; then
+    info "Initializing Neo4j..."
+    python3 manage.py init_neo4j
+else
+    warn "init_neo4j command not available, skipping"
+fi
+
+ok "Django initialized"
+
+# ==================== 10. Frontend ====================
+
+if [[ "$SKIP_FRONTEND" == true ]]; then
+    step "Skipping frontend build (--skip-frontend)"
+else
+    step "Building frontend"
+
+    cd frontend
+    info "Installing npm dependencies..."
+    npm install
+
+    info "Building Nuxt frontend..."
+    npm run build
+
+    cd "$PROJECT_DIR"
+    ok "Frontend built"
+fi
+
+# ==================== 10.5. Nginx ====================
+
+step "Generating nginx configs"
+
+info "Generating from templates for domain: $DOMAIN"
+"$PROJECT_DIR/nginx/setup-nginx.sh" --domain "$DOMAIN"
+
+ok "Nginx configs generated and symlinked"
+
+# ==================== 11. Summary ====================
+
+echo ""
+echo -e "${BOLD}============================================${NC}"
+echo -e "${BOLD}     Parahub Bootstrap Complete${NC}"
+echo -e "${BOLD}============================================${NC}"
+echo ""
+echo -e "  Domain:          ${CYAN}${DOMAIN}${NC}"
+echo -e "  Admin user:      ${CYAN}admin${NC}"
+echo -e "  Admin password:  ${CYAN}${SUPERUSER_PASSWORD}${NC}"
+echo ""
+echo -e "  Generated files:"
+echo -e "    ${GREEN}.env${NC}                          (all secrets)"
+echo -e "    ${GREEN}oidc_rsa_key.pem${NC}              (OIDC signing key)"
+echo -e "    ${GREEN}traccar/traccar.xml${NC}            (Traccar config)"
+echo -e "    ${GREEN}synapse/config/homeserver.yaml${NC} (Synapse config)"
+echo -e "    ${GREEN}nginx/sites-available/*${NC}        (nginx configs)"
+if [[ "$VAPID_GENERATED" == true ]]; then
+echo -e "    ${GREEN}VAPID keys${NC}                     (in .env)"
+fi
+echo ""
+echo -e "  ${YELLOW}Next steps:${NC}"
+echo -e "    1. Get SSL certs:           ${CYAN}sudo certbot --nginx -d ${DOMAIN} -d www.${DOMAIN}${NC}"
+echo -e "       Then each subdomain:     ${CYAN}sudo certbot --nginx -d status.${DOMAIN}${NC} (etc)"
+echo -e "    2. Set up systemd services   (see docs/for-developers.md)"
+echo -e "    3. Reload nginx:            ${CYAN}sudo systemctl reload nginx${NC}"
+if [[ -z "$GOOGLE_CLIENT_ID" ]]; then
+echo -e "    4. Configure Google OAuth    (console.cloud.google.com)"
+fi
+echo -e "    5. Access admin panel:      ${CYAN}https://${DOMAIN}/admin/${NC}"
+echo ""
+echo -e "  ${YELLOW}Credentials saved in .env — keep this file secure!${NC}"
+echo ""

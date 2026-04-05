@@ -1,0 +1,32 @@
+{
+  "voice_chat": {
+    "title": "Chat de Voz",
+    "tap_to_talk": "Pulsa para hablar",
+    "stop_recording": "Detener grabación",
+    "listening": "Escuchando...",
+    "transcribing": "Transcribiendo...",
+    "thinking": "Pensando...",
+    "speaking": "Hablando...",
+    "using_tool": "Verificando",
+    "ready": "Listo",
+    "connecting": "Conectando...",
+    "disconnected": "Desconectado",
+    "empty": "Pulsa el botón y habla para iniciar una conversación",
+    "you": "Tú",
+    "clear": "Limpiar historial",
+    "cleared": "Conversación limpiada",
+    "error_mic": "Acceso al micrófono denegado",
+    "error_mic_denied": "Acceso al micrófono denegado. Revisa la configuración del navegador y permite el micrófono para este sitio.",
+    "error_mic_unavailable": "No se encontró micrófono. Conecta un micrófono e inténtalo de nuevo.",
+    "error_short": "Grabación demasiado corta",
+    "error_offline": "Estás sin conexión. Revisa tu conexión a internet.",
+    "error_connection": "Conexión perdida. Intentando reconectar...",
+    "voice_not_enabled": "Este agente no soporta chat de voz.",
+    "agent_not_found": "Agente no encontrado o voz no disponible",
+    "reconnecting": "Reconectando...",
+    "offline": "Sin conexión",
+    "retry": "Reintentar conexión",
+    "go_back": "Volver",
+    "staff_only": "Solo personal autorizado"
+  }
+}

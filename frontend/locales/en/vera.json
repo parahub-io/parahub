@@ -1,0 +1,23 @@
+{
+  "vera": {
+    "title": "Vera",
+    "subtitle": "Voice Secretary",
+    "hold_to_talk": "Hold to talk",
+    "tap_to_talk": "Tap to talk",
+    "listening": "Listening...",
+    "transcribing": "Transcribing...",
+    "thinking": "Thinking...",
+    "speaking": "Speaking...",
+    "using_tool": "Checking",
+    "ready": "Ready",
+    "connecting": "Connecting...",
+    "disconnected": "Disconnected",
+    "empty": "Tap the button and speak to start a conversation with Vera",
+    "you": "You",
+    "clear": "Clear history",
+    "cleared": "Conversation cleared",
+    "error_mic": "Microphone access denied",
+    "error_short": "Recording too short",
+    "iot_description": "Voice AI secretary with full system access"
+  }
+}

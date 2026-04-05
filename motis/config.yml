@@ -1,0 +1,50 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  n_threads: 8
+
+street_routing: true
+osr_footpath: false
+geocoding: false
+reverse_geocoding: false
+
+osm: /input/planet-latest.osm.pbf
+
+timetable:
+  first_day: TODAY
+  num_days: 90
+  railviz: false
+  with_shapes: true
+  ignore_errors: true
+  adjust_footpaths: true
+  merge_dupes_intra_src: true
+  merge_dupes_inter_src: true
+  link_stop_distance: 100
+  max_footpath_length: 12
+  update_interval: 60
+  http_timeout: 30
+
+  datasets:
+    pt-cm:
+      path: /input/carris_metropolitana.zip
+
+    pt-carris:
+      path: /input/carris_lisboa.zip
+
+    pt-stcp:
+      path: /input/stcp_porto.zip
+
+    fi-hsl:
+      path: /input/hsl_helsinki.zip
+
+    cz-pid:
+      path: /input/pid_prague.zip
+
+    us-mbta:
+      path: /input/mbta_boston.zip
+
+    us-kcm:
+      path: /input/king_county_seattle.zip
+
+    us-septa:
+      path: /input/septa_philadelphia_flat.zip

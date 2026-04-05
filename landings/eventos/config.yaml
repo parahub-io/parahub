@@ -1,0 +1,15 @@
+subdomain: eventos
+default_locale: pt
+i18n_namespace: events
+cta_path: /events
+from_param: eventos
+problems_count: 3
+features_count: 6
+steps_count: 3
+feature_icons:
+  - calendar
+  - users
+  - message-circle
+  - map-pin
+  - globe
+  - heart

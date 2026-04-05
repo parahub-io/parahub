@@ -1,0 +1,101 @@
+{
+  "federation": {
+    "title": "Federation",
+    "page_title": "Federation - Parahub",
+    "node": {
+      "title": "Node",
+      "domain": "Domain",
+      "name": "Name",
+      "url": "URL",
+      "registry_git": "Registry Git",
+      "ws_url": "WebSocket",
+      "matrix": "Matrix Server",
+      "capabilities": "Capabilities",
+      "fingerprint": "PGP Fingerprint",
+      "no_manifest": "No node manifest. Run init_federation_node first."
+    },
+    "stats": {
+      "title": "Registry Statistics",
+      "organizations": "Organizations",
+      "peers": "Peers",
+      "migrations": "Migrations",
+      "connected_peers": "Connected Peers"
+    },
+    "peers": {
+      "title": "Peer Nodes",
+      "no_peers": "No peer nodes registered",
+      "domain": "Domain",
+      "trust_level": "Trust Level",
+      "first_seen": "First Seen",
+      "sync": "Sync",
+      "sync_all": "Sync All Peers",
+      "syncing": "Syncing...",
+      "sync_success": "Sync completed",
+      "sync_error": "Sync failed",
+      "discover": "Discover Peer",
+      "discover_url": "Peer URL",
+      "discover_placeholder": "https://para.sh",
+      "discover_success": "Peer discovered: {domain}",
+      "discover_error": "Failed to discover peer",
+      "last_fetch": "Last Fetch",
+      "head": "HEAD"
+    },
+    "organizations": {
+      "title": "Organizations",
+      "no_orgs": "No organizations in registry",
+      "view_all": "View all"
+    },
+    "migrations": {
+      "title": "Profile Migrations",
+      "no_migrations": "No profile migrations",
+      "from": "From",
+      "to": "To",
+      "status": "Status",
+      "initiated": "Initiated",
+      "exported": "Exported",
+      "signed": "Signed",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "initiate": "Initiate Migration",
+      "to_node": "Destination Node",
+      "to_hna": "Destination HNA",
+      "to_node_placeholder": "para.sh",
+      "to_hna_placeholder": "andrey{'@'}para.sh",
+      "reason": "Reason (optional)",
+      "cancel": "Cancel",
+      "sign": "Sign with PGP",
+      "export_data": "Export Data",
+      "complete": "Complete Migration",
+      "confirm_cancel": "Cancel this migration?",
+      "signatures": "Signatures",
+      "from_user": "Source User",
+      "to_user": "Destination User",
+      "from_node": "Source Node",
+      "to_node_sig": "Destination Node",
+      "export_hash": "Export SHA256",
+      "git_commit": "Git Commit",
+      "continuity_proof": "Continuity Proof",
+      "same_seed": "Same BIP39 Seed",
+      "cross_signed": "Cross-Signed"
+    },
+    "profile": {
+      "title": "Migration",
+      "description": "Migrate your profile to another Parahub node",
+      "no_active": "No active migration",
+      "start_description": "Transfer your identity, verifications, contracts, and items to another node",
+      "warning": "Migration will redirect your HNA to the new node. This action is recorded in the federation registry."
+    },
+    "search": {
+      "title": "Federated Search",
+      "placeholder": "Search profiles or organizations across nodes...",
+      "search": "Search",
+      "no_results": "No results found"
+    },
+    "import": {
+      "title": "Import Migration Data",
+      "description": "Import a migration export ZIP from another node to create reference records",
+      "upload": "Import",
+      "success": "Import completed"
+    }
+  }
+}

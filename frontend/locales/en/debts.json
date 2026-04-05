@@ -1,0 +1,73 @@
+{
+  "debts": {
+    "title": "Debts & Clearing",
+    "description": "Track mutual debts and clear them through cycles",
+    "owes": " owes ",
+    "confirmed": "confirmed",
+    "waiting": "waiting",
+    "tabs": {
+      "owed_to_me": "Owed to Me",
+      "i_owe": "I Owe",
+      "pending": "Pending Confirmation"
+    },
+    "create": {
+      "button": "New Debt",
+      "title": "Create Debt Record",
+      "my_role": "I am:",
+      "debtor": "The one who owes",
+      "creditor": "The one owed",
+      "other_person": "Other person:",
+      "select_partner": "Select partner",
+      "your_partners": "Your Partners:",
+      "other": "Other:",
+      "amount": "Amount:",
+      "currency": "Currency:",
+      "description": "Description (optional):",
+      "submit": "Create",
+      "cancel": "Cancel"
+    },
+    "status": {
+      "draft": "Draft",
+      "pending_confirmation": "Pending Confirmation",
+      "active": "Active",
+      "partially_settled": "Partially Settled",
+      "fully_settled": "Fully Settled",
+      "cancelled": "Cancelled"
+    },
+    "item": {
+      "owes": "{debtor} owes {creditor}",
+      "settled": "{percent}% settled",
+      "confirm": "Confirm",
+      "record_payment": "Record Payment"
+    },
+    "empty": "No debts in this category",
+    "empty_subtitle": "All clear! Debts you create or receive will appear here",
+    "clearing": {
+      "title": "Debt Clearing Cycles",
+      "description": "Mutual debts can be cleared through multi-party cycles"
+    },
+    "repay": {
+      "title": "Record Payment",
+      "debt_info": "Debt",
+      "remaining": "Remaining",
+      "amount": "Amount paid",
+      "max": "Max",
+      "notes": "Notes (optional)",
+      "submit": "Record Payment",
+      "error_amount": "Amount must be positive",
+      "error_exceeds": "Amount exceeds remaining debt"
+    },
+    "toast": {
+      "new_pending": "New debt: {person} - {amount} {currency} (confirmation needed)",
+      "new_active": "New debt: {person} - {amount} {currency}",
+      "confirmed": "Debt confirmed",
+      "fully_settled": "Debt fully settled: {amount} {currency} paid",
+      "partial_payment": "Payment recorded: {amount} {currency} ({remaining} {currency} remaining)",
+      "partner_load_failed": "Failed to load partner profile"
+    },
+    "ots": {
+      "pending": "Anchoring to Bitcoin...",
+      "block": "Bitcoin Block"
+    }
+  }
+}

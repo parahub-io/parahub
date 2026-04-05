@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Production rebuild + restart
+# Parallel-safe with 0restart-dev (separate .nuxt/.output dirs)
+# Zero-downtime: builds to temp dir, then atomic swap via mv
+
+# Ensure nvm/node is available (cron/subprocess may not load shell profile)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+FRONTEND_DIR="/opt/parahub/frontend"
+ERRORS=""
+
+echo "🔨 Building frontend..."
+rm -rf "$FRONTEND_DIR/.output-tmp"
+if ! BUILD_OUTPUT=$(cd "$FRONTEND_DIR" && NUXT_OUTPUT_DIR=.output-tmp npm run build 2>&1); then
+    echo "✗ Frontend build failed"
+    echo ""
+    echo "$BUILD_OUTPUT"
+    rm -rf "$FRONTEND_DIR/.output-tmp"
+    exit 1
+fi
+
+# Atomic swap: old dir removed only after new one is in place
+rm -rf "$FRONTEND_DIR/.output-old"
+mv "$FRONTEND_DIR/.output" "$FRONTEND_DIR/.output-old" 2>/dev/null
+mv "$FRONTEND_DIR/.output-tmp" "$FRONTEND_DIR/.output"
+rm -rf "$FRONTEND_DIR/.output-old"
+echo "✅ Frontend built"
+
+# Restart services in parallel
+echo "🔄 Restarting services..."
+sudo systemctl restart parahub-uvicorn parahub-frontend
+sudo nginx -s reload 2>/dev/null || ERRORS="${ERRORS}✗ Nginx reload failed\n"
+
+# Check services
+sleep 1
+for svc in parahub-uvicorn parahub-frontend nginx; do
+    if ! sudo systemctl is-active --quiet "$svc"; then
+        ERRORS="${ERRORS}✗ $svc not running\n"
+    fi
+done
+
+if [ -n "$ERRORS" ]; then
+    echo -e "$ERRORS"
+    exit 1
+fi
+
+echo "✅ Production ready!"
+
+# Delay to let WebSocket clients reconnect before broadcasting
+(sleep 10 && redis-cli PUBLISH feed:system '{"event":"new_version","slot":"prod"}' >/dev/null 2>&1) &

@@ -1,0 +1,34 @@
+{
+  "property": {
+    "title": "Mis propiedades",
+    "my_homes": "Mis hogares",
+    "add_property": "Agregar propiedad",
+    "edit_property": "Editar propiedad",
+    "no_properties": "Sin propiedades agregadas",
+    "no_properties_hint": "Agrega tu casa, oficina u otras propiedades para agrupar dispositivos y servicios.",
+    "name": "Nombre",
+    "name_placeholder": "Casa, Finca, Oficina...",
+    "type": "Tipo",
+    "location": "Ubicación",
+    "click_map_hint": "Haz clic en el mapa para establecer la ubicación",
+    "address": "Direccion",
+    "address_placeholder": "Calle, ciudad...",
+    "devices": "dispositivos",
+    "linked_building": "Vinculado a edificio",
+    "add": "Agregar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "confirm_delete": "Eliminar propiedad \"{name}\" y desvincular todos los dispositivos?",
+    "types": {
+      "house": "Casa",
+      "apartment": "Apartamento",
+      "land": "Terreno",
+      "office": "Oficina",
+      "dacha": "Finca",
+      "garage": "Garaje",
+      "other": "Otro"
+    }
+  }
+}

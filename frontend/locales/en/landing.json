@@ -1,0 +1,80 @@
+{
+  "landing": {
+    "seo": {
+      "title": "Parahub — open-source civic platform without middlemen",
+      "description": "Open-source civic platform for P2P trade, Lightning payments, encrypted messaging, governance, and transit maps. Zero commissions. Join free."
+    },
+    "hero": {
+      "subtitle": "Everything for life and work — directly, openly, commission-free.",
+      "tagline": "Market, finance, messaging, and logistics — in one app.",
+      "cta_start": "Get Started",
+      "cta_philosophy": "Learn Philosophy",
+      "badge": "P2P without intermediaries",
+      "cta_docs": "Where to Begin"
+    },
+    "problem": {
+      "title": "Technology should liberate, not enslave.",
+      "point1": "Superapps take up to 30% commission, monopolize your data, and decide what you see.",
+      "point2": "Parahub is an open-source alternative: your data, your rules, zero commissions.",
+      "point3": "Reputation over ad budgets. Code is open — audit it, fork it, run your own node."
+    },
+    "features": {
+      "title": "One app instead of a dozen.",
+      "id": {
+        "title": "ID & Reputation",
+        "desc": "Build your reputation through personal endorsements from people who know you. No documents, no central authority — impossible to fake."
+      },
+      "market": {
+        "title": "Market & Barter",
+        "desc": "Buy, sell, or exchange directly. No money? The system finds multi-step swaps so everyone gets what they need."
+      },
+      "finance": {
+        "title": "Bankless Finance",
+        "desc": "Prices in EUR/USD, instant payments with near-zero fees. No delays, freezes, or hidden charges."
+      },
+      "governance": {
+        "title": "Contracts & Governance",
+        "desc": "Sign binding agreements in chat. Resolve disputes through community arbitration. Vote directly or delegate to someone you trust."
+      },
+      "communication": {
+        "title": "Private Messaging",
+        "desc": "Fully encrypted messaging built in. Anti-spam: strangers pay a micro-fee for the first message."
+      },
+      "mobility": {
+        "title": "Mobility & Maps",
+        "desc": "Carpooling and public transit without aggregator fees. Real-time routes and vehicle tracking on community maps."
+      },
+      "learn_more": "Learn more"
+    },
+    "tech": {
+      "title": "Under the hood — independence.",
+      "decentralization": {
+        "title": "Decentralization",
+        "desc": "Payments, messaging, and reputation all work without a central server. No single point of control or failure."
+      },
+      "opensource": {
+        "title": "Open Source",
+        "desc": "Every line of code is public. Inspect it, improve it, or run your own independent copy of the platform."
+      },
+      "offline": {
+        "title": "Offline-Ready",
+        "desc": "Community mesh networks keep neighbors connected even when the internet goes down."
+      },
+      "link": "Full tech stack details"
+    },
+    "mission": {
+      "title": "Cooperation Without Corporations.",
+      "text": "NGO from Portugal. Zero profit — only public infrastructure, sovereignty, and privacy."
+    },
+    "stats": {
+      "commission": "Commissions",
+      "opensource": "Open Source",
+      "middlemen": "Middlemen"
+    },
+    "cta": {
+      "title": "Try it yourself.",
+      "text": "Free. Open source. No email registration required.",
+      "start": "Create account"
+    }
+  }
+}

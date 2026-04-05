@@ -1,0 +1,34 @@
+{
+  "property": {
+    "title": "My Properties",
+    "my_homes": "My Homes",
+    "add_property": "Add Property",
+    "edit_property": "Edit Property",
+    "no_properties": "No properties added",
+    "no_properties_hint": "Add your home, office, or other properties to group devices and services.",
+    "name": "Name",
+    "name_placeholder": "Home, Dacha, Office...",
+    "type": "Type",
+    "location": "Location",
+    "click_map_hint": "Click on the map to set location",
+    "address": "Address",
+    "address_placeholder": "Street, city...",
+    "devices": "devices",
+    "linked_building": "Linked to building",
+    "add": "Add",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm_delete": "Delete property \"{name}\" and unlink all associated devices?",
+    "types": {
+      "house": "House",
+      "apartment": "Apartment",
+      "land": "Land",
+      "office": "Office",
+      "dacha": "Dacha",
+      "garage": "Garage",
+      "other": "Other"
+    }
+  }
+}

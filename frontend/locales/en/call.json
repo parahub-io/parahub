@@ -1,0 +1,14 @@
+{
+  "call": {
+    "connecting": "Connecting...",
+    "error_title": "Call Failed",
+    "error_create_room": "Failed to create call room",
+    "error_join_room": "Failed to join call room",
+    "return_home": "Return Home",
+    "end_call": "End call",
+    "ended": "Call ended",
+    "incoming_call": "Incoming call",
+    "answer": "Answer",
+    "decline": "Decline"
+  }
+}

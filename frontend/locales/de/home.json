@@ -1,0 +1,29 @@
+{
+  "home": {
+    "welcome": "Willkommen bei Parahub",
+    "quick_access": {
+      "messages": "Mit Netzwerkmitgliedern chatten",
+      "market": "Handeln und tauschen",
+      "map": "Orte in der Nähe finden",
+      "iot": "Geräteverwaltung"
+    },
+    "features": {
+      "title": "Hauptfunktionen",
+      "subtitle": "Eine moderne Open-Source-Plattform für die digitale Wirtschaft der Zukunft",
+      "iot": {
+        "title": "IoT & GPS-Überwachung",
+        "description": "Verwalten Sie IoT-Geräte, GPS-Tracker und Echtzeit-Tracking über Traccar-Integration",
+        "learn_more": "Mehr erfahren →"
+      },
+      "marketplace": {
+        "title": "P2P-Marktplatz",
+        "description": "Ein Marktplatz mit Unterstützung für Tauschhandel, Anfragen und Logistik",
+        "learn_more": "Mehr erfahren →"
+      },
+      "mesh": {
+        "title": "Mesh-Netzwerk-Firmware",
+        "description": "OpenWrt-Firmware mit batman-adv Mesh, automatisch konfiguriertem WLAN und Gastnetzwerk"
+      }
+    }
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "rides": {
+    "title": "Mitfahrgelegenheit",
+    "back": "Zurck",
+    "not_found": "Anfrage nicht gefunden",
+    "login_required": "Melden Sie sich an, um Fahrtanfragen zu erstellen",
+    "offers": "Angebote",
+    "offers_title": "Fahrerangebote",
+    "passengers_label": "Passagier | Passagiere",
+    "reviews": "Bewertungen",
+    "open_chat": "Chat ffnen",
+    "accept": "Annehmen",
+    "complete": "Fahrt abschlieen",
+    "cancel": "Abbrechen",
+    "cancel_request": "Anfrage abbrechen",
+    "confirm_cancel": "Diese Fahrtanfrage abbrechen?",
+    "booking_actions": "Buchung",
+    "tabs": {
+      "find_ride": "Mitfahrt suchen",
+      "give_ride": "Mitfahrt anbieten"
+    },
+    "create": {
+      "title": "Fahrt anfragen",
+      "origin": "Abfahrtshaltestelle",
+      "origin_placeholder": "Haltestelle whlen...",
+      "destination": "Zielhaltestelle",
+      "destination_placeholder": "Haltestelle whlen...",
+      "price": "Preis",
+      "passengers": "Passagiere",
+      "note": "Notiz",
+      "note_placeholder": "2 Taschen, mit Hund, usw.",
+      "submit": "Anfrage erstellen",
+      "creating": "Wird erstellt...",
+      "error": "Anfrage konnte nicht erstellt werden"
+    },
+    "my_requests": {
+      "title": "Meine aktiven Anfragen"
+    },
+    "search": {
+      "mode_nearby": "In der Nähe",
+      "mode_route": "Entlang meiner Route",
+      "find_nearby": "Anfragen in der Nähe finden",
+      "searching": "Suche...",
+      "radius": "Suchradius",
+      "route_from": "Von",
+      "route_from_placeholder": "Starthaltestelle...",
+      "route_to": "Nach",
+      "route_to_placeholder": "Zielhaltestelle...",
+      "corridor": "Korridorbreite",
+      "search_route": "Entlang der Route suchen",
+      "route_error": "Route konnte nicht berechnet werden",
+      "detour": "Umweg",
+      "no_results": "Keine Fahrtanfragen gefunden"
+    },
+    "offer": {
+      "title": "Fahrt anbieten",
+      "vehicle_note": "Fahrzeugbeschreibung",
+      "vehicle_note_placeholder": "Blauer Toyota, Kennzeichen XX-00-XX",
+      "seats": "Verfgbare Pltze",
+      "submit": "Angebot senden",
+      "submitting": "Wird gesendet...",
+      "error": "Angebot konnte nicht gesendet werden",
+      "your_offer": "Ihr Angebot"
+    },
+    "status": {
+      "active": "Aktiv",
+      "closed": "Geschlossen"
+    },
+    "booking_status": {
+      "OFFERED": "Angeboten",
+      "CONFIRMED": "Besttigt",
+      "COMPLETED": "Abgeschlossen",
+      "CANCELLED": "Abgebrochen"
+    },
+    "review": {
+      "title": "Bewertung abgeben",
+      "rating": "Bewertung",
+      "comment": "Kommentar (optional)",
+      "submit": "Bewertung senden"
+    },
+    "time": {
+      "now": "gerade eben",
+      "minutes_ago": "vor {n} Min",
+      "hours_ago": "vor {n}h"
+    },
+    "cta_stop": {
+      "title": "Nicht auf den Bus warten?",
+      "description": "Mitfahrgelegenheit ab dieser Haltestelle anfragen",
+      "button": "Mitfahrt anfragen"
+    },
+    "stop_picker": {
+      "placeholder": "Haltestelle suchen...",
+      "no_results": "Keine Haltestellen gefunden"
+    },
+    "landing_title": "Gemeinschaftliche Mitfahrgelegenheit",
+    "landing_meta": "Finden oder bieten Sie Mitfahrgelegenheiten an Haltestellen. Ohne Provisionen, mit verschlüsseltem Chat. Kostenlos und Open-Source.",
+    "landing_hero_title": "Gemeinschaftliche Mitfahrt — von Haltestelle zu Haltestelle",
+    "landing_hero_subtitle": "Bitten Sie an Ihrer Haltestelle um eine Mitfahrt, erhalten Sie Angebote von Fahrern und koordinieren Sie per verschlüsseltem Chat. Ohne Provisionen.",
+    "landing_hero_cta": "Mitfahrten suchen",
+    "landing_problems_title": "Probleme die wir lösen",
+    "landing_problem_1": "Uber und Bolt verlangen hohe Provisionen und tracken jede Bewegung",
+    "landing_problem_2": "Öffentlicher Nahverkehr deckt die letzte Meile in vielen Gebieten nicht ab",
+    "landing_problem_3": "Kein sicherer Weg Mitfahrten mit Nachbarn und Fremden zu arrangieren",
+    "landing_features_title": "Funktionen",
+    "landing_feature_1_title": "Haltestelle zu Haltestelle",
+    "landing_feature_1_desc": "Alle Fahrten starten und enden an ÖPNV-Haltestellen — integriert mit dem GTFS-Netz",
+    "landing_feature_2_title": "Keine Provisionen",
+    "landing_feature_2_desc": "Null Plattformgebühren. Fahrgäste setzen den Preis, Fahrer bieten an — direkte Vereinbarung",
+    "landing_feature_3_title": "Sicherer Chat",
+    "landing_feature_3_desc": "Bei Annahme einer Mitfahrt wird automatisch ein verschlüsselter Matrix-Chat erstellt",
+    "landing_feature_4_title": "GPS Integriert",
+    "landing_feature_4_desc": "Suchen Sie Mitfahrten in Ihrer Nähe per GPS oder entlang einer geplanten Route",
+    "landing_feature_5_title": "Bewertungen",
+    "landing_feature_5_desc": "Gegenseitige 1-5 Sterne Bewertungen nach jeder Fahrt bauen Gemeinschaftsreputation auf",
+    "landing_feature_6_title": "Für Immer Kostenlos",
+    "landing_feature_6_desc": "Open-Source, keine Provisionen, keine Werbung. Zivile Infrastruktur, kein Produkt",
+    "landing_how_title": "So funktioniert's",
+    "landing_how_1": "Erstellen Sie eine Mitfahranfrage — wählen Sie Start- und Zielhaltestelle",
+    "landing_how_2": "Fahrer sehen Ihre Anfrage und senden Angebote mit Fahrzeugbeschreibung",
+    "landing_how_3": "Nehmen Sie ein Angebot an — verschlüsselter Chat wird automatisch erstellt",
+    "landing_free_title": "Für immer kostenlos",
+    "landing_free_desc": "Autofahren teilen sollte keinen Konzern bereichern. Parahub verbindet Menschen direkt, ohne Mittelsmänner.",
+    "ride_meta": "Fahrt von {origin} nach {destination}"
+  }
+}

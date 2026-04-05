@@ -1,0 +1,15 @@
+subdomain: troca
+default_locale: pt
+i18n_namespace: barter
+cta_path: /barter
+from_param: troca
+problems_count: 3
+features_count: 6
+steps_count: 3
+feature_icons:
+  - package
+  - link-2
+  - users
+  - shield
+  - globe
+  - heart

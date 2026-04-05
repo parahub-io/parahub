@@ -1,0 +1,242 @@
+{
+  "parasos": {
+    "title": "SOS",
+    "subtitle": "Neighborhood Emergency Aid",
+    "meta_description": "Community-driven emergency mutual aid system",
+    "loading": "Loading...",
+
+    "nav_sos": "SOS",
+
+    "groups": {
+      "title": "Safety Groups",
+      "create": "Create Group",
+      "my_groups": "My Groups",
+      "nearby": "Nearby",
+      "search_placeholder": "Search groups...",
+      "empty_title": "No safety groups yet",
+      "empty_subtitle": "Create the first safety group in your neighborhood",
+      "members_count": "{n} member | {n} members",
+      "radius": "{meters}m radius",
+      "join": "Join Group",
+      "leave": "Leave Group",
+      "joined": "Joined!",
+      "left": "Left the group",
+      "settings": "Settings",
+      "active_alerts": "Active Alerts",
+      "no_active_alerts": "No active alerts",
+      "alert_history": "Alert History",
+      "no_alerts_yet": "No alerts yet",
+      "members": "Members",
+      "delete": "Delete Group",
+      "delete_confirm": "Are you sure you want to delete this group? This cannot be undone.",
+      "deleted": "Group deleted"
+    },
+
+    "create_group": {
+      "title": "Create Safety Group",
+      "name_label": "Group Name",
+      "name_placeholder": "e.g. Rua das Flores Neighbors",
+      "description_label": "Description",
+      "description_placeholder": "Describe your neighborhood group...",
+      "visibility_label": "Visibility",
+      "visibility_public": "Public",
+      "visibility_public_desc": "Discoverable in Nearby, anyone can join",
+      "visibility_private": "Private",
+      "visibility_private_desc": "Invite-only, hidden from listings",
+      "group_type_label": "Group Type",
+      "group_type_local": "Neighborhood",
+      "group_type_local_desc": "Tied to a location on the map",
+      "group_type_friends": "Friends & Family",
+      "group_type_friends_desc": "No location, just people",
+      "location_label": "Group Center",
+      "location_hint": "Drag the map to set the center point",
+      "select_property": "Select from my properties...",
+      "property_type_house": "house",
+      "property_type_apartment": "apartment",
+      "property_type_land": "land",
+      "property_type_office": "office",
+      "property_type_dacha": "dacha",
+      "property_type_garage": "garage",
+      "property_type_other": "other",
+      "radius_label": "Coverage Radius",
+      "quiet_hours_label": "Quiet Hours (for INFO alerts)",
+      "quiet_start": "From",
+      "quiet_end": "To",
+      "submit": "Create Group",
+      "wot_required": "Requires WoT level 2+ to create groups"
+    },
+
+    "member": {
+      "local": "Local",
+      "remote": "Remote",
+      "admin": "Admin",
+      "presence_local": "Can physically respond",
+      "presence_remote": "Coordinates remotely",
+      "emergency_context_label": "Emergency Context",
+      "emergency_context_hint": "Medical info, allergies, doctor contacts — only visible during active SOS",
+      "join_as": "Join as",
+      "login_to_join": "Sign in to join this group"
+    },
+
+    "sos": {
+      "button": "SOS",
+      "send_alert": "Send Alert",
+      "long_press_emergency": "Hold for Emergency",
+      "select_level": "Alert Level",
+      "sending": "Sending SOS...",
+      "sent": "SOS sent!",
+      "active_alert": "Active Alert",
+      "no_group": "Join a safety group first",
+
+      "level": {
+        "info": "Info",
+        "info_desc": "Suspicious activity",
+        "warning": "Warning",
+        "warning_desc": "Alarm triggered",
+        "emergency": "Emergency",
+        "emergency_desc": "Need help NOW"
+      },
+
+      "category": {
+        "suspicious_activity": "Suspicious activity",
+        "alarm_triggered": "Alarm triggered",
+        "medical": "Medical emergency",
+        "fire": "Fire",
+        "intrusion": "Break-in",
+        "other": "Other"
+      },
+
+      "message_placeholder": "What's happening? (optional)",
+      "resolve": "Resolve",
+      "false_alarm": "False Alarm",
+      "resolved": "Resolved",
+      "already_active": "You already have an active alert",
+      "view_location": "View on map"
+    },
+
+    "time": {
+      "just_now": "just now",
+      "minutes_ago": "{n}m ago",
+      "hours_ago": "{n}h ago",
+      "days_ago": "{n}d ago"
+    },
+
+    "errors": {
+      "send_sos": "Failed to send SOS",
+      "join_group": "Failed to join group",
+      "leave_group": "Failed to leave group",
+      "respond": "Failed to respond to alert",
+      "resolve": "Failed to resolve alert",
+      "create_group": "Failed to create group",
+      "fetch_groups": "Failed to load groups",
+      "fetch_group": "Failed to load group",
+      "create_invite": "Failed to create invite",
+      "delete_invite": "Failed to delete invite",
+      "fetch_invite": "Failed to load invite info",
+      "invite_invalid": "This invite link is invalid or expired",
+      "delete_group": "Failed to delete group"
+    },
+
+    "response": {
+      "seen": "Seen",
+      "on_way": "On the way",
+      "on_site": "On site",
+      "unable": "Unable",
+      "responders": "Responders",
+      "no_responses": "No responses yet",
+      "respond": "Respond",
+      "i_see": "I see it",
+      "on_my_way": "On my way",
+      "im_here": "I'm here",
+      "cant_help": "Can't help now"
+    },
+
+    "invite": {
+      "title": "Invite Links",
+      "create": "Create Invite",
+      "copy_link": "Copy Link",
+      "copied": "Copied!",
+      "label_placeholder": "Label (e.g. for family)",
+      "max_uses": "Max uses (0 = unlimited)",
+      "expires_hours": "Expires in (hours)",
+      "no_expiry": "No expiry",
+      "no_invites": "No invite links yet",
+      "uses": "{count} uses",
+      "unlimited": "unlimited",
+      "expired": "Expired",
+      "exhausted": "All used",
+      "delete": "Delete",
+      "delete_confirm": "Delete this invite link?",
+      "join_title": "Join Safety Group",
+      "join_group_name": "You're invited to join",
+      "join_members": "{n} member | {n} members",
+      "join_button": "Join Group",
+      "join_success": "Joined!",
+      "private_group_hint": "This is a private group. Share this invite link with people you want to add"
+    },
+
+    "visibility": {
+      "public": "Public",
+      "private": "Private"
+    },
+
+    "privacy": {
+      "title": "Privacy Notice",
+      "no_tracking": "This system does NOT track members' locations",
+      "sos_only": "Location is shared ONLY when you press the SOS button",
+      "responder_voluntary": "Responder location sharing is voluntary",
+      "no_history": "No location history is stored for responders"
+    },
+
+    "disclaimer": {
+      "title": "Important",
+      "not_police": "This is NOT a replacement for police or emergency services",
+      "no_obligation": "Members are NOT obligated to respond",
+      "no_intervention": "Do NOT physically intervene — observe and report",
+      "call_112": "In case of real emergency, always call 112"
+    },
+
+    "docs_passive_title": "Passive Safety & Automation",
+    "docs_passive_inactivity_title": "Inactivity Monitor",
+    "docs_passive_inactivity_desc": "Tracks activity via IoT/HA sensors (motion, door, fridge). Auto-sends WARNING if no activity for configurable hours. Ideal for elderly living alone.",
+    "docs_passive_iot_title": "IoT Auto-Triggers",
+    "docs_passive_iot_desc": "Smoke detectors, motion sensors, door contacts can automatically send SOS alerts via webhook. No manual button press needed.",
+    "docs_passive_checkin_title": "\"I'm OK\" Check-in",
+    "docs_passive_checkin_desc": "Simple daily button for elderly as alternative to IoT sensors. One tap resets the inactivity timer.",
+    "docs_passive_autoresolve_title": "Auto-Resolve",
+    "docs_passive_autoresolve_desc": "Alerts active for more than 2 hours without response are automatically resolved to keep the system clean.",
+
+    "landing_title": "ParaSOS — Neighborhood Emergency Aid",
+    "landing_meta": "Free community-driven emergency mutual aid system. Press one button — your neighbors arrive in 2 minutes. Faster than any police or security company.",
+    "landing_hero_title": "Your neighbors arrive in 2 minutes",
+    "landing_hero_subtitle": "Press one button — everyone in your safety group gets an instant alert with your location. No monthly fees. No middlemen. Just neighbors helping neighbors.",
+    "landing_hero_cta": "Create Your Safety Group",
+    "landing_problems_title": "The problem with rural security",
+    "landing_problem_1": "Police take 20+ minutes to arrive in rural areas. Thieves need only 10.",
+    "landing_problem_2": "Security companies charge 30-50 EUR/month and just call the police for you.",
+    "landing_problem_3": "Your friends and family live far away and can't help when it matters most.",
+    "landing_features_title": "How ParaSOS works",
+    "landing_feature_1_title": "Instant alerts",
+    "landing_feature_1_desc": "One tap sends push notifications with siren sound to all group members. No app to open, no number to dial.",
+    "landing_feature_2_title": "2-minute response",
+    "landing_feature_2_desc": "Your neighbor 300m away arrives in 2-5 minutes. Faster than any police or security company.",
+    "landing_feature_3_title": "Local + remote members",
+    "landing_feature_3_desc": "Neighbors come physically. Family members in other cities get notified and call emergency services with full context.",
+    "landing_feature_4_title": "Just observe",
+    "landing_feature_4_desc": "No intervention required. Just the presence of observers deters 90% of opportunistic crimes.",
+    "landing_feature_5_title": "Zero tracking",
+    "landing_feature_5_desc": "No background GPS. Your location is shared ONLY when you press the SOS button. Responder locations are never stored.",
+    "landing_feature_6_title": "Elderly care",
+    "landing_feature_6_desc": "IoT sensors detect if grandma hasn't moved since morning. Family gets notified instantly — even from another city. Daily \"I'm OK\" button as simple alternative.",
+    "landing_feature_7_title": "Private groups",
+    "landing_feature_7_desc": "Your group is invisible to outsiders. Members join only via invite link. Perfect for family or close friends who live far apart.",
+    "landing_feature_8_title": "Hardware panic button",
+    "landing_feature_8_desc": "Press volume down 3 times without taking out your phone. Full-screen alarm with siren that overrides silent mode. Wakes neighbors even at 3 AM.",
+    "landing_how_title": "Get started in 3 steps",
+    "landing_how_1": "Create a safety group for your neighborhood and invite your neighbors.",
+    "landing_how_2": "When you need help, press the SOS button. Everyone gets an instant alert.",
+    "landing_how_3": "Neighbors respond — you see who's seen it, who's coming, who's on site.",
+    "landing_free_title": "Your neighborhood, protected",
+    "landing_free_desc": "ParaSOS is free, open source, and built for communities. No corporate middlemen, no monthly fees — just people helping people."
+  }
+}

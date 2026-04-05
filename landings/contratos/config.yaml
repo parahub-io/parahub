@@ -1,0 +1,15 @@
+subdomain: contratos
+default_locale: pt
+i18n_namespace: contracts
+cta_path: /contracts
+from_param: contratos
+problems_count: 3
+features_count: 6
+steps_count: 3
+feature_icons:
+  - shield
+  - handshake
+  - link-2
+  - landmark
+  - zap
+  - heart

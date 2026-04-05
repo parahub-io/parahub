@@ -1,0 +1,32 @@
+{
+  "voice_chat": {
+    "title": "Voice Chat",
+    "tap_to_talk": "Tap to talk",
+    "stop_recording": "Stop recording",
+    "listening": "Listening...",
+    "transcribing": "Transcribing...",
+    "thinking": "Thinking...",
+    "speaking": "Speaking...",
+    "using_tool": "Checking",
+    "ready": "Ready",
+    "connecting": "Connecting...",
+    "disconnected": "Disconnected",
+    "empty": "Tap the button and speak to start a conversation",
+    "you": "You",
+    "clear": "Clear history",
+    "cleared": "Conversation cleared",
+    "error_mic": "Microphone access denied",
+    "error_mic_denied": "Microphone access denied. Check your browser settings and allow microphone for this site.",
+    "error_mic_unavailable": "No microphone found. Please connect a microphone and try again.",
+    "error_short": "Recording too short",
+    "error_offline": "You are offline. Check your internet connection.",
+    "error_connection": "Connection lost. Trying to reconnect...",
+    "voice_not_enabled": "This agent does not support voice chat.",
+    "agent_not_found": "Agent not found or voice not available",
+    "reconnecting": "Reconnecting...",
+    "offline": "Offline",
+    "retry": "Retry connection",
+    "go_back": "Go back",
+    "staff_only": "Staff only"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "property": {
+    "title": "As minhas propriedades",
+    "my_homes": "As minhas casas",
+    "add_property": "Adicionar propriedade",
+    "edit_property": "Editar propriedade",
+    "no_properties": "Sem propriedades adicionadas",
+    "no_properties_hint": "Adicione a sua casa, escritorio ou outras propriedades para agrupar dispositivos e servicos.",
+    "name": "Nome",
+    "name_placeholder": "Casa, Quinta, Escritorio...",
+    "type": "Tipo",
+    "location": "Localização",
+    "click_map_hint": "Clique no mapa para definir a localização",
+    "address": "Morada",
+    "address_placeholder": "Rua, cidade...",
+    "devices": "dispositivos",
+    "linked_building": "Associado a edificio",
+    "add": "Adicionar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "confirm_delete": "Eliminar propriedade \"{name}\" e desassociar todos os dispositivos?",
+    "types": {
+      "house": "Casa",
+      "apartment": "Apartamento",
+      "land": "Terreno",
+      "office": "Escritorio",
+      "dacha": "Quinta",
+      "garage": "Garagem",
+      "other": "Outro"
+    }
+  }
+}

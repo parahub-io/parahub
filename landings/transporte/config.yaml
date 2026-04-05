@@ -1,0 +1,15 @@
+subdomain: transporte
+default_locale: pt
+i18n_namespace: transit
+cta_path: /transit
+from_param: transporte
+problems_count: 3
+features_count: 6
+steps_count: 3
+feature_icons:
+  - map-pin
+  - globe
+  - calendar
+  - zap
+  - users
+  - heart

@@ -1,0 +1,8 @@
+{
+  "income": {
+    "support_parahub": "Support Parahub",
+    "onboarding_blurb": "Parahub is a non-profit association. This optional contribution covers servers and development. You can change it anytime.",
+    "supporter": "Supporter",
+    "supporter_tooltip": "This user supports Parahub association"
+  }
+}

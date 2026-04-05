@@ -1,0 +1,27 @@
+{
+  "support_voice": {
+    "title": "Suporte por voz",
+    "subtitle": "Pergunte qualquer coisa sobre o Parahub",
+    "bot_name": "Suporte",
+    "empty": "Toque no botão e faça a sua pergunta",
+    "hint": "Pergunte sobre funcionalidades, como usar a plataforma ou qualquer outra coisa",
+    "back_to_about": "Voltar a Sobre",
+    "error_too_many": "Demasiadas ligações ativas. Feche outros separadores e tente novamente.",
+    "type_placeholder": "Escreva a sua pergunta...",
+    "errors": {
+      "init_failed": "Falha ao inicializar o serviço de voz. Tente novamente mais tarde.",
+      "rate_limit": "Demasiados pedidos. Aguarde um momento.",
+      "daily_limit": "Limite diário atingido. Tente novamente amanhã ou envie email para support{'@'}parahub.io",
+      "busy": "Ainda a processar o seu pedido anterior.",
+      "empty_message": "Por favor, introduza uma mensagem.",
+      "text_long": "Mensagem demasiado longa.",
+      "nothing_to_replay": "Nada para reproduzir.",
+      "replay_failed": "Falha na reprodução. Tente novamente.",
+      "processing_failed": "Falha no processamento. Tente novamente.",
+      "voice_failed": "Falha no processamento de voz. Tente novamente.",
+      "not_ready": "O serviço ainda não está pronto. Aguarde.",
+      "audio_short": "Gravação demasiado curta.",
+      "audio_large": "Ficheiro de áudio demasiado grande."
+    }
+  }
+}

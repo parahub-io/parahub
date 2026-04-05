@@ -1,0 +1,67 @@
+Django==5.2.12
+psycopg2-binary==2.9.11
+django-environ==0.11.2
+python-ulid==3.1.0
+django-cors-headers==4.9.0
+channels==4.3.2
+daphne==4.2.1
+redis==7.2.1
+celery==5.6.2
+django-celery-beat==2.8.0
+Pillow==12.1.1
+django-storages==1.14.4
+gunicorn==25.1.0
+uvicorn[standard]==0.41.0
+whitenoise==6.12.0
+django-filter==25.2
+django-debug-toolbar==4.4.6
+django-extensions==3.2.3
+python-decouple==3.8
+cryptography==46.0.5
+django-allauth==65.14.3
+
+# Django Ninja API Framework
+django-ninja==1.5.3
+django-ninja-jwt==5.4.4
+pydantic>=2.0.0
+
+# PGP Cryptography
+python-gnupg==0.5.6  # Replaced pgpy (doesn't support SHA-256)
+
+# Monitoring
+django-prometheus==2.4.0
+
+# Additional security & validation
+pydantic-settings==2.13.1
+
+# Social authentication providers
+django-allauth[socialaccount]==65.14.3
+
+# OIDC Provider
+django-oauth-toolkit==3.2.0
+jwcrypto==1.5.6
+
+# HTTP client for async requests (Matrix integration)
+httpx==0.28.1
+
+# Neo4j Graph Database for Barter Exchange Matching
+neo4j==6.1.0
+coolname==2.2.0
+
+# Web Push Notifications
+pywebpush==2.3.0
+
+# Para-ID Badge Generation
+reportlab==4.4.10
+qrcode==8.2
+
+# Language detection + GeoIP for market filtering
+langdetect==1.0.9
+geoip2==5.2.0
+
+# AI/ML APIs (Zenith assistant, AI Vision)
+google-genai==1.52.0
+google-cloud-vision==3.12.1
+anthropic==0.84.0
+openai==2.24.0
+nh3==0.3.3

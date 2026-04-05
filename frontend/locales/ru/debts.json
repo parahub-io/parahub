@@ -1,0 +1,73 @@
+{
+  "debts": {
+    "title": "Долги и взаимозачёт",
+    "description": "Учёт взаимных долгов и их погашение через циклы",
+    "owes": " должен ",
+    "confirmed": "подтвердил",
+    "waiting": "ждём",
+    "tabs": {
+      "owed_to_me": "Мне должны",
+      "i_owe": "Я должен",
+      "pending": "На подтверждении"
+    },
+    "create": {
+      "button": "Новый долг",
+      "title": "Создать запись о долге",
+      "my_role": "Я:",
+      "debtor": "Должник",
+      "creditor": "Кредитор",
+      "other_person": "Другая сторона:",
+      "select_partner": "Выберите партнёра",
+      "your_partners": "Ваши партнеры:",
+      "other": "Другие:",
+      "amount": "Сумма:",
+      "currency": "Валюта:",
+      "description": "Описание (опционально):",
+      "submit": "Создать",
+      "cancel": "Отмена"
+    },
+    "status": {
+      "draft": "Черновик",
+      "pending_confirmation": "На подтверждении",
+      "active": "Активный",
+      "partially_settled": "Частично погашен",
+      "fully_settled": "Полностью погашен",
+      "cancelled": "Отменён"
+    },
+    "item": {
+      "owes": "{debtor} должен {creditor}",
+      "settled": "{percent}% погашено",
+      "confirm": "Подтвердить",
+      "record_payment": "Записать платёж"
+    },
+    "empty": "Нет долгов в этой категории",
+    "empty_subtitle": "Всё чисто! Созданные или полученные долги появятся здесь",
+    "clearing": {
+      "title": "Циклы взаимозачёта долгов",
+      "description": "Взаимные долги можно погасить через многосторонние циклы"
+    },
+    "repay": {
+      "title": "Записать платёж",
+      "debt_info": "Долг",
+      "remaining": "Осталось",
+      "amount": "Сумма выплаты",
+      "max": "Максимум",
+      "notes": "Заметки (опционально)",
+      "submit": "Записать платёж",
+      "error_amount": "Сумма должна быть положительной",
+      "error_exceeds": "Сумма превышает остаток долга"
+    },
+    "toast": {
+      "new_pending": "Новый долг: {person} - {amount} {currency} (требуется подтверждение)",
+      "new_active": "Новый долг: {person} - {amount} {currency}",
+      "confirmed": "Долг подтверждён",
+      "fully_settled": "Долг полностью погашен: выплачено {amount} {currency}",
+      "partial_payment": "Платёж записан: {amount} {currency} (осталось {remaining} {currency})",
+      "partner_load_failed": "Не удалось загрузить профиль партнёра"
+    },
+    "ots": {
+      "pending": "Якорение в Bitcoin...",
+      "block": "Блок Bitcoin"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+subdomain: energia
+default_locale: pt
+i18n_namespace: energy
+cta_path: /energy
+from_param: energy
+problems_count: 3
+features_count: 6
+steps_count: 3
+feature_icons:
+  - sun
+  - zap
+  - shield
+  - landmark
+  - map-pin
+  - heart

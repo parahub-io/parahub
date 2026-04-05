@@ -1,0 +1,125 @@
+{
+  "rides": {
+    "title": "Viajes Compartidos",
+    "back": "Volver",
+    "not_found": "Solicitud no encontrada",
+    "login_required": "Inicia sesin para crear solicitudes de viaje",
+    "offers": "ofertas",
+    "offers_title": "Ofertas de Conductores",
+    "passengers_label": "pasajero | pasajeros",
+    "reviews": "reseas",
+    "open_chat": "Abrir chat",
+    "accept": "Aceptar",
+    "complete": "Completar viaje",
+    "cancel": "Cancelar",
+    "cancel_request": "Cancelar solicitud",
+    "confirm_cancel": "Cancelar esta solicitud de viaje?",
+    "booking_actions": "Reserva",
+    "tabs": {
+      "find_ride": "Buscar Viaje",
+      "give_ride": "Ofrecer Viaje"
+    },
+    "create": {
+      "title": "Solicitar un Viaje",
+      "origin": "Parada de recogida",
+      "origin_placeholder": "Seleccionar parada...",
+      "destination": "Parada de destino",
+      "destination_placeholder": "Seleccionar parada...",
+      "price": "Precio",
+      "passengers": "Pasajeros",
+      "note": "Nota",
+      "note_placeholder": "2 maletas, con perro, etc.",
+      "submit": "Crear Solicitud",
+      "creating": "Creando...",
+      "error": "Error al crear solicitud"
+    },
+    "my_requests": {
+      "title": "Mis Solicitudes Activas"
+    },
+    "search": {
+      "mode_nearby": "Cercanas",
+      "mode_route": "En mi ruta",
+      "find_nearby": "Buscar Solicitudes Cercanas",
+      "searching": "Buscando...",
+      "radius": "Radio de búsqueda",
+      "route_from": "Desde",
+      "route_from_placeholder": "Parada de salida...",
+      "route_to": "Hasta",
+      "route_to_placeholder": "Parada de destino...",
+      "corridor": "Ancho del corredor",
+      "search_route": "Buscar en la ruta",
+      "route_error": "No se pudo calcular la ruta",
+      "detour": "Desvío",
+      "no_results": "No se encontraron solicitudes"
+    },
+    "offer": {
+      "title": "Ofrecer Viaje",
+      "vehicle_note": "Descripcin del vehculo",
+      "vehicle_note_placeholder": "Toyota azul, matrcula XX-00-XX",
+      "seats": "Asientos disponibles",
+      "submit": "Enviar Oferta",
+      "submitting": "Enviando...",
+      "error": "Error al enviar oferta",
+      "your_offer": "Tu oferta"
+    },
+    "status": {
+      "active": "Activo",
+      "closed": "Cerrado"
+    },
+    "booking_status": {
+      "OFFERED": "Ofrecido",
+      "CONFIRMED": "Confirmado",
+      "COMPLETED": "Completado",
+      "CANCELLED": "Cancelado"
+    },
+    "review": {
+      "title": "Dejar Resea",
+      "rating": "Calificacin",
+      "comment": "Comentario (opcional)",
+      "submit": "Enviar Resea"
+    },
+    "time": {
+      "now": "justo ahora",
+      "minutes_ago": "hace {n} min",
+      "hours_ago": "hace {n}h"
+    },
+    "cta_stop": {
+      "title": "No quieres esperar al bus?",
+      "description": "Solicita un viaje compartido desde esta parada",
+      "button": "Solicitar Viaje"
+    },
+    "stop_picker": {
+      "placeholder": "Buscar parada...",
+      "no_results": "No se encontraron paradas"
+    },
+    "landing_title": "Viajes compartidos comunitarios",
+    "landing_meta": "Encuentra u ofrece viajes en paradas de transporte público. Sin comisiones, con chat cifrado. Gratis y open-source.",
+    "landing_hero_title": "Viajes compartidos — de parada a parada",
+    "landing_hero_subtitle": "Pide un viaje en tu parada, recibe ofertas de conductores y coordina todo por chat cifrado. Sin comisiones, sin intermediarios.",
+    "landing_hero_cta": "Buscar viajes",
+    "landing_problems_title": "Problemas que resolvemos",
+    "landing_problem_1": "Uber y Bolt cobran comisiones altas y rastrean cada movimiento",
+    "landing_problem_2": "El transporte público no cubre la última milla en muchas zonas",
+    "landing_problem_3": "Sin forma segura de combinar viajes con vecinos y desconocidos",
+    "landing_features_title": "Funcionalidades",
+    "landing_feature_1_title": "Parada a Parada",
+    "landing_feature_1_desc": "Todos los viajes parten y llegan a paradas de transporte público — integrado con la red GTFS",
+    "landing_feature_2_title": "Sin Comisiones",
+    "landing_feature_2_desc": "Cero tarifas de plataforma. Los pasajeros fijan el precio, los conductores ofrecen — acuerdo directo",
+    "landing_feature_3_title": "Chat Seguro",
+    "landing_feature_3_desc": "Al aceptar un viaje, se crea automáticamente un chat Matrix cifrado entre pasajero y conductor",
+    "landing_feature_4_title": "GPS Integrado",
+    "landing_feature_4_desc": "Busca viajes cerca de ti por geolocalización o a lo largo de una ruta planificada",
+    "landing_feature_5_title": "Valoraciones",
+    "landing_feature_5_desc": "Valoraciones mutuas de 1-5 estrellas tras cada viaje construyen reputación en la comunidad",
+    "landing_feature_6_title": "Gratis Para Siempre",
+    "landing_feature_6_desc": "Open-source, sin comisiones, sin publicidad. Infraestructura cívica, no un producto",
+    "landing_how_title": "Cómo funciona",
+    "landing_how_1": "Crea una solicitud de viaje — elige parada de origen y destino",
+    "landing_how_2": "Los conductores ven tu solicitud y envían ofertas con descripción del vehículo",
+    "landing_how_3": "Acepta una oferta — chat cifrado creado automáticamente para coordinación",
+    "landing_free_title": "Gratis para siempre",
+    "landing_free_desc": "Compartir coche no debería enriquecer a una corporación. Parahub conecta personas directamente, sin intermediarios.",
+    "ride_meta": "Viaje de {origin} a {destination}"
+  }
+}

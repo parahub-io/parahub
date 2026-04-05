@@ -1,0 +1,1047 @@
+{
+  "privacy": {
+    "title": "Política de Privacidade da Instância Parahub",
+    "version": "Versão",
+    "effective_date": "Data de Entrada em Vigor",
+    "intro": "Nós, {operator} (NIPC 519046161, doravante 'Operador', 'nós'), gerindo esta instância Parahub (doravante 'Serviço'), estamos comprometidos em proteger a sua privacidade e soberania digital. O Parahub foi concebido arquiteturalmente para que os utilizadores mantenham total controlo sobre os seus dados e identidade criptográfica. Esta Política de Privacidade explica que dados pessoais recolhemos, como os usamos, processamos e protegemos, bem como os seus direitos relativos aos seus dados, em conformidade com o Regulamento Geral sobre a Proteção de Dados (RGPD).",
+    "sections": {
+      "controller": {
+        "title": "Responsável pelo Tratamento de Dados",
+        "text": "O responsável pelo tratamento dos seus dados pessoais é:",
+        "email_label": "E-mail para questões sobre dados"
+      },
+      "data_collected": {
+        "title": "Que Dados Recolhemos e Processamos",
+        "intro": "O Parahub foi concebido com foco na minimização de dados e no controlo do utilizador.",
+        "provided": {
+          "title": "Dados que fornece diretamente:",
+          "account_label": "Conta",
+          "account": "O seu alias de rede legível por humanos (HNA, como {example}), palavra-passe hash (se usar autenticação por palavra-passe).",
+          "profile_label": "Perfil",
+          "profile": "Qualquer informação que escolha incluir no seu perfil Parahub (por exemplo, nome, descrição, contactos, competências). Você controla a visibilidade destes dados.",
+          "pgp_label": "Chave Pública PGP",
+          "pgp": "Se carregar ou gerar uma, será associada ao seu perfil e disponível para outros utilizadores para encriptar mensagens para si e verificar as suas assinaturas. {important}",
+          "pgp_important": "Nunca temos acesso à sua chave PGP privada.",
+          "content_label": "Conteúdo",
+          "content": "Ofertas, Procuras, mensagens em chats Matrix públicos ou de grupo (se não forem E2EE), detalhes de transações, avaliações e outro conteúdo que crie na plataforma. As mensagens em chats Matrix E2EE não nos são acessíveis.",
+          "wot": "Informação sobre quem verificou e quem o verificou a si."
+        },
+        "automatic": {
+          "title": "Dados recolhidos automaticamente:",
+          "logs_label": "Registos do Sistema",
+          "logs": "Endereço IP, tipo de navegador, hora de acesso, páginas visitadas. Estes dados são usados para segurança, resolução de problemas e análise de uso do serviço (de forma agregada e anónima sempre que possível). Período de retenção de logs: {days} dias.",
+          "session_label": "Cookies de Sessão",
+          "session": "Para manter a sua sessão iniciada.",
+          "matrix": "O seu ID de Utilizador Matrix ({example}) para funcionalidade de chat."
+        },
+        "not_collected": {
+          "title": "Dados que NÃO recolhemos intencionalmente:",
+          "sensitive": "Não recolhemos dados pessoais sensíveis (origem racial ou étnica, opiniões políticas, crenças religiosas, dados de saúde, etc.) a menos que os inclua voluntária e explicitamente em partes públicas do seu perfil ou conteúdo.",
+          "location": "Os dados de localização são processados com ofuscação de privacidade (aproximação a um raio de 100m). A geolocalização precisa nunca é armazenada ou partilhada sem o seu consentimento explícito.",
+          "crypto": "As chaves privadas criptográficas (PGP) são geradas e armazenadas exclusivamente no seu dispositivo. O servidor nunca tem acesso às suas chaves privadas — apenas as chaves públicas são armazenadas. Este é um princípio arquitetural fundamental, não uma escolha de política."
+        }
+      },
+      "legal_basis": {
+        "title": "Base Legal para o Processamento de Dados (ao abrigo do RGPD)",
+        "consent_label": "Consentimento",
+        "consent": "Para processar dados que fornece voluntariamente (por exemplo, preenchimento de perfil, publicação de conteúdo). Pode retirar o seu consentimento a qualquer momento.",
+        "contract_label": "Contrato",
+        "contract": "Para fornecer-lhe o Serviço e cumprir as nossas obrigações ao abrigo do Acordo de Utilizador (por exemplo, autenticação, facilitação de comunicações entre utilizadores).",
+        "legitimate_label": "Interesses Legítimos",
+        "legitimate": "Para garantir a segurança do Serviço, prevenção de fraude, análise de uso para melhoria do Serviço, registo.",
+        "legal_label": "Obrigações Legais",
+        "legal": "Se formos obrigados a processar dados por lei."
+      },
+      "usage": {
+        "title": "Como Usamos os Seus Dados",
+        "purposes": [
+          "Para fornecer, apoiar e melhorar o Serviço.",
+          "Para autenticação e gestão de conta.",
+          "Para facilitar a comunicação entre utilizadores (incluindo chats Matrix).",
+          "Para o sistema de reputação e funcionalidade Web of Trust.",
+          "Para personalizar a sua experiência (se fornecer dados e configurações relevantes).",
+          "Para garantir a segurança e prevenir abusos.",
+          "Para análise e estatísticas (preferencialmente de forma anónima).",
+          "Para responder às suas questões e comunicar consigo."
+        ]
+      },
+      "sharing": {
+        "title": "Partilha de Dados com Terceiros e Federação",
+        "federation_label": "Federação",
+        "federation": "O Parahub é um sistema federado. Ao interagir com utilizadores noutras instâncias Parahub ou Matrix, alguns dos seus dados públicos (HNA, chave PGP pública, perfil público, conteúdo público) podem ser transmitidos para essas instâncias.",
+        "matrix": "Se esta instância usar um servidor Matrix gerido por terceiros, ou se comunicar com utilizadores noutros servidores Matrix, os dados são transmitidos de acordo com o protocolo Matrix.",
+        "legal_label": "Requisitos Legais",
+        "legal": "Podemos divulgar os seus dados se exigido por lei ou em resposta a um pedido legal válido das autoridades (seguindo os procedimentos aplicáveis).",
+        "no_sale": "Não vendemos os seus dados pessoais."
+      },
+      "storage": {
+        "title": "Armazenamento e Segurança de Dados",
+        "measures": "Implementamos medidas técnicas e organizacionais razoáveis para proteger os seus dados pessoais contra acesso não autorizado, modificação, divulgação ou destruição (por exemplo, HTTPS, encriptação de palavras-passe, atualizações regulares de software, acesso restrito aos dados para funcionários).",
+        "location": "Os dados são armazenados em servidores localizados na União Europeia.",
+        "retention": "Os períodos de retenção de dados são determinados pelo seu propósito e requisitos legais. Os dados não são armazenados por mais tempo do que o necessário para os fins para os quais foram recolhidos. Pode solicitar a eliminação dos seus dados (ver Os Seus Direitos)."
+      },
+      "rights": {
+        "title": "Os Seus Direitos (ao abrigo do RGPD)",
+        "intro": "Tem os seguintes direitos relativos aos seus dados pessoais:",
+        "access_label": "Direito de Acesso",
+        "access": "Solicitar informações sobre que dados seus processamos.",
+        "rectification_label": "Direito de Retificação",
+        "rectification": "Solicitar a correção de dados incorretos ou incompletos.",
+        "erasure_label": "Direito ao Apagamento",
+        "erasure": "Solicitar a eliminação dos seus dados sob certas condições.",
+        "restriction_label": "Direito à Limitação do Tratamento",
+        "restriction": "Solicitar a restrição do processamento dos seus dados.",
+        "portability_label": "Direito à Portabilidade dos Dados",
+        "portability": "Receber os seus dados num formato estruturado, legível por máquina e transmiti-los a outro responsável.",
+        "object_label": "Direito de Oposição",
+        "object": "Opor-se ao processamento dos seus dados com base nos nossos interesses legítimos.",
+        "withdraw_label": "Direito de Retirar o Consentimento",
+        "withdraw": "Se o processamento se basear no consentimento, pode retirá-lo a qualquer momento.",
+        "complaint_label": "Direito de Reclamação",
+        "complaint": "Apresentar uma reclamação junto de uma autoridade supervisora de proteção de dados.",
+        "contact": "Para exercer estes direitos, contacte-nos através de {email}."
+      },
+      "cookies": {
+        "title": "Cookies",
+        "text": "Usamos apenas cookies de sessão necessários para autenticação. Não usamos cookies de rastreamento ou publicidade."
+      },
+      "changes": {
+        "title": "Alterações à Política de Privacidade",
+        "text": "Podemos atualizar esta Política de Privacidade. Notificaremos sobre alterações significativas publicando a nova versão no Serviço. Recomendamos que verifique esta página regularmente."
+      },
+      "contact": {
+        "title": "Informações de Contacto",
+        "text": "Se tiver questões sobre esta Política de Privacidade, contacte-nos:",
+        "email_label": "E-mail para questões sobre dados"
+      }
+    }
+  },
+  "terms": {
+    "title": "Termos de Serviço da Instância Parahub",
+    "version": "Versão",
+    "effective_date": "Data de Entrada em Vigor",
+    "important_notice": {
+      "title": "IMPORTANTE: LEIA COM ATENÇÃO!",
+      "text": "Ao utilizar esta instância Parahub gerida por __OPERATOR__ você aceita plena e incondicionalmente estes Termos de Serviço bem como o __MANIFESTO__, o __CODE_OF_CONDUCT__ e os __ESTATUTOS__. Se não concordar com estes termos não deve utilizar o Serviço.",
+      "operator": "Parahub - Associação",
+      "manifesto": "Manifesto Parahub",
+      "code_of_conduct": "Código de Conduta Parahub",
+      "estatutos": "Estatutos da Associação"
+    },
+    "sections": {
+      "about": {
+        "title": "1. Sobre o Serviço Parahub",
+        "text": "O Parahub é uma plataforma de software descentralizada, federada e de código aberto, operada pela Parahub - Associação (NIPC 519046161), uma associação de direito privado sem fins lucrativos de âmbito internacional. A plataforma destina-se à cooperação direta, permuta, comunicações e ajuda mútua entre utilizadores. Este Serviço é uma das instâncias (nós) independentes da rede Parahub. O Operador fornece acesso à funcionalidade desta instância. A plataforma nunca detém, armazena ou gere fundos de utilizadores e não atua como intermediário financeiro. A Associação rege-se pelos seus Estatutos, disponíveis na página /estatutos."
+      },
+      "acceptance": {
+        "title": "2. Aceitação do Manifesto, Código de Conduta e Estatutos",
+        "item1": "Ao utilizar o Serviço, o Utilizador confirma que leu, compreendeu e aceita plenamente os princípios descritos no Manifesto Parahub.",
+        "item2": "O Utilizador concorda em cumprir o Código de Conduta Parahub em todas as suas interações através do Serviço.",
+        "item3": "O Utilizador reconhece a existência dos Estatutos da Associação, que definem o enquadramento legal, a governação e os fins da Associação Parahub."
+      },
+      "responsibilities": {
+        "title": "3. Responsabilidades do Utilizador",
+        "keys": {
+          "title": "As Suas Chaves, A Sua Responsabilidade",
+          "text": "O Utilizador assume total e exclusiva responsabilidade pela criação, armazenamento seguro e uso das suas chaves criptográficas (por exemplo, PGP). O Operador {never} solicita ou tem acesso às chaves privadas do Utilizador. A perda de uma chave privada pode resultar na perda irreversível de acesso a determinadas funcionalidades ou dados assinados com essa chave.",
+          "never": "nunca"
+        },
+        "signatures": {
+          "title": "Confiança em Assinaturas Eletrónicas (Assinaturas Digitais/PGP)",
+          "text": "O Utilizador reconhece e concorda que as ações confirmadas pela sua assinatura criptográfica (por exemplo, PGP) dentro do Serviço representam a sua intenção e podem ter consequências legais ou reputacionais de acordo com as regras do sistema Parahub e acordos entre utilizadores."
+        },
+        "content": {
+          "title": "Conteúdo e Interações",
+          "text": "O Utilizador assume total responsabilidade por todo o conteúdo que publica, transmite ou recebe através do Serviço, bem como por todas as suas interações com outros utilizadores."
+        },
+        "compliance": {
+          "title": "Conformidade Legal",
+          "text": "O Utilizador concorda em usar o Serviço em estrita conformidade com as leis aplicáveis da sua jurisdição e da jurisdição da localização do Operador."
+        },
+        "security": {
+          "title": "Segurança da Conta",
+          "text": "O Utilizador é responsável por manter a confidencialidade das suas credenciais de acesso ao Serviço."
+        }
+      },
+      "disclaimer": {
+        "title": "4. Isenção de Garantias e Responsabilidade do Operador",
+        "as_is": {
+          "title": "Serviço 'TAL COMO ESTÁ'",
+          "text": "O Serviço é fornecido 'tal como está' e 'conforme disponível'. O Operador não fornece garantias expressas ou implícitas relativamente ao Serviço, incluindo mas não limitado a garantias de adequação a fins específicos, operação ininterrupta, ausência de erros, vírus ou outros componentes nocivos."
+        },
+        "no_liability": {
+          "title": "ISENÇÃO DE RESPONSABILIDADE DO OPERADOR",
+          "item1": "O Operador {is_not_liable} por quaisquer danos diretos, indiretos, incidentais, especiais, consequenciais ou punitivos, incluindo mas não limitado a perda de lucros, perda de dados, danos reputacionais, decorrentes do uso ou incapacidade de usar o Serviço.",
+          "item2": "O Operador {is_not_party} em transações, acordos ou disputas entre Utilizadores do Serviço. Toda a responsabilidade pela conclusão, execução e resolução de disputas de transações recai exclusivamente sobre os Utilizadores.",
+          "item3": "O Operador {does_not_control} pelo conteúdo criado pelos Utilizadores, sua legalidade, precisão ou fiabilidade.",
+          "item4": "O Operador {is_not_responsible} por ações ou omissões de outros Utilizadores do Serviço.",
+          "item5": "O Operador {is_not_responsible} pelo funcionamento de serviços externos integrados com o Parahub (por exemplo, Matrix, Lightning Network, Gitea) se forem geridos por terceiros.",
+          "is_not_liable": "não é responsável",
+          "is_not_party": "não é parte",
+          "does_not_control": "não controla e não é responsável",
+          "is_not_responsible": "não é responsável"
+        },
+        "max_liability": {
+          "title": "Responsabilidade Máxima",
+          "text": "Se, apesar do acima exposto, for determinado que o Operador tem alguma responsabilidade, o valor agregado de tal responsabilidade não pode exceder o valor simbólico de 1 (um) euro ou o valor mínimo permitido por lei."
+        }
+      },
+      "operator_rights": {
+        "title": "5. Direitos do Operador",
+        "intro": "O Operador reserva-se o direito de:",
+        "item1": "Modificar ou descontinuar o Serviço (ou qualquer parte dele) temporária ou permanentemente, com ou sem aviso.",
+        "item2": "Estabelecer práticas gerais e limites de uso do Serviço.",
+        "item3": "Remover ou recusar a publicação de qualquer conteúdo ao seu critério, especialmente em caso de violação deste Acordo, Manifesto ou Código de Conduta.",
+        "item4": "Suspender ou terminar o acesso do Utilizador ao Serviço por violação deste Acordo, Manifesto, Código de Conduta ou por outras razões válidas."
+      },
+      "modifications": {
+        "title": "6. Modificações do Acordo",
+        "text": "O Operador pode modificar este Acordo a qualquer momento. A nova versão do Acordo entra em vigor a partir do momento da sua publicação no Serviço, salvo especificação em contrário. O uso continuado do Serviço após as alterações significa o acordo total do Utilizador com a nova versão do Acordo."
+      },
+      "law": {
+        "title": "7. Lei Aplicável e Resolução de Disputas",
+        "text": "Este Acordo é regido e interpretado de acordo com as leis de Portugal. Todas as disputas decorrentes ou relacionadas com este Acordo serão resolvidas através de negociações. Se não for possível chegar a acordo, as disputas serão submetidas ao tribunal competente na localização do Operador."
+      },
+      "contact": {
+        "title": "8. Informações de Contacto",
+        "text": "Para todas as questões relacionadas com este Acordo, por favor contacte: {email}",
+        "email": "legal{'@'}parahub.io"
+      }
+    }
+  },
+  "manifest": {
+    "title": "Manifesto da Civilização Unida",
+    "principles": {
+      "1": {
+        "name": "Respeito pela Vida",
+        "text": "Todo ser vivo tem valor. Partimos da não-violência, cuidamos das pessoas, dos animais e do meio ambiente."
+      },
+      "2": {
+        "name": "Liberdade de Escolha",
+        "text": "Toda pessoa tem o direito de escolher seu caminho, crenças e modo de vida — desde que não viole os direitos dos outros."
+      },
+      "3": {
+        "name": "Compaixão e Ajuda Mútua",
+        "text": "Nos esforçamos para nos compreender mutuamente e ajudar os necessitados. O apoio e o altruísmo são mais importantes que a competição."
+      },
+      "4": {
+        "name": "Responsabilidade por Nossas Ações",
+        "text": "Liberdade sem responsabilidade leva à destruição. Agimos conscientemente, consumimos eticamente, cuidamos da natureza e somos honestos em nossas ações."
+      },
+      "5": {
+        "name": "Conhecimento e Desenvolvimento",
+        "text": "A ciência e a sabedoria não se contradizem, mas se complementam. Aprendemos, pensamos criticamente, estamos abertos ao novo e crescemos espiritualmente."
+      },
+      "6": {
+        "name": "Equilíbrio",
+        "text": "Buscamos harmonia entre o pessoal e o público, o material e o espiritual, o progresso e a natureza. Evitamos extremos e fanatismo."
+      },
+      "7": {
+        "name": "Unidade na Diversidade",
+        "text": "Respeitamos a cultura e as tradições de cada povo, ao mesmo tempo que aderimos a princípios éticos comuns: somos diferentes, mas iguais em dignidade e direitos."
+      }
+    }
+  },
+  "imprint": {
+    "title": "Informação Legal / Imprint",
+    "intro": "Informação exigida por lei (Impressum / Legal Notice)",
+    "operator": {
+      "title": "Operador do Serviço",
+      "email_label": "Questões legais",
+      "support_label": "Suporte"
+    },
+    "responsible": {
+      "title": "Responsável pelo Conteúdo",
+      "text": "Parahub - Associação, Portugal"
+    },
+    "disclaimer": {
+      "title": "Isenção de Responsabilidade",
+      "content": {
+        "title": "Isenção de Responsabilidade sobre o Conteúdo",
+        "text": "Apesar do controle cuidadoso do conteúdo, não assumimos qualquer responsabilidade pelo conteúdo de links externos. Os operadores das páginas vinculadas são os únicos responsáveis pelo seu conteúdo."
+      },
+      "links": {
+        "title": "Links Externos",
+        "text": "O nosso site contém links para sites externos de terceiros sobre cujo conteúdo não temos controle. Portanto, não podemos aceitar qualquer responsabilidade por este conteúdo externo. O respetivo fornecedor ou operador das páginas é sempre responsável pelo conteúdo das páginas vinculadas."
+      }
+    },
+    "contact": {
+      "title": "Informações de Contato",
+      "text": "Para questões, entre em contato:",
+      "legal": "Assuntos legais",
+      "support": "Suporte técnico",
+      "privacy": "Privacidade de dados",
+      "conduct": "Violações do Código de Conduta"
+    }
+  },
+  "about": {
+    "title": "Sobre",
+    "android_app": "Android",
+    "meta": {
+      "description": "Parahub — plataforma federada de código aberto para cooperação P2P, comércio e comunicações. Sem taxas, sem intermediários, encriptação do lado do cliente."
+    },
+    "toc": {
+      "mission": "Missão",
+      "features": "Recursos",
+      "barter": "Escambo",
+      "arbitration": "Arbitragem",
+      "values": "Valores",
+      "contact": "Contacto"
+    },
+    "values": {
+      "title": "Nossos Valores"
+    },
+    "mission": {
+      "intro": "Parahub opera na vanguarda da descentralização, abertura e proteção dos direitos digitais — resolvendo problemas que só vão se intensificar.",
+      "success_depends": "O sucesso depende da capacidade de:",
+      "point1": "Tornar as tecnologias acessíveis aos usuários comuns",
+      "point2": "Construir uma comunidade ativa",
+      "point3": "Encontrar um modelo de financiamento sustentável",
+      "point4": "Provar o valor prático das alternativas",
+      "manifesto": {
+        "line1": "Parahub não é uma empresa, mas um protocolo para cooperação planetária.",
+        "line2": "Construção de longo prazo de infraestrutura criticamente importante para um futuro digital mais livre e justo.",
+        "line3": "Materialização tecnológica dos princípios de resistência não violenta de Gandhi e Tolstói através da autossuficiência digital e cooperação direta."
+      }
+    },
+    "problem": {
+      "title": "O Problema",
+      "text": "As plataformas modernas cobram comissões de 15-30% (Amazon, Upwork, Airbnb), exploram os seus dados, censuram conteúdo e criam dependência de intermediários."
+    },
+    "solution": {
+      "title": "A Solução",
+      "text": "Parahub é uma infraestrutura descentralizada para interação P2P direta. Negocie, troque, colabore diretamente. Logística planetária. Criptografia em vez de confiança na plataforma."
+    },
+    "features": {
+      "title": "Características Principais",
+      "marketplace": {
+        "title": "Mercado P2P",
+        "desc": "Compre e venda diretamente. Sem comissão da plataforma."
+      },
+      "barter": {
+        "title": "Escambo Multipartidário",
+        "desc": "Troque sem dinheiro, mesmo sem correspondência direta. Cadeias de até 5 participantes."
+      },
+      "crypto": {
+        "title": "Criptografia do Cliente",
+        "desc": "As chaves PGP são criadas no browser e nunca saem do dispositivo. Ninguém lê os seus dados."
+      },
+      "reputation": {
+        "title": "Rede de Confiança",
+        "desc": "Verificado por três pessoas reais da comunidade. Reputação que não se compra."
+      },
+      "payments": {
+        "title": "Pagamentos Flexíveis",
+        "desc": "Bitcoin, Lightning, transferência bancária ou dinheiro — decidem entre si."
+      },
+      "maps": {
+        "title": "Mapas e Logística",
+        "desc": "Todo o comércio está ligado ao mapa. Pesquisa geográfica, pontos de levantamento, rotas de entrega."
+      },
+      "mesh": {
+        "title": "Rede Mesh",
+        "desc": "Configure um router e ele passa a fazer parte da rede. Wi-Fi gratuito para vizinhos, ganhe pelo tráfego."
+      },
+      "arbitration": {
+        "title": "Resolução de Litígios",
+        "desc": "Árbitros independentes da comunidade tratam negócios contestados. Resolução sem tribunais."
+      },
+      "governance": {
+        "title": "Democracia Líquida",
+        "desc": "Vote em questões da plataforma ou delegue o seu voto a alguém de confiança."
+      },
+      "ads": {
+        "title": "Publicidade P2P",
+        "desc": "Os anunciantes pagam diretamente a quem vê. Sem intermediário da plataforma."
+      },
+      "events": {
+        "title": "Eventos e Encontros",
+        "desc": "Organize encontros offline, online ou híbridos. Os participantes recebem automaticamente um chat de grupo."
+      },
+      "debts": {
+        "title": "Registo de Dívidas",
+        "desc": "Registe dívidas mútuas na carteira. Confirmação de ambas as partes. Podem ser liquidadas por troca."
+      },
+      "directory": {
+        "title": "Diretório de Negócios",
+        "desc": "Estabelecimentos com moradas, horários, direção pública (governança) e contactos no mapa."
+      },
+      "contracts": {
+        "title": "Contratos P2P",
+        "desc": "Assine acordos criptograficamente. O documento existe independentemente da plataforma."
+      },
+      "zenith": {
+        "title": "Assistente IA",
+        "desc": "Assistente AI pessoal que conhece os seus dados e contactos."
+      },
+      "opensky": {
+        "title": "Imagens Aéreas",
+        "desc": "Carregue imagens de drone da sua área. Aparecem automaticamente como camada no mapa."
+      },
+      "presence": {
+        "title": "Presença no Mapa",
+        "desc": "Veja quais contactos estão por perto agora mesmo. As coordenadas só são reveladas a si."
+      },
+      "psycho": {
+        "title": "Compatibilidade de Personalidade",
+        "desc": "A IA analisa a sua personalidade e cria um perfil público curto para compatibilidade."
+      },
+      "jitsi": {
+        "title": "Videochamadas",
+        "desc": "Videochamadas encriptadas dentro da plataforma. Servidor próprio — sem serviços de terceiros."
+      },
+      "energy": {
+        "title": "Parahub Energy",
+        "desc": "Venda P2P de excedentes solares a vizinhos. O produtor ganha 3× mais, o vizinho paga menos."
+      },
+      "federation": {
+        "title": "Federação",
+        "desc": "Lance a sua própria instância Parahub e mantenha-se conectado. Registo Git com assinaturas PGP e ancoragem em Bitcoin."
+      },
+      "transit": {
+        "title": "Transportes Públicos",
+        "desc": "Autocarros em tempo real no mapa. Dados GTFS para múltiplas cidades com milhares de rotas e paragens."
+      },
+      "carpool": {
+        "title": "Boleias",
+        "desc": "Boleias em paragens de transportes. Peça boleia, encontre companheiro, converse via Matrix."
+      },
+      "tickets": {
+        "title": "Bilhetes Lightning",
+        "desc": "Compre bilhetes de transporte e eventos com Bitcoin Lightning. Pagamento direto ao operador, sem intermediários."
+      },
+      "logistics": {
+        "title": "P-Hub Logística",
+        "desc": "Qualquer estabelecimento torna-se ponto de recolha/entrega. Rastreio de encomendas, ofertas de transportadores, códigos QR. Sem custódia."
+      },
+      "driver": {
+        "title": "Modo Condutor",
+        "desc": "Condutores verificados transmitem GPS pelo navegador. Passageiros veem-nos no mapa junto com feeds oficiais."
+      },
+      "dispatch": {
+        "title": "Despacho de Frota",
+        "desc": "Atribuir rastreadores GPS a rotas. Snap de paragens, gestão de trânsito, CRUD de rotas com exportação GTFS."
+      },
+      "treasury": {
+        "title": "Orçamento Participativo",
+        "desc": "A comunidade decide gastos por votação mediana. Épocas, sliders, auditoria Merkle."
+      },
+      "wallet": {
+        "title": "Carteira Lightning",
+        "desc": "Carteira Bitcoin não-custodial no navegador. Chaves nunca saem do dispositivo."
+      },
+      "income": {
+        "title": "Receitas Transparentes",
+        "desc": "Doações voluntárias (0/0,1/1%). Transparência total nas receitas e despesas da associação."
+      },
+      "property": {
+        "title": "A Minha Casa",
+        "desc": "Registe a sua propriedade e associe dispositivos IoT, contadores de energia e servidores de domótica."
+      },
+      "condo": {
+        "title": "Condomínio",
+        "desc": "Gestão de edifícios partilhados: frações, quotas, votação ponderada por permilagem. Conforme a Lei 8/2022."
+      },
+      "ha": {
+        "title": "Home Assistant",
+        "desc": "Ligue o seu servidor Home Assistant. Descubra dispositivos, monitorize sensores, controle interruptores pelo Parahub."
+      },
+      "sos": {
+        "title": "ParaSOS",
+        "desc": "Ajuda mútua de emergência entre vizinhos. Alertas SOS com um toque para o seu grupo de segurança com push, sirene e localização."
+      }
+    },
+    "principles": {
+      "title": "Os Nossos Princípios",
+      "noEscrow": "Nunca bloqueamos fundos",
+      "clientCrypto": "Criptografia do cliente",
+      "openSource": "Código Aberto",
+      "noFees": "Sem comissões de plataforma",
+      "directDemocracy": "Democracia direta"
+    },
+    "quote": "Parahub não é uma empresa. É um protocolo para cooperação planetária. Materialização tecnológica dos princípios de resistência não violenta de Gandhi e Tolstói através da autossuficiência digital e cooperação direta.",
+    "hero": {
+      "subtitle": "Infraestrutura federada para cooperação, comércio e comunicações P2P diretas",
+      "tagline": "Logística planetária • Sem comissões • Código aberto"
+    },
+    "barterSystem": {
+      "title": "Mecanismo de Escambo",
+      "why": {
+        "title": "Por Que Escambo?",
+        "text": "Reduz as barreiras de entrada (não é necessário dinheiro/conta bancária), localiza a economia, reduz a dependência de moedas fiduciárias. Especialmente útil em regiões de crise ou para quem não tem acesso a serviços bancários."
+      },
+      "howItWorks": {
+        "title": "Como Funciona",
+        "step1": "Crie bens/serviços com opção 'aberto a escambo'",
+        "step2": "Especifique o que deseja receber (categorias, palavras-chave)",
+        "step3": "O sistema procura ciclos de troca via Neo4j:",
+        "step3_bilateral": "Bilateral: A ↔ B (escambo clássico)",
+        "step3_trilateral": "Trilateral: A → B → C → A",
+        "step3_multilateral": "Até 5 participantes: A → B → C → D → E → A",
+        "step4": "O sistema sugere opções, você escolhe a adequada",
+        "step5": "Execução através da reputação — sem garantia, sem bloqueio de fundos"
+      },
+      "example": {
+        "title": "Exemplo: Escambo de Três Vias",
+        "alice": "Alice:",
+        "alice_offers": "desenvolvimento web",
+        "alice_wants": "serviços jurídicos",
+        "bob": "Bob:",
+        "bob_offers": "serviços jurídicos",
+        "bob_wants": "design de logotipo",
+        "vera": "Carol:",
+        "vera_offers": "design de logotipo",
+        "vera_wants": "desenvolvimento web",
+        "result": "✅ Ciclo encontrado! Todos recebem o que querem sem dinheiro.",
+        "offers_label": "oferece",
+        "wants_label": "quer"
+      }
+    },
+    "arbitration": {
+      "title": "Resolução de Litígios e Arbitragem",
+      "intro": "Parahub oferece um sistema único de arbitragem P2P descentralizado com dois modos opcionais: baseado em reputação (padrão) para velocidade e simplicidade, ou garantia multisig Bitcoin para garantias tecnológicas. Os utilizadores escolhem o nível de proteção por negócio.",
+      "modes": {
+        "title": "Dois Modos de Operação",
+        "reputation": {
+          "title": "Modo Reputação (Padrão)",
+          "desc": "Grátis, rápido, universal. Baseado em Web of Trust e sistema de reputação. Adequado para utilizadores experientes e pequenas quantias.",
+          "point1": "Sem taxas de blockchain, liquidação instantânea",
+          "point2": "Funciona com qualquer método de pagamento (fiat, cripto, escambo)",
+          "point3": "Proteção via reputação + escalação para tribunais tradicionais"
+        },
+        "multisig": {
+          "title": "Bitcoin Multisig (Opcional)",
+          "desc": "Garantia multisig 2-de-3 com garantia matemática. Ideal para iniciantes, grandes quantias e negócios transfronteiriços.",
+          "point1": "Fundos bloqueados até ambas as partes concordarem ou árbitro decidir",
+          "point2": "Execução automática on-chain, impossível ignorar",
+          "point3": "Global, sem fronteiras, non-custodial (plataforma nunca controla chaves)"
+        }
+      },
+      "escalation": {
+        "title": "Escalação de Três Níveis",
+        "level1": {
+          "title": "Negociação Direta",
+          "desc": "As partes resolvem litígio via chat Matrix criptografado usando contratos assinados por PGP do Gitea. ~70% taxa de sucesso."
+        },
+        "level2": {
+          "title": "Arbitragem P2P",
+          "desc": "Utilizadores verificados podem tornar-se árbitros. Para modo reputação: decisão consultiva. Para multisig: execução tecnológica via blockchain."
+        },
+        "level3": {
+          "title": "Sistema Legal Tradicional",
+          "desc": "Se insatisfeito, escalar para arbitragem institucional (CAC/CICAP) ou tribunais. Contratos PGP e dados blockchain servem como prova legal."
+        }
+      }
+    },
+    "wotSystem": {
+      "title": "Web of Trust",
+      "problem": {
+        "title": "O problema: em quem confiar?",
+        "text": "É trivialmente fácil criar milhares de contas falsas online. As plataformas convencionais resolvem isso com verificação centralizada — passaporte, telefone, cartão bancário. Isso significa entregar seus dados a um intermediário corporativo. Parahub segue um caminho diferente."
+      },
+      "how": {
+        "title": "Como funciona o Web of Trust",
+        "step1": "Conheça um membro verificado da comunidade — pessoalmente ou por contactos mútuos",
+        "step2": "Peça-lhe para verificar o seu perfil no Parahub",
+        "step3": "Com 3 confirmações de pessoas diferentes, torna-se um participante verificado",
+        "step4": "Agora pode verificar outros — e é responsável por quem recomenda"
+      },
+      "stake": {
+        "title": "Pele no jogo",
+        "text": "Verificar não é apenas um clique. Se uma conta que verificou for falsa, os três verificadores são banidos automaticamente. Isso cria um incentivo real para verificar apenas quem conhece pessoalmente."
+      },
+      "unlocks": {
+        "title": "O que a verificação desbloqueia",
+        "basic": "Sem verificação: navegar em anúncios, ler a plataforma",
+        "wot1": "1+ verificação: criar anúncios, escambo, mensagens diretas",
+        "wot2": "2+ verificações: catálogo de negócios, organizar eventos, publicidade P2P",
+        "wot3": "3+ verificações: acesso total, possibilidade de ser árbitro"
+      }
+    },
+    "adsSystem": {
+      "title": "Publicidade P2P",
+      "difference": {
+        "title": "O modelo invertido",
+        "text": "Na publicidade tradicional, o dinheiro flui: anunciante → plataforma → em algum lugar. O utilizador é o produto. No Parahub, o anunciante paga o espectador diretamente em satoshis via Lightning Network. A plataforma coordena, mas nunca retém fundos."
+      },
+      "compare": {
+        "traditional": "Publicidade tradicional",
+        "trad_flow": "Anunciante → Plataforma → Utilizador (0 ₿)",
+        "para_flow": "Anunciante → Espectador (satoshis)"
+      },
+      "viewer": {
+        "title": "Para espectadores: ganhe satoshis",
+        "step1": "Conecte uma carteira Lightning nas definições do perfil",
+        "step2": "Defina interesses e localização — isso determina que anúncios vê",
+        "step3": "Abra o feed de anúncios, leia um anúncio (3 segundos)",
+        "step4": "Clique em 'Receber X sats' — pagamento instantâneo na sua carteira"
+      },
+      "advertiser": {
+        "title": "Para anunciantes: pague por visualizações reais",
+        "step1": "Crie uma campanha e defina o orçamento em satoshis",
+        "step2": "Configure o público: idade, género, interesses, raio geográfico",
+        "step3": "Defina a recompensa por visualização (ex. 10–100 satoshis)",
+        "step4": "O orçamento é gasto apenas em visualizações reais — sem taxas ocultas"
+      },
+      "flow": {
+        "title": "Fluxo de pagamento",
+        "text": "Parahub não cobra percentagem das visualizações. Quando o espectador reclama a recompensa, o servidor executa um pagamento LNURL diretamente da carteira Lightning do anunciante para a do espectador."
+      }
+    },
+    "meshSystem": {
+      "title": "Rede Mesh",
+      "what": {
+        "title": "O princípio da torradeira",
+        "text": "Um router mesh Parahub funciona como uma torradeira — ligue e esqueça. Instale o firmware num router OpenWrt compatível e ele se configura sozinho, conecta-se aos nós próximos e atualiza-se de noite. Sem configuração manual."
+      },
+      "networks": {
+        "title": "Duas redes num só router",
+        "public": "Rede aberta sem senha. Velocidade limitada a 512 kbps. O tráfego dos convidados passa por um túnel VPN: não é responsável pelas atividades deles na internet (princípio 'Mere Conduit').",
+        "private": "A sua rede privada WPA3 com velocidade total. Acesso a dispositivos domésticos, NAS, DLNA. Isolada dos convidados, partilha o mesmo canal mesh via VLAN separada."
+      },
+      "earn": {
+        "title": "Ganhe com o tráfego dos convidados",
+        "text": "Os convidados têm acesso básico gratuito. Para mais velocidade, digitalizam um QR code e pagam satoshis via Lightning. O router levanta o limite instantaneamente. Recebe o pagamento sem qualquer intervenção."
+      },
+      "global": {
+        "title": "Mesh local e global",
+        "text": "Nós próximos conectam-se automaticamente via Wi-Fi pelo batman-adv — roaming sem costuras, DLNA unificado. Nós em cidades diferentes conectam via Yggdrasil sobre a internet normal — automaticamente, sem reencaminhamento de portas."
+      }
+    },
+    "condoSystem": {
+      "title": "Gestão de Condomínios",
+      "intro": "Gestão digital gratuita para edifícios residenciais. Frações, quotas, assembleias ponderadas — tudo o que um condomínio português precisa ao abrigo da Lei 8/2022, sem pagar por software proprietário.",
+      "permilagem": {
+        "title": "Votação por permilagem",
+        "text": "Cada fração tem uma quota de propriedade em permilagem (‰). Os votos nas assembleias são ponderados pela propriedade — um apartamento de 200‰ conta o dobro de uma garagem de 100‰. A soma deve ser exatamente 1000‰."
+      },
+      "quotas": {
+        "title": "Registo de quotas",
+        "text": "As quotas mensais são calculadas proporcionalmente à permilagem de cada fração. O administrador regista pagamentos — o Parahub regista quem pagou, não como. Sem processamento de pagamentos, sem custódia."
+      },
+      "assembly": {
+        "title": "Assembleias digitais",
+        "text": "A Lei 8/2022 legalizou a votação eletrónica para condomínios portugueses. Crie uma votação ponderada, os proprietários elegíveis votam com o peso da sua permilagem, os resultados são auditáveis."
+      },
+      "reuse": {
+        "title": "Construído sobre sistemas existentes",
+        "text": "Sem necessidade de nova aplicação. Um condomínio é um Estabelecimento com governança ponderada (Democracia Líquida), orçamento participativo (Tesouraria) e chat de grupo encriptado (Matrix). Todos os sistemas existentes, reutilizados."
+      }
+    },
+    "voiceChat": {
+      "title": "Chat por Voz",
+      "intro": "Fale com assistentes de IA usando a sua voz. Faça perguntas, peça ajuda a navegar na plataforma ou solicite informações — tudo através de conversa natural no navegador.",
+      "howItWorks": {
+        "title": "Como funciona",
+        "step1": "Abra a página de chat por voz e permita o acesso ao microfone.",
+        "step2": "Fale a sua pergunta ou pedido naturalmente.",
+        "step3": "O assistente processa a sua voz, elabora a resposta e responde com áudio.",
+        "step4": "Continue a conversa — o contexto é mantido durante 24 horas."
+      },
+      "history": {
+        "title": "Memória de 24 horas",
+        "text": "Regresse a qualquer momento dentro de 24 horas e o assistente lembra da conversa anterior. Não precisa repetir-se."
+      },
+      "controls": {
+        "title": "Controlo total de reprodução",
+        "text": "Pare, repita ou limpe qualquer troca. Cada resposta mostra o que o assistente está a fazer enquanto pensa — a ler dados, verificar sistemas, preparar uma resposta."
+      },
+      "multilingual": {
+        "title": "Multilingue",
+        "text": "Fale na sua língua e receba respostas na mesma língua. O assistente adapta-se automaticamente."
+      }
+    },
+    "phubSystem": {
+      "title": "P-Hub: Logística Comunitária",
+      "intro": "Uma rede de entrega de encomendas ponto a ponto onde qualquer pessoa pode ser ponto de recolha. Envie encomendas através de membros de confiança da comunidade — sem empresas de correio, sem armazéns, sem intermediários.",
+      "roles": {
+        "sender": {
+          "title": "Remetente",
+          "text": "Crie um envio, deixe a encomenda no hub mais próximo e siga-a até à entrega."
+        },
+        "hub": {
+          "title": "Operador de hub",
+          "text": "Transforme a sua loja, escritório ou garagem num ponto de recolha/entrega. Defina capacidade, taxas de armazenamento e horários."
+        },
+        "carrier": {
+          "title": "Transportador",
+          "text": "Ofereça-se para transportar encomendas entre hubs. Defina o seu preço e recolha envios ao longo do seu percurso."
+        }
+      },
+      "howItWorks": {
+        "title": "Como se move um envio",
+        "step1": "O remetente cria um envio e deixa a encomenda no hub de origem.",
+        "step2": "Um transportador recolhe a encomenda e leva-a até ao próximo hub.",
+        "step3": "Para longas distâncias, as encomendas passam por vários hubs com diferentes transportadores.",
+        "step4": "O destinatário recebe um código de recolha e levanta a encomenda no hub de destino.",
+        "step5": "A leitura do código QR em cada passo verifica a transferência."
+      },
+      "noEscrow": {
+        "title": "Sem custódia",
+        "text": "Os pagamentos vão diretamente do remetente para o hub e transportador. A plataforma nunca retém o seu dinheiro."
+      },
+      "qrTracking": {
+        "title": "Rastreamento por QR",
+        "text": "Cada transferência é verificada por leitura de código QR. Código de rastreamento público para o estado, código privado para recolha."
+      },
+      "multiHop": {
+        "title": "Entrega multi-salto",
+        "text": "As encomendas podem viajar por vários hubs com diferentes transportadores — como pacotes na internet, cada salto aproxima-as do destino."
+      },
+      "lightning": {
+        "title": "Pagamentos Lightning",
+        "text": "Taxas de armazenamento e pagamentos a transportadores são liquidados instantaneamente via Lightning Network. Sem faturas, sem atrasos."
+      },
+      "trust": {
+        "title": "Requisitos de confiança",
+        "text": "Operadores de hub precisam de Rede de Confiança nível 2+ (verificados por 2 membros). Remetentes e transportadores precisam de nível 1+. Isto mantém a rede fiável sem verificação centralizada."
+      }
+    },
+    "transitOps": {
+      "title": "Gestão de Transportes",
+      "intro": "Uma plataforma web para agências de transportes gerirem as suas operações. Crie rotas, atribua veículos, defina horários e exporte automaticamente no formato GTFS padrão — tudo no navegador.",
+      "routeEditor": {
+        "title": "Editor visual de rotas",
+        "text": "Desenhe rotas no mapa clicando nas paragens. O sistema gera o percurso ótimo entre elas automaticamente."
+      },
+      "vehicleTracking": {
+        "title": "Rastreamento de veículos",
+        "text": "Atribua rastreadores GPS às rotas e veja a sua frota em tempo real. Os passageiros veem os mesmos veículos no mapa público."
+      },
+      "schedules": {
+        "title": "Gestão de horários",
+        "text": "Defina viagens e tempos de paragem. O horário alimenta estimativas de chegada em tempo real para os passageiros."
+      },
+      "realtimeFeed": {
+        "title": "Feed GTFS em tempo real",
+        "text": "As suas rotas e posições de veículos são automaticamente exportadas como GTFS e GTFS-RT — compatível com Google Maps, Moovit, Transit e outras apps."
+      },
+      "gettingStarted": {
+        "title": "Como começar",
+        "step1": "Registe a sua agência na plataforma.",
+        "step2": "Crie paragens no mapa ou reutilize as existentes dos dados de transporte importados.",
+        "step3": "Desenhe uma rota selecionando paragens por ordem — o sistema gera o percurso.",
+        "step4": "Atribua veículos com rastreadores GPS à rota.",
+        "step5": "As suas rotas aparecem no mapa público e nos feeds GTFS imediatamente."
+      },
+      "gtfsExport": {
+        "title": "Exportação GTFS automática",
+        "text": "Todas as suas rotas, paragens e horários são continuamente exportados como dados GTFS padrão. Apps de transporte externas podem consumir as suas rotas sem trabalho manual."
+      }
+    },
+    "ticketsSystem": {
+      "title": "Bilhetes",
+      "intro": "Compre bilhetes digitais para eventos e transportes com pagamentos Lightning instantâneos. Um sistema para concertos, encontros comunitários e viagens de autocarro — sem intermediários, sem taxas além do que o operador define.",
+      "buyFlow": {
+        "title": "Como comprar um bilhete",
+        "step1": "Encontre um evento ou rota de transporte e toque em 'Comprar Bilhete'.",
+        "step2": "Pague instantaneamente via Lightning Network a partir de qualquer carteira compatível.",
+        "step3": "Receba um bilhete digital com um código QR único.",
+        "step4": "Mostre o código QR na entrada — uma leitura marca-o como utilizado."
+      },
+      "qrCode": {
+        "title": "Validação por QR",
+        "text": "Cada bilhete tem um código QR único. Os operadores leem-no uma vez para validação instantânea — sem papel, sem apps para instalar."
+      },
+      "pgpSigning": {
+        "title": "Assinatura criptográfica",
+        "text": "Opcionalmente assine o seu bilhete com a sua chave PGP. Isto prova que o bilhete lhe pertence e não foi adulterado."
+      },
+      "unified": {
+        "title": "Eventos e transportes",
+        "text": "O mesmo sistema funciona para eventos comunitários, concertos e passes de transporte. Um só lugar para todos os seus bilhetes."
+      },
+      "capacity": {
+        "title": "Limites de capacidade",
+        "text": "Os operadores definem capacidade máxima por tipo de bilhete. Quando esgotados, o sistema para de vender — sem overbooking."
+      },
+      "noEscrow": {
+        "title": "Pagamentos diretos",
+        "text": "O seu pagamento vai diretamente para o organizador do evento ou operador de transporte. A plataforma nunca retém fundos — é um princípio fundamental."
+      }
+    },
+    "driverMode": {
+      "title": "Modo Condutor",
+      "intro": "Transmita a sua posição GPS em tempo real enquanto conduz uma rota de transporte. Os passageiros veem o seu veículo no mapa em tempo real — sem hardware especial, apenas um navegador.",
+      "howToStart": {
+        "title": "Como iniciar um turno",
+        "step1": "Abra a página do condutor e selecione a sua rota.",
+        "step2": "Escolha a direção (ida ou volta).",
+        "step3": "Toque em 'Iniciar Turno' — o navegador começa a partilhar a sua localização.",
+        "step4": "Conduza a sua rota. Toque em 'Terminar Turno' quando acabar."
+      },
+      "browserBased": {
+        "title": "Sem app necessária",
+        "text": "Funciona em qualquer navegador moderno no telemóvel, tablet ou ecrã do carro. O ecrã mantém-se ligado durante o turno automaticamente."
+      },
+      "stopAnnouncements": {
+        "title": "Anúncios de paragens",
+        "text": "Anúncios automáticos por voz das próximas paragens à medida que se aproxima. Útil para passageiros e condutores."
+      },
+      "passengerVisibility": {
+        "title": "Visível para passageiros",
+        "text": "O seu veículo aparece no mapa público junto com os feeds oficiais. Os passageiros veem tempos estimados de chegada em cada paragem."
+      },
+      "shiftHistory": {
+        "title": "Registo de turnos",
+        "text": "Todos os turnos são registados com horários de início/fim e detalhes da rota. Útil para auditorias e folhas de vencimento."
+      },
+      "requirements": {
+        "title": "Requisitos",
+        "text": "É necessário nível 2+ na Rede de Confiança para transmitir como condutor. Isto garante que apenas membros de confiança aparecem como veículos oficiais no mapa."
+      }
+    },
+    "techStack": {
+      "title": "Pilha Tecnológica",
+      "backend": {
+        "title": "Backend",
+        "django": "Django 5 + Ninja: REST API, WebSocket",
+        "postgres": "PostgreSQL 16 + PostGIS: BD principal, geodados",
+        "timescale": "TimescaleDB: Telemetria IoT, séries temporais",
+        "redis": "Redis: Cache, sessões, rate limiting",
+        "neo4j": "Neo4j: Grafo para ciclos de escambo"
+      },
+      "frontend": {
+        "title": "Frontend",
+        "nuxt": "Nuxt 4 (SSR): Vue 3 + TypeScript",
+        "maplibre": "MapLibre GL JS: Mapas interativos",
+        "lucide": "Lucide: Ícones",
+        "tailwind": "Tailwind CSS: Estilização"
+      },
+      "communications": {
+        "title": "Comunicações",
+        "matrix": "Matrix Synapse: Chat E2E cifrado",
+        "jitsi": "Jitsi Meet: Videochamadas",
+        "breez": "Breez SDK Spark: Carteira Lightning",
+        "traccar": "Traccar: Rastreamento GPS",
+        "mailcow": "Mailcow + SOGo: Servidor de email"
+      },
+      "maps": {
+        "title": "Mapas & Geocodificação",
+        "martin": "Martin: Servidor de tiles (PostGIS → MVT)",
+        "pelias": "Pelias: Geocodificação global",
+        "valhalla": "Valhalla: Motor de rotas rodoviárias",
+        "motis": "MOTIS: Rotas de trânsito (GTFS)",
+        "osm": "OpenStreetMap: Dados de origem"
+      },
+      "infrastructure": {
+        "title": "Infraestrutura",
+        "docker": "Docker Compose: Serviços externos",
+        "nginx": "Nginx: Proxy reverso, SSL",
+        "systemd": "Systemd: Gestão de processos",
+        "gitea": "Gitea: Hospedagem Git",
+        "capacitor": "Capacitor: Apps móveis (Android/iOS)"
+      }
+    },
+    "community": {
+      "title": "Comunidade",
+      "members": "Membros da associação",
+      "verified": "Utilizadores verificados",
+      "active_items": "Anúncios ativos",
+      "profiles": "Utilizadores registados",
+      "contracts": "Contratos P2P",
+      "establishments": "Estabelecimentos",
+      "subsystems": "subsistemas"
+    },
+    "badges": {
+      "languages": "{count} idiomas",
+      "open_source": "Código aberto",
+      "no_fees": "Sem comissões"
+    },
+    "cta": {
+      "text": "Junte-se à economia descentralizada",
+      "github": "GitHub",
+      "start": "Começar"
+    },
+    "contact": {
+      "title": "Contato",
+      "email": "Email:",
+      "support": "Suporte por Voz"
+    },
+    "energySystem": {
+      "title": "Parahub Energy",
+      "wip": "em desenvolvimento",
+      "problem": {
+        "text": "O proprietário de painéis solares vende os excedentes à rede por 5 cêntimos por kWh. O vizinho compra dessa mesma rede por 20 cêntimos. A diferença de 15 cêntimos vai para o operador da rede — mesmo que a energia não se mova fisicamente."
+      },
+      "compare": {
+        "grid_sell": "venda à rede",
+        "grid_buy": "compra à rede",
+        "parahub_price": "Parahub: preço de grupo"
+      },
+      "winwin": {
+        "text": "A legislação de autoconsumo coletivo (ACC, DL 15/2022) permite que vizinhos formem um grupo energético e transacionem diretamente — com TAR reduzida (CIEG isento por 7 anos). O produtor ganha 60% mais que a tarifa de rede, o vizinho paga 47% menos. A Parahub atua como EGAC e trata do registo na DGEG."
+      },
+      "producer": {
+        "title": "Se tem painéis solares",
+        "step1": "Ligue o inversor à Parahub — uma vez, na instalação",
+        "step2": "A Parahub distribui automaticamente os excedentes aos vizinhos por prioridade",
+        "step3": "O sistema gere os fluxos automaticamente: casa → bateria → vizinhos",
+        "step4": "Receba pagamentos mensais ao preço de mercado do grupo"
+      },
+      "neighbor": {
+        "title": "Se é vizinho",
+        "step1": "Sem instalação — apenas um contador inteligente (já instalado em 90% das casas)",
+        "step2": "Receba notificação quando há energia barata disponível",
+        "step3": "Opcional: arranque automático do esquentador ou bomba de calor com sinal verde"
+      },
+      "requirements": {
+        "title": "Limitações técnicas",
+        "text": "Todos os membros do grupo devem ser servidos pelo mesmo posto de transformação. Raio máximo: 2 km em baixa tensão, 4 km em média tensão. Esta é uma limitação física da rede — não da plataforma."
+      },
+      "markets": {
+        "text": "Primeiros mercados: Portugal (DL 15/2022) e Espanha (Real Decreto 244/2019). Leis semelhantes existem na maioria dos países da UE ao abrigo da diretiva RED III."
+      }
+    },
+    "federationSystem": {
+      "title": "Federação",
+      "intro": "Parahub não é um servidor único — é um protocolo. Qualquer pessoa pode lançar a sua própria instância e conectar-se à rede. Os nós partilham um registo público de organizações, migrações de perfis e verificações WoT. Sem autoridade central.",
+      "why": {
+        "title": "Porquê federação?",
+        "text": "Se parahub.io ficar offline, cada outro nó continua a funcionar. Os seus dados, chaves e reputação não dependem de um único servidor. Comunidades podem ter as suas próprias instâncias mantendo-se conectadas ao resto da rede."
+      },
+      "git": {
+        "title": "Git como protocolo",
+        "text": "Cada nó mantém um repositório Git assinado com registos públicos. Registos de organizações, migrações de perfis, verificações WoT — tudo em JSON, assinado com PGP e ancorado em Bitcoin via OpenTimestamps. Sem consenso, sem gas, sem tokens."
+      },
+      "migration": {
+        "title": "Migração de perfil",
+        "text": "A mudar para outra instância? A sua identidade segue consigo. Quatro assinaturas: utilizador antigo, utilizador novo, nó antigo, nó novo. O endereço antigo redireciona para o novo. Verificações, contratos, itens — exportados e reimportados."
+      },
+      "search": {
+        "title": "Pesquisa federada",
+        "text": "Procure perfis e organizações em todos os nós conectados. Resultados da base de dados local e consultas paralelas a pares conhecidos."
+      },
+      "wot": {
+        "title": "Confiança entre nós",
+        "text": "Verifique utilizadores noutros nós. Os registos de verificação são commitados no Git e assinados pelo verificador e pelo nó. A confiança propaga-se pela federação."
+      }
+    },
+    "governanceSystem": {
+      "title": "Democracia Líquida",
+      "intro": "O voto tradicional trata todos por igual — quer tenha estudado o assunto durante meses ou esteja a votar ao acaso. A democracia líquida resolve isto: vote diretamente ou delegue a alguém de confiança.",
+      "direct": {
+        "title": "Voto direto",
+        "text": "Escolha uma das opções — como num referendo normal. Até 10 escolhas, não apenas sim ou não."
+      },
+      "delegate": {
+        "title": "Delegação",
+        "text": "Não quer aprofundar o tema — delegue o seu voto a alguém de confiança. O seu voto conta junto com o deles."
+      },
+      "transitive": {
+        "title": "Transitividade",
+        "text": "Se o seu delegado também delegou a alguém — a cadeia continua. Alice → Bob → Carol: quando Carol vota, o voto dela conta como 3."
+      },
+      "revoke": {
+        "title": "Revogar em qualquer momento",
+        "text": "Vote diretamente e a delegação é cancelada automaticamente. Pode sempre retomar o controlo."
+      },
+      "audit": {
+        "title": "Resultados verificáveis",
+        "text": "Cada voto é assinado com PGP. Os resultados são publicados com registo de auditoria — qualquer pessoa pode verificar que os dados não foram alterados."
+      },
+      "example": {
+        "alice": "Alice",
+        "bob": "Bob",
+        "carol": "Carol",
+        "votes": "= 3 votos"
+      },
+      "contexts": {
+        "title": "Onde pode votar",
+        "community": "Na comunidade Parahub — decisões sobre o desenvolvimento da plataforma",
+        "establishment": "Num estabelecimento ou organização — decisões internas",
+        "adhoc": "Votações únicas — para qualquer grupo de participantes"
+      }
+    },
+    "gettingStarted": {
+      "title": "Como começar",
+      "intro": "A Parahub funciona de forma diferente das plataformas comuns. Aqui está como se ambientar em poucos passos.",
+      "step1": {
+        "title": "Registe-se",
+        "text": "Entre com Google ou crie uma conta diretamente. Escolha um nome de utilizador — este será o seu endereço na rede: nome{'@'}parahub.io."
+      },
+      "step2": {
+        "title": "Obtenha verificação WoT",
+        "text": "Peça a três conhecidos que confirmem a sua identidade na rede. Algumas funcionalidades estão bloqueadas sem isso — é assim que a plataforma se protege de contas falsas."
+      },
+      "step3": {
+        "title": "Publique algo ou pesquise",
+        "text": "Marketplace, troca, anúncios — tente publicar algo ou encontre o que precisa. Sem comissões."
+      },
+      "step4": {
+        "title": "Configure a carteira",
+        "text": "Se quiser aceitar pagamentos em Bitcoin via Lightning — crie uma carteira diretamente no browser. As chaves nunca saem do seu dispositivo."
+      },
+      "step5": {
+        "title": "Explore",
+        "text": "Eventos perto de si, votações da comunidade, trocas de barter, rede mesh — explore ao seu ritmo."
+      }
+    },
+    "cryptoProofs": {
+      "title": "Provas Criptográficas",
+      "intro": "A Parahub âncora contratos, dívidas e verificações de identidade em provas criptográficas que existem independentemente da plataforma. Mesmo que os nossos servidores deixassem de existir, qualquer pessoa poderia verificar quando um documento foi assinado e por quem.",
+      "pgp": {
+        "title": "Assinaturas PGP",
+        "text": "Cada contrato recebe uma assinatura PGP criada com a chave privada do utilizador — que nunca abandona o seu dispositivo.",
+        "point1": "A chave pública PGP é publicada no perfil e em servidores de chaves públicos",
+        "point2": "A assinatura do contrato pode ser verificada offline com qualquer software PGP padrão",
+        "point3": "Mesmo depois de a plataforma ser desligada, as assinaturas continuam verificáveis"
+      },
+      "ots": {
+        "title": "Âncora Bitcoin (OpenTimestamps)",
+        "text": "Os eventos são agrupados em lotes a cada 10 minutos, comprometidos num repositório Git e ancorados na blockchain do Bitcoin via OpenTimestamps.",
+        "point1": "Um único bloco Bitcoin cobre centenas de eventos através da árvore Merkle do Git",
+        "point2": "A âncora é imutável — a blockchain do Bitcoin não pode ser alterada retroativamente",
+        "point3": "A confirmação leva 2–12 horas; enquanto isso o estado é 'pendente'"
+      },
+      "export": {
+        "title": "Exportação para Tribunal",
+        "text": "Qualquer contrato ou dívida pode ser exportado como um arquivo ZIP com todas as provas incluídas.",
+        "contains": "O arquivo contém:",
+        "item1": "Ficheiro PDF do documento assinado",
+        "item2": "Assinatura PGP (.sig)",
+        "item3": "Prova OTS (.ots) — ligada ao bloco Bitcoin",
+        "item4": "Ficheiro de texto com hash Git, timestamp e número do bloco"
+      },
+      "verify": {
+        "title": "Como verificar",
+        "step1": "Instale o OpenTimestamps CLI: pip install opentimestamps-client",
+        "step2": "Verifique o ficheiro .ots: ots verify batch_ots_proof.ots",
+        "step3": "A ferramenta confirma o bloco Bitcoin e a data — sem precisar confiar em nós"
+      },
+      "legal": {
+        "title": "Validade Jurídica",
+        "text": "As provas criptográficas são aceites como prova em muitas jurisdições. As assinaturas PGP demonstram consentimento; os timestamps Bitcoin estabelecem anterioridade. Consulte um advogado para o seu caso específico."
+      }
+    },
+    "transparency": {
+      "title": "Transparência",
+      "intro": "O Parahub é uma associação sem fins lucrativos. Nunca tiramos uma percentagem das suas transações. Aqui está exatamente como sobrevivemos e para onde vai cada cêntimo.",
+      "principles_title": "Os nossos princípios",
+      "principle1_title": "Voluntário por defeito",
+      "principle1_text": "Ao enviar um pagamento ou criar uma campanha publicitária, vê uma escolha: 0%, 0,1% ou 1%. Escolhe. O sistema lembra a sua escolha.",
+      "principle2_title": "Visibilidade total",
+      "principle2_text": "Total recolhido, número de apoiantes, divisão por mês — tudo público, em tempo real, nesta página.",
+      "principle3_title": "Sem comissões",
+      "principle3_text": "Pagamentos P2P, troca, marketplace — sempre zero comissão. O donativo é uma transação separada, nunca deduzido do destinatário.",
+      "principle4_title": "Sem custos ocultos",
+      "principle4_text": "Não vendemos dados, não mostramos anúncios de terceiros, não monetizamos a sua atenção. Se ganhamos dinheiro, está listado aqui.",
+      "sources_title": "Fontes de receita",
+      "donations_title": "Donativos voluntários (carteira e anúncios)",
+      "donations_text": "Após qualquer pagamento Lightning ou ao criar uma campanha publicitária, escolhe quanto contribuir: 0%, 0,1% (padrão) ou 1%. É uma transação Lightning separada para o endereço da associação. A plataforma nunca toca nos seus fundos.",
+      "ads_title": "Taxa de listagem de anúncios",
+      "ads_text": "Os anunciantes podem apoiar a plataforma ao criar campanhas. A mesma escolha 0% / 0,1% / 1%. Para contexto: o Google cobra 32%, nós sugerimos 0,1%.",
+      "energy_title": "Taxa de gestão de energia (EGAC)",
+      "energy_text": "Como entidade gestora de autoconsumo coletivo (EGAC) registada ao abrigo do DL 15/2022, o Parahub cobra uma taxa fixa de 1% pela gestão de grupos ACC de energia solar. Isto cobre a conformidade regulatória, faturação e gestão dos coeficientes de distribuição.",
+      "never_title": "O que nunca fazemos",
+      "never1": "Tirar uma percentagem dos pagamentos P2P — o seu dinheiro vai diretamente ao destinatário",
+      "never2": "Cobrar pela troca — a troca multilateral é sempre gratuita",
+      "never3": "Vender dados de utilizadores ou mostrar anúncios de terceiros",
+      "never4": "Guardar os seus fundos — não somos um processador de pagamentos (NO ESCROW)",
+      "stats_title": "Números em tempo real",
+      "total_sats": "sats doados",
+      "total_donations": "donativos",
+      "supporters": "apoiantes"
+    }
+  }
+}

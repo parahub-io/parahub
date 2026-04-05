@@ -1,0 +1,242 @@
+{
+  "parasos": {
+    "title": "SOS",
+    "subtitle": "Ajuda Mútua de Vizinhança",
+    "meta_description": "Sistema comunitário de ajuda mútua em emergências",
+    "loading": "A carregar...",
+
+    "nav_sos": "SOS",
+
+    "groups": {
+      "title": "Grupos de Segurança",
+      "create": "Criar Grupo",
+      "my_groups": "Os Meus Grupos",
+      "nearby": "Perto de Mim",
+      "search_placeholder": "Pesquisar grupos...",
+      "empty_title": "Ainda não existem grupos de segurança",
+      "empty_subtitle": "Crie o primeiro grupo no seu bairro",
+      "members_count": "{n} membro | {n} membros",
+      "radius": "{meters}m de raio",
+      "join": "Aderir ao Grupo",
+      "leave": "Sair do Grupo",
+      "joined": "Aderiu!",
+      "left": "Saiu do grupo",
+      "settings": "Definições",
+      "active_alerts": "Alertas Ativos",
+      "no_active_alerts": "Sem alertas ativos",
+      "alert_history": "Histórico de Alertas",
+      "no_alerts_yet": "Ainda sem alertas",
+      "members": "Membros",
+      "delete": "Eliminar Grupo",
+      "delete_confirm": "Tem a certeza que quer eliminar este grupo? Esta ação é irreversível.",
+      "deleted": "Grupo eliminado"
+    },
+
+    "create_group": {
+      "title": "Criar Grupo de Segurança",
+      "name_label": "Nome do Grupo",
+      "name_placeholder": "ex. Vizinhos da Rua das Flores",
+      "description_label": "Descrição",
+      "description_placeholder": "Descreva o seu grupo de vizinhança...",
+      "visibility_label": "Visibilidade",
+      "visibility_public": "Público",
+      "visibility_public_desc": "Visível em Perto de Mim, qualquer pessoa pode aderir",
+      "visibility_private": "Privado",
+      "visibility_private_desc": "Apenas por convite, oculto das listagens",
+      "group_type_label": "Tipo de Grupo",
+      "group_type_local": "Vizinhança",
+      "group_type_local_desc": "Associado a um local no mapa",
+      "group_type_friends": "Amigos e Família",
+      "group_type_friends_desc": "Sem localização, apenas pessoas",
+      "location_label": "Centro do Grupo",
+      "location_hint": "Arraste o mapa para definir o ponto central",
+      "select_property": "Selecionar das minhas propriedades...",
+      "property_type_house": "casa",
+      "property_type_apartment": "apartamento",
+      "property_type_land": "terreno",
+      "property_type_office": "escritório",
+      "property_type_dacha": "dacha",
+      "property_type_garage": "garagem",
+      "property_type_other": "outro",
+      "radius_label": "Raio de Cobertura",
+      "quiet_hours_label": "Horário Silencioso (para alertas INFO)",
+      "quiet_start": "De",
+      "quiet_end": "Até",
+      "submit": "Criar Grupo",
+      "wot_required": "Requer nível WoT 2+ para criar grupos"
+    },
+
+    "member": {
+      "local": "Local",
+      "remote": "Remoto",
+      "admin": "Administrador",
+      "presence_local": "Pode responder fisicamente",
+      "presence_remote": "Coordena remotamente",
+      "emergency_context_label": "Contexto de Emergência",
+      "emergency_context_hint": "Informação médica, alergias, contactos do médico — visível apenas durante SOS ativo",
+      "join_as": "Aderir como",
+      "login_to_join": "Inicie sessão para aderir a este grupo"
+    },
+
+    "sos": {
+      "button": "SOS",
+      "send_alert": "Enviar Alerta",
+      "long_press_emergency": "Pressione longamente para Emergência",
+      "select_level": "Nível de Alerta",
+      "sending": "A enviar SOS...",
+      "sent": "SOS enviado!",
+      "active_alert": "Alerta Ativo",
+      "no_group": "Adira primeiro a um grupo de segurança",
+
+      "level": {
+        "info": "Info",
+        "info_desc": "Atividade suspeita",
+        "warning": "Aviso",
+        "warning_desc": "Alarme disparou",
+        "emergency": "Emergência",
+        "emergency_desc": "Preciso de ajuda AGORA"
+      },
+
+      "category": {
+        "suspicious_activity": "Atividade suspeita",
+        "alarm_triggered": "Alarme disparou",
+        "medical": "Emergência médica",
+        "fire": "Incêndio",
+        "intrusion": "Intrusão",
+        "other": "Outro"
+      },
+
+      "message_placeholder": "O que está a acontecer? (opcional)",
+      "resolve": "Resolver",
+      "false_alarm": "Falso Alarme",
+      "resolved": "Resolvido",
+      "already_active": "Já tem um alerta ativo",
+      "view_location": "Ver no mapa"
+    },
+
+    "time": {
+      "just_now": "agora mesmo",
+      "minutes_ago": "{n}m atrás",
+      "hours_ago": "{n}h atrás",
+      "days_ago": "{n}d atrás"
+    },
+
+    "errors": {
+      "send_sos": "Falha ao enviar SOS",
+      "join_group": "Falha ao aderir ao grupo",
+      "leave_group": "Falha ao sair do grupo",
+      "respond": "Falha ao responder ao alerta",
+      "resolve": "Falha ao resolver o alerta",
+      "create_group": "Falha ao criar grupo",
+      "fetch_groups": "Falha ao carregar grupos",
+      "fetch_group": "Falha ao carregar grupo",
+      "create_invite": "Falha ao criar convite",
+      "delete_invite": "Falha ao eliminar convite",
+      "fetch_invite": "Falha ao carregar informação do convite",
+      "invite_invalid": "Este link de convite é inválido ou expirou",
+      "delete_group": "Falha ao eliminar grupo"
+    },
+
+    "response": {
+      "seen": "Visto",
+      "on_way": "A caminho",
+      "on_site": "No local",
+      "unable": "Indisponível",
+      "responders": "Respondentes",
+      "no_responses": "Ainda sem respostas",
+      "respond": "Responder",
+      "i_see": "Estou a ver",
+      "on_my_way": "Estou a caminho",
+      "im_here": "Estou aqui",
+      "cant_help": "Não posso ajudar agora"
+    },
+
+    "invite": {
+      "title": "Links de Convite",
+      "create": "Criar Convite",
+      "copy_link": "Copiar Link",
+      "copied": "Copiado!",
+      "label_placeholder": "Etiqueta (ex. para a família)",
+      "max_uses": "Máximo de utilizações (0 = ilimitado)",
+      "expires_hours": "Expira em (horas)",
+      "no_expiry": "Sem expiração",
+      "no_invites": "Ainda sem links de convite",
+      "uses": "{count} utilizações",
+      "unlimited": "ilimitado",
+      "expired": "Expirado",
+      "exhausted": "Todos usados",
+      "delete": "Eliminar",
+      "delete_confirm": "Eliminar este link de convite?",
+      "join_title": "Aderir ao Grupo de Segurança",
+      "join_group_name": "Foi convidado a aderir",
+      "join_members": "{n} membro | {n} membros",
+      "join_button": "Aderir ao Grupo",
+      "join_success": "Aderiu!",
+      "private_group_hint": "Este é um grupo privado. Partilhe este link de convite com as pessoas que quer adicionar"
+    },
+
+    "visibility": {
+      "public": "Público",
+      "private": "Privado"
+    },
+
+    "privacy": {
+      "title": "Aviso de Privacidade",
+      "no_tracking": "Este sistema NÃO rastreia a localização dos membros",
+      "sos_only": "A localização é partilhada APENAS quando pressiona o botão SOS",
+      "responder_voluntary": "A partilha de localização do respondente é voluntária",
+      "no_history": "Não é armazenado histórico de localização dos respondentes"
+    },
+
+    "disclaimer": {
+      "title": "Importante",
+      "not_police": "Isto NÃO substitui a polícia ou os serviços de emergência",
+      "no_obligation": "Os membros NÃO são obrigados a responder",
+      "no_intervention": "NÃO intervenha fisicamente — observe e reporte",
+      "call_112": "Em caso de emergência real, ligue sempre 112"
+    },
+
+    "docs_passive_title": "Segurança Passiva e Automação",
+    "docs_passive_inactivity_title": "Monitor de Inatividade",
+    "docs_passive_inactivity_desc": "Monitoriza atividade via sensores IoT/HA (movimento, porta, frigorífico). Envia WARNING automático se não houver atividade durante horas configuráveis. Ideal para idosos que vivem sozinhos.",
+    "docs_passive_iot_title": "Auto-Triggers IoT",
+    "docs_passive_iot_desc": "Detetores de fumo, sensores de movimento e contactos de porta podem enviar alertas SOS automaticamente via webhook. Sem necessidade de premir botão.",
+    "docs_passive_checkin_title": "Check-in \"Estou Bem\"",
+    "docs_passive_checkin_desc": "Botão diário simples para idosos como alternativa a sensores IoT. Um toque reinicia o temporizador de inatividade.",
+    "docs_passive_autoresolve_title": "Resolução Automática",
+    "docs_passive_autoresolve_desc": "Alertas ativos há mais de 2 horas sem resposta são automaticamente resolvidos para manter o sistema limpo.",
+
+    "landing_title": "ParaSOS — Ajuda Mútua de Vizinhança",
+    "landing_meta": "Sistema comunitário gratuito de ajuda mútua em emergências. Carregue num botão — os seus vizinhos chegam em 2 minutos. Mais rápido que qualquer polícia ou empresa de segurança.",
+    "landing_hero_title": "Os seus vizinhos chegam em 2 minutos",
+    "landing_hero_subtitle": "Carregue num botão — todos no seu grupo de segurança recebem um alerta instantâneo com a sua localização. Sem mensalidades. Sem intermediários. Vizinhos a ajudar vizinhos.",
+    "landing_hero_cta": "Criar o Seu Grupo de Segurança",
+    "landing_problems_title": "O problema da segurança rural",
+    "landing_problem_1": "A polícia demora mais de 20 minutos a chegar em zonas rurais. Os ladrões precisam apenas de 10.",
+    "landing_problem_2": "As empresas de segurança cobram 30-50 EUR/mês e apenas ligam para a polícia por si.",
+    "landing_problem_3": "Os seus amigos e família vivem longe e não conseguem ajudar quando mais precisa.",
+    "landing_features_title": "Como funciona o ParaSOS",
+    "landing_feature_1_title": "Alertas instantâneos",
+    "landing_feature_1_desc": "Um toque envia notificações push com sirene a todos os membros do grupo. Sem app para abrir, sem número para ligar.",
+    "landing_feature_2_title": "Resposta em 2 minutos",
+    "landing_feature_2_desc": "O seu vizinho a 300m chega em 2-5 minutos. Mais rápido que qualquer polícia ou empresa de segurança.",
+    "landing_feature_3_title": "Membros locais + remotos",
+    "landing_feature_3_desc": "Os vizinhos vêm fisicamente. Familiares noutras cidades são notificados e ligam para os serviços de emergência com contexto completo.",
+    "landing_feature_4_title": "Apenas observar",
+    "landing_feature_4_desc": "Não é necessário intervir. Só a presença de observadores dissuade 90% dos crimes oportunistas.",
+    "landing_feature_5_title": "Zero rastreamento",
+    "landing_feature_5_desc": "Sem GPS em segundo plano. A sua localização é partilhada APENAS quando carrega no botão SOS. As localizações dos respondentes nunca são armazenadas.",
+    "landing_feature_6_title": "Cuidado de idosos",
+    "landing_feature_6_desc": "Sensores IoT detetam se a avó não se mexeu desde de manhã. A família é notificada instantaneamente — mesmo de outra cidade. Botão diário \"Estou bem\" como alternativa simples.",
+    "landing_feature_7_title": "Grupos privados",
+    "landing_feature_7_desc": "O seu grupo é invisível para quem está de fora. Os membros só entram por link de convite. Perfeito para família ou amigos próximos que vivem longe.",
+    "landing_feature_8_title": "Botão de pânico físico",
+    "landing_feature_8_desc": "Carregue 3 vezes no botão de volume sem tirar o telemóvel do bolso. Alarme em ecrã inteiro com sirene que ignora o modo silencioso. Acorda os vizinhos mesmo às 3 da manhã.",
+    "landing_how_title": "Comece em 3 passos",
+    "landing_how_1": "Crie um grupo de segurança para o seu bairro e convide os seus vizinhos.",
+    "landing_how_2": "Quando precisar de ajuda, carregue no botão SOS. Todos recebem um alerta instantâneo.",
+    "landing_how_3": "Os vizinhos respondem — veja quem viu, quem está a caminho, quem está no local.",
+    "landing_free_title": "O seu bairro, protegido",
+    "landing_free_desc": "O ParaSOS é gratuito, de código aberto e feito para comunidades. Sem intermediários corporativos, sem mensalidades — apenas pessoas a ajudar pessoas."
+  }
+}

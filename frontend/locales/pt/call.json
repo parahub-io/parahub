@@ -1,0 +1,14 @@
+{
+  "call": {
+    "connecting": "Conectando...",
+    "error_title": "Erro na chamada",
+    "error_create_room": "Falha ao criar sala de chamada",
+    "error_join_room": "Falha ao entrar na sala de chamada",
+    "return_home": "Voltar ao início",
+    "end_call": "Encerrar chamada",
+    "ended": "Chamada encerrada",
+    "incoming_call": "Chamada recebida",
+    "answer": "Atender",
+    "decline": "Recusar"
+  }
+}

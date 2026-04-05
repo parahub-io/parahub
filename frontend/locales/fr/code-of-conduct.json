@@ -1,0 +1,82 @@
+{
+  "codeOfConduct": {
+    "title": "Code de Conduite de la Communauté Parahub",
+    "version": "Version:",
+    "effectiveDate": "Date d'Entrée en Vigueur:",
+    "sections": {
+      "1": {
+        "title": "Notre Engagement et Philosophie",
+        "content": "Nous, en tant que participants et créateurs de la communauté Parahub, nous efforçons de créer un environnement ouvert, accueillant, diversifié, inclusif et sain pour tous, indépendamment de l'âge, du type de corps, des handicaps visibles ou invisibles, de l'ethnicité, de l'identité et de l'expression sexuelles, du niveau d'expérience, de l'éducation, du statut socio-économique, de la nationalité, de l'apparence, de la race, de la religion ou des convictions politiques (à condition que ces dernières ne contredisent pas les principes fondamentaux de liberté et de non-violence)."
+      },
+      "2": {
+        "title": "Nos Standards et Comportement Attendu",
+        "intro": "Exemples de comportement qui contribuent à créer un environnement positif et constructif incluent:",
+        "positive": [
+          "<strong>Faire preuve d'empathie et de gentillesse</strong> envers les autres.",
+          "<strong>Respecter les différents points de vue et expériences.</strong> Les critiques constructives sont les bienvenues, les attaques personnelles ne le sont pas.",
+          "<strong>Accepter gracieusement les commentaires constructifs</strong> et les fournir avec dignité.",
+          "<strong>Accepter la responsabilité</strong> de nos paroles et actions, et s'excuser auprès de ceux affectés par nos erreurs.",
+          "<strong>Se concentrer sur ce qui est le mieux pour la communauté</strong> et le projet, pas seulement sur les intérêts personnels.",
+          "<strong>Utiliser un langage accueillant et inclusif.</strong>",
+          "<strong>Aider les autres membres de la communauté.</strong>",
+          "<strong>Respecter les processus démocratiques</strong> et les résultats de la gouvernance communautaire, y compris les votes, les délégations et les décisions collectives."
+        ]
+      },
+      "3": {
+        "title": "Comportement Inacceptable",
+        "intro": "Exemples de comportement inacceptable incluent, mais ne se limitent pas à:",
+        "list": [
+          "<strong>Violence, menaces de violence ou langage incitant à la violence.</strong>",
+          "<strong>Harcèlement et traque:</strong> Toute forme de harcèlement, y compris les avances sexuelles non désirées, le trolling, l'intimidation, les commentaires offensants, la traque en ligne ou le harcèlement personnel.",
+          "<strong>Discrimination:</strong> Toute forme de discours ou d'actions discriminatoires basés sur les caractéristiques énumérées dans la Section 1.",
+          "<strong>Publier ou distribuer les informations personnelles d'autrui (doxxing)</strong> sans leur consentement explicite.",
+          "<strong>Tout comportement qui pourrait raisonnablement être considéré comme inapproprié</strong> dans un cadre professionnel ou communautaire, créant une atmosphère d'hostilité ou d'inconfort.",
+          "<strong>Utilisation malveillante du système:</strong> Spam, création de faux comptes pour manipuler le système de réputation ou le Web of Trust, tentatives de piratage ou de perturbation du Service.",
+          "<strong>Plagiat ou violation du droit d'auteur.</strong>",
+          "<strong>Inciter les autres à violer ce Code de Conduite.</strong>"
+        ]
+      },
+      "4": {
+        "title": "Portée",
+        "intro": "Ce Code de Conduite s'applique dans tous les espaces officiels et non officiels du projet Parahub, y compris mais sans s'y limiter:",
+        "list": [
+          "Dépôts de code et systèmes de suivi des bugs (par exemple, Gitea).",
+          "Canaux de communication officiels (par exemple, chats Matrix, forums, listes de diffusion).",
+          "Événements organisés ou soutenus par le projet Parahub (en ligne et hors ligne).",
+          "Interactions via la plateforme Parahub sur cette instance."
+        ],
+        "outro": "Ce Code s'applique également aux actions des individus en dehors de ces espaces si ces actions peuvent impacter négativement la réputation du projet ou la sécurité de ses participants."
+      },
+      "5": {
+        "title": "Signaler les Violations",
+        "intro": "Si vous êtes témoin ou victime d'une violation de ce Code de Conduite, ou avez d'autres préoccupations, veuillez le signaler à l'Administration de l'Instance à <a href=\"mailto:support{'@'}parahub.io\" class=\"text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 underline\">support{'@'}parahub.io</a>. Tous les rapports seront examinés confidentiellement et rapidement.",
+        "details": "Veuillez fournir autant de détails que possible: description de l'incident, heure, lieu, personnes impliquées, liens vers des journaux ou captures d'écran (si applicable)."
+      },
+      "6": {
+        "title": "Conséquences des Violations",
+        "intro": "La violation du Code de Conduite peut entraîner diverses conséquences, selon la gravité de la violation. Les mesures possibles incluent:",
+        "list": [
+          "Avertissement.",
+          "Suspension temporaire de l'accès au Service ou aux canaux de communication.",
+          "Interdiction permanente du Service ou des canaux de communication.",
+          "Réduction de réputation dans le système Parahub (si applicable et techniquement implémenté sur l'instance).",
+          "Signalement de la violation aux opérateurs d'autres instances Parahub (dans le cadre de l'interaction fédérée et conformément à la politique de confidentialité)."
+        ],
+        "outro": "Les décisions sur les mesures sont prises par l'Administration de l'Instance sur la base d'une enquête approfondie."
+      },
+      "7": {
+        "title": "Attribution",
+        "intro": "Ce Code de Conduite est inspiré de nombreux codes existants, dont le Contributor Covenant. Nous remercions toutes les communautés qui travaillent à créer des environnements sûrs et productifs.",
+        "outro": "Nous attendons de tous les membres de la communauté Parahub qu'ils respectent ce Code, contribuant à un environnement basé sur le respect mutuel, la confiance et les principes du Manifeste."
+      }
+    },
+    "contact": {
+      "title": "Informations de Contact",
+      "organization": "Parahub - Associação",
+      "location": "Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal",
+      "reportTo": "Signaler les violations à:",
+      "generalInquiries": "Demandes générales:",
+      "email": "support{'@'}parahub.io"
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "barter": {
+    "title": "Tauschgelegenheiten",
+    "description": "Mehrseitige Tauschketten basierend auf Ihren Angeboten und Anfragen",
+    "view_chains": "Tauschketten anzeigen",
+    "promo": {
+      "title": "Tauschhandel",
+      "tagline": "Handeln ohne Geld - erstellen Sie Angebote & Anfragen, um Übereinstimmungen zu finden",
+      "description": "Parahub findet mehrseitige Tauschketten, bei denen jeder bekommt, was er möchte, ohne Geld zu verwenden.",
+      "how_it_works": "Erstellen Sie Angebote (was Sie haben) und Anfragen (was Sie brauchen). Unser Algorithmus findet automatisch 2-Wege-, 3-Wege- und komplexere Tausche.",
+      "learn_more": "Mehr erfahren"
+    },
+    "stats": {
+      "chains_found": "Ketten gefunden",
+      "two_way": "2-Wege-Tausche",
+      "three_way": "3-Wege-Tausche"
+    },
+    "chain": {
+      "way_exchange": "{count}-Wege-Tausch",
+      "swaps": "{count} Tausch | {count} Tausche",
+      "propose": "Tausch vorschlagen",
+      "offers": "{user} bietet an:",
+      "receives": "{user} erhält:"
+    },
+    "exchange": {
+      "you_can_offer": "Sie können anbieten",
+      "they_can_offer": "Sie können anbieten",
+      "offers": "bietet an",
+      "receives": "erhält"
+    },
+    "empty": {
+      "title": "Noch keine Tauschmöglichkeiten",
+      "description": "Erstellen Sie Angebote (was Sie anbieten und was Sie suchen), um Tauschpartner zu finden",
+      "create_listing": "Angebot erstellen"
+    },
+    "loading": "Suche nach Tauschmöglichkeiten...",
+    "landing_title": "Tauschhandel ohne Geld",
+    "landing_meta": "Tauschen Sie Waren und Dienstleistungen ohne Geld. Das System findet multilaterale Tauschketten automatisch. Kostenlos und Open-Source.",
+    "landing_hero_title": "Tauschhandel — ohne Geld, ohne Mittelsmänner",
+    "landing_hero_subtitle": "Veröffentlichen Sie was Sie haben und was Sie brauchen. Der Algorithmus findet Tauschketten von 2 bis 5 Teilnehmern — auch ohne direkten Tausch.",
+    "landing_hero_cta": "Jetzt tauschen",
+    "landing_problems_title": "Probleme die wir lösen",
+    "landing_problem_1": "Tauschen ohne Geld scheint unmöglich wenn niemand direkt will was wir anbieten",
+    "landing_problem_2": "Multilaterale Tauschketten manuell zu finden ist unpraktisch",
+    "landing_problem_3": "Kein Vertrauen zwischen Fremden zum Tauschen ohne Mittelsmann",
+    "landing_features_title": "Funktionen",
+    "landing_feature_1_title": "Multilateraler Tausch",
+    "landing_feature_1_desc": "Der Algorithmus findet Zyklen mit 2 bis 7 Teilnehmern wo jeder bekommt was er will — auch ohne direkten Tausch",
+    "landing_feature_2_title": "Auto-Erkennung",
+    "landing_feature_2_desc": "Neo4j Graph-Engine analysiert alle Angebote und Gesuche um mögliche Übereinstimmungen zu finden",
+    "landing_feature_3_title": "Web of Trust",
+    "landing_feature_3_desc": "Reputation durch persönliche Verifizierungen aufgebaut. Kein blindes Vertrauen — jeder Teilnehmer ist verifiziert",
+    "landing_feature_4_title": "Gruppenchat",
+    "landing_feature_4_desc": "Wenn eine Kette gefunden wird, wird automatisch ein verschlüsselter Matrix-Chat mit allen Teilnehmern erstellt",
+    "landing_feature_5_title": "Keine Grenzen",
+    "landing_feature_5_desc": "Funktioniert über Städte und Länder hinweg — jeder auf der Plattform kann an Tauschketten teilnehmen",
+    "landing_feature_6_title": "Für Immer Kostenlos",
+    "landing_feature_6_desc": "Open-Source, keine Provisionen, keine Werbung. Zivile Infrastruktur, kein Produkt",
+    "landing_how_title": "So funktioniert's",
+    "landing_how_1": "Veröffentlichen Sie was Sie anbieten und suchen auf dem Marktplatz",
+    "landing_how_2": "Der Algorithmus analysiert alle Angebote und findet mögliche Tauschketten",
+    "landing_how_3": "Alle Teilnehmer genehmigen und koordinieren den Tausch über verschlüsselten Chat",
+    "landing_free_title": "Für immer kostenlos",
+    "landing_free_desc": "Wirtschaft braucht kein Geld um zu funktionieren. Parahub beweist dass direkter Tausch im großen Maßstab möglich ist.",
+    "errors": {
+      "load_failed": "Fehler beim Laden der Tauschmöglichkeiten",
+      "chat_failed": "Fehler beim Erstellen des Chatraums. Bitte versuchen Sie es erneut."
+    }
+  }
+}

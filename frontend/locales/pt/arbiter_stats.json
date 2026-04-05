@@ -1,0 +1,18 @@
+{
+  "arbiter_stats": {
+    "title": "Estatísticas do Árbitro",
+    "not_found": "Perfil de árbitro não encontrado",
+    "total_cases": "Casos",
+    "avg_rating": "Avaliação",
+    "escalation_rate": "Escalações",
+    "avg_days": "Dias méd.",
+    "verdict_breakdown": "Distribuição de Decisões",
+    "rating_distribution": "Distribuição de Avaliações",
+    "total_awarded": "Total Atribuído",
+    "recent_verdicts": "Decisões Recentes",
+    "no_cases": "Sem casos ainda",
+    "no_ratings": "Sem avaliações ainda",
+    "view_stats": "Estatísticas do Árbitro",
+    "badge": "Árbitro"
+  }
+}

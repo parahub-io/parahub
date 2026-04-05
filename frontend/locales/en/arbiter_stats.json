@@ -1,0 +1,18 @@
+{
+  "arbiter_stats": {
+    "title": "Arbiter Statistics",
+    "not_found": "Arbiter profile not found",
+    "total_cases": "Cases",
+    "avg_rating": "Rating",
+    "escalation_rate": "Escalations",
+    "avg_days": "Avg. days",
+    "verdict_breakdown": "Verdict Breakdown",
+    "rating_distribution": "Rating Distribution",
+    "total_awarded": "Total Awarded",
+    "recent_verdicts": "Recent Verdicts",
+    "no_cases": "No cases yet",
+    "no_ratings": "No ratings yet",
+    "view_stats": "Arbiter Stats",
+    "badge": "Arbiter"
+  }
+}

@@ -1,0 +1,15 @@
+subdomain: boleias
+default_locale: pt
+i18n_namespace: rides
+cta_path: /transit/rides
+from_param: boleias
+problems_count: 3
+features_count: 6
+steps_count: 3
+feature_icons:
+  - truck
+  - map-pin
+  - users
+  - zap
+  - message-circle
+  - heart

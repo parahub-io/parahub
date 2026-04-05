@@ -1,0 +1,82 @@
+{
+  "codeOfConduct": {
+    "title": "Código de Conduta da Comunidade Parahub",
+    "version": "Versão:",
+    "effectiveDate": "Data de Entrada em Vigor:",
+    "sections": {
+      "1": {
+        "title": "Nosso Compromisso e Filosofia",
+        "content": "Nós, como participantes e criadores da comunidade Parahub, esforçamo-nos para criar um ambiente aberto, acolhedor, diverso, inclusivo e saudável para todos, independentemente de idade, tipo de corpo, deficiências visíveis ou invisíveis, etnia, identidade e expressão sexual, nível de experiência, educação, estatuto socioeconômico, nacionalidade, aparência, raça, religião ou crenças políticas (desde que estas últimas não contradigam os princípios fundamentais de liberdade e não-violência)."
+      },
+      "2": {
+        "title": "Nossos Padrões e Comportamento Esperado",
+        "intro": "Exemplos de comportamento que contribuem para criar um ambiente positivo e construtivo incluem:",
+        "positive": [
+          "<strong>Demonstrar empatia e bondade</strong> para com outras pessoas.",
+          "<strong>Respeitar diferentes pontos de vista e experiências.</strong> Críticas construtivas são bem-vindas, ataques pessoais não.",
+          "<strong>Aceitar graciosamente feedback construtivo</strong> e fornecê-lo com dignidade.",
+          "<strong>Aceitar responsabilidade</strong> pelas nossas palavras e ações, e pedir desculpas aos afetados pelos nossos erros.",
+          "<strong>Focar no que é melhor para a comunidade</strong> e projeto, não apenas nos interesses pessoais.",
+          "<strong>Usar linguagem acolhedora e inclusiva.</strong>",
+          "<strong>Ajudar outros membros da comunidade.</strong>",
+          "<strong>Respeitar os processos democráticos</strong> e os resultados da governação comunitária, incluindo votações, delegações e decisões coletivas."
+        ]
+      },
+      "3": {
+        "title": "Comportamento Inaceitável",
+        "intro": "Exemplos de comportamento inaceitável incluem, mas não se limitam a:",
+        "list": [
+          "<strong>Violência, ameaças de violência ou linguagem que incite à violência.</strong>",
+          "<strong>Assédio e perseguição:</strong> Qualquer forma de assédio, incluindo avanços sexuais indesejados, trolling, intimidação, comentários ofensivos, perseguição online ou assédio pessoal.",
+          "<strong>Discriminação:</strong> Qualquer forma de discurso ou ações discriminatórias com base nas características listadas na Secção 1.",
+          "<strong>Publicar ou distribuir informações pessoais de terceiros (doxxing)</strong> sem o seu consentimento explícito.",
+          "<strong>Qualquer comportamento que possa ser razoavelmente considerado inadequado</strong> num ambiente profissional ou comunitário, criando uma atmosfera de hostilidade ou desconforto.",
+          "<strong>Uso malicioso do sistema:</strong> Spam, criação de contas falsas para manipular o sistema de reputação ou Web of Trust, tentativas de hackear ou perturbar o Serviço.",
+          "<strong>Plágio ou violação de direitos de autor.</strong>",
+          "<strong>Incitar outros a violar este Código de Conduta.</strong>"
+        ]
+      },
+      "4": {
+        "title": "Âmbito",
+        "intro": "Este Código de Conduta aplica-se em todos os espaços oficiais e não oficiais do projeto Parahub, incluindo mas não limitado a:",
+        "list": [
+          "Repositórios de código e sistemas de rastreamento de bugs (por exemplo, Gitea).",
+          "Canais de comunicação oficiais (por exemplo, chats Matrix, fóruns, listas de correio).",
+          "Eventos organizados ou apoiados pelo projeto Parahub (online e offline).",
+          "Interações através da plataforma Parahub nesta instância."
+        ],
+        "outro": "Este Código também se aplica às ações de indivíduos fora destes espaços se essas ações puderem impactar negativamente a reputação do projeto ou a segurança dos seus participantes."
+      },
+      "5": {
+        "title": "Reportar Violações",
+        "intro": "Se testemunhar ou for vítima de uma violação deste Código de Conduta, ou tiver outras preocupações, por favor reporte à Administração da Instância em <a href=\"mailto:support{'@'}parahub.io\" class=\"text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 underline\">support{'@'}parahub.io</a>. Todos os relatórios serão revistos confidencialmente e prontamente.",
+        "details": "Por favor, forneça o máximo de detalhes possível: descrição do incidente, hora, local, pessoas envolvidas, links para logs ou capturas de ecrã (se aplicável)."
+      },
+      "6": {
+        "title": "Consequências das Violações",
+        "intro": "A violação do Código de Conduta pode levar a várias consequências, dependendo da gravidade da violação. As medidas possíveis incluem:",
+        "list": [
+          "Advertência.",
+          "Suspensão temporária de acesso ao Serviço ou canais de comunicação.",
+          "Proibição permanente do Serviço ou canais de comunicação.",
+          "Redução de reputação no sistema Parahub (se aplicável e tecnicamente implementado na instância).",
+          "Reportar a violação a operadores de outras instâncias Parahub (dentro da interação federada e em conformidade com a política de privacidade)."
+        ],
+        "outro": "As decisões sobre medidas são tomadas pela Administração da Instância com base em investigação minuciosa."
+      },
+      "7": {
+        "title": "Atribuição",
+        "intro": "Este Código de Conduta é inspirado por muitos códigos existentes, incluindo o Contributor Covenant. Agradecemos a todas as comunidades que trabalham para criar ambientes seguros e produtivos.",
+        "outro": "Esperamos que todos os membros da comunidade Parahub respeitem este Código, contribuindo para um ambiente baseado em respeito mútuo, confiança e os princípios do Manifesto."
+      }
+    },
+    "contact": {
+      "title": "Informação de Contacto",
+      "organization": "Parahub - Associação",
+      "location": "Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal",
+      "reportTo": "Reportar violações para:",
+      "generalInquiries": "Questões gerais:",
+      "email": "support{'@'}parahub.io"
+    }
+  }
+}

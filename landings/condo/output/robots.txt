@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://condominios.parahub.io/sitemap.xml

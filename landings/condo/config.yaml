@@ -1,0 +1,22 @@
+subdomain: condominios
+default_locale: pt
+i18n_namespace: condo
+cta_path: /condo/create
+from_param: condo
+og_locale: pt_PT
+
+# Sections — reference translation keys by index
+problems_count: 3
+features_count: 8
+steps_count: 3
+
+# Lucide icon names for each feature (SVGs inlined by generator)
+feature_icons:
+  - vote
+  - landmark
+  - receipt
+  - users
+  - sun
+  - message-circle
+  - link-2
+  - heart

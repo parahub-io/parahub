@@ -1,0 +1,18 @@
+{
+  "arbiter_stats": {
+    "title": "Schiedsrichter-Statistiken",
+    "not_found": "Schiedsrichterprofil nicht gefunden",
+    "total_cases": "Fälle",
+    "avg_rating": "Bewertung",
+    "escalation_rate": "Eskalationen",
+    "avg_days": "Ø Tage",
+    "verdict_breakdown": "Entscheidungsverteilung",
+    "rating_distribution": "Bewertungsverteilung",
+    "total_awarded": "Gesamt Zugesprochen",
+    "recent_verdicts": "Letzte Entscheidungen",
+    "no_cases": "Noch keine Fälle",
+    "no_ratings": "Noch keine Bewertungen",
+    "view_stats": "Schiedsrichter-Statistiken",
+    "badge": "Schiedsrichter"
+  }
+}

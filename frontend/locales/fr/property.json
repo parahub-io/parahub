@@ -1,0 +1,34 @@
+{
+  "property": {
+    "title": "Mes proprietes",
+    "my_homes": "Mes maisons",
+    "add_property": "Ajouter une propriete",
+    "edit_property": "Modifier la propriete",
+    "no_properties": "Aucune propriete ajoutee",
+    "no_properties_hint": "Ajoutez votre maison, bureau ou autres proprietes pour regrouper appareils et services.",
+    "name": "Nom",
+    "name_placeholder": "Maison, Chalet, Bureau...",
+    "type": "Type",
+    "location": "Emplacement",
+    "click_map_hint": "Cliquez sur la carte pour définir l'emplacement",
+    "address": "Adresse",
+    "address_placeholder": "Rue, ville...",
+    "devices": "appareils",
+    "linked_building": "Lie au batiment",
+    "add": "Ajouter",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "confirm_delete": "Supprimer la propriete \"{name}\" et dissocier tous les appareils?",
+    "types": {
+      "house": "Maison",
+      "apartment": "Appartement",
+      "land": "Terrain",
+      "office": "Bureau",
+      "dacha": "Chalet",
+      "garage": "Garage",
+      "other": "Autre"
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "landing": {
+    "seo": {
+      "title": "Parahub — bürgerliche Open-Source-Plattform ohne Mittelsmänner",
+      "description": "Open-Source-Plattform für P2P-Handel, Lightning-Zahlungen, verschlüsselte Nachrichten, Governance und ÖPNV-Karten. Ohne Gebühren. Kostenlos."
+    },
+    "hero": {
+      "subtitle": "Alles für Leben und Arbeit — direkt, offen, ohne Gebühren.",
+      "tagline": "Markt, Finanzen, Kommunikation und Logistik — in einer App.",
+      "cta_start": "Loslegen",
+      "cta_philosophy": "Philosophie entdecken",
+      "badge": "P2P ohne Zwischenhändler",
+      "cta_docs": "Wo anfangen"
+    },
+    "problem": {
+      "title": "Technologie soll befreien, nicht versklaven.",
+      "point1": "Superapps nehmen bis zu 30% Provision, monopolisieren Daten und entscheiden, was Sie sehen.",
+      "point2": "Parahub ist die Open-Source-Alternative: Ihre Daten, Ihre Regeln, null Gebühren.",
+      "point3": "Reputation statt Werbebudget. Code ist offen — prüfen, forken, eigenen Knoten betreiben."
+    },
+    "features": {
+      "title": "Eine App statt einem Dutzend.",
+      "id": {
+        "title": "ID & Reputation",
+        "desc": "Bauen Sie Ihre Reputation durch persönliche Empfehlungen von Menschen auf, die Sie kennen. Ohne Dokumente, ohne zentrale Behörde — unfälschbar."
+      },
+      "market": {
+        "title": "Markt & Tausch",
+        "desc": "Kaufen, verkaufen oder direkt tauschen. Kein Geld? Das System findet mehrstufige Tauschketten, damit jeder bekommt, was er braucht."
+      },
+      "finance": {
+        "title": "Finanzen ohne Banken",
+        "desc": "Preise in EUR/USD, sofortige Zahlungen mit nahezu null Gebühren. Keine Verzögerungen, Sperren oder versteckte Kosten."
+      },
+      "governance": {
+        "title": "Verträge & Governance",
+        "desc": "Unterzeichnen Sie verbindliche Vereinbarungen im Chat. Schlichten Sie Streitigkeiten durch Gemeinschaftsschlichtung. Stimmen Sie direkt ab oder delegieren Sie an eine Vertrauensperson."
+      },
+      "communication": {
+        "title": "Private Kommunikation",
+        "desc": "Vollständig verschlüsselte Nachrichten integriert. Anti-Spam: Fremde zahlen Mikrobetrag für die erste Nachricht."
+      },
+      "mobility": {
+        "title": "Mobilität & Karten",
+        "desc": "Fahrgemeinschaften und ÖPNV ohne Aggregator-Gebühren. Echtzeit-Routen und Fahrzeugverfolgung auf Gemeinschaftskarten."
+      },
+      "learn_more": "Mehr erfahren"
+    },
+    "tech": {
+      "title": "Unter der Haube — Unabhängigkeit.",
+      "decentralization": {
+        "title": "Dezentralisierung",
+        "desc": "Zahlungen, Nachrichten und Reputation funktionieren ohne zentralen Server. Kein einzelner Kontroll- oder Ausfallpunkt."
+      },
+      "opensource": {
+        "title": "Open Source",
+        "desc": "Jede Zeile Code ist öffentlich. Prüfen, verbessern oder eine eigene unabhängige Kopie der Plattform betreiben."
+      },
+      "offline": {
+        "title": "Offline-bereit",
+        "desc": "Gemeinschaftliche Mesh-Netzwerke halten die Nachbarschaft verbunden, auch wenn das Internet ausfällt."
+      },
+      "link": "Vollständige Technik-Stack-Details"
+    },
+    "mission": {
+      "title": "Kooperation ohne Konzerne.",
+      "text": "NGO aus Portugal. Kein Gewinn — nur öffentliche Infrastruktur, Souveränität und Datenschutz."
+    },
+    "stats": {
+      "commission": "Gebühren",
+      "opensource": "Open Source",
+      "middlemen": "Mittelsmänner"
+    },
+    "cta": {
+      "title": "Probieren Sie es selbst.",
+      "text": "Kostenlos. Open Source. Keine E-Mail-Registrierung nötig.",
+      "start": "Konto erstellen"
+    }
+  }
+}

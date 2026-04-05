@@ -1,0 +1,14 @@
+{
+  "call": {
+    "connecting": "Verbinden...",
+    "error_title": "Anruffehler",
+    "error_create_room": "Anrufraum konnte nicht erstellt werden",
+    "error_join_room": "Anrufraum konnte nicht beigetreten werden",
+    "return_home": "Zurück zur Startseite",
+    "end_call": "Anruf beenden",
+    "ended": "Anruf beendet",
+    "incoming_call": "Eingehender Anruf",
+    "answer": "Annehmen",
+    "decline": "Ablehnen"
+  }
+}

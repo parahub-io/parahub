@@ -1,0 +1,27 @@
+{
+  "videos": {
+    "title": "Vidéos",
+    "trending": "Tendances",
+    "recent": "Récentes",
+    "views": "vues",
+    "empty": "Aucune vidéo pour le moment",
+    "empty_desc": "Soyez le premier à télécharger une vidéo",
+    "back_to_videos": "Retour aux vidéos",
+    "not_found": "Vidéo introuvable",
+    "watch_on_peertube": "Regarder sur ParaTube",
+    "upload": {
+      "button": "Envoyer une vidéo",
+      "dropOrClick": "Déposez la vidéo ici ou cliquez pour parcourir",
+      "maxSize": "max 4 Go",
+      "uploading": "Envoi en cours…",
+      "success": "Vidéo envoyée",
+      "failed": "Échec de l'envoi",
+      "invalidType": "Veuillez sélectionner un fichier vidéo",
+      "tooLarge": "Fichier trop volumineux (max 4 Go)",
+      "processing": "Traitement en cours sur le serveur…"
+    },
+    "tip_author": "Pourboire à l'auteur",
+    "sign_in_to_upload": "Connectez-vous pour envoyer",
+    "seo_description": "Regardez et partagez des vidéos de la communauté Parahub"
+  }
+}

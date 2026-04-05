@@ -1,0 +1,15 @@
+subdomain: directorio
+default_locale: pt
+i18n_namespace: directory
+cta_path: /directory
+from_param: directorio
+problems_count: 3
+features_count: 6
+steps_count: 3
+feature_icons:
+  - map-pin
+  - shield
+  - users
+  - landmark
+  - globe
+  - heart

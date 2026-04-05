@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='UTF-8'?>
+
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+
+<properties>
+
+    <!-- PostgreSQL Database Configuration -->
+    <entry key='database.driver'>org.postgresql.Driver</entry>
+    <entry key='database.url'>jdbc:postgresql://traccar-postgres:5432/traccar</entry>
+    <entry key='database.user'>traccar</entry>
+    <entry key='database.password'>CHANGE_ME</entry>
+
+    <!-- Server Configuration -->
+    <entry key='web.enable'>true</entry>
+    <entry key='web.port'>8082</entry>
+
+    <!-- Disable self registration -->
+    <entry key='registration.enable'>false</entry>
+
+    <!-- Default admin credentials -->
+    <entry key='users.defaultPassword'>admin</entry>
+
+    <!-- Protocols -->
+    <entry key='h02.port'>5013</entry>
+    <entry key='osmand.port'>5055</entry>
+    <entry key='gps103.port'>5001</entry>
+    <entry key='tk103.port'>5002</entry>
+    <entry key='gt06.port'>5023</entry>
+    <entry key='teltonika.port'>5027</entry>
+
+    <!-- Logging -->
+    <entry key='logger.enable'>true</entry>
+    <entry key='logger.level'>info</entry>
+
+    <!-- OpenID Connect Configuration for Parahub SSO -->
+    <entry key='web.url'>https://traccar.parahub.io</entry>
+    <entry key='openid.clientId'>traccar-sso-client</entry>
+    <entry key='openid.clientSecret'>CHANGE_ME</entry>
+    <!-- OIDC endpoints - use public domain for user-facing auth, host.docker.internal for backend -->
+    <entry key='openid.authUrl'>https://parahub.io/o/authorize/</entry>
+    <entry key='openid.tokenUrl'>http://host.docker.internal:8000/o/token/</entry>
+    <entry key='openid.userInfoUrl'>http://host.docker.internal:8000/o/userinfo/</entry>
+    <!-- Explicitly set redirect URI to use public domain -->
+    <entry key='openid.redirectUri'>https://traccar.parahub.io/api/session/openid/callback</entry>
+
+    <!-- Force OpenID authentication - auto redirect to Parahub login -->
+    <entry key='openid.force'>true</entry>
+
+    <!-- Group configuration for admin access -->
+    <entry key='openid.groupsClaim'>groups</entry>
+    <entry key='openid.adminGroup'>traccar-admins</entry>
+
+    <!-- Auto provision new users from Parahub -->
+    <entry key='openid.allowGroup'>parahub-users</entry>
+
+    <!-- Forward position updates to Parahub IoT webhook -->
+    <entry key='forward.enable'>true</entry>
+    <entry key='forward.url'>http://host.docker.internal:8000/api/v1/iot/webhook/traccar</entry>
+    <entry key='forward.type'>json</entry>
+
+</properties>

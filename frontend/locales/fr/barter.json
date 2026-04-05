@@ -1,0 +1,70 @@
+{
+  "barter": {
+    "title": "Opportunités de Troc",
+    "description": "Chaînes d'échange multipartites basées sur vos offres et demandes",
+    "view_chains": "Voir les chaînes de troc",
+    "promo": {
+      "title": "Échange de Troc",
+      "tagline": "Échangez sans argent - créez des offres et des demandes pour trouver des correspondances",
+      "description": "Parahub trouve des chaînes d'échange multipartites où tout le monde obtient ce qu'il veut sans utiliser d'argent.",
+      "how_it_works": "Créez des offres (ce que vous avez) et des demandes (ce dont vous avez besoin). Notre algorithme trouve automatiquement des échanges à 2, 3 ou plusieurs parties.",
+      "learn_more": "En Savoir Plus"
+    },
+    "stats": {
+      "chains_found": "Chaînes trouvées",
+      "two_way": "Échanges à 2 voies",
+      "three_way": "Échanges à 3 voies"
+    },
+    "chain": {
+      "way_exchange": "Échange à {count} voies",
+      "swaps": "{count} échange | {count} échanges",
+      "propose": "Proposer un Échange",
+      "offers": "{user} offre :",
+      "receives": "{user} reçoit :"
+    },
+    "exchange": {
+      "you_can_offer": "Vous pouvez offrir",
+      "they_can_offer": "Ils peuvent offrir",
+      "offers": "offre",
+      "receives": "reçoit"
+    },
+    "empty": {
+      "title": "Pas encore d'opportunités d'échange",
+      "description": "Créez des annonces (ce que vous offrez et cherchez) pour trouver des partenaires de troc",
+      "create_listing": "Créer une Annonce"
+    },
+    "loading": "Recherche d'opportunités d'échange...",
+    "landing_title": "Troc sans argent",
+    "landing_meta": "Échangez biens et services sans argent. Le système trouve automatiquement des chaînes d'échange multilatéral. Gratuit et open-source.",
+    "landing_hero_title": "Troc — sans argent, sans intermédiaires",
+    "landing_hero_subtitle": "Publiez ce que vous avez et ce dont vous avez besoin. L'algorithme trouve des chaînes d'échange de 2 à 5 participants — même sans échange direct.",
+    "landing_hero_cta": "Commencer à troquer",
+    "landing_problems_title": "Problèmes que nous résolvons",
+    "landing_problem_1": "Échanger sans argent semble impossible quand personne ne veut directement ce que nous offrons",
+    "landing_problem_2": "Trouver manuellement des chaînes d'échange multilatéral est impraticable",
+    "landing_problem_3": "Pas de confiance entre inconnus pour échanger sans intermédiaire",
+    "landing_features_title": "Fonctionnalités",
+    "landing_feature_1_title": "Échange Multilatéral",
+    "landing_feature_1_desc": "L'algorithme trouve des cycles de 2 à 5 participants où chacun obtient ce qu'il veut — même sans échange direct",
+    "landing_feature_2_title": "Détection Auto",
+    "landing_feature_2_desc": "Le moteur Neo4j en graphe analyse toutes les offres et demandes pour trouver des correspondances",
+    "landing_feature_3_title": "Web of Trust",
+    "landing_feature_3_desc": "Réputation bâtie par vérifications en personne. Pas de confiance aveugle — chaque participant est vérifié",
+    "landing_feature_4_title": "Chat de Groupe",
+    "landing_feature_4_desc": "Quand une chaîne est trouvée, un chat Matrix chiffré avec tous les participants est créé automatiquement",
+    "landing_feature_5_title": "Sans Frontières",
+    "landing_feature_5_desc": "Fonctionne entre villes et pays — tout le monde sur la plateforme peut participer aux chaînes d'échange",
+    "landing_feature_6_title": "Gratuit Pour Toujours",
+    "landing_feature_6_desc": "Open-source, sans commissions, sans publicité. Infrastructure civique, pas un produit",
+    "landing_how_title": "Comment ça marche",
+    "landing_how_1": "Publiez ce que vous offrez et ce que vous cherchez sur le marché",
+    "landing_how_2": "L'algorithme analyse toutes les offres et trouve les chaînes d'échange possibles",
+    "landing_how_3": "Tous les participants approuvent et coordonnent l'échange via chat chiffré",
+    "landing_free_title": "Gratuit pour toujours",
+    "landing_free_desc": "L'économie n'a pas besoin d'argent pour fonctionner. Parahub prouve que le troc est possible à grande échelle.",
+    "errors": {
+      "load_failed": "Échec du chargement des opportunités d'échange",
+      "chat_failed": "Échec de la création du salon de chat. Veuillez réessayer."
+    }
+  }
+}

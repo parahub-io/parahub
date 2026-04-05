@@ -1,0 +1,70 @@
+{
+  "barter": {
+    "title": "Oportunidades de Trueque",
+    "description": "Cadenas de intercambio multipartitas basadas en sus ofertas y solicitudes",
+    "view_chains": "Ver cadenas de trueque",
+    "promo": {
+      "title": "Intercambio de Trueque",
+      "tagline": "Intercambia sin dinero - crea ofertas y solicitudes para encontrar coincidencias",
+      "description": "Parahub encuentra cadenas de intercambio multipartitas donde todos obtienen lo que quieren sin usar dinero.",
+      "how_it_works": "Crea ofertas (lo que tienes) y solicitudes (lo que necesitas). Nuestro algoritmo encuentra intercambios de 2, 3 o más partes automáticamente.",
+      "learn_more": "Saber Más"
+    },
+    "stats": {
+      "chains_found": "Cadenas encontradas",
+      "two_way": "Intercambios de 2 vías",
+      "three_way": "Intercambios de 3 vías"
+    },
+    "chain": {
+      "way_exchange": "Intercambio de {count} vías",
+      "swaps": "{count} intercambio | {count} intercambios",
+      "propose": "Proponer Intercambio",
+      "offers": "{user} ofrece:",
+      "receives": "{user} recibe:"
+    },
+    "exchange": {
+      "you_can_offer": "Puedes ofrecer",
+      "they_can_offer": "Pueden ofrecer",
+      "offers": "ofrece",
+      "receives": "recibe"
+    },
+    "empty": {
+      "title": "Aún sin oportunidades de intercambio",
+      "description": "Cree anuncios (lo que ofrece y lo que busca) para encontrar socios de trueque",
+      "create_listing": "Crear Anuncio"
+    },
+    "loading": "Buscando oportunidades de trueque...",
+    "landing_title": "Trueque sin dinero",
+    "landing_meta": "Intercambia bienes y servicios sin dinero. El sistema encuentra cadenas de intercambio multilateral automáticamente. Gratis y open-source.",
+    "landing_hero_title": "Trueque — sin dinero, sin intermediarios",
+    "landing_hero_subtitle": "Publica lo que tienes y lo que necesitas. El algoritmo encuentra cadenas de intercambio de 2 a 5 participantes — incluso cuando el trueque directo no es posible.",
+    "landing_hero_cta": "Empezar a intercambiar",
+    "landing_problems_title": "Problemas que resolvemos",
+    "landing_problem_1": "Intercambiar sin dinero parece imposible cuando nadie quiere lo que ofrecemos directamente",
+    "landing_problem_2": "Encontrar cadenas de intercambio multilateral manualmente es impracticable",
+    "landing_problem_3": "Sin confianza entre desconocidos para intercambiar sin intermediario",
+    "landing_features_title": "Funcionalidades",
+    "landing_feature_1_title": "Intercambio Multilateral",
+    "landing_feature_1_desc": "El algoritmo encuentra ciclos de 2 a 5 participantes donde todos obtienen lo que quieren — sin intercambio directo",
+    "landing_feature_2_title": "Detección Automática",
+    "landing_feature_2_desc": "Motor Neo4j en grafo analiza todas las ofertas y solicitudes para encontrar coincidencias",
+    "landing_feature_3_title": "Web of Trust",
+    "landing_feature_3_desc": "Reputación construida por verificaciones presenciales. Sin confianza ciega — cada participante está verificado",
+    "landing_feature_4_title": "Chat de Grupo",
+    "landing_feature_4_desc": "Cuando se encuentra una cadena, se crea automáticamente un chat Matrix cifrado con todos los participantes",
+    "landing_feature_5_title": "Sin Fronteras",
+    "landing_feature_5_desc": "Funciona entre ciudades y países — cualquiera en la plataforma puede participar en cadenas de intercambio",
+    "landing_feature_6_title": "Gratis Para Siempre",
+    "landing_feature_6_desc": "Open-source, sin comisiones, sin publicidad. Infraestructura cívica, no un producto",
+    "landing_how_title": "Cómo funciona",
+    "landing_how_1": "Publica lo que ofreces y lo que buscas en el mercado",
+    "landing_how_2": "El algoritmo analiza todas las ofertas y encuentra cadenas de intercambio posibles",
+    "landing_how_3": "Todos los participantes aprueban y coordinan el intercambio vía chat cifrado",
+    "landing_free_title": "Gratis para siempre",
+    "landing_free_desc": "La economía no necesita dinero para funcionar. Parahub demuestra que el trueque es posible a escala.",
+    "errors": {
+      "load_failed": "Error al cargar oportunidades de intercambio",
+      "chat_failed": "Error al crear sala de chat. Inténtelo de nuevo."
+    }
+  }
+}

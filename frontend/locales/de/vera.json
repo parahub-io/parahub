@@ -1,0 +1,23 @@
+{
+  "vera": {
+    "title": "Vera",
+    "subtitle": "Sprachsekretarin",
+    "hold_to_talk": "Halten zum Sprechen",
+    "tap_to_talk": "Tippen zum Sprechen",
+    "listening": "Zuhoren...",
+    "transcribing": "Transkribieren...",
+    "thinking": "Nachdenken...",
+    "speaking": "Sprechen...",
+    "using_tool": "Prufen",
+    "ready": "Bereit",
+    "connecting": "Verbinden...",
+    "disconnected": "Getrennt",
+    "empty": "Taste tippen und sprechen, um ein Gesprach mit Vera zu beginnen",
+    "you": "Sie",
+    "clear": "Verlauf loschen",
+    "cleared": "Gesprach geloscht",
+    "error_mic": "Mikrofonzugriff verweigert",
+    "error_short": "Aufnahme zu kurz",
+    "iot_description": "KI-Sprachsekretarin mit vollem Systemzugriff"
+  }
+}

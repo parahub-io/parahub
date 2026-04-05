@@ -1,0 +1,242 @@
+{
+  "parasos": {
+    "title": "SOS",
+    "subtitle": "Nachbarschaftliche Nothilfe",
+    "meta_description": "Gemeinschaftliches Notfall-Hilfesystem",
+    "loading": "Laden...",
+
+    "nav_sos": "SOS",
+
+    "groups": {
+      "title": "Sicherheitsgruppen",
+      "create": "Gruppe erstellen",
+      "my_groups": "Meine Gruppen",
+      "nearby": "In der Nähe",
+      "search_placeholder": "Gruppen suchen...",
+      "empty_title": "Noch keine Sicherheitsgruppen",
+      "empty_subtitle": "Erstellen Sie die erste Gruppe in Ihrer Nachbarschaft",
+      "members_count": "{n} Mitglied | {n} Mitglieder",
+      "radius": "{meters}m Radius",
+      "join": "Gruppe beitreten",
+      "leave": "Gruppe verlassen",
+      "joined": "Beigetreten!",
+      "left": "Gruppe verlassen",
+      "settings": "Einstellungen",
+      "active_alerts": "Aktive Alarme",
+      "no_active_alerts": "Keine aktiven Alarme",
+      "alert_history": "Alarmverlauf",
+      "no_alerts_yet": "Noch keine Alarme",
+      "members": "Mitglieder",
+      "delete": "Gruppe löschen",
+      "delete_confirm": "Möchten Sie diese Gruppe wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
+      "deleted": "Gruppe gelöscht"
+    },
+
+    "create_group": {
+      "title": "Sicherheitsgruppe erstellen",
+      "name_label": "Gruppenname",
+      "name_placeholder": "z.B. Nachbarn der Blumenstraße",
+      "description_label": "Beschreibung",
+      "description_placeholder": "Beschreiben Sie Ihre Nachbarschaftsgruppe...",
+      "visibility_label": "Sichtbarkeit",
+      "visibility_public": "Öffentlich",
+      "visibility_public_desc": "Sichtbar unter In der Nähe, jeder kann beitreten",
+      "visibility_private": "Privat",
+      "visibility_private_desc": "Nur auf Einladung, in Auflistungen verborgen",
+      "group_type_label": "Gruppentyp",
+      "group_type_local": "Nachbarschaft",
+      "group_type_local_desc": "An einen Ort auf der Karte gebunden",
+      "group_type_friends": "Freunde und Familie",
+      "group_type_friends_desc": "Ohne Standort, nur Personen",
+      "location_label": "Gruppenzentrum",
+      "location_hint": "Ziehen Sie die Karte, um den Mittelpunkt festzulegen",
+      "select_property": "Aus meinen Immobilien auswählen...",
+      "property_type_house": "Haus",
+      "property_type_apartment": "Wohnung",
+      "property_type_land": "Grundstück",
+      "property_type_office": "Büro",
+      "property_type_dacha": "Datscha",
+      "property_type_garage": "Garage",
+      "property_type_other": "Sonstiges",
+      "radius_label": "Abdeckungsradius",
+      "quiet_hours_label": "Ruhezeiten (für INFO-Alarme)",
+      "quiet_start": "Von",
+      "quiet_end": "Bis",
+      "submit": "Gruppe erstellen",
+      "wot_required": "WoT-Level 2+ erforderlich zum Erstellen von Gruppen"
+    },
+
+    "member": {
+      "local": "Lokal",
+      "remote": "Entfernt",
+      "admin": "Administrator",
+      "presence_local": "Kann physisch reagieren",
+      "presence_remote": "Koordiniert aus der Ferne",
+      "emergency_context_label": "Notfallkontext",
+      "emergency_context_hint": "Medizinische Infos, Allergien, Arztkontakte — nur während aktivem SOS sichtbar",
+      "join_as": "Beitreten als",
+      "login_to_join": "Melden Sie sich an, um dieser Gruppe beizutreten"
+    },
+
+    "sos": {
+      "button": "SOS",
+      "send_alert": "Alarm senden",
+      "long_press_emergency": "Gedrückt halten für Notfall",
+      "select_level": "Alarmstufe",
+      "sending": "SOS wird gesendet...",
+      "sent": "SOS gesendet!",
+      "active_alert": "Aktiver Alarm",
+      "no_group": "Treten Sie zuerst einer Sicherheitsgruppe bei",
+
+      "level": {
+        "info": "Info",
+        "info_desc": "Verdächtige Aktivität",
+        "warning": "Warnung",
+        "warning_desc": "Alarm ausgelöst",
+        "emergency": "Notfall",
+        "emergency_desc": "Brauche JETZT Hilfe"
+      },
+
+      "category": {
+        "suspicious_activity": "Verdächtige Aktivität",
+        "alarm_triggered": "Alarm ausgelöst",
+        "medical": "Medizinischer Notfall",
+        "fire": "Feuer",
+        "intrusion": "Einbruch",
+        "other": "Sonstiges"
+      },
+
+      "message_placeholder": "Was passiert? (optional)",
+      "resolve": "Auflösen",
+      "false_alarm": "Fehlalarm",
+      "resolved": "Gelöst",
+      "already_active": "Sie haben bereits einen aktiven Alarm",
+      "view_location": "Auf Karte anzeigen"
+    },
+
+    "time": {
+      "just_now": "gerade eben",
+      "minutes_ago": "vor {n}m",
+      "hours_ago": "vor {n}h",
+      "days_ago": "vor {n}T"
+    },
+
+    "errors": {
+      "send_sos": "SOS konnte nicht gesendet werden",
+      "join_group": "Beitritt zur Gruppe fehlgeschlagen",
+      "leave_group": "Verlassen der Gruppe fehlgeschlagen",
+      "respond": "Antwort auf Alarm fehlgeschlagen",
+      "resolve": "Auflösung des Alarms fehlgeschlagen",
+      "create_group": "Gruppe konnte nicht erstellt werden",
+      "fetch_groups": "Gruppen konnten nicht geladen werden",
+      "fetch_group": "Gruppe konnte nicht geladen werden",
+      "create_invite": "Einladung konnte nicht erstellt werden",
+      "delete_invite": "Einladung konnte nicht gelöscht werden",
+      "fetch_invite": "Einladungsinformationen konnten nicht geladen werden",
+      "invite_invalid": "Dieser Einladungslink ist ungültig oder abgelaufen",
+      "delete_group": "Gruppe konnte nicht gelöscht werden"
+    },
+
+    "response": {
+      "seen": "Gesehen",
+      "on_way": "Unterwegs",
+      "on_site": "Vor Ort",
+      "unable": "Nicht verfügbar",
+      "responders": "Helfer",
+      "no_responses": "Noch keine Antworten",
+      "respond": "Antworten",
+      "i_see": "Ich sehe es",
+      "on_my_way": "Bin unterwegs",
+      "im_here": "Bin da",
+      "cant_help": "Kann jetzt nicht helfen"
+    },
+
+    "invite": {
+      "title": "Einladungslinks",
+      "create": "Einladung erstellen",
+      "copy_link": "Link kopieren",
+      "copied": "Kopiert!",
+      "label_placeholder": "Bezeichnung (z.B. für die Familie)",
+      "max_uses": "Maximale Nutzungen (0 = unbegrenzt)",
+      "expires_hours": "Läuft ab in (Stunden)",
+      "no_expiry": "Kein Ablauf",
+      "no_invites": "Noch keine Einladungslinks",
+      "uses": "{count} Nutzungen",
+      "unlimited": "unbegrenzt",
+      "expired": "Abgelaufen",
+      "exhausted": "Alle aufgebraucht",
+      "delete": "Löschen",
+      "delete_confirm": "Diesen Einladungslink löschen?",
+      "join_title": "Sicherheitsgruppe beitreten",
+      "join_group_name": "Sie sind eingeladen beizutreten",
+      "join_members": "{n} Mitglied | {n} Mitglieder",
+      "join_button": "Gruppe beitreten",
+      "join_success": "Beigetreten!",
+      "private_group_hint": "Dies ist eine private Gruppe. Teilen Sie diesen Einladungslink mit den Personen, die Sie hinzufügen möchten"
+    },
+
+    "visibility": {
+      "public": "Öffentlich",
+      "private": "Privat"
+    },
+
+    "privacy": {
+      "title": "Datenschutzhinweis",
+      "no_tracking": "Dieses System verfolgt NICHT den Standort der Mitglieder",
+      "sos_only": "Der Standort wird NUR geteilt, wenn Sie die SOS-Taste drücken",
+      "responder_voluntary": "Die Standortfreigabe des Helfers ist freiwillig",
+      "no_history": "Es wird kein Standortverlauf der Helfer gespeichert"
+    },
+
+    "disclaimer": {
+      "title": "Wichtig",
+      "not_police": "Dies ersetzt NICHT die Polizei oder den Rettungsdienst",
+      "no_obligation": "Mitglieder sind NICHT verpflichtet zu reagieren",
+      "no_intervention": "Greifen Sie NICHT physisch ein — beobachten und melden Sie",
+      "call_112": "Rufen Sie im echten Notfall immer 112 an"
+    },
+
+    "docs_passive_title": "Passive Sicherheit und Automatisierung",
+    "docs_passive_inactivity_title": "Inaktivitätsmonitor",
+    "docs_passive_inactivity_desc": "Überwacht Aktivität über IoT/HA-Sensoren (Bewegung, Tür, Kühlschrank). Sendet automatisch WARNING wenn keine Aktivität für konfigurierbare Stunden. Ideal für allein lebende Senioren.",
+    "docs_passive_iot_title": "IoT Auto-Auslöser",
+    "docs_passive_iot_desc": "Rauchmelder, Bewegungssensoren und Türkontakte können automatisch SOS-Alarme per Webhook senden. Kein Knopfdruck nötig.",
+    "docs_passive_checkin_title": "Check-in \"Mir geht's gut\"",
+    "docs_passive_checkin_desc": "Einfacher täglicher Knopf für Senioren als Alternative zu IoT-Sensoren. Ein Tippen setzt den Inaktivitätstimer zurück.",
+    "docs_passive_autoresolve_title": "Automatische Auflösung",
+    "docs_passive_autoresolve_desc": "Alarme die länger als 2 Stunden ohne Antwort aktiv sind werden automatisch aufgelöst um das System sauber zu halten.",
+
+    "landing_title": "ParaSOS — Nachbarschaftliche Nothilfe",
+    "landing_meta": "Kostenloses gemeinschaftliches Notfall-Hilfesystem. Drücken Sie einen Knopf — Ihre Nachbarn sind in 2 Minuten da. Schneller als Polizei oder Sicherheitsdienst.",
+    "landing_hero_title": "Ihre Nachbarn sind in 2 Minuten da",
+    "landing_hero_subtitle": "Drücken Sie einen Knopf — alle in Ihrer Sicherheitsgruppe erhalten sofort einen Alarm mit Ihrem Standort. Keine Monatsgebühren. Keine Vermittler. Nachbarn helfen Nachbarn.",
+    "landing_hero_cta": "Erstellen Sie Ihre Sicherheitsgruppe",
+    "landing_problems_title": "Das Problem der ländlichen Sicherheit",
+    "landing_problem_1": "Die Polizei braucht über 20 Minuten in ländlichen Gebieten. Einbrecher brauchen nur 10.",
+    "landing_problem_2": "Sicherheitsfirmen verlangen 30-50 EUR/Monat und rufen nur die Polizei für Sie an.",
+    "landing_problem_3": "Ihre Freunde und Familie leben weit weg und können nicht helfen, wenn es am wichtigsten ist.",
+    "landing_features_title": "Wie ParaSOS funktioniert",
+    "landing_feature_1_title": "Sofortige Alarme",
+    "landing_feature_1_desc": "Ein Tippen sendet Push-Benachrichtigungen mit Sirene an alle Gruppenmitglieder. Keine App öffnen, keine Nummer wählen.",
+    "landing_feature_2_title": "Reaktion in 2 Minuten",
+    "landing_feature_2_desc": "Ihr Nachbar 300m entfernt ist in 2-5 Minuten da. Schneller als Polizei oder Sicherheitsdienst.",
+    "landing_feature_3_title": "Lokale + entfernte Mitglieder",
+    "landing_feature_3_desc": "Nachbarn kommen persönlich. Familienmitglieder in anderen Städten werden benachrichtigt und rufen den Rettungsdienst mit vollständigem Kontext.",
+    "landing_feature_4_title": "Nur beobachten",
+    "landing_feature_4_desc": "Kein Eingreifen nötig. Allein die Anwesenheit von Beobachtern schreckt 90% der Gelegenheitsdelikte ab.",
+    "landing_feature_5_title": "Kein Tracking",
+    "landing_feature_5_desc": "Kein Hintergrund-GPS. Ihr Standort wird NUR geteilt, wenn Sie die SOS-Taste drücken. Standorte der Helfer werden nie gespeichert.",
+    "landing_feature_6_title": "Seniorenbetreuung",
+    "landing_feature_6_desc": "IoT-Sensoren erkennen, wenn Oma sich seit dem Morgen nicht bewegt hat. Die Familie wird sofort benachrichtigt — auch aus einer anderen Stadt. Täglicher \"Mir geht's gut\"-Knopf als einfache Alternative.",
+    "landing_feature_7_title": "Private Gruppen",
+    "landing_feature_7_desc": "Ihre Gruppe ist für Außenstehende unsichtbar. Mitglieder treten nur über einen Einladungslink bei. Perfekt für Familie oder enge Freunde, die weit entfernt leben.",
+    "landing_feature_8_title": "Physische Paniktaste",
+    "landing_feature_8_desc": "Drücken Sie 3-mal die Lautstärketaste, ohne das Handy aus der Tasche zu nehmen. Vollbild-Alarm mit Sirene, der den Lautlos-Modus ignoriert. Weckt die Nachbarn selbst um 3 Uhr nachts.",
+    "landing_how_title": "In 3 Schritten starten",
+    "landing_how_1": "Erstellen Sie eine Sicherheitsgruppe für Ihre Nachbarschaft und laden Sie Ihre Nachbarn ein.",
+    "landing_how_2": "Wenn Sie Hilfe brauchen, drücken Sie die SOS-Taste. Alle erhalten sofort einen Alarm.",
+    "landing_how_3": "Nachbarn reagieren — sehen Sie, wer es gesehen hat, wer unterwegs ist, wer vor Ort ist.",
+    "landing_free_title": "Ihre Nachbarschaft, geschützt",
+    "landing_free_desc": "ParaSOS ist kostenlos, Open Source und für Gemeinschaften gemacht. Keine Vermittler, keine Monatsgebühren — einfach Menschen, die einander helfen."
+  }
+}

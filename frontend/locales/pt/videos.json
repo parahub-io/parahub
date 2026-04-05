@@ -1,0 +1,27 @@
+{
+  "videos": {
+    "title": "Vídeos",
+    "trending": "Em alta",
+    "recent": "Recentes",
+    "views": "visualizações",
+    "empty": "Nenhum vídeo ainda",
+    "empty_desc": "Seja o primeiro a enviar um vídeo",
+    "back_to_videos": "Voltar aos vídeos",
+    "not_found": "Vídeo não encontrado",
+    "watch_on_peertube": "Assistir no ParaTube",
+    "upload": {
+      "button": "Enviar vídeo",
+      "dropOrClick": "Arraste o vídeo aqui ou clique para selecionar",
+      "maxSize": "máx. 4 GB",
+      "uploading": "A enviar…",
+      "success": "Vídeo enviado",
+      "failed": "Falha no envio",
+      "invalidType": "Selecione um ficheiro de vídeo",
+      "tooLarge": "Ficheiro demasiado grande (máx. 4 GB)",
+      "processing": "A processar no servidor…"
+    },
+    "tip_author": "Gorjeta ao autor",
+    "sign_in_to_upload": "Iniciar sessão para enviar",
+    "seo_description": "Assista e partilhe vídeos da comunidade Parahub"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "arbiter_stats": {
+    "title": "Statistiques de l'Arbitre",
+    "not_found": "Profil d'arbitre non trouvé",
+    "total_cases": "Affaires",
+    "avg_rating": "Note",
+    "escalation_rate": "Escalades",
+    "avg_days": "Jours moy.",
+    "verdict_breakdown": "Répartition des Décisions",
+    "rating_distribution": "Répartition des Notes",
+    "total_awarded": "Total Accordé",
+    "recent_verdicts": "Décisions Récentes",
+    "no_cases": "Pas encore d'affaires",
+    "no_ratings": "Pas encore de notes",
+    "view_stats": "Statistiques de l'Arbitre",
+    "badge": "Arbitre"
+  }
+}

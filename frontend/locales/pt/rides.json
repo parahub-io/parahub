@@ -1,0 +1,125 @@
+{
+  "rides": {
+    "title": "Boleias",
+    "back": "Voltar",
+    "not_found": "Pedido não encontrado",
+    "login_required": "Faça login para criar pedidos de boleia",
+    "offers": "ofertas",
+    "offers_title": "Ofertas de Motoristas",
+    "passengers_label": "passageiro | passageiros",
+    "reviews": "avaliações",
+    "open_chat": "Abrir chat",
+    "accept": "Aceitar",
+    "complete": "Concluir viagem",
+    "cancel": "Cancelar",
+    "cancel_request": "Cancelar pedido",
+    "confirm_cancel": "Cancelar este pedido de boleia?",
+    "booking_actions": "Reserva",
+    "tabs": {
+      "find_ride": "Procurar Boleia",
+      "give_ride": "Dar Boleia"
+    },
+    "create": {
+      "title": "Pedir Boleia",
+      "origin": "Paragem de partida",
+      "origin_placeholder": "Selecionar paragem...",
+      "destination": "Paragem de destino",
+      "destination_placeholder": "Selecionar paragem...",
+      "price": "Preço",
+      "passengers": "Passageiros",
+      "note": "Nota",
+      "note_placeholder": "2 malas, com cão, etc.",
+      "submit": "Criar Pedido",
+      "creating": "A criar...",
+      "error": "Falha ao criar pedido"
+    },
+    "my_requests": {
+      "title": "Os Meus Pedidos Ativos"
+    },
+    "search": {
+      "mode_nearby": "Perto",
+      "mode_route": "Na minha rota",
+      "find_nearby": "Encontrar Pedidos Perto",
+      "searching": "A procurar...",
+      "radius": "Raio de busca",
+      "route_from": "De",
+      "route_from_placeholder": "Paragem de partida...",
+      "route_to": "Para",
+      "route_to_placeholder": "Paragem de destino...",
+      "corridor": "Largura do corredor",
+      "search_route": "Procurar na rota",
+      "route_error": "Não foi possível calcular a rota",
+      "detour": "Desvio",
+      "no_results": "Nenhum pedido de boleia encontrado"
+    },
+    "offer": {
+      "title": "Oferecer Boleia",
+      "vehicle_note": "Descrição do veículo",
+      "vehicle_note_placeholder": "Toyota azul, matrícula XX-00-XX",
+      "seats": "Lugares disponíveis",
+      "submit": "Enviar Oferta",
+      "submitting": "A enviar...",
+      "error": "Falha ao enviar oferta",
+      "your_offer": "A sua oferta"
+    },
+    "status": {
+      "active": "Ativo",
+      "closed": "Fechado"
+    },
+    "booking_status": {
+      "OFFERED": "Oferecido",
+      "CONFIRMED": "Confirmado",
+      "COMPLETED": "Concluído",
+      "CANCELLED": "Cancelado"
+    },
+    "review": {
+      "title": "Deixar Avaliação",
+      "rating": "Avaliação",
+      "comment": "Comentário (opcional)",
+      "submit": "Enviar Avaliação"
+    },
+    "time": {
+      "now": "agora mesmo",
+      "minutes_ago": "h {n} min",
+      "hours_ago": "h {n}h"
+    },
+    "cta_stop": {
+      "title": "Não quer esperar pelo autocarro?",
+      "description": "Peça uma boleia a partir desta paragem",
+      "button": "Pedir Boleia"
+    },
+    "stop_picker": {
+      "placeholder": "Procurar paragem...",
+      "no_results": "Nenhuma paragem encontrada"
+    },
+    "landing_title": "Boleias comunitárias",
+    "landing_meta": "Encontre ou ofereça boleias nas paragens de transporte público. Sem comissões, com chat encriptado. Gratuito e open-source.",
+    "landing_hero_title": "Boleias comunitárias — de paragem a paragem",
+    "landing_hero_subtitle": "Peça uma boleia na sua paragem, receba ofertas de condutores e coordenem tudo por chat encriptado. Sem comissões, sem intermediários.",
+    "landing_hero_cta": "Procurar boleias",
+    "landing_problems_title": "Problemas que resolvemos",
+    "landing_problem_1": "Uber e Bolt cobram comissões altas e rastreiam cada movimento",
+    "landing_problem_2": "O transporte público não cobre a última milha em muitas zonas",
+    "landing_problem_3": "Sem forma segura de combinar boleias com vizinhos e desconhecidos",
+    "landing_features_title": "Funcionalidades",
+    "landing_feature_1_title": "Paragem a Paragem",
+    "landing_feature_1_desc": "Todas as viagens partem e chegam a paragens de transporte público — integrado com a rede GTFS",
+    "landing_feature_2_title": "Sem Comissões",
+    "landing_feature_2_desc": "Zero taxas da plataforma. Os passageiros definem o preço, os condutores oferecem — acordo direto",
+    "landing_feature_3_title": "Chat Seguro",
+    "landing_feature_3_desc": "Ao aceitar uma boleia, cria-se automaticamente um chat Matrix encriptado entre passageiro e condutor",
+    "landing_feature_4_title": "GPS Integrado",
+    "landing_feature_4_desc": "Pesquise boleias perto de si por geolocalização ou ao longo de uma rota planeada",
+    "landing_feature_5_title": "Avaliações",
+    "landing_feature_5_desc": "Avaliações mútuas de 1-5 estrelas após cada viagem constroem reputação na comunidade",
+    "landing_feature_6_title": "Gratuito Para Sempre",
+    "landing_feature_6_desc": "Open-source, sem comissões, sem publicidade. Infraestrutura cívica, não um produto",
+    "landing_how_title": "Como funciona",
+    "landing_how_1": "Crie um pedido de boleia — escolha paragem de origem e destino",
+    "landing_how_2": "Condutores veem o seu pedido e enviam ofertas com descrição do veículo",
+    "landing_how_3": "Aceite uma oferta — chat encriptado criado automaticamente para coordenação",
+    "landing_free_title": "Gratuito para sempre",
+    "landing_free_desc": "Partilhar um carro não devia enriquecer uma empresa. O Parahub liga pessoas diretamente, sem intermediários.",
+    "ride_meta": "Boleia de {origin} para {destination}"
+  }
+}

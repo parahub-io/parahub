@@ -1,0 +1,23 @@
+{
+  "vera": {
+    "title": "Vera",
+    "subtitle": "Secretaria de Voz",
+    "hold_to_talk": "Mantener para hablar",
+    "tap_to_talk": "Pulsa para hablar",
+    "listening": "Escuchando...",
+    "transcribing": "Transcribiendo...",
+    "thinking": "Pensando...",
+    "speaking": "Hablando...",
+    "using_tool": "Verificando",
+    "ready": "Lista",
+    "connecting": "Conectando...",
+    "disconnected": "Desconectada",
+    "empty": "Pulsa el boton y habla para iniciar una conversacion con Vera",
+    "you": "Tu",
+    "clear": "Limpiar historial",
+    "cleared": "Conversacion limpiada",
+    "error_mic": "Acceso al microfono denegado",
+    "error_short": "Grabacion demasiado corta",
+    "iot_description": "Secretaria IA por voz con acceso total al sistema"
+  }
+}

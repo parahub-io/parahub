@@ -1,0 +1,73 @@
+{
+  "debts": {
+    "title": "Dívidas e Compensação",
+    "description": "Rastreie dívidas mútuas e compense-as através de ciclos",
+    "owes": " deve a ",
+    "confirmed": "confirmado",
+    "waiting": "aguardando",
+    "tabs": {
+      "owed_to_me": "Devem-me",
+      "i_owe": "Eu devo",
+      "pending": "Aguardando Confirmação"
+    },
+    "create": {
+      "button": "Nova Dívida",
+      "title": "Criar Registo de Dívida",
+      "my_role": "Eu sou:",
+      "debtor": "Quem deve",
+      "creditor": "Quem empresta",
+      "other_person": "Outra pessoa:",
+      "select_partner": "Selecionar parceiro",
+      "your_partners": "Seus Parceiros:",
+      "other": "Outros:",
+      "amount": "Quantia:",
+      "currency": "Moeda:",
+      "description": "Descrição (opcional):",
+      "submit": "Criar",
+      "cancel": "Cancelar"
+    },
+    "status": {
+      "draft": "Rascunho",
+      "pending_confirmation": "Aguardando Confirmação",
+      "active": "Ativo",
+      "partially_settled": "Parcialmente Liquidado",
+      "fully_settled": "Totalmente Liquidado",
+      "cancelled": "Cancelado"
+    },
+    "item": {
+      "owes": "{debtor} deve a {creditor}",
+      "settled": "{percent}% liquidado",
+      "confirm": "Confirmar",
+      "record_payment": "Registar Pagamento"
+    },
+    "empty": "Sem dívidas nesta categoria",
+    "empty_subtitle": "Tudo limpo! As dívidas que criar ou receber aparecerão aqui",
+    "clearing": {
+      "title": "Ciclos de Compensação de Dívidas",
+      "description": "Dívidas mútuas podem ser compensadas através de ciclos multi-parte"
+    },
+    "repay": {
+      "title": "Registar Pagamento",
+      "debt_info": "Dívida",
+      "remaining": "Restante",
+      "amount": "Quantia paga",
+      "max": "Máximo",
+      "notes": "Notas (opcional)",
+      "submit": "Registar Pagamento",
+      "error_amount": "A quantia deve ser positiva",
+      "error_exceeds": "A quantia excede a dívida restante"
+    },
+    "toast": {
+      "new_pending": "Nova dívida: {person} - {amount} {currency} (confirmação necessária)",
+      "new_active": "Nova dívida: {person} - {amount} {currency}",
+      "confirmed": "Dívida confirmada",
+      "fully_settled": "Dívida totalmente liquidada: {amount} {currency} pago",
+      "partial_payment": "Pagamento registado: {amount} {currency} ({remaining} {currency} restante)",
+      "partner_load_failed": "Falha ao carregar perfil do parceiro"
+    },
+    "ots": {
+      "pending": "Ancorando no Bitcoin...",
+      "block": "Bloco Bitcoin"
+    }
+  }
+}

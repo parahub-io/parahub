@@ -1,0 +1,73 @@
+{
+  "debts": {
+    "title": "Deudas y Compensación",
+    "description": "Rastrea deudas mutuas y compénsalas a través de ciclos",
+    "owes": " debe a ",
+    "confirmed": "confirmado",
+    "waiting": "esperando",
+    "tabs": {
+      "owed_to_me": "Me deben",
+      "i_owe": "Yo debo",
+      "pending": "Pendiente de Confirmación"
+    },
+    "create": {
+      "button": "Nueva Deuda",
+      "title": "Crear Registro de Deuda",
+      "my_role": "Yo soy:",
+      "debtor": "El que debe",
+      "creditor": "El acreedor",
+      "other_person": "Otra persona:",
+      "select_partner": "Seleccionar socio",
+      "your_partners": "Tus Socios:",
+      "other": "Otros:",
+      "amount": "Cantidad:",
+      "currency": "Moneda:",
+      "description": "Descripción (opcional):",
+      "submit": "Crear",
+      "cancel": "Cancelar"
+    },
+    "status": {
+      "draft": "Borrador",
+      "pending_confirmation": "Pendiente de Confirmación",
+      "active": "Activo",
+      "partially_settled": "Parcialmente Liquidado",
+      "fully_settled": "Totalmente Liquidado",
+      "cancelled": "Cancelado"
+    },
+    "item": {
+      "owes": "{debtor} debe a {creditor}",
+      "settled": "{percent}% liquidado",
+      "confirm": "Confirmar",
+      "record_payment": "Registrar Pago"
+    },
+    "empty": "Sin deudas en esta categoría",
+    "empty_subtitle": "¡Todo limpio! Las deudas que crees o recibas aparecerán aquí",
+    "clearing": {
+      "title": "Ciclos de Compensación de Deudas",
+      "description": "Las deudas mutuas pueden compensarse a través de ciclos multi-parte"
+    },
+    "repay": {
+      "title": "Registrar Pago",
+      "debt_info": "Deuda",
+      "remaining": "Restante",
+      "amount": "Cantidad pagada",
+      "max": "Máximo",
+      "notes": "Notas (opcional)",
+      "submit": "Registrar Pago",
+      "error_amount": "La cantidad debe ser positiva",
+      "error_exceeds": "La cantidad excede la deuda restante"
+    },
+    "toast": {
+      "new_pending": "Nueva deuda: {person} - {amount} {currency} (confirmación necesaria)",
+      "new_active": "Nueva deuda: {person} - {amount} {currency}",
+      "confirmed": "Deuda confirmada",
+      "fully_settled": "Deuda totalmente liquidada: {amount} {currency} pagado",
+      "partial_payment": "Pago registrado: {amount} {currency} ({remaining} {currency} restante)",
+      "partner_load_failed": "Error al cargar perfil del socio"
+    },
+    "ots": {
+      "block": "Bloque Bitcoin",
+      "pending": "Anclando en Bitcoin..."
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "codeOfConduct": {
+    "title": "Verhaltenskodex der Parahub-Community",
+    "version": "Version:",
+    "effectiveDate": "Inkrafttreten:",
+    "sections": {
+      "1": {
+        "title": "Unser Engagement und unsere Philosophie",
+        "content": "Wir, als Teilnehmer und Schöpfer der Parahub-Community, streben danach, eine offene, einladende, vielfältige, inklusive und gesunde Umgebung für alle zu schaffen, unabhängig von Alter, Körperbau, sichtbaren oder unsichtbaren Behinderungen, ethnischer Zugehörigkeit, sexueller Identität und Ausdruck, Erfahrungsgrad, Bildung, sozioökonomischem Status, Nationalität, Aussehen, Rasse, Religion oder politischen Überzeugungen (sofern letztere nicht den grundlegenden Prinzipien von Freiheit und Gewaltlosigkeit widersprechen)."
+      },
+      "2": {
+        "title": "Unsere Standards und erwartetes Verhalten",
+        "intro": "Beispiele für Verhalten, das zu einer positiven und konstruktiven Umgebung beiträgt, umfassen:",
+        "positive": [
+          "<strong>Empathie und Freundlichkeit</strong> gegenüber anderen Menschen zeigen.",
+          "<strong>Unterschiedliche Standpunkte und Erfahrungen respektieren.</strong> Konstruktive Kritik ist willkommen, persönliche Angriffe nicht.",
+          "<strong>Konstruktives Feedback würdevoll annehmen</strong> und würdevoll geben.",
+          "<strong>Verantwortung übernehmen</strong> für unsere Worte und Handlungen und uns bei den Betroffenen für unsere Fehler entschuldigen.",
+          "<strong>Sich darauf konzentrieren, was das Beste für die Community</strong> und das Projekt ist, nicht nur auf persönliche Interessen.",
+          "<strong>Eine einladende und inklusive Sprache verwenden.</strong>",
+          "<strong>Anderen Community-Mitgliedern helfen.</strong>",
+          "<strong>Demokratische Prozesse respektieren</strong> und die Ergebnisse der Gemeinschaftsgovernance, einschließlich Abstimmungen, Delegationen und kollektiver Entscheidungen."
+        ]
+      },
+      "3": {
+        "title": "Inakzeptables Verhalten",
+        "intro": "Beispiele für inakzeptables Verhalten umfassen unter anderem:",
+        "list": [
+          "<strong>Gewalt, Gewaltandrohungen oder Sprache, die zu Gewalt anstiftet.</strong>",
+          "<strong>Belästigung und Stalking:</strong> Jede Form von Belästigung, einschließlich unerwünschter sexueller Annäherungsversuche, Trolling, Einschüchterung, beleidigende Kommentare, Online-Stalking oder persönliche Belästigung.",
+          "<strong>Diskriminierung:</strong> Jede Form diskriminierender Äußerungen oder Handlungen basierend auf den in Abschnitt 1 aufgeführten Merkmalen.",
+          "<strong>Veröffentlichung oder Verbreitung persönlicher Informationen anderer (Doxxing)</strong> ohne deren ausdrückliche Zustimmung.",
+          "<strong>Jedes Verhalten, das vernünftigerweise als unangemessen betrachtet werden könnte</strong> in einem professionellen oder gemeinschaftlichen Umfeld und eine Atmosphäre von Feindseligkeit oder Unbehagen schafft.",
+          "<strong>Böswillige Nutzung des Systems:</strong> Spam, Erstellung gefälschter Konten zur Manipulation des Reputationssystems oder Web of Trust, Versuche zu hacken oder den Service zu stören.",
+          "<strong>Plagiat oder Urheberrechtsverletzung.</strong>",
+          "<strong>Andere dazu anstiften, diesen Verhaltenskodex zu verletzen.</strong>"
+        ]
+      },
+      "4": {
+        "title": "Geltungsbereich",
+        "intro": "Dieser Verhaltenskodex gilt in allen offiziellen und inoffiziellen Räumen des Parahub-Projekts, einschließlich aber nicht beschränkt auf:",
+        "list": [
+          "Code-Repositories und Fehlerverfolgungs-Systeme (z.B. Gitea).",
+          "Offizielle Kommunikationskanäle (z.B. Matrix-Chats, Foren, Mailinglisten).",
+          "Vom Parahub-Projekt organisierte oder unterstützte Veranstaltungen (online und offline).",
+          "Interaktionen über die Parahub-Plattform auf dieser Instanz."
+        ],
+        "outro": "Dieser Kodex gilt auch für Handlungen von Einzelpersonen außerhalb dieser Räume, wenn diese Handlungen sich negativ auf den Ruf des Projekts oder die Sicherheit seiner Teilnehmer auswirken könnten."
+      },
+      "5": {
+        "title": "Verstöße melden",
+        "intro": "Wenn Sie Zeuge oder Opfer einer Verletzung dieses Verhaltenskodex sind oder andere Bedenken haben, melden Sie dies bitte der Instanz-Administration unter <a href=\"mailto:support{'@'}parahub.io\" class=\"text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 underline\">support{'@'}parahub.io</a>. Alle Meldungen werden vertraulich und zeitnah geprüft.",
+        "details": "Bitte geben Sie so viele Details wie möglich an: Beschreibung des Vorfalls, Zeit, Ort, beteiligte Personen, Links zu Protokollen oder Screenshots (falls zutreffend)."
+      },
+      "6": {
+        "title": "Konsequenzen bei Verstößen",
+        "intro": "Die Verletzung des Verhaltenskodex kann je nach Schwere des Verstoßes zu verschiedenen Konsequenzen führen. Mögliche Maßnahmen umfassen:",
+        "list": [
+          "Verwarnung.",
+          "Vorübergehende Sperrung des Zugangs zum Service oder zu Kommunikationskanälen.",
+          "Permanenter Ausschluss vom Service oder von Kommunikationskanälen.",
+          "Verringerung der Reputation im Parahub-System (falls zutreffend und technisch auf der Instanz implementiert).",
+          "Meldung des Verstoßes an Betreiber anderer Parahub-Instanzen (im Rahmen föderierter Interaktion und in Übereinstimmung mit der Datenschutzrichtlinie)."
+        ],
+        "outro": "Entscheidungen über Maßnahmen werden von der Instanz-Administration auf Grundlage gründlicher Untersuchung getroffen."
+      },
+      "7": {
+        "title": "Danksagung",
+        "intro": "Dieser Verhaltenskodex ist inspiriert von vielen bestehenden Kodizes, einschließlich des Contributor Covenant. Wir danken allen Communities, die daran arbeiten, sichere und produktive Umgebungen zu schaffen.",
+        "outro": "Wir erwarten von allen Mitgliedern der Parahub-Community, dass sie diesen Kodex einhalten und zu einer Umgebung beitragen, die auf gegenseitigem Respekt, Vertrauen und den Prinzipien des Manifests basiert."
+      }
+    },
+    "contact": {
+      "title": "Kontaktinformationen",
+      "organization": "Parahub - Associação",
+      "location": "Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal",
+      "reportTo": "Verstöße melden an:",
+      "generalInquiries": "Allgemeine Anfragen:",
+      "email": "support{'@'}parahub.io"
+    }
+  }
+}

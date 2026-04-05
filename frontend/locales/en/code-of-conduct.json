@@ -1,0 +1,82 @@
+{
+  "codeOfConduct": {
+    "title": "Parahub Community Code of Conduct",
+    "version": "Version:",
+    "effectiveDate": "Effective Date:",
+    "sections": {
+      "1": {
+        "title": "Our Commitment and Philosophy",
+        "content": "We, as participants and creators of the Parahub community, strive to create an open, welcoming, diverse, inclusive, and healthy environment for everyone, regardless of age, body type, visible or invisible disabilities, ethnicity, sexual identity and expression, level of experience, education, socio-economic status, nationality, appearance, race, religion, or political beliefs (provided the latter do not contradict the fundamental principles of freedom and non-violence)."
+      },
+      "2": {
+        "title": "Our Standards and Expected Behavior",
+        "intro": "Examples of behavior that contribute to creating a positive and constructive environment include:",
+        "positive": [
+          "<strong>Demonstrating empathy and kindness</strong> toward other people.",
+          "<strong>Respecting different viewpoints and experiences.</strong> Constructive criticism is welcome, personal attacks are not.",
+          "<strong>Gracefully accepting constructive feedback</strong> and providing it with dignity.",
+          "<strong>Accepting responsibility</strong> for our words and actions, and apologizing to those affected by our mistakes.",
+          "<strong>Focusing on what is best for the community</strong> and project, not just personal interests.",
+          "<strong>Using welcoming and inclusive language.</strong>",
+          "<strong>Helping other community members.</strong>",
+          "<strong>Respecting democratic processes</strong> and the outcomes of community governance, including polls, delegations and collective decisions."
+        ]
+      },
+      "3": {
+        "title": "Unacceptable Behavior",
+        "intro": "Examples of unacceptable behavior include, but are not limited to:",
+        "list": [
+          "<strong>Violence, threats of violence, or language inciting violence.</strong>",
+          "<strong>Harassment and stalking:</strong> Any form of harassment, including unwanted sexual advances, trolling, intimidation, offensive comments, online stalking, or personal harassment.",
+          "<strong>Discrimination:</strong> Any form of discriminatory speech or actions based on the characteristics listed in Section 1.",
+          "<strong>Publishing or distributing personal information of others (doxxing)</strong> without their explicit consent.",
+          "<strong>Any behavior that could reasonably be considered inappropriate</strong> in a professional or community setting, creating an atmosphere of hostility or discomfort.",
+          "<strong>Malicious use of the system:</strong> Spam, creating fake accounts to manipulate the reputation system or Web of Trust, attempts to hack or disrupt the Service.",
+          "<strong>Plagiarism or copyright infringement.</strong>",
+          "<strong>Inciting others to violate this Code of Conduct.</strong>"
+        ]
+      },
+      "4": {
+        "title": "Scope",
+        "intro": "This Code of Conduct applies in all official and unofficial Parahub project spaces, including but not limited to:",
+        "list": [
+          "Code repositories and bug tracking systems (e.g., Gitea).",
+          "Official communication channels (e.g., Matrix chats, forums, mailing lists).",
+          "Events organized or supported by the Parahub project (online and offline).",
+          "Interactions through the Parahub platform on this instance."
+        ],
+        "outro": "This Code also applies to actions of individuals outside these spaces if those actions could negatively impact the reputation of the project or the safety of its participants."
+      },
+      "5": {
+        "title": "Reporting Violations",
+        "intro": "If you witness or are a victim of a violation of this Code of Conduct, or have other concerns, please report it to the Instance Administration at <a href=\"mailto:support{'@'}parahub.io\" class=\"text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 underline\">support{'@'}parahub.io</a>. All reports will be reviewed confidentially and promptly.",
+        "details": "Please provide as much detail as possible: description of the incident, time, place, people involved, links to logs or screenshots (if applicable)."
+      },
+      "6": {
+        "title": "Consequences of Violations",
+        "intro": "Violation of the Code of Conduct may lead to various consequences, depending on the severity of the violation. Possible measures include:",
+        "list": [
+          "Warning.",
+          "Temporary suspension of access to the Service or communication channels.",
+          "Permanent ban from the Service or communication channels.",
+          "Reduction of reputation in the Parahub system (if applicable and technically implemented on the instance).",
+          "Reporting the violation to other Parahub instance operators (within federated interaction and in compliance with privacy policy)."
+        ],
+        "outro": "Decisions on measures are made by the Instance Administration based on thorough investigation."
+      },
+      "7": {
+        "title": "Attribution",
+        "intro": "This Code of Conduct is inspired by many existing codes, including the Contributor Covenant. We thank all communities working to create safe and productive environments.",
+        "outro": "We expect all Parahub community members to abide by this Code, contributing to an environment based on mutual respect, trust, and the principles of the Manifest."
+      }
+    },
+    "contact": {
+      "title": "Contact Information",
+      "organization": "Parahub - Associação",
+      "location": "Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal",
+      "reportTo": "Report violations to:",
+      "generalInquiries": "General inquiries:",
+      "email": "support{'@'}parahub.io"
+    }
+  }
+}

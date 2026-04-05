@@ -1,0 +1,1047 @@
+{
+  "privacy": {
+    "title": "Privacy Policy for Parahub Instance",
+    "version": "Version",
+    "effective_date": "Effective Date",
+    "intro": "We, {operator} (NIPC 519046161, hereinafter 'Operator', 'we'), managing this Parahub instance (hereinafter 'Service'), are committed to protecting your privacy and digital sovereignty. Parahub is architecturally designed so that users retain full control over their data and cryptographic identity. This Privacy Policy explains what personal data we collect, how we use, process and protect it, as well as your rights regarding your data, in accordance with the General Data Protection Regulation (GDPR).",
+    "sections": {
+      "controller": {
+        "title": "Data Controller",
+        "text": "The controller of your personal data is:",
+        "email_label": "Email for data inquiries"
+      },
+      "data_collected": {
+        "title": "What Data We Collect and Process",
+        "intro": "Parahub is designed with a focus on data minimization and user control.",
+        "provided": {
+          "title": "Data you provide directly:",
+          "account_label": "Account",
+          "account": "Your human-readable network alias (HNA, like {example}), hashed password (if using password authentication).",
+          "profile_label": "Profile",
+          "profile": "Any information you choose to include in your Parahub profile (e.g., name, description, contacts, skills). You control the visibility of this data.",
+          "pgp_label": "Public PGP Key",
+          "pgp": "If you upload or generate one, it will be associated with your profile and available to other users for encrypting messages to you and verifying your signatures. {important}",
+          "pgp_important": "We never have access to your private PGP key.",
+          "content_label": "Content",
+          "content": "Offers, Wants, messages in public or group Matrix chats (if not E2EE), transaction details, reviews, and other content you create on the platform. Messages in E2EE Matrix chats are not accessible to us.",
+          "wot": "Information about who you have verified and who has verified you."
+        },
+        "automatic": {
+          "title": "Data collected automatically:",
+          "logs_label": "System Logs",
+          "logs": "IP address, browser type, access time, pages visited. This data is used for security, troubleshooting, and service usage analysis (in aggregated and anonymized form where possible). Log retention period: {days} days.",
+          "session_label": "Session Cookies",
+          "session": "To maintain your login session.",
+          "matrix": "Your Matrix User ID ({example}) for chat functionality."
+        },
+        "not_collected": {
+          "title": "Data we do NOT intentionally collect:",
+          "sensitive": "We do not collect sensitive personal data (racial or ethnic origin, political views, religious beliefs, health data, etc.) unless you voluntarily and explicitly include it in public parts of your profile or content.",
+          "location": "Location data is processed with privacy fuzzing (approximate to 100m radius). Precise geolocation is never stored or shared without your explicit consent.",
+          "crypto": "Cryptographic private keys (PGP) are generated and stored exclusively on your device. The server never has access to your private keys — only public keys are stored. This is a fundamental architectural principle, not a policy choice."
+        }
+      },
+      "legal_basis": {
+        "title": "Legal Basis for Data Processing (under GDPR)",
+        "consent_label": "Consent",
+        "consent": "For processing data you voluntarily provide (e.g., profile completion, content publishing). You may withdraw your consent at any time.",
+        "contract_label": "Contract",
+        "contract": "To provide you with the Service and fulfill our obligations under the User Agreement (e.g., authentication, facilitating user communications).",
+        "legitimate_label": "Legitimate Interests",
+        "legitimate": "For ensuring Service security, fraud prevention, usage analysis for Service improvement, logging.",
+        "legal_label": "Legal Obligations",
+        "legal": "If we are required to process data by law."
+      },
+      "usage": {
+        "title": "How We Use Your Data",
+        "purposes": [
+          "To provide, support, and improve the Service.",
+          "For authentication and account management.",
+          "To facilitate communication between users (including Matrix chats).",
+          "For the reputation system and Web of Trust functionality.",
+          "To personalize your experience (if you provide relevant data and settings).",
+          "To ensure security and prevent abuse.",
+          "For analysis and statistics (preferably in anonymized form).",
+          "To respond to your inquiries and communicate with you."
+        ]
+      },
+      "sharing": {
+        "title": "Data Sharing with Third Parties and Federation",
+        "federation_label": "Federation",
+        "federation": "Parahub is a federated system. When interacting with users on other Parahub or Matrix instances, some of your public data (HNA, public PGP key, public profile, public content) may be transmitted to those instances.",
+        "matrix": "If this instance uses a Matrix server managed by a third party, or you communicate with users on other Matrix servers, data is transmitted according to the Matrix protocol.",
+        "legal_label": "Legal Requirements",
+        "legal": "We may disclose your data if required by law or in response to a valid legal request from law enforcement (following applicable procedures).",
+        "no_sale": "We do not sell your personal data."
+      },
+      "storage": {
+        "title": "Data Storage and Security",
+        "measures": "We implement reasonable technical and organizational measures to protect your personal data from unauthorized access, modification, disclosure, or destruction (e.g., HTTPS, password encryption, regular software updates, restricted data access for staff).",
+        "location": "Data is stored on servers located in the European Union.",
+        "retention": "Data retention periods are determined by their purpose and legal requirements. Data is not stored longer than necessary for the purposes for which it was collected. You may request deletion of your data (see Your Rights)."
+      },
+      "rights": {
+        "title": "Your Rights (under GDPR)",
+        "intro": "You have the following rights regarding your personal data:",
+        "access_label": "Right of Access",
+        "access": "Request information about what data of yours we process.",
+        "rectification_label": "Right to Rectification",
+        "rectification": "Request correction of inaccurate or incomplete data.",
+        "erasure_label": "Right to Erasure",
+        "erasure": "Request deletion of your data under certain conditions.",
+        "restriction_label": "Right to Restriction of Processing",
+        "restriction": "Request restriction of your data processing.",
+        "portability_label": "Right to Data Portability",
+        "portability": "Receive your data in a structured, machine-readable format and transmit it to another controller.",
+        "object_label": "Right to Object",
+        "object": "Object to processing of your data based on our legitimate interests.",
+        "withdraw_label": "Right to Withdraw Consent",
+        "withdraw": "If processing is based on consent, you may withdraw it at any time.",
+        "complaint_label": "Right to Complaint",
+        "complaint": "Lodge a complaint with a data protection supervisory authority.",
+        "contact": "To exercise these rights, please contact us at {email}."
+      },
+      "cookies": {
+        "title": "Cookies",
+        "text": "We use only session cookies necessary for authentication. We do not use tracking or advertising cookies."
+      },
+      "changes": {
+        "title": "Changes to Privacy Policy",
+        "text": "We may update this Privacy Policy. We will notify you of significant changes by posting the new version on the Service. We recommend checking this page regularly."
+      },
+      "contact": {
+        "title": "Contact Information",
+        "text": "If you have questions about this Privacy Policy, please contact us:",
+        "email_label": "Email for data inquiries"
+      }
+    }
+  },
+  "terms": {
+    "title": "Terms of Service for Parahub Instance",
+    "version": "Version",
+    "effective_date": "Effective Date",
+    "important_notice": {
+      "title": "IMPORTANT: PLEASE READ CAREFULLY!",
+      "text": "By using this Parahub instance managed by __OPERATOR__ you fully and unconditionally accept these Terms of Service as well as the __MANIFESTO__, __CODE_OF_CONDUCT__ and __ESTATUTOS__. If you do not agree with these terms you must not use the Service.",
+      "operator": "Parahub - Associação",
+      "manifesto": "Parahub Manifesto",
+      "code_of_conduct": "Parahub Code of Conduct",
+      "estatutos": "Articles of Association (Estatutos)"
+    },
+    "sections": {
+      "about": {
+        "title": "1. About Parahub Service",
+        "text": "Parahub is a decentralized, federated open-source software platform operated by Parahub - Associação (NIPC 519046161), a Portuguese private non-profit association of international scope. The platform is designed for direct cooperation, exchange, communications, and mutual aid between users. This Service is one of the independent instances (nodes) of the Parahub network. The Operator provides access to the functionality of this instance. The platform never holds, stores, or manages user funds and does not act as a financial intermediary. The Association is governed by its Articles of Association (Estatutos), available at the /estatutos page."
+      },
+      "acceptance": {
+        "title": "2. Acceptance of Manifesto, Code of Conduct and Estatutos",
+        "item1": "By using the Service, the User confirms that they have read, understood, and fully accept the principles outlined in the Parahub Manifesto.",
+        "item2": "The User agrees to comply with the Parahub Code of Conduct in all their interactions through the Service.",
+        "item3": "The User acknowledges the existence of the Association's Articles of Association (Estatutos), which define the legal framework, governance and aims of the Parahub Association."
+      },
+      "responsibilities": {
+        "title": "3. User Responsibilities",
+        "keys": {
+          "title": "Your Keys, Your Responsibility",
+          "text": "The User bears full and exclusive responsibility for creating, securely storing, and using their cryptographic keys (e.g., PGP). The Operator {never} requests or has access to the User's private keys. Loss of a private key may result in irreversible loss of access to certain features or data signed with that key.",
+          "never": "never"
+        },
+        "signatures": {
+          "title": "Trust in Electronic Signatures (Digital Signatures/PGP)",
+          "text": "The User acknowledges and agrees that actions confirmed by their cryptographic signature (e.g., PGP) within the Service represent their intent and may have legal or reputational consequences according to Parahub system rules and agreements between users."
+        },
+        "content": {
+          "title": "Content and Interactions",
+          "text": "The User bears full responsibility for all content they publish, transmit, or receive through the Service, as well as for all their interactions with other users."
+        },
+        "compliance": {
+          "title": "Legal Compliance",
+          "text": "The User agrees to use the Service in strict accordance with applicable laws of their jurisdiction and the jurisdiction of the Operator's location."
+        },
+        "security": {
+          "title": "Account Security",
+          "text": "The User is responsible for maintaining the confidentiality of their credentials for accessing the Service."
+        }
+      },
+      "disclaimer": {
+        "title": "4. Disclaimer of Warranties and Operator Liability",
+        "as_is": {
+          "title": "'AS IS' Service",
+          "text": "The Service is provided 'as is' and 'as available'. The Operator provides no express or implied warranties regarding the Service, including but not limited to warranties of fitness for particular purposes, uninterrupted operation, absence of errors, viruses, or other harmful components."
+        },
+        "no_liability": {
+          "title": "NO OPERATOR LIABILITY",
+          "item1": "The Operator {is_not_liable} for any direct, indirect, incidental, special, consequential, or punitive damages, including but not limited to lost profits, data loss, reputational damage, arising from the use or inability to use the Service.",
+          "item2": "The Operator {is_not_party} to transactions, agreements, or disputes between Service Users. All responsibility for concluding, executing, and resolving transaction disputes lies exclusively with the Users.",
+          "item3": "The Operator {does_not_control} content created by Users, its legality, accuracy, or reliability.",
+          "item4": "The Operator {is_not_responsible} for actions or inactions of other Service Users.",
+          "item5": "The Operator {is_not_responsible} for the functioning of external services integrated with Parahub (e.g., Matrix, Lightning Network, Gitea) if they are managed by third parties.",
+          "is_not_liable": "is not liable",
+          "is_not_party": "is not a party",
+          "does_not_control": "does not control and is not responsible for",
+          "is_not_responsible": "is not responsible"
+        },
+        "max_liability": {
+          "title": "Maximum Liability",
+          "text": "If, despite the above, it is determined that the Operator bears any liability, the aggregate amount of such liability cannot exceed the symbolic amount of 1 (one) euro or the minimum amount permitted by law."
+        }
+      },
+      "operator_rights": {
+        "title": "5. Operator Rights",
+        "intro": "The Operator reserves the right to:",
+        "item1": "Modify or discontinue the Service (or any part thereof) temporarily or permanently, with or without notice.",
+        "item2": "Establish general practices and limits on Service usage.",
+        "item3": "Remove or refuse to publish any content at its discretion, especially in case of violation of this Agreement, Manifesto, or Code of Conduct.",
+        "item4": "Suspend or terminate User access to the Service for violation of this Agreement, Manifesto, Code of Conduct, or for other valid reasons."
+      },
+      "modifications": {
+        "title": "6. Agreement Modifications",
+        "text": "The Operator may modify this Agreement at any time. The new version of the Agreement takes effect from the moment of its publication on the Service, unless otherwise specified. Continued use of the Service after changes means the User's full agreement with the new version of the Agreement."
+      },
+      "law": {
+        "title": "7. Applicable Law and Dispute Resolution",
+        "text": "This Agreement is governed by and construed in accordance with the laws of Portugal. All disputes arising from or in connection with this Agreement shall be resolved through negotiations. If agreement cannot be reached, disputes shall be submitted to the competent court at the Operator's location."
+      },
+      "contact": {
+        "title": "8. Contact Information",
+        "text": "For all questions related to this Agreement, please contact: {email}",
+        "email": "legal{'@'}parahub.io"
+      }
+    }
+  },
+  "manifest": {
+    "title": "Manifest of United Civilization",
+    "principles": {
+      "1": {
+        "name": "Respect for Life",
+        "text": "Every living being has value. We stand for non-violence, care for people, animals, and the environment."
+      },
+      "2": {
+        "name": "Freedom of Choice",
+        "text": "Every person has the right to choose their path, beliefs, and way of life — provided it does not violate the rights of others."
+      },
+      "3": {
+        "name": "Compassion and Mutual Aid",
+        "text": "We strive to understand each other and help those in need. Support and altruism matter more than competition."
+      },
+      "4": {
+        "name": "Responsibility for Our Actions",
+        "text": "Freedom without responsibility leads to destruction. We act consciously, consume ethically, care for nature, and are honest in our actions."
+      },
+      "5": {
+        "name": "Knowledge and Development",
+        "text": "Science and wisdom do not contradict but complement each other. We learn, think critically, are open to new ideas, and grow spiritually."
+      },
+      "6": {
+        "name": "Balance",
+        "text": "We seek harmony between personal and public, material and spiritual, progress and nature. We avoid extremes and fanaticism."
+      },
+      "7": {
+        "name": "Unity in Diversity",
+        "text": "We respect the culture and traditions of each people while adhering to common ethical principles: we are different, but equal in dignity and rights."
+      }
+    }
+  },
+  "imprint": {
+    "title": "Legal Notice / Imprint",
+    "intro": "Information required by law (Impressum / Legal Notice)",
+    "operator": {
+      "title": "Service Operator",
+      "email_label": "Legal inquiries",
+      "support_label": "Support"
+    },
+    "responsible": {
+      "title": "Responsible for Content",
+      "text": "Parahub - Associação, Portugal"
+    },
+    "disclaimer": {
+      "title": "Disclaimer",
+      "content": {
+        "title": "Content Disclaimer",
+        "text": "Despite careful content control, we assume no liability for the content of external links. The operators of linked pages are solely responsible for their content."
+      },
+      "links": {
+        "title": "External Links",
+        "text": "Our website contains links to external third-party websites over whose content we have no control. Therefore, we cannot accept any liability for this external content. The respective provider or operator of the pages is always responsible for the content of the linked pages."
+      }
+    },
+    "contact": {
+      "title": "Contact Information",
+      "text": "For inquiries, please contact:",
+      "legal": "Legal matters",
+      "support": "Technical support",
+      "privacy": "Data privacy",
+      "conduct": "Code of Conduct violations"
+    }
+  },
+  "about": {
+    "title": "About",
+    "android_app": "Android App",
+    "meta": {
+      "description": "Parahub — open-source federated platform for P2P cooperation, trade and communications. No fees, no middlemen, client-side encryption."
+    },
+    "toc": {
+      "mission": "Mission",
+      "features": "Features",
+      "barter": "Barter",
+      "arbitration": "Arbitration",
+      "values": "Values",
+      "contact": "Contact"
+    },
+    "values": {
+      "title": "Our Values"
+    },
+    "mission": {
+      "intro": "Parahub operates at the forefront of decentralization, openness, and digital rights protection — solving problems that will only intensify.",
+      "success_depends": "Success depends on the ability to:",
+      "point1": "Make technologies accessible to mainstream users",
+      "point2": "Build an active community",
+      "point3": "Find a sustainable funding model",
+      "point4": "Prove the practical value of alternatives",
+      "manifesto": {
+        "line1": "Parahub is not a company, but a protocol for planetary cooperation.",
+        "line2": "Long-term construction of critically important infrastructure for a freer and fairer digital future.",
+        "line3": "Technological embodiment of Gandhi and Tolstoy's principles of non-violent resistance through digital self-sufficiency and direct cooperation."
+      }
+    },
+    "problem": {
+      "title": "The Problem",
+      "text": "Modern platforms charge 15-30% commissions (Amazon, Upwork, Airbnb), exploit your data, censor content, and create dependence on intermediaries."
+    },
+    "solution": {
+      "title": "The Solution",
+      "text": "Parahub is a decentralized infrastructure for direct P2P interaction. Trade, exchange, collaborate directly. Planetary logistics. Cryptography instead of platform trust."
+    },
+    "features": {
+      "title": "Key Features",
+      "marketplace": {
+        "title": "P2P Marketplace",
+        "desc": "Buy and sell directly. No platform fees."
+      },
+      "barter": {
+        "title": "Multi-party Barter",
+        "desc": "Exchange without money, even without a direct match. Chains of up to 5 participants."
+      },
+      "crypto": {
+        "title": "Client-side Cryptography",
+        "desc": "PGP keys are created in the browser and never leave your device. Nobody reads your data."
+      },
+      "reputation": {
+        "title": "Web of Trust",
+        "desc": "Verified by three real people from the community. Reputation you can't buy."
+      },
+      "payments": {
+        "title": "Flexible Payments",
+        "desc": "Bitcoin, Lightning, bank transfer or cash — you agree with your counterparty."
+      },
+      "maps": {
+        "title": "Maps & Logistics",
+        "desc": "All trade is tied to the map. Geosearch, pickup points, delivery routes."
+      },
+      "mesh": {
+        "title": "Mesh Network",
+        "desc": "Flash a router and it becomes part of the network. Free Wi-Fi for neighbors, earn on traffic."
+      },
+      "arbitration": {
+        "title": "Dispute Resolution",
+        "desc": "Independent arbiters from the community handle disputed deals. Resolution without courts or lawyers."
+      },
+      "governance": {
+        "title": "Liquid Democracy",
+        "desc": "Vote on platform decisions or delegate your vote to someone you trust."
+      },
+      "ads": {
+        "title": "P2P Advertising",
+        "desc": "Advertisers pay viewers directly. No platform middleman."
+      },
+      "events": {
+        "title": "Events & Meetups",
+        "desc": "Organize offline, online or hybrid meetups. Participants automatically get a group chat."
+      },
+      "debts": {
+        "title": "Debt Tracking",
+        "desc": "Track mutual debts in your wallet. Confirmation from both sides. Can be settled through barter."
+      },
+      "directory": {
+        "title": "Business Directory",
+        "desc": "Venues with addresses, opening hours, public board (governance), and contacts on the map."
+      },
+      "contracts": {
+        "title": "P2P Contracts",
+        "desc": "Sign agreements cryptographically. The document exists independently of the platform."
+      },
+      "zenith": {
+        "title": "AI Assistant",
+        "desc": "Personal AI assistant that knows your data and contacts."
+      },
+      "opensky": {
+        "title": "Aerial Imagery",
+        "desc": "Upload drone footage of your area. Automatically appears as a layer on the map."
+      },
+      "presence": {
+        "title": "Map Presence",
+        "desc": "See which contacts are nearby right now. Coordinates are only revealed to you."
+      },
+      "psycho": {
+        "title": "Personality Matching",
+        "desc": "AI analyzes your personality and creates a short public profile for compatibility matching."
+      },
+      "jitsi": {
+        "title": "Video Calls",
+        "desc": "Encrypted video calls within the platform. Your own server — no third-party services."
+      },
+      "energy": {
+        "title": "Parahub Energy",
+        "desc": "P2P selling of solar surplus to neighbors. Producer earns 3× more, neighbor pays less."
+      },
+      "federation": {
+        "title": "Federation",
+        "desc": "Run your own Parahub instance and stay connected. Git-based registry with PGP signatures and Bitcoin anchoring."
+      },
+      "transit": {
+        "title": "Public Transit",
+        "desc": "Real-time buses on the map. GTFS data for multiple cities with thousands of routes and stops."
+      },
+      "carpool": {
+        "title": "Carpooling",
+        "desc": "Passenger-driven rideshare at transit stops. Request a ride, get matched, chat via Matrix."
+      },
+      "tickets": {
+        "title": "Lightning Tickets",
+        "desc": "Buy transit and event tickets with Bitcoin Lightning. Direct payment to operators, no escrow."
+      },
+      "logistics": {
+        "title": "P-Hub Logistics",
+        "desc": "Any venue becomes a parcel drop-off/pick-up point. Shipment tracking, carrier offers, QR pickup codes. No escrow."
+      },
+      "driver": {
+        "title": "Driver Mode",
+        "desc": "Verified drivers broadcast GPS from the browser. Passengers see them on the map alongside official transit feeds."
+      },
+      "dispatch": {
+        "title": "Fleet Dispatch",
+        "desc": "Assign GPS trackers to routes. Stop snapping, transit management, custom route CRUD with GTFS export."
+      },
+      "treasury": {
+        "title": "Participatory Budget",
+        "desc": "Community decides spending via median voting. Epochs, sliders, Merkle audit trail."
+      },
+      "wallet": {
+        "title": "Lightning Wallet",
+        "desc": "Non-custodial Bitcoin wallet in the browser. Keys never leave your device."
+      },
+      "income": {
+        "title": "Transparent Income",
+        "desc": "Voluntary donations (0/0.1/1%). Full transparency on how the association earns and spends."
+      },
+      "property": {
+        "title": "My Home",
+        "desc": "Register your property and link IoT devices, energy meters and smart home servers to it."
+      },
+      "condo": {
+        "title": "Condominium",
+        "desc": "Manage shared buildings: fractions, quota payments, weighted voting by permilagem. Lei 8/2022 compliant."
+      },
+      "ha": {
+        "title": "Home Assistant",
+        "desc": "Connect your Home Assistant server. Discover devices, monitor sensors, control switches from Parahub."
+      },
+      "sos": {
+        "title": "ParaSOS",
+        "desc": "Neighborhood emergency mutual aid. One-tap SOS alerts to your safety group with push, siren, and location."
+      }
+    },
+    "principles": {
+      "title": "Our Principles",
+      "noEscrow": "Never block funds",
+      "clientCrypto": "Client-side cryptography",
+      "openSource": "Open Source",
+      "noFees": "No platform fees",
+      "directDemocracy": "Direct democracy"
+    },
+    "quote": "Parahub is not a company. It's a protocol for planetary cooperation. Technological embodiment of Gandhi and Tolstoy's principles of non-violent resistance through digital self-sufficiency and direct cooperation.",
+    "hero": {
+      "subtitle": "Federated infrastructure for direct P2P cooperation, trade and communications",
+      "tagline": "Planetary logistics • No fees • Open source"
+    },
+    "barterSystem": {
+      "title": "Barter Mechanism",
+      "why": {
+        "title": "Why Barter?",
+        "text": "Lowers entry barriers (no money/bank account needed), localizes economy, reduces dependence on fiat currencies. Especially useful in crisis regions or for those without access to banking services."
+      },
+      "howItWorks": {
+        "title": "How It Works",
+        "step1": "Create goods/services with 'open to barter' option",
+        "step2": "Specify what you want to receive (categories, keywords)",
+        "step3": "System searches for exchange cycles via Neo4j:",
+        "step3_bilateral": "Bilateral: A ↔ B (classic barter)",
+        "step3_trilateral": "Trilateral: A → B → C → A",
+        "step3_multilateral": "Up to 5 participants: A → B → C → D → E → A",
+        "step4": "System suggests options, you choose the suitable one",
+        "step5": "Execution through reputation — no escrow, no fund blocking"
+      },
+      "example": {
+        "title": "Example: Three-way Barter",
+        "alice": "Alice:",
+        "alice_offers": "web development",
+        "alice_wants": "legal services",
+        "bob": "Bob:",
+        "bob_offers": "legal services",
+        "bob_wants": "logo design",
+        "vera": "Carol:",
+        "vera_offers": "logo design",
+        "vera_wants": "web development",
+        "result": "✅ Cycle found! Everyone gets what they want without money.",
+        "offers_label": "offers",
+        "wants_label": "wants"
+      }
+    },
+    "arbitration": {
+      "title": "Dispute Resolution & Arbitration",
+      "intro": "Parahub offers a unique decentralized P2P arbitration system with two optional modes: reputation-based (default) for speed and simplicity, or Bitcoin multisig escrow for technological guarantees. Users choose the protection level per deal.",
+      "modes": {
+        "title": "Two Operation Modes",
+        "reputation": {
+          "title": "Reputation Mode (Default)",
+          "desc": "Free, fast, universal. Based on Web of Trust and reputation system. Suitable for experienced users and small amounts.",
+          "point1": "No blockchain fees, instant settlement",
+          "point2": "Works with any payment method (fiat, crypto, barter)",
+          "point3": "Protection via reputation + escalation to traditional courts"
+        },
+        "multisig": {
+          "title": "Bitcoin Multisig (Optional)",
+          "desc": "2-of-3 multisig escrow with mathematical guarantee. Ideal for newbies, large amounts, and cross-border deals.",
+          "point1": "Funds locked until both parties agree or arbitrator decides",
+          "point2": "Automatic on-chain execution, impossible to ignore",
+          "point3": "Global, borderless, non-custodial (platform never controls keys)"
+        }
+      },
+      "escalation": {
+        "title": "Three-Level Escalation",
+        "level1": {
+          "title": "Direct Negotiation",
+          "desc": "Parties resolve dispute via encrypted Matrix chat using PGP-signed contracts from Gitea. ~70% success rate."
+        },
+        "level2": {
+          "title": "P2P Arbitration",
+          "desc": "Verified users can become arbitrators. For reputation mode: advisory decision. For multisig: technological enforcement via blockchain."
+        },
+        "level3": {
+          "title": "Traditional Legal System",
+          "desc": "If unsatisfied, escalate to institutional arbitration (CAC/CICAP) or courts. PGP contracts and blockchain data serve as legal evidence."
+        }
+      }
+    },
+    "wotSystem": {
+      "title": "Web of Trust",
+      "problem": {
+        "title": "The problem: who to trust?",
+        "text": "It's trivially easy to create thousands of fake accounts online. Conventional platforms address this through centralized verification — passport, phone number, bank card. That means handing your data to a corporate intermediary. Parahub takes a different approach."
+      },
+      "how": {
+        "title": "How Web of Trust works",
+        "step1": "Meet a verified community member — in person or through mutual contacts",
+        "step2": "Ask them to verify your profile in Parahub",
+        "step3": "Once 3 different people confirm you, you become a verified participant",
+        "step4": "Now you can verify others — and are responsible for whom you vouch for"
+      },
+      "stake": {
+        "title": "Skin in the game",
+        "text": "Verification isn't just a click. If an account you verified turns out to be fake, all three of its verifiers are automatically banned as well. This creates a real incentive to vouch only for people you actually know."
+      },
+      "unlocks": {
+        "title": "What verification unlocks",
+        "basic": "No verification: browse listings, read the platform",
+        "wot1": "1+ verification: create listings, barter, direct messages",
+        "wot2": "2+ verifications: business directory, organize events, P2P advertising",
+        "wot3": "3+ verifications: full access, ability to become an arbitrator"
+      }
+    },
+    "adsSystem": {
+      "title": "P2P Advertising",
+      "difference": {
+        "title": "The inverted model",
+        "text": "In traditional advertising, money flows: advertiser → platform → somewhere. Users are the product, not participants. In Parahub, the advertiser pays the viewer directly in satoshis via Lightning Network. The platform coordinates but never holds funds."
+      },
+      "compare": {
+        "traditional": "Traditional advertising",
+        "trad_flow": "Advertiser → Platform → User (0 ₿)",
+        "para_flow": "Advertiser → Viewer (satoshis)"
+      },
+      "viewer": {
+        "title": "For viewers: earn satoshis",
+        "step1": "Connect a Lightning wallet in your profile settings",
+        "step2": "Set your interests and location — this determines what ads you see",
+        "step3": "Open the ad feed, read an ad (3 seconds)",
+        "step4": "Click 'Claim X sats' — payment arrives instantly in your wallet"
+      },
+      "advertiser": {
+        "title": "For advertisers: pay per real view",
+        "step1": "Create a campaign and set your budget in satoshis",
+        "step2": "Configure your audience: age, gender, interests, geo radius",
+        "step3": "Set reward per view (e.g. 10–100 satoshis)",
+        "step4": "Budget is spent only on real views — no hidden fees"
+      },
+      "flow": {
+        "title": "Payment flow",
+        "text": "Parahub takes no cut from views. When a viewer claims their reward, the server executes an LNURL payment directly from the advertiser's Lightning wallet to the viewer's wallet."
+      }
+    },
+    "meshSystem": {
+      "title": "Mesh Network",
+      "what": {
+        "title": "The toaster principle",
+        "text": "A Parahub mesh router works like a toaster — plug it in and forget it. Flash the firmware onto a compatible OpenWrt router and it self-configures, self-connects to nearby nodes, and self-updates at night. No manual setup required."
+      },
+      "networks": {
+        "title": "Two networks from one router",
+        "public": "Open network, no password. Speed capped at 512 kbps. Guest traffic routes through a VPN tunnel: you are not liable for their internet activity (Mere Conduit principle).",
+        "private": "Your private WPA3 network at full speed. Access to home devices, NAS, DLNA. Isolated from guests, shares the same mesh backhaul via a separate VLAN."
+      },
+      "earn": {
+        "title": "Earn from guest traffic",
+        "text": "Guests get basic free access. Those wanting more speed scan a QR code and pay satoshis via Lightning. The router instantly lifts the throttle. You receive payment without any involvement."
+      },
+      "global": {
+        "title": "Local and global mesh",
+        "text": "Nearby nodes connect automatically over Wi-Fi via batman-adv — seamless roaming, unified DLNA. Nodes in different cities connect via Yggdrasil over the regular internet — automatically, no port forwarding needed."
+      }
+    },
+    "condoSystem": {
+      "title": "Condominium Management",
+      "intro": "Free digital management for residential buildings. Fractions, quotas, weighted assemblies — everything a Portuguese condominium needs under Lei 8/2022, without paying for proprietary software.",
+      "permilagem": {
+        "title": "Permilagem voting",
+        "text": "Each fraction has an ownership share in permilagem (‰). Votes in assemblies are weighted by ownership — a 200‰ apartment counts twice as much as a 100‰ garage. The sum must equal exactly 1000‰."
+      },
+      "quotas": {
+        "title": "Quota tracking",
+        "text": "Monthly condominium fees are calculated proportionally to each fraction's permilagem. The admin records payments — Parahub tracks who paid, not how. No payment processing, no escrow."
+      },
+      "assembly": {
+        "title": "Digital assemblies",
+        "text": "Lei 8/2022 legalized electronic voting for Portuguese condominiums. Create a weighted poll, eligible owners vote with their permilagem weight, results are auditable."
+      },
+      "reuse": {
+        "title": "Built on existing systems",
+        "text": "No new app needed. A condominium is an Establishment with weighted governance (Liquid Democracy), a participatory budget (Treasury), and encrypted group chat (Matrix). All existing systems, reused."
+      }
+    },
+    "voiceChat": {
+      "title": "Voice Chat",
+      "intro": "Talk to AI assistants using your voice. Ask questions, get help navigating the platform, or request information — all through natural conversation in your browser.",
+      "howItWorks": {
+        "title": "How it works",
+        "step1": "Open the voice chat page and allow microphone access.",
+        "step2": "Speak your question or request naturally.",
+        "step3": "The assistant processes your voice, thinks through the answer, and responds with audio.",
+        "step4": "Continue the conversation — context is preserved for 24 hours."
+      },
+      "history": {
+        "title": "24-hour memory",
+        "text": "Return any time within 24 hours and the assistant remembers your previous conversation. No need to repeat yourself."
+      },
+      "controls": {
+        "title": "Full playback control",
+        "text": "Stop, replay, or clear any exchange. Each response shows what the assistant is doing while it thinks — reading data, checking systems, preparing an answer."
+      },
+      "multilingual": {
+        "title": "Multilingual",
+        "text": "Speak in your language and get responses in the same language. The assistant adapts to you automatically."
+      }
+    },
+    "phubSystem": {
+      "title": "P-Hub: Community Logistics",
+      "intro": "A peer-to-peer parcel delivery network where anyone can be a pickup point. Send packages through trusted community members — no courier companies, no warehouses, no middlemen.",
+      "roles": {
+        "sender": {
+          "title": "Sender",
+          "text": "Create a shipment, drop your parcel at the nearest hub, and track it until delivery."
+        },
+        "hub": {
+          "title": "Hub operator",
+          "text": "Turn your shop, office, or garage into a pickup/dropoff point. Set capacity, storage fees, and opening hours."
+        },
+        "carrier": {
+          "title": "Carrier",
+          "text": "Offer to transport parcels between hubs. Set your price and pick up shipments along your route."
+        }
+      },
+      "howItWorks": {
+        "title": "How a shipment moves",
+        "step1": "Sender creates a shipment and drops the parcel at the origin hub.",
+        "step2": "A carrier picks up the parcel and transports it to the next hub.",
+        "step3": "For long distances, parcels hop through multiple hubs via different carriers.",
+        "step4": "Recipient receives a pickup code and collects the parcel from the destination hub.",
+        "step5": "QR code scan at each step verifies the handover."
+      },
+      "noEscrow": {
+        "title": "No escrow",
+        "text": "Payments go directly from sender to hub and carrier. The platform never holds your money."
+      },
+      "qrTracking": {
+        "title": "QR code tracking",
+        "text": "Every handover is verified by scanning a QR code. Public tracking code for status, private pickup code for security."
+      },
+      "multiHop": {
+        "title": "Multi-hop delivery",
+        "text": "Parcels can travel through multiple hubs via different carriers — like packets on the internet, each hop brings it closer."
+      },
+      "lightning": {
+        "title": "Lightning payments",
+        "text": "Storage fees and carrier payments are settled instantly via Lightning Network. No invoices, no delays."
+      },
+      "trust": {
+        "title": "Trust requirements",
+        "text": "Hub operators need Web of Trust level 2+ (verified by 2 members). Senders and carriers need level 1+. This keeps the network reliable without centralized vetting."
+      }
+    },
+    "transitOps": {
+      "title": "Transit Management",
+      "intro": "A web-based platform for transit agencies to manage their operations. Create routes, assign vehicles, define schedules, and automatically export to industry-standard GTFS format — all from a browser.",
+      "routeEditor": {
+        "title": "Visual route editor",
+        "text": "Draw routes on a map by clicking stops. The system generates the optimal driving path between them automatically."
+      },
+      "vehicleTracking": {
+        "title": "Vehicle tracking",
+        "text": "Assign GPS trackers to routes and see your fleet in real time. Passengers see the same vehicles on the public map."
+      },
+      "schedules": {
+        "title": "Schedule management",
+        "text": "Define trips and stop times. The schedule feeds into real-time arrival estimates for passengers."
+      },
+      "realtimeFeed": {
+        "title": "Real-time GTFS feed",
+        "text": "Your routes and live vehicle positions are automatically exported as GTFS and GTFS-RT — compatible with Google Maps, Moovit, Transit, and other apps."
+      },
+      "gettingStarted": {
+        "title": "Getting started",
+        "step1": "Register your agency on the platform.",
+        "step2": "Create stops on the map or reuse existing ones from imported transit data.",
+        "step3": "Draw a route by selecting stops in order — the system generates the path.",
+        "step4": "Assign vehicles with GPS trackers to the route.",
+        "step5": "Your routes appear on the public map and in GTFS feeds immediately."
+      },
+      "gtfsExport": {
+        "title": "Automatic GTFS export",
+        "text": "All your custom routes, stops, and schedules are continuously exported as standard GTFS data. External transit apps can consume your routes without any manual work."
+      }
+    },
+    "ticketsSystem": {
+      "title": "Tickets",
+      "intro": "Buy digital tickets for events and transit with instant Lightning payments. One system for concerts, community meetups, and bus rides — no intermediaries, no fees beyond what the operator sets.",
+      "buyFlow": {
+        "title": "How to buy a ticket",
+        "step1": "Find an event or transit route and tap 'Buy Ticket'.",
+        "step2": "Pay instantly via Lightning Network from any compatible wallet.",
+        "step3": "Receive a digital ticket with a unique QR code.",
+        "step4": "Show the QR code at entry — one scan marks it as used."
+      },
+      "qrCode": {
+        "title": "QR code validation",
+        "text": "Each ticket has a unique QR code. Operators scan it once for instant validation — no paper, no apps to install."
+      },
+      "pgpSigning": {
+        "title": "Cryptographic signing",
+        "text": "Optionally sign your ticket with your PGP key. This proves the ticket belongs to you and hasn't been tampered with."
+      },
+      "unified": {
+        "title": "Events and transit",
+        "text": "The same ticket system works for community events, concerts, and transit passes. One place for all your tickets."
+      },
+      "capacity": {
+        "title": "Capacity limits",
+        "text": "Operators set maximum capacity per ticket type. When sold out, the system stops selling — no overbooking."
+      },
+      "noEscrow": {
+        "title": "Direct payments",
+        "text": "Your payment goes directly to the event organizer or transit operator. The platform never holds funds — this is a core principle."
+      }
+    },
+    "driverMode": {
+      "title": "Driver Mode",
+      "intro": "Broadcast your live GPS position while driving a transit route. Passengers see your vehicle on the map in real time — no special hardware needed, just a browser.",
+      "howToStart": {
+        "title": "How to start a shift",
+        "step1": "Open the driver page and select your route.",
+        "step2": "Choose the direction (outbound or inbound).",
+        "step3": "Tap 'Start Shift' — your browser begins sharing your location.",
+        "step4": "Drive your route. Tap 'End Shift' when finished."
+      },
+      "browserBased": {
+        "title": "No app needed",
+        "text": "Works in any modern browser on phone, tablet, or car touchscreen. The screen stays on during your shift automatically."
+      },
+      "stopAnnouncements": {
+        "title": "Stop announcements",
+        "text": "Automatic text-to-speech announces upcoming stops as you approach them. Helps passengers and drivers alike."
+      },
+      "passengerVisibility": {
+        "title": "Visible to passengers",
+        "text": "Your vehicle appears on the public map alongside official transit feeds. Passengers see estimated arrival times at each stop."
+      },
+      "shiftHistory": {
+        "title": "Shift records",
+        "text": "All shifts are recorded with start/end times and route details. Useful for audit trails and payroll."
+      },
+      "requirements": {
+        "title": "Requirements",
+        "text": "Web of Trust level 2+ is required to broadcast as a driver. This ensures only trusted community members can appear as official transit vehicles on the map."
+      }
+    },
+    "techStack": {
+      "title": "Technology Stack",
+      "backend": {
+        "title": "Backend",
+        "django": "Django 5 + Ninja: REST API, WebSocket",
+        "postgres": "PostgreSQL 16 + PostGIS: Main DB, geodata",
+        "timescale": "TimescaleDB: IoT telemetry, time series",
+        "redis": "Redis: Cache, sessions, rate limiting",
+        "neo4j": "Neo4j: Graph for barter cycles"
+      },
+      "frontend": {
+        "title": "Frontend",
+        "nuxt": "Nuxt 4 (SSR): Vue 3 + TypeScript",
+        "maplibre": "MapLibre GL JS: Interactive maps",
+        "lucide": "Lucide: Icons",
+        "tailwind": "Tailwind CSS: Styling"
+      },
+      "communications": {
+        "title": "Communications",
+        "matrix": "Matrix Synapse: E2E encrypted chat",
+        "jitsi": "Jitsi Meet: Video calls",
+        "breez": "Breez SDK Spark: Lightning wallet",
+        "traccar": "Traccar: GPS tracking",
+        "mailcow": "Mailcow + SOGo: Email server"
+      },
+      "maps": {
+        "title": "Maps & Geocoding",
+        "martin": "Martin: Tile server (PostGIS → MVT)",
+        "pelias": "Pelias: Planet-wide geocoding",
+        "valhalla": "Valhalla: Road routing engine",
+        "motis": "MOTIS: Transit routing (GTFS)",
+        "osm": "OpenStreetMap: Source data"
+      },
+      "infrastructure": {
+        "title": "Infrastructure",
+        "docker": "Docker Compose: External services",
+        "nginx": "Nginx: Reverse proxy, SSL",
+        "systemd": "Systemd: Process management",
+        "gitea": "Gitea: Git hosting",
+        "capacitor": "Capacitor: Mobile apps (Android/iOS)"
+      }
+    },
+    "community": {
+      "title": "Community",
+      "members": "Association members",
+      "verified": "Verified users",
+      "active_items": "Active listings",
+      "profiles": "Registered users",
+      "contracts": "P2P contracts",
+      "establishments": "Directory listings",
+      "subsystems": "subsystems"
+    },
+    "badges": {
+      "languages": "{count} languages",
+      "open_source": "Open source",
+      "no_fees": "No platform fees"
+    },
+    "cta": {
+      "text": "Join the decentralized economy",
+      "github": "GitHub",
+      "start": "Get started"
+    },
+    "contact": {
+      "title": "Contact",
+      "email": "Email:",
+      "support": "Voice Support"
+    },
+    "energySystem": {
+      "title": "Parahub Energy",
+      "wip": "in development",
+      "problem": {
+        "text": "A solar panel owner sells surplus electricity back to the grid at 5 cents per kWh. Their neighbor buys from that same grid at 20 cents. The 15-cent spread goes to the grid operator — even though the energy doesn't physically move anywhere."
+      },
+      "compare": {
+        "grid_sell": "selling to grid",
+        "grid_buy": "buying from grid",
+        "parahub_price": "Parahub: group price"
+      },
+      "winwin": {
+        "text": "Collective self-consumption law (ACC, DL 15/2022) lets neighbors form an energy group and trade directly — with reduced network tariff (CIEG exempt for 7 years). The producer earns 60% more than grid feed-in, the neighbor pays 47% less. Parahub acts as EGAC and handles DGEG registration."
+      },
+      "producer": {
+        "title": "If you have solar panels",
+        "step1": "Connect your inverter to Parahub — once, at installation",
+        "step2": "Parahub automatically distributes surplus to neighbors by priority",
+        "step3": "The system handles flows automatically: home → battery → neighbors",
+        "step4": "Receive monthly payments at the group market price"
+      },
+      "neighbor": {
+        "title": "If you're a neighbor",
+        "step1": "No installation needed — just a smart meter (already in 90% of homes)",
+        "step2": "Get notified when cheap energy is available",
+        "step3": "Optional: auto-start your boiler or heat pump when the green signal is on"
+      },
+      "requirements": {
+        "title": "Technical constraints",
+        "text": "All group members must be served by the same transformer substation. Maximum radius: 2 km for low voltage, 4 km for medium voltage. This is a physical grid constraint — not a platform limitation."
+      },
+      "markets": {
+        "text": "First markets: Portugal (DL 15/2022) and Spain (Real Decreto 244/2019). Similar laws exist across most EU countries under the RED III directive."
+      }
+    },
+    "federationSystem": {
+      "title": "Federation",
+      "intro": "Parahub is not a single server — it's a protocol. Anyone can run their own instance and connect to the network. Nodes share a public registry of organizations, profile migrations, and WoT verifications. No central authority.",
+      "why": {
+        "title": "Why federation?",
+        "text": "If parahub.io goes offline, every other node continues working. Your data, your keys, your reputation — they don't depend on a single server. Communities can run their own instances while staying connected to the rest of the network."
+      },
+      "git": {
+        "title": "Git as protocol",
+        "text": "Every node keeps a signed Git repository with public records. Organization registrations, profile migrations, WoT verifications — all committed as JSON, signed with PGP, and anchored to Bitcoin via OpenTimestamps. No consensus, no gas, no tokens."
+      },
+      "migration": {
+        "title": "Profile migration",
+        "text": "Moving to another instance? Your identity follows you. Four-party signature: old user, new user, old node, new node. Old address redirects to the new one. Verifications, contracts, items — exported and re-imported."
+      },
+      "search": {
+        "title": "Federated search",
+        "text": "Search for profiles and organizations across all connected nodes. Results come from local database and parallel queries to known peers."
+      },
+      "wot": {
+        "title": "Cross-node trust",
+        "text": "Verify users on other nodes. Verification records are committed to Git and signed by both the verifier and the node. Trust propagates across the federation."
+      }
+    },
+    "governanceSystem": {
+      "title": "Liquid Democracy",
+      "intro": "Traditional voting treats everyone equally — whether you've studied the issue for months or are voting at random. Liquid democracy fixes this: vote directly or delegate to someone you trust.",
+      "direct": {
+        "title": "Direct vote",
+        "text": "Choose one of the options — like a regular referendum. Up to 10 choices, not just yes or no."
+      },
+      "delegate": {
+        "title": "Delegation",
+        "text": "Don't want to dig into the topic — delegate your vote to someone you trust on this issue. Your vote now counts alongside theirs."
+      },
+      "transitive": {
+        "title": "Transitivity",
+        "text": "If your delegate also delegated to someone — the chain continues. Alice → Bob → Carol: when Carol votes, her vote counts as 3."
+      },
+      "revoke": {
+        "title": "Revoke at any time",
+        "text": "Vote directly and the delegation is cancelled automatically. You can always take back control."
+      },
+      "audit": {
+        "title": "Verifiable results",
+        "text": "Every vote is PGP-signed. Results are published with an audit log — anyone can verify the data hasn't been changed."
+      },
+      "example": {
+        "alice": "Alice",
+        "bob": "Bob",
+        "carol": "Carol",
+        "votes": "= 3 votes"
+      },
+      "contexts": {
+        "title": "Where you can vote",
+        "community": "In the Parahub community — decisions on platform development",
+        "establishment": "In a venue or organization — internal decisions",
+        "adhoc": "One-off votes — for any group of participants"
+      }
+    },
+    "cryptoProofs": {
+      "title": "Cryptographic Proofs",
+      "intro": "Every signed contract, debt confirmation and identity verification is cryptographically anchored. You don't need to trust the platform — you can verify the proofs yourself with standard open-source tools.",
+      "pgp": {
+        "title": "PGP Signatures",
+        "text": "Every user can generate a PGP keypair directly in the browser. The private key never leaves the device. Contracts and debts are signed with this key before being submitted to the server.",
+        "point1": "Private key stays in your browser only",
+        "point2": "All contracts and debts carry dual PGP signatures",
+        "point3": "Signatures verifiable against the public keyring at gitea.parahub.io/audit"
+      },
+      "ots": {
+        "title": "Bitcoin Anchoring",
+        "text": "Every 10 minutes all pending events — signed contracts, confirmed debts, WoT verifications — are bundled into a git commit and stamped with OpenTimestamps. One Bitcoin block covers all events through a git Merkle tree.",
+        "point1": "Stamped every 10 minutes via systemd timer",
+        "point2": "One Bitcoin anchor covers all events — no per-event network cost",
+        "point3": "Proof is verifiable via opentimestamps-client with no account required"
+      },
+      "export": {
+        "title": "Export for Court",
+        "text": "Any signed contract or confirmed debt can be exported as a ZIP package. The archive is self-contained and verifiable without access to Parahub.",
+        "contains": "The ZIP contains:",
+        "item1": "Full contract JSON with both signatures",
+        "item2": "OTS proof file (.ots) anchored in Bitcoin",
+        "item3": "Git commit reference and event log path",
+        "item4": "README with step-by-step verification instructions"
+      },
+      "verify": {
+        "title": "How to Verify Independently",
+        "step1": "pip install opentimestamps-client",
+        "step2": "ots verify batch_ots_proof.ots",
+        "step3": "gpg --import pubkey.asc && gpg --verify signature.asc"
+      },
+      "legal": {
+        "title": "Legal standing",
+        "text": "PGP signatures qualify as Advanced Electronic Signatures (AES) under eIDAS Regulation (EU 910/2014). OpenTimestamps provides cryptographic proof of existence anchored in Bitcoin — accepted by Portuguese courts under Código Civil Art. 363º."
+      }
+    },
+    "gettingStarted": {
+      "title": "Getting started",
+      "intro": "Parahub works differently from regular platforms. Here's how to get up to speed in a few steps.",
+      "step1": {
+        "title": "Register",
+        "text": "Sign in with Google or create an account directly. Choose a username — this becomes your network address as username{'@'}parahub.io."
+      },
+      "step2": {
+        "title": "Get WoT verified",
+        "text": "Ask three people you know to confirm your identity in the network. Some features are locked without this — it's how the platform defends against fake accounts."
+      },
+      "step3": {
+        "title": "List something or browse",
+        "text": "Marketplace, barter, ads — try listing something or find what you need. No platform fees."
+      },
+      "step4": {
+        "title": "Set up a wallet",
+        "text": "If you want to accept Bitcoin payments via Lightning — create a wallet right in your browser. Keys never leave your device."
+      },
+      "step5": {
+        "title": "Explore",
+        "text": "Events near you, community votes, barter exchanges, mesh network — explore at your own pace."
+      }
+    },
+    "transparency": {
+      "title": "Transparency",
+      "intro": "Parahub is a non-profit association (associação sem fins lucrativos). We never take a cut from your transactions. Here's exactly how we stay alive and where every cent goes.",
+      "principles_title": "Our principles",
+      "principle1_title": "Voluntary by default",
+      "principle1_text": "When you send a payment or create an ad campaign, you see a small prompt: 0%, 0.1%, or 1%. You pick. It remembers your choice. That's it.",
+      "principle2_title": "Full visibility",
+      "principle2_text": "Total collected, number of supporters, breakdown by month — all public, real-time, on this page.",
+      "principle3_title": "No platform fees",
+      "principle3_text": "P2P payments, barter, marketplace — always zero commission. The donation is a separate transaction, never deducted from the recipient.",
+      "principle4_title": "No hidden charges",
+      "principle4_text": "We don't sell data, don't show third-party ads, don't monetize your attention. If we earn money, it's listed here.",
+      "sources_title": "Revenue sources",
+      "donations_title": "Voluntary donations (wallet & ads)",
+      "donations_text": "After any Lightning payment or when creating an ad campaign, you choose how much to contribute: 0%, 0.1% (default for new users), or 1%. This is a separate Lightning transaction to the association's address. The platform never touches your funds.",
+      "ads_title": "Ads listing fee",
+      "ads_text": "Advertisers can optionally support the platform when creating campaigns. Same 0% / 0.1% / 1% choice. For context: Google takes 32%, we suggest 0.1%.",
+      "energy_title": "Energy management fee (EGAC)",
+      "energy_text": "As the registered energy manager (EGAC) under Portuguese law DL 15/2022, Parahub charges a fixed 1% management fee for ACC solar energy groups. This covers regulatory compliance, billing, and distribution coefficient management. This is not a donation — it's a legal obligation for the management service.",
+      "never_title": "What we never do",
+      "never1": "Take a cut from P2P payments — your money goes directly to the recipient",
+      "never2": "Charge for barter — multilateral exchange is always free",
+      "never3": "Sell user data or show third-party advertisements",
+      "never4": "Hold your funds — we are not a payment processor (NO ESCROW)",
+      "stats_title": "Live numbers",
+      "total_sats": "sats donated",
+      "total_donations": "donations",
+      "supporters": "supporters"
+    }
+  }
+}

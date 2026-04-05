@@ -1,0 +1,306 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+
+/* Parahub Brand Colors from DESIGN.md */
+:root {
+  /* Primary Brand Colors */
+  --color-primary: #FFE216;        /* Parahub Yellow */
+  --color-secondary: #4E4EC8;      /* Electric Indigo */
+  
+  /* Status Colors */
+  --color-success: #4CAF50;        /* Success Green */
+  --color-warning: #FF9800;        /* Warning Orange */
+  --color-error: #F44336;          /* Error Red */
+  
+  /* Neutral Colors - Dark Theme (предпочтительная) */
+  --color-background-dark: #121212;      /* Deep Space Black */
+  --color-surface-dark: #1E1E1E;         /* Dark Grey */
+  --color-border-dark: #424242;          /* Light Grey */
+  --color-text-dark: #F5F5F5;            /* Starlight White */
+  --color-text-muted-dark: #9E9E9E;      /* Mid Grey */
+  
+  /* Neutral Colors - Light Theme */
+  --color-background-light: #F5F5F5;     /* Starlight White */
+  --color-surface-light: #FFFFFF;        /* White */
+  --color-border-light: #BDBDBD;         /* Light Grey */
+  --color-text-light: #121212;           /* Deep Space Black */
+  --color-text-muted-light: #424242;     /* Dark Grey */
+}
+
+/* Base styles */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  font-variation-settings: 'opsz' 32;
+}
+
+/* Nav button transitions — instant everywhere for speed feel */
+[data-nav-button] {
+  transition-property: color, background-color;
+  transition-duration: 0ms;
+}
+
+/* Light theme */
+.light {
+  --color-background: var(--color-background-light);
+  --color-surface: var(--color-surface-light);
+  --color-border: var(--color-border-light);
+  --color-text: var(--color-text-light);
+  --color-text-muted: var(--color-text-muted-light);
+}
+
+/* Dark theme (предпочтительная) */
+.dark {
+  --color-background: var(--color-background-dark);
+  --color-surface: var(--color-surface-dark);
+  --color-border: var(--color-border-dark);
+  --color-text: var(--color-text-dark);
+  --color-text-muted: var(--color-text-muted-dark);
+}
+
+/* Improved focus indicators — :focus-visible only shows on keyboard nav */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Gamepad mode: enhanced focus ring */
+body[data-gamepad-active] *:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(255, 226, 22, 0.15);
+}
+
+body[data-gamepad-active] .agent-slot:focus-visible {
+  border-color: var(--agent-color, var(--color-primary));
+  box-shadow: 0 0 20px rgba(var(--agent-rgb, 255, 226, 22), 0.3);
+  transform: translateY(-2px);
+}
+
+/* Skip link styles */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: var(--color-primary);
+  color: black;
+  padding: 8px 16px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 1000;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* Screen reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Map cursor styles - default cursor instead of grab hand */
+.maplibregl-canvas-container.maplibregl-interactive {
+  cursor: default !important;
+}
+
+/* Show grabbing cursor only when actively dragging */
+.maplibregl-canvas-container.maplibregl-interactive:active {
+  cursor: grabbing !important;
+}
+
+/* MapLibre navigation control — 44px minimum for mobile a11y */
+.maplibregl-ctrl-group button {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+/* MapLibre dark mode — must be global to override library defaults */
+:root.dark .maplibregl-ctrl-group {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+  background: rgba(30, 30, 30, 0.75) !important;
+  backdrop-filter: blur(8px);
+}
+:root.dark .maplibregl-ctrl-group button {
+  background: transparent !important;
+}
+:root.dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+:root.dark .maplibregl-ctrl-group button + button {
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Custom component styles */
+.card {
+  @apply bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-700;
+}
+
+/* Primary Button (CTA) - согласно DESIGN.md */
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  @apply bg-primary hover:bg-primary-600 text-neutral-900 font-semibold px-4 py-2 rounded-lg;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Secondary Button */
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  @apply bg-secondary hover:bg-secondary-700 text-white font-medium px-4 py-2 rounded-lg;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-secondary;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-success {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  @apply bg-success hover:bg-success-600 text-white font-medium px-4 py-2 rounded-lg;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-success;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-warning {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  @apply bg-warning hover:bg-warning-600 text-white font-medium px-4 py-2 rounded-lg;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-warning;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-error {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  @apply bg-error hover:bg-error-600 text-white font-medium px-4 py-2 rounded-lg;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-error;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Outline Button — transparent bg, neutral border */
+.btn-outline {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  @apply bg-transparent border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 font-medium px-4 py-2 rounded-lg;
+  @apply hover:bg-neutral-100 dark:hover:bg-neutral-800;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Outline Warning — transparent bg, warning-colored border + text */
+.btn-outline-warning {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  @apply bg-transparent border border-warning text-warning dark:text-warning-400 font-medium px-4 py-2 rounded-lg;
+  @apply hover:bg-warning-50 dark:hover:bg-warning-900/20;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-warning;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Outline Error — transparent bg, error-colored border + text */
+.btn-outline-error {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  @apply bg-transparent border border-error text-error dark:text-error-400 font-medium px-4 py-2 rounded-lg;
+  @apply hover:bg-error-50 dark:hover:bg-error-900/20;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-error;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Ghost Button — no border, subtle hover */
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  @apply bg-transparent text-neutral-700 dark:text-neutral-300 font-medium px-4 py-2 rounded-lg;
+  @apply hover:bg-neutral-100 dark:hover:bg-neutral-800;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Size modifiers — combinable with any variant */
+.btn-sm {
+  @apply text-sm px-3 py-1.5;
+}
+
+.btn-lg {
+  @apply text-lg px-6 py-3;
+}
+
+/* Icon-only button — square padding */
+.btn-icon {
+  @apply p-2;
+}
+
+.btn-icon.btn-sm {
+  @apply p-1.5;
+}
+
+.btn-icon.btn-lg {
+  @apply p-3;
+}
+
+/* IoT Device specific styles */
+.device-card {
+  @apply card p-6;
+}
+
+.device-status-online {
+  @apply text-success font-medium;
+}
+
+.device-status-offline {
+  @apply text-neutral-400;
+}
+
+.location-data {
+  @apply bg-neutral-50 dark:bg-neutral-700 p-3 rounded font-mono text-sm;
+}
+
+/* Link styling — semantic secondary color with hover underline */
+.text-link {
+  @apply text-secondary dark:text-secondary-400 hover:underline;
+}
+
+/* Video embed in rendered markdown content (prose) */
+.prose .video-embed {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 1.5rem 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #1a1a1a;
+}
+.prose .video-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Respect prefers-reduced-motion — disable animations for vestibular disorders */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Safe area insets for notched/punch-hole devices (Capacitor + mobile browsers).
+   --safe-area-inset-top is injected by capacitor.client.ts on Android (where env() may not work).
+   --safe-area-inset-bottom is injected by MainActivity.java via WindowInsets listener.
+   On iOS, env() works natively. On web, both fallback to 0px. */
+.safe-area-top {
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+}
+.safe-area-spacer-top {
+  margin-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+}

@@ -1,0 +1,34 @@
+{
+  "property": {
+    "title": "Meine Objekte",
+    "my_homes": "Meine Häuser",
+    "add_property": "Objekt hinzufugen",
+    "edit_property": "Objekt bearbeiten",
+    "no_properties": "Keine Objekte hinzugefugt",
+    "no_properties_hint": "Fugen Sie Ihr Haus, Buro oder andere Objekte hinzu, um Gerate und Dienste zu gruppieren.",
+    "name": "Name",
+    "name_placeholder": "Haus, Ferienhaus, Buro...",
+    "type": "Typ",
+    "location": "Standort",
+    "click_map_hint": "Klicken Sie auf die Karte, um den Standort festzulegen",
+    "address": "Adresse",
+    "address_placeholder": "Strasse, Stadt...",
+    "devices": "Gerate",
+    "linked_building": "Mit Gebaude verknupft",
+    "add": "Hinzufugen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "edit": "Bearbeiten",
+    "delete": "Loschen",
+    "confirm_delete": "Objekt \"{name}\" loschen und alle verknupften Gerate trennen?",
+    "types": {
+      "house": "Haus",
+      "apartment": "Wohnung",
+      "land": "Grundstuck",
+      "office": "Buro",
+      "dacha": "Ferienhaus",
+      "garage": "Garage",
+      "other": "Sonstiges"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+[Unit]
+Description=Parahub Frontend (Nuxt 3)
+After=network.target
+
+[Service]
+Type=simple
+User=norn
+Group=norn
+WorkingDirectory=/opt/parahub/frontend
+ExecStart=/usr/bin/node /opt/parahub/frontend/.output/server/index.mjs
+Restart=always
+RestartSec=10
+
+# Environment variables
+Environment="NODE_ENV=production"
+Environment="NITRO_PORT=3000"
+Environment="NITRO_HOST=0.0.0.0"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parahub-frontend
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

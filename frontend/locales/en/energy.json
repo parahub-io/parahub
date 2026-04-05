@@ -1,0 +1,187 @@
+{
+  "energy": {
+    "title": "Energy",
+    "subtitle": "P2P Solar Energy Community",
+    "layer_title": "Energy Cells",
+    "no_cells": "No energy cells",
+    "status": {
+      "GREEN": "Surplus available",
+      "YELLOW": "Balanced",
+      "RED": "No surplus",
+      "OFFLINE": "Offline",
+      "WAITING": "Waiting for producers"
+    },
+    "role": {
+      "producer": "Producer (UPAC)",
+      "consumer": "Consumer (neighbor)"
+    },
+    "cell": {
+      "producers": "Producers",
+      "consumers": "Neighbors",
+      "radius": "Radius",
+      "transformer": "Transformer (PT)",
+      "price_label": "{price} €/kWh"
+    },
+    "my": {
+      "not_member": "You are not part of any energy cell",
+      "producer_in": "Producer in {name}",
+      "consumer_in": "Consumer in {name}"
+    },
+    "join": {
+      "title": "Join this energy cell",
+      "as_producer": "As producer (I have solar panels)",
+      "as_consumer": "As consumer (I am a neighbor)"
+    },
+    "inverter": {
+      "SOLARMAN": "Solarman (Deye / Sofar)",
+      "FRONIUS": "Fronius",
+      "GROWATT": "Growatt",
+      "SMA": "SMA",
+      "SHELLY": "Shelly EM",
+      "OTHER": "Other"
+    },
+    "econ": {
+      "sell_label": "Feed-in tariff",
+      "p2p_label": "P2P price",
+      "p2p_badge": "ACC",
+      "grid_label": "Grid price"
+    },
+    "empty": {
+      "title": "No energy cells yet",
+      "subtitle": "Be the first to start a P2P energy community in your neighbourhood.",
+      "cta": "Create energy cell",
+      "login_cta": "Sign in to create"
+    },
+    "how": {
+      "title": "How it works",
+      "step1": "A solar producer sells surplus to the group instead of the grid",
+      "step2": "Neighbours receive cheap energy (~0.12 €/kWh incl. network tariff vs 0.20 € from grid)",
+      "step3": "Green light signals when surplus is available — smart devices auto-start",
+      "step4": "Parahub registers the ACC (Autoconsumo Coletivo — collective self-consumption) group with DGEG (Portuguese energy regulator) and manages billing"
+    },
+    "detail": {
+      "created_by": "by {name}",
+      "members": "Members",
+      "technical": "Technical Details",
+      "view_on_map": "View on map",
+      "settings": "Cell Settings",
+      "price_eur_kwh": "Price (€/kWh)",
+      "leave": "Leave",
+      "joined": "Joined energy cell!",
+      "left": "Left energy cell",
+      "live_production": "Live Production",
+      "online": "online"
+    },
+    "form": {
+      "cell_name": "Cell name",
+      "description": "Description",
+      "cpe_code": "CPE Code",
+      "cpe_hint": "CPE (Código de Ponto de Entrega) — your delivery point code, found at the top of your electricity bill (e.g. PT0002...)",
+      "capacity_kw": "PV capacity (kW)",
+      "battery_kwh": "Battery capacity (kWh, optional)",
+      "inverter_type": "Inverter type",
+      "radius_km": "Radius (km)",
+      "radius_2_lv": "2 km — residential (Low Voltage)",
+      "radius_4_mv": "4 km — commercial/mixed (Medium Voltage)",
+      "transformer_id": "Transformer ID",
+      "transformer_hint": "E-Redes substation ID (format: PT-XXXXXX). Optional — leave blank if unsure.",
+      "location_hint": "Location (transformer substation)",
+      "use_location": "Use my current location",
+      "location_error": "Could not get location",
+      "created": "Energy cell created!"
+    },
+
+    "relay": {
+      "title": "Smart Relays",
+      "hint": "Plug a Shelly (~€15) into your water heater. It turns on automatically when cheap solar energy is available.",
+      "add": "Add relay",
+      "name": "Device name",
+      "name_placeholder": "Water Heater, Pool Pump...",
+      "type": "Relay type",
+      "url": "Device URL",
+      "channel": "Channel",
+      "test": "Test connection",
+      "empty": "No relays configured yet",
+      "added": "Relay added!",
+      "last_ok": "Working"
+    },
+
+    "shares": {
+      "title": "Investor shares",
+      "add": "Add investor",
+      "total_allocated": "Allocated: {percent}%",
+      "available": "Available: {percent}%",
+      "invested": "Invested",
+      "share": "Share",
+      "no_shares": "No investors yet",
+      "confirm_remove": "Remove this investor's share?",
+      "profile_placeholder": "Profile ID",
+      "percent_placeholder": "Share %",
+      "amount_placeholder": "Amount €",
+      "added": "Investor added!",
+      "my_shares_title": "My shares",
+      "my_shares_subtitle": "Your investments across all cooperatives",
+      "total_invested": "Total invested",
+      "active_shares": "Active shares",
+      "no_my_shares": "You have no active shares",
+      "last_payout": "Last payout",
+      "no_payouts": "No payouts yet"
+    },
+
+    "distributions": {
+      "title": "Payouts",
+      "create": "Create payout",
+      "period": "Period",
+      "total": "Total amount",
+      "period_placeholder": "e.g. 2026-03",
+      "amount_placeholder": "Amount €",
+      "status_DRAFT": "Draft",
+      "status_APPROVED": "Approved",
+      "status_DISTRIBUTED": "Distributed",
+      "approve": "Approve and generate",
+      "lines_paid": "{paid}/{total} paid",
+      "mark_paid": "Mark paid",
+      "no_distributions": "No payouts yet",
+      "created": "Payout created!",
+      "approved": "Payout approved — {count} lines generated"
+    },
+
+    "cooperative": {
+      "label": "Cooperative (optional)",
+      "none": "No cooperative",
+      "create_new": "Create new cooperative",
+      "name_placeholder": "Cooperative name",
+      "created": "Cooperative created!"
+    },
+
+    "landing_title": "Free P2P solar energy",
+    "landing_meta": "Free open-source platform for sharing solar energy between neighbors — Collective Self-Consumption (DL 15/2022)",
+    "landing_hero_title": "Sell solar energy to your neighbors — not to the grid",
+    "landing_hero_subtitle": "Collective Self-Consumption legalized by DL 15/2022. Producer earns 0.08 €/kWh (vs 0.05 € feed-in). Neighbor pays ~0.12 € incl. network tariff (vs 0.20 € grid). 40% savings.",
+    "landing_hero_cta": "Create an energy cell",
+    "landing_problems_title": "The current problem",
+    "landing_problem_1": "Solar surplus sold to grid at 0.05 €/kWh — practically for free",
+    "landing_problem_2": "Neighbors pay 0.20 €/kWh from grid while solar panels sit next door",
+    "landing_problem_3": "Setting up an ACC group with DGEG is bureaucratic and inaccessible",
+    "landing_features_title": "What we offer",
+    "landing_feature_1_title": "P2P Energy Trading",
+    "landing_feature_1_desc": "Sell solar surplus directly to neighbors — 60% more than the grid feed-in tariff",
+    "landing_feature_2_title": "Real-time Monitoring",
+    "landing_feature_2_desc": "Live dashboard with cell status: green (surplus), yellow (balanced), red (no surplus)",
+    "landing_feature_3_title": "Smart Automation",
+    "landing_feature_3_desc": "Smart devices auto-start when surplus energy is available",
+    "landing_feature_4_title": "Legal Compliance",
+    "landing_feature_4_desc": "DL 15/2022 and EU Directive 2024/1711 legalize energy sharing. All EU states must implement by July 2026 — we handle DGEG registration",
+    "landing_feature_5_title": "Energy Map",
+    "landing_feature_5_desc": "See energy cells on the map, find and join nearby energy communities",
+    "landing_feature_6_title": "Free Forever",
+    "landing_feature_6_desc": "Open-source, no subscription. 1% EGAC management fee — no other costs. Community infrastructure, not a product",
+    "landing_how_title": "How it works",
+    "landing_how_1": "Install solar panels and create an energy cell",
+    "landing_how_2": "Neighbors within a 2 km radius join your cell",
+    "landing_how_3": "Parahub handles ACC registration with DGEG and manages billing",
+    "eu_note": "EU Directive 2024/1711 mandates energy sharing in all member states by July 2026. European Commission estimates €500–1,100/year savings per household.",
+    "landing_free_title": "Free forever",
+    "landing_free_desc": "Parahub is civic infrastructure. The energy transition should not cost money."
+  }
+}

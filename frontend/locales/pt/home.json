@@ -1,0 +1,29 @@
+{
+  "home": {
+    "welcome": "Bem-vindo ao Parahub",
+    "quick_access": {
+      "messages": "Conversar com membros da rede",
+      "market": "Comércio e troca",
+      "map": "Encontrar locais próximos",
+      "iot": "Gestão de dispositivos"
+    },
+    "features": {
+      "title": "Funcionalidades principais",
+      "subtitle": "Uma plataforma moderna de código aberto para a economia digital do futuro",
+      "iot": {
+        "title": "IoT e Monitorização GPS",
+        "description": "Gerir dispositivos IoT, rastreadores GPS e rastreamento em tempo real via integração Traccar",
+        "learn_more": "Saber mais →"
+      },
+      "marketplace": {
+        "title": "Mercado P2P",
+        "description": "Um mercado com suporte para permuta, pedidos e logística",
+        "learn_more": "Saber mais →"
+      },
+      "mesh": {
+        "title": "Firmware Rede Mesh",
+        "description": "Firmware OpenWrt com mesh batman-adv, WiFi e rede de convidados auto-configurados"
+      }
+    }
+  }
+}

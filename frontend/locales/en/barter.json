@@ -1,0 +1,70 @@
+{
+  "barter": {
+    "title": "Barter Opportunities",
+    "description": "Multi-party exchange chains based on your offers and requests",
+    "view_chains": "View Barter Chains",
+    "promo": {
+      "title": "Barter Exchange",
+      "tagline": "Trade without money - create offers & requests to find matches",
+      "description": "Parahub finds multi-party exchange chains where everyone gets what they want without using money.",
+      "how_it_works": "Create offers (what you have) and requests (what you need). Our algorithm finds 2-way, 3-way and more complex exchanges automatically.",
+      "learn_more": "Learn More"
+    },
+    "stats": {
+      "chains_found": "Chains found",
+      "two_way": "2-way exchanges",
+      "three_way": "3-way exchanges"
+    },
+    "chain": {
+      "way_exchange": "{count}-way exchange",
+      "swaps": "{count} swap | {count} swaps",
+      "propose": "Propose Exchange",
+      "offers": "{user} offers:",
+      "receives": "{user} receives:"
+    },
+    "exchange": {
+      "you_can_offer": "You can offer",
+      "they_can_offer": "They can offer",
+      "offers": "offers",
+      "receives": "receives"
+    },
+    "empty": {
+      "title": "No exchange opportunities yet",
+      "description": "Create listings (what you offer and what you want) to find barter partners",
+      "create_listing": "Create Listing"
+    },
+    "loading": "Searching for exchange opportunities...",
+    "landing_title": "Barter without money",
+    "landing_meta": "Exchange goods and services without money. The system finds multilateral exchange chains automatically. Free and open-source.",
+    "landing_hero_title": "Barter exchange — no money, no middlemen",
+    "landing_hero_subtitle": "Post what you have and what you need. The algorithm finds exchange chains of 2 to 5 participants — even when direct swap isn't possible.",
+    "landing_hero_cta": "Start bartering",
+    "landing_problems_title": "Problems we solve",
+    "landing_problem_1": "Trading without money seems impossible when nobody wants what we have to offer directly",
+    "landing_problem_2": "Finding multilateral exchange chains manually is impractical",
+    "landing_problem_3": "No trust between strangers to exchange without a middleman",
+    "landing_features_title": "Features",
+    "landing_feature_1_title": "Multilateral Exchange",
+    "landing_feature_1_desc": "The algorithm finds cycles of 2 to 7 participants where everyone gets what they want — even without direct swap",
+    "landing_feature_2_title": "Auto Detection",
+    "landing_feature_2_desc": "Neo4j graph engine analyzes all offers and requests to find possible matches",
+    "landing_feature_3_title": "Web of Trust",
+    "landing_feature_3_desc": "Reputation built through in-person verifications. No blind trust — every participant is verified",
+    "landing_feature_4_title": "Group Chat",
+    "landing_feature_4_desc": "When a chain is found, an encrypted Matrix chat with all participants is created automatically",
+    "landing_feature_5_title": "No Borders",
+    "landing_feature_5_desc": "Works across cities and countries — anyone on the platform can participate in exchange chains",
+    "landing_feature_6_title": "Free Forever",
+    "landing_feature_6_desc": "Open-source, no commissions, no ads. Civic infrastructure, not a product",
+    "landing_how_title": "How it works",
+    "landing_how_1": "Post what you offer and what you're looking for on the market",
+    "landing_how_2": "The algorithm analyzes all offers and finds possible exchange chains",
+    "landing_how_3": "All participants approve and coordinate the exchange via encrypted chat",
+    "landing_free_title": "Free forever",
+    "landing_free_desc": "The economy doesn't need money to work. Parahub proves that direct exchange is possible at scale.",
+    "errors": {
+      "load_failed": "Failed to load exchange opportunities",
+      "chat_failed": "Failed to create chat room. Please try again."
+    }
+  }
+}
