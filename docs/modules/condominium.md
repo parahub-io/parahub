@@ -1,6 +1,6 @@
 # Condominium Management
 
-Building management system implementing Portuguese Lei 8/2022. Condominiums are modeled as Establishments with `organization_type='CONDOMINIUM'`.
+Condominium management system implementing Portuguese Lei 8/2022. Condominiums are modeled as Establishments with `organization_type='CONDOMINIUM'`.
 
 ## Concept
 

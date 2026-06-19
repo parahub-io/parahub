@@ -5,7 +5,7 @@ Peer-to-peer shipment network where any Establishment can become a drop-off/pick
 ## Design Principles
 
 - **Hub = Establishment + flag** -- reuses directory, map, reviews, membership, payments
-- **Anyone can be a hub** -- WoT 2+ to activate hub mode
+- **Anyone can be a hub** -- WoT 3+ to activate hub mode
 - **No escrow** -- system tracks shipments, never holds funds
 - **Chain relay** -- shipment can travel through multiple hubs via carriers
 - **Carrier = any trusted user** -- WoT 1+ minimum

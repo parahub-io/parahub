@@ -45,6 +45,18 @@ export function useMapIoTLayers() {
   // Animation preference
   const animationEnabledCookie = useLocalPref('animation_enabled', true)
 
+  /**
+   * Camera padding to keep the target visible in the part of the map
+   * not covered by MapFeaturePanel (mobile: bottom sheet ≈50vh, desktop: 384px left).
+   */
+  const getPanelPadding = () => {
+    if (typeof window === 'undefined') return undefined
+    if (window.innerWidth < 768) {
+      return { top: 0, bottom: Math.round(window.innerHeight * 0.5), left: 0, right: 0 }
+    }
+    return { top: 0, bottom: 0, left: 384, right: 0 }
+  }
+
   // ======== Follow mode (camera tracks device in real-time) ========
 
   const isFollowing = ref(false)
@@ -57,7 +69,7 @@ export function useMapIoTLayers() {
     if (!isFollowing.value) return
     const map = mapStore.mapInstance
     if (!map) return
-    map.easeTo({ center: [lon, lat], duration: 1000 })
+    map.easeTo({ center: [lon, lat], duration: 1000, padding: getPanelPadding() })
   }
 
   // ======== IoT Lock-on (persistent marker on selected device) ========
@@ -283,7 +295,7 @@ export function useMapIoTLayers() {
       },
     })
 
-    attachHoverHex(map, 'trackers-circle')
+    attachHoverHex(map, 'trackers-circle', 1.2, () => iotLockOnMarker)
   }
 
   const refreshTrackerPositions = async () => {
@@ -327,10 +339,11 @@ export function useMapIoTLayers() {
     const map = mapStore.mapInstance
     if (!map) return
     if (!trackersEnabled.value) toggleTrackers()
+    const padding = getPanelPadding()
     if (animationEnabledCookie.value !== false) {
-      map.flyTo({ center: [lng, lat], zoom: 17, essential: true, speed: 4.5 })
+      map.flyTo({ center: [lng, lat], zoom: 17, essential: true, speed: 4.5, padding })
     } else {
-      map.jumpTo({ center: [lng, lat], zoom: 17 })
+      map.jumpTo({ center: [lng, lat], zoom: 17, padding })
     }
     iotPopoverOpen.value = false
   }
@@ -358,10 +371,11 @@ export function useMapIoTLayers() {
     hideIoTPreview()
     const map = mapStore.mapInstance
     if (!map) return
+    const padding = getPanelPadding()
     if (animationEnabledCookie.value !== false) {
-      map.flyTo({ center: [lng, lat], zoom: 17, essential: true, speed: 4.5 })
+      map.flyTo({ center: [lng, lat], zoom: 17, essential: true, speed: 4.5, padding })
     } else {
-      map.jumpTo({ center: [lng, lat], zoom: 17 })
+      map.jumpTo({ center: [lng, lat], zoom: 17, padding })
     }
     iotPopoverOpen.value = false
   }
@@ -454,7 +468,7 @@ export function useMapIoTLayers() {
       minzoom: 11,
     })
 
-    attachHoverHex(map, 'energy-cells-circle')
+    attachHoverHex(map, 'energy-cells-circle', 1.2, () => iotLockOnMarker)
   }
 
   const refreshEnergyCells = async () => {
@@ -498,10 +512,11 @@ export function useMapIoTLayers() {
     const map = mapStore.mapInstance
     if (!map) return
     if (!energyCellsEnabled.value) toggleEnergyCells()
+    const padding = getPanelPadding()
     if (animationEnabledCookie.value !== false) {
-      map.flyTo({ center: [lng, lat], zoom: 17, essential: true, speed: 4.5 })
+      map.flyTo({ center: [lng, lat], zoom: 17, essential: true, speed: 4.5, padding })
     } else {
-      map.jumpTo({ center: [lng, lat], zoom: 17 })
+      map.jumpTo({ center: [lng, lat], zoom: 17, padding })
     }
     iotPopoverOpen.value = false
   }
@@ -702,6 +717,7 @@ export function useMapIoTLayers() {
     flyToTracker,
     flyToMeshRouter,
     flyToEnergyCell,
+    getPanelPadding,
     showIoTPreview,
     hideIoTPreview,
     showIoTLockOn,

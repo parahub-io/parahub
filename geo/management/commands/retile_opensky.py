@@ -86,17 +86,19 @@ class Command(BaseCommand):
                 continue
 
             try:
-                if options['full']:
-                    # Delete existing tiles before full retile
-                    _skystore_ssh(f"rm -rf {r_tiles_mission}")
-
-                tiles_count, tiles_size = retile_mission_skystore(mission.id, zoom_range)
+                # clean=True (full): mission tiles dir is wiped INSIDE
+                # retile_mission_skystore, after the latest/ pre-clear — the
+                # pre-clear ownership check needs the old tiles on disk.
+                tiles_count, tiles_size = retile_mission_skystore(
+                    mission.id, zoom_range, clean=options['full']
+                )
 
                 # Update mission record
                 mission.min_zoom = TILE_MIN_ZOOM
+                mission.max_zoom = TILE_MAX_ZOOM
                 mission.tiles_count = tiles_count
                 mission.tiles_size_mb = round(tiles_size / 1024 / 1024, 2)
-                mission.save(update_fields=['min_zoom', 'tiles_count', 'tiles_size_mb'])
+                mission.save(update_fields=['min_zoom', 'max_zoom', 'tiles_count', 'tiles_size_mb'])
 
                 self.stdout.write(self.style.SUCCESS(
                     f"  DONE: {tiles_count} tiles, {mission.tiles_size_mb} MB"

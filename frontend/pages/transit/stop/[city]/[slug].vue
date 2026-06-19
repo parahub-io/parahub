@@ -1,63 +1,75 @@
 <template>
   <div class="max-w-2xl mx-auto px-4 py-2">
-    <button @click="navigateTo(localePath('/transit'))" class="flex items-center gap-1.5 px-3 py-2.5 mb-4 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors min-h-[44px]">
-      <ArrowLeft class="w-4 h-4" />
-      {{ $t('transit.back') }}
-    </button>
-
     <div v-if="pending" class="flex justify-center py-12">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
     </div>
     <template v-else-if="stopData">
-      <div class="flex items-center gap-3 mb-4">
+      <div class="flex items-center gap-2 mb-4">
+        <button @click="navigateTo(localePath('/transit'))" :aria-label="$t('transit.back')" class="btn-ghost btn-icon w-11 h-11 -ml-2 flex-shrink-0">
+          <ArrowLeft class="w-5 h-5" />
+        </button>
         <img src="/img/bus-stop.png" alt="" class="w-10 h-10 flex-shrink-0" />
-        <div>
-          <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{{ stopData.name }}</h1>
-          <span class="inline-block px-2 py-0.5 text-xs font-medium rounded mt-0.5"
-            :class="stopData.location_type === 1
-              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
-              : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'"
-          >
-            {{ stopData.location_type === 1 ? 'Station' : 'Stop' }}
+        <div class="min-w-0">
+          <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100" :aria-label="stopData.tts_name || undefined">{{ stopData.name }}</h1>
+          <p v-if="stopData.directions?.length" class="text-sm text-secondary-600 dark:text-secondary-400 mt-0.5 truncate">{{ $t('transit.towards', { dest: stopData.directions.join(' · ') }) }}</p>
+          <!-- Only stations earn a type chip; "Stop" on every bus pole is noise. -->
+          <span v-if="stopData.location_type === 1" class="inline-block px-2 py-0.5 text-xs font-medium rounded mt-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+            {{ $t('transit.type_station') }}
           </span>
         </div>
       </div>
 
-      <!-- Stop Mini-Map -->
-      <div
-        class="route-mini-map mb-4 cursor-pointer rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 hover:border-secondary-300 dark:hover:border-secondary-600 transition-colors"
-        @click="showOnMap"
-      >
-        <div ref="miniMapEl" class="mini-map-inner" style="height: 200px" />
-      </div>
-
-      <!-- Serving Routes -->
-      <div v-if="stopData.routes?.length" class="mb-6">
-        <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">{{ $t('transit.serving_routes') }}</h2>
-        <div class="flex flex-wrap gap-2">
+      <!-- Live vehicles at stop (WS-driven; pulses on arrival) — most urgent
+           (a bus is here NOW, leaving imminently), so above "approaching" -->
+      <div v-if="atStopVehicles.length" class="mb-4">
+        <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-success animate-pulse inline-block"></span>
+          {{ $t('transit.now_at_stop') }}
+        </h2>
+        <div class="space-y-1.5">
           <button
-            v-for="r in stopData.routes"
-            :key="r.id"
-            @click="openRoute(r)"
-            class="px-3 py-2.5 rounded font-bold text-sm transition-opacity hover:opacity-80 min-h-[44px] flex items-center"
-            :style="routeBadgeStyle(r)"
+            v-for="v in atStopVehicles"
+            :key="v.vehicle_id"
+            @click="openVehicleDetail(v)"
+            class="w-full flex items-center gap-3 p-2.5 bg-success/10 dark:bg-success/20 border border-success/30 dark:border-success/40 rounded-lg hover:bg-success/20 dark:hover:bg-success/30 transition-colors text-left"
           >
-            {{ r.short_name }}
+            <span class="inline-flex items-center flex-shrink-0">
+              <span class="relative inline-flex">
+                <!-- Arrival pulse: route-colored ring expands when the vehicle just arrived -->
+                <span
+                  v-if="isPulsing(v.vehicle_id)"
+                  class="stop-pulse-ring absolute inset-0 rounded-full border-2 pointer-events-none"
+                  :style="{ borderColor: `#${resolveColor(v)}`, boxShadow: `0 0 0 1.5px ${pulseCasingCss}` }"
+                  aria-hidden="true"
+                ></span>
+                <img
+                  :src="routeTypeIcon(3)"
+                  class="relative z-[1] w-7 h-7"
+                  :class="{ 'stop-pulse-pop': isPulsing(v.vehicle_id) }"
+                />
+              </span>
+              <span
+                class="pl-2.5 pr-1.5 py-0.5 -ml-1.5 rounded font-bold text-xs min-w-[2.5rem] text-center"
+                :style="`background-color: #${resolveColor(v)}; color: ${textColorFor(resolveColor(v))}`"
+              >{{ v.route_short_name }}</span>
+            </span>
+            <div class="flex-1 min-w-0 text-sm text-neutral-700 dark:text-neutral-300 truncate">{{ v.headsign }}</div>
           </button>
         </div>
       </div>
 
-      <!-- ETA: approaching vehicles -->
-      <div v-if="etaVehicles.length" class="mb-4">
+      <!-- ETA: approaching vehicles (live, WS-driven) — tappable for vehicle detail -->
+      <div v-if="approachingVehicles.length" class="mb-4">
         <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
           <Clock class="w-3.5 h-3.5" />
           {{ $t('transit.approaching') }}
         </h2>
         <div class="space-y-1.5">
-          <div
-            v-for="v in etaVehicles"
+          <button
+            v-for="v in approachingVehicles"
             :key="v.vehicle_id"
-            class="flex items-center gap-3 p-2.5 bg-secondary/10 dark:bg-secondary/20 border border-secondary/30 dark:border-secondary/40 rounded-lg"
+            @click="openVehicleDetail(v)"
+            class="w-full text-left flex items-center gap-3 p-2.5 bg-secondary/10 dark:bg-secondary/20 border border-secondary/30 dark:border-secondary/40 rounded-lg hover:bg-secondary/20 dark:hover:bg-secondary/30 transition-colors"
           >
             <span
               class="px-2 py-0.5 rounded font-bold text-xs min-w-[2.5rem] text-center flex-shrink-0"
@@ -70,29 +82,6 @@
               </span>
               <span class="text-xs text-neutral-400">({{ v.stops_away }} {{ $t('transit.stops_short') }})</span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Live vehicles at stop -->
-      <div v-if="schedule?.live_vehicles?.length" class="mb-4">
-        <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-success animate-pulse inline-block"></span>
-          {{ $t('transit.now_at_stop') }}
-        </h2>
-        <div class="space-y-1.5">
-          <button
-            v-for="(v, idx) in schedule.live_vehicles"
-            :key="idx"
-            @click="openVehicleDetail(v)"
-            class="w-full flex items-center gap-3 p-2.5 bg-success/10 dark:bg-success/20 border border-success/30 dark:border-success/40 rounded-lg hover:bg-success/20 dark:hover:bg-success/30 transition-colors text-left"
-          >
-            <img :src="routeTypeIcon(3)" class="w-6 h-6 flex-shrink-0" />
-            <span
-              class="px-2 py-0.5 rounded font-bold text-xs min-w-[2.5rem] text-center flex-shrink-0"
-              :style="`background-color: #${resolveColor(v)}; color: ${textColorFor(resolveColor(v))}`"
-            >{{ v.route_short_name }}</span>
-            <div class="flex-1 min-w-0 text-sm text-neutral-700 dark:text-neutral-300 truncate">{{ v.headsign }}</div>
           </button>
         </div>
       </div>
@@ -100,46 +89,110 @@
       <!-- Schedule -->
       <div class="mb-6">
         <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">{{ $t('transit.schedule') }}</h2>
-        <div v-if="schedulePending" class="flex justify-center py-4">
+        <!-- Spinner ONLY on the first load (no data yet). On the 60s background
+             refresh `schedulePending` flips true but `schedule` keeps its data —
+             swapping the whole table for a spinner is what made it "blink". -->
+        <div v-if="schedulePending && !schedule?.departures?.length" class="flex justify-center py-4">
           <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
         </div>
         <div v-else-if="!schedule?.departures?.length" class="text-neutral-500 dark:text-neutral-400 text-sm py-4">
           {{ $t('transit.no_departures') }}
         </div>
-        <div v-else class="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
+        <div v-else class="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden grid grid-cols-2">
           <div
-            v-for="(group, gIdx) in groupedDepartures"
-            :key="gIdx"
-            class="flex items-start gap-3 p-2.5 hover:bg-primary/15 dark:hover:bg-primary/10 transition-colors"
+            v-for="(col, cIdx) in departureColumns"
+            :key="cIdx"
+            class="divide-y divide-neutral-200 dark:divide-neutral-700"
+            :class="cIdx === 0 && departureColumns.length > 1 ? 'border-r border-neutral-200 dark:border-neutral-700' : ''"
           >
+          <div
+            v-for="group in col"
+            :key="group.departures[0]?.trip_id ?? group.time"
+            class="flex items-start gap-2 p-2 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+          >
+            <!-- Time badge: live (yellow, our STT-predicted arrival clock) when a
+                 tracked vehicle serves this departure, else scheduled (grey) —
+                 same live/scheduled colour language as the route page. -->
             <button
               @click.stop="openDepDetail(group.departures[0])"
-              class="flex-shrink-0 px-1.5 py-0.5 rounded bg-primary text-neutral-900 text-xs font-bold font-mono hover:bg-primary/80 transition-colors mt-0.5"
-            >{{ group.time }}</button>
+              class="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold font-mono transition-colors mt-0.5"
+              :class="groupLiveEta(group) != null
+                ? 'bg-primary text-neutral-900 hover:bg-primary/80'
+                : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'"
+              :title="groupLiveEta(group) != null ? $t('transit.live_eta') : $t('transit.scheduled')"
+            >{{ groupLiveEta(group) != null ? predictedClock(groupLiveEta(group)!) : group.time }}</button>
             <div class="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
-              <template v-for="(dep, dIdx) in group.departures" :key="dIdx">
+              <template v-for="dep in group.departures" :key="dep.trip_id">
                 <NuxtLink
                   v-if="dep.route_slug && dep.route_place_slug"
                   :to="localePath(`/transit/route/${dep.route_place_slug}/${dep.route_slug}`)"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold text-xs min-w-[2.5rem] text-center flex-shrink-0 hover:opacity-80 transition-opacity"
-                  :style="`background-color: #${resolveColor(dep)}; color: ${textColorFor(resolveColor(dep))}`"
+                  class="inline-flex items-center flex-shrink-0 hover:opacity-80 transition-opacity"
                 >
-                  <img :src="routeTypeIcon(dep.route_type)" class="w-3.5 h-3.5" />
-                  {{ dep.route_short_name }}
+                  <img :src="routeTypeIcon(dep.route_type)" :alt="routeTypeFallback(dep.route_type)" class="w-7 h-7 relative z-[1]" />
+                  <span class="pl-2.5 pr-1.5 py-0.5 -ml-1.5 rounded font-bold text-xs min-w-[2.5rem] text-center" :style="`background-color: #${resolveColor(dep)}; color: ${textColorFor(resolveColor(dep))}`">{{ dep.route_short_name || dep.route_long_name }}</span>
                 </NuxtLink>
                 <button
                   v-else
                   @click.stop="openDepDetail(dep)"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold text-xs min-w-[2.5rem] text-center flex-shrink-0 hover:opacity-80 transition-opacity"
-                  :style="`background-color: #${resolveColor(dep)}; color: ${textColorFor(resolveColor(dep))}`"
+                  class="inline-flex items-center flex-shrink-0 hover:opacity-80 transition-opacity"
                 >
-                  <img :src="routeTypeIcon(dep.route_type)" class="w-3.5 h-3.5" />
-                  {{ dep.route_short_name }}
+                  <img :src="routeTypeIcon(dep.route_type)" :alt="routeTypeFallback(dep.route_type)" class="w-7 h-7 relative z-[1]" />
+                  <span class="pl-2.5 pr-1.5 py-0.5 -ml-1.5 rounded font-bold text-xs min-w-[2.5rem] text-center" :style="`background-color: #${resolveColor(dep)}; color: ${textColorFor(resolveColor(dep))}`">{{ dep.route_short_name || dep.route_long_name }}</span>
                 </button>
               </template>
             </div>
           </div>
+          </div>
         </div>
+      </div>
+
+      <!-- Virtual stop group: sibling poles/platforms at this location -->
+      <div v-if="groupSiblings.length" class="mb-6">
+        <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">{{ $t('transit.group_title') }}</h2>
+        <div class="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
+          <NuxtLink
+            v-for="m in groupSiblings"
+            :key="m.id"
+            :to="localePath(`/transit/stop/${m.place_slug}/${m.slug}`)"
+            class="block p-3 hover:bg-primary/15 dark:hover:bg-primary/10 transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <img src="/img/bus-stop.png" alt="" class="w-7 h-7 flex-shrink-0" />
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">{{ m.name }}</div>
+                <div v-if="m.directions?.length" class="text-xs text-secondary-600 dark:text-secondary-400 truncate">{{ $t('transit.towards', { dest: m.directions.join(' · ') }) }}</div>
+                <div class="text-xs text-neutral-500 dark:text-neutral-400 truncate">{{ m.agency_name }}</div>
+              </div>
+              <div v-if="m.routes?.length" class="flex flex-wrap gap-1 justify-end max-w-[40%]">
+                <span v-for="r in m.routes.slice(0, 6)" :key="r.short_name" class="px-1.5 py-0.5 text-xs rounded font-medium" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
+              </div>
+            </div>
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- Serving Routes (reference info — below the actionable live/schedule/siblings) -->
+      <div v-if="stopData.routes?.length" class="mb-6">
+        <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">{{ $t('transit.serving_routes') }}</h2>
+        <div class="flex flex-wrap gap-x-3 gap-y-1.5">
+          <button
+            v-for="r in stopData.routes"
+            :key="r.id"
+            @click="openRoute(r)"
+            class="flex items-center min-h-[44px] transition-opacity hover:opacity-80"
+          >
+            <img :src="routeTypeIcon(r.route_type)" :alt="routeTypeFallback(r.route_type)" class="w-8 h-8 flex-shrink-0 relative z-[1]" />
+            <span class="pl-3 pr-2 py-0.5 -ml-2 rounded font-bold text-sm" :style="routeBadgeStyle(r)">{{ r.short_name || r.long_name }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stop Mini-Map -->
+      <div
+        class="route-mini-map mb-6 cursor-pointer rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 hover:border-secondary-300 dark:hover:border-secondary-600 transition-colors"
+        @click="showOnMap"
+      >
+        <div ref="miniMapEl" class="mini-map-inner" style="height: 200px" />
       </div>
 
       <!-- Carpool CTA -->
@@ -306,6 +359,10 @@
         </div>
       </Teleport>
     </template>
+    <button v-else @click="navigateTo(localePath('/transit'))" class="flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors min-h-[44px]">
+      <ArrowLeft class="w-4 h-4" />
+      {{ $t('transit.back') }}
+    </button>
   </div>
 </template>
 
@@ -318,13 +375,13 @@ const route = useRoute()
 const router = useRouter()
 const localePath = useLocalePath()
 const colorMode = useColorMode()
-const { routeBadgeStyle, resolveColor, textColorFor, formatTime, routeTypeIcon } = useTransitHelpers()
+const { routeBadgeStyle, resolveColor, textColorFor, formatTime, routeTypeIcon, routeTypeFallback } = useTransitHelpers()
 
 const city = route.params.city as string
 const slug = route.params.slug as string
 
 const { data: stopData, pending } = await useFetch(`/api/v1/geo/transit/stops/${city}/${slug}/`)
-const { data: schedule, pending: schedulePending } = await useFetch(`/api/v1/geo/transit/stops/${city}/${slug}/schedule/`)
+const { data: schedule, pending: schedulePending, refresh: refreshSchedule } = await useFetch(`/api/v1/geo/transit/stops/${city}/${slug}/schedule/`)
 
 useSeoMeta({
   title: () => stopData.value?.name ? `${stopData.value.name} — Parahub` : t('transit.title'),
@@ -336,27 +393,166 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
-// ETA: approaching vehicles
-const etaVehicles = ref<any[]>([])
-let etaTimer: ReturnType<typeof setInterval> | null = null
+// Virtual stop group: the other poles/platforms at this location (self excluded)
+const groupSiblings = computed(() => {
+  const g = (stopData.value as any)?.group
+  if (!g?.stops) return []
+  return g.stops.filter((m: any) => m.id !== (stopData.value as any)?.id && m.slug && m.place_slug)
+})
 
-async function fetchEta() {
-  try {
-    const data = await $fetch(`/api/v1/geo/transit/stops/${city}/${slug}/eta/`)
-    etaVehicles.value = (data as any)?.vehicles ?? []
-  } catch {}
+// ── Live arrivals via WebSocket ──────────────────────────────────────────────
+// Replaces the old 30s /eta/ poll + the static schedule snapshot. The stop WS
+// pushes, every daemon tick: `at_stop` (vehicles here now → "Now at stop" + the
+// arrival pulse) and `approaching` (our STT-predicted arrivals → the live yellow
+// overlay on the scheduled board + the "Approaching" list).
+const atStopVehicles = ref<any[]>([])
+const approachingVehicles = ref<any[]>([])
+
+// Arrival pulse: a vehicle newly appearing at the stop pulses (shared mechanic
+// with the route page; keyed by vehicle_id, pulse-on-appear).
+const { isPulsing, reconcile: reconcileArrivals } = useStopHopPulse<any>({
+  key: v => v.vehicle_id,
+  pulseOnAppear: true,
+})
+
+// Casing behind the route-colored pulse ring so it reads on any row background
+// (dark-on-light / light-on-dark — same rationale as the route page).
+const pulseCasingCss = computed(() =>
+  colorMode.value === 'dark' ? 'rgba(241, 245, 249, 0.55)' : 'rgba(30, 41, 59, 0.45)'
+)
+
+// Live↔scheduled match: approaching ETAs grouped by `route_source_id|direction`,
+// soonest-first. Carris headsigns are empty feed-wide, so (route, direction) is
+// the only reliable key — the route page keys its live ETAs the same way.
+const liveEtasByRouteDir = computed(() => {
+  const m = new Map<string, number[]>()
+  for (const v of approachingVehicles.value) {
+    const k = `${v.route}|${v.direction}`
+    if (!m.has(k)) m.set(k, [])
+    m.get(k)!.push(v.eta_seconds)
+  }
+  for (const arr of m.values()) arr.sort((a, b) => a - b)
+  return m
+})
+
+// Map each live ETA onto a scheduled departure of the same (route, direction):
+// soonest ETA → soonest still-scheduled departure (departures come chronological).
+// trip_id → predicted eta_seconds, only for departures that are actually live.
+const liveDepartureEta = computed(() => {
+  const out = new Map<string, number>()
+  const used = new Map<string, number>()
+  for (const dep of (schedule.value?.departures ?? [])) {
+    const k = `${dep.route_source_id}|${dep.direction_id}`
+    const etas = liveEtasByRouteDir.value.get(k)
+    if (!etas) continue
+    const i = used.get(k) ?? 0
+    if (i < etas.length) { out.set(dep.trip_id, etas[i]); used.set(k, i + 1) }
+  }
+  return out
+})
+
+// Soonest live ETA (seconds) among a time-group's departures, else null.
+function groupLiveEta(group: any): number | null {
+  let best: number | null = null
+  for (const dep of group.departures) {
+    const e = liveDepartureEta.value.get(dep.trip_id)
+    if (e != null && (best == null || e < best)) best = e
+  }
+  return best
 }
 
-onMounted(() => {
-  fetchEta()
-  etaTimer = setInterval(fetchEta, 30000)
+// Clock label (HH:MM) in the STOP's timezone — agency-local, consistent with the
+// static scheduled badges (same approach as the route page).
+function formatClockInStopTz(date: Date): string {
+  const tz = schedule.value?.agency_timezone
+  if (tz) {
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz,
+      }).format(date)
+    } catch { /* invalid tz → browser-local fallback */ }
+  }
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+}
+const predictedClock = (etaSeconds: number) =>
+  formatClockInStopTz(new Date(Date.now() + etaSeconds * 1000))
 
-  // Mini-map is at the top now — create immediately
+// WebSocket (mirrors the route page: reconnect + visibility-resume)
+let liveWs: WebSocket | null = null
+let liveWsIntentionalClose = false
+let liveWsReconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+function connectLiveWS() {
+  if (!import.meta.client) return
+  const dsId = stopData.value?.data_source_id
+  const stopSrc = stopData.value?.source_id
+  if (!dsId || !stopSrc) return
+
+  liveWsIntentionalClose = false
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  const ws = new WebSocket(`${proto}://${location.host}/ws/v1/transit/`)
+  liveWs = ws
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: 'subscribe_stop', ds_id: dsId, stop_source_id: stopSrc }))
+  }
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data)
+      if (msg.type === 'stop_live') {
+        atStopVehicles.value = msg.at_stop || []
+        approachingVehicles.value = msg.approaching || []
+        reconcileArrivals(atStopVehicles.value)
+      }
+    } catch {}
+  }
+  ws.onclose = () => {
+    liveWs = null
+    if (!liveWsIntentionalClose) scheduleLiveWsReconnect()
+  }
+}
+
+function scheduleLiveWsReconnect(delayMs = 3000) {
+  if (liveWsReconnectTimer) clearTimeout(liveWsReconnectTimer)
+  if (liveWsIntentionalClose) return
+  liveWsReconnectTimer = setTimeout(() => {
+    liveWsReconnectTimer = null
+    if (!liveWsIntentionalClose) connectLiveWS()
+  }, delayMs)
+}
+
+function onLiveWsVisibilityChange() {
+  if (document.visibilityState !== 'visible') return
+  refreshSchedule()  // aged in the background (refresh timer is visibility-gated)
+  if (!liveWs || liveWs.readyState === WebSocket.CLOSED || liveWs.readyState === WebSocket.CLOSING) {
+    scheduleLiveWsReconnect(0)
+  }
+}
+
+// Re-fetch the schedule client-side: SSR rolls stale as the day advances (the
+// next-15 board drifts into the past) and the live overlay needs the per-trip
+// route/direction the matcher keys on. Mirrors the route page's 60s refresh.
+let scheduleTimer: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  refreshSchedule()
+  scheduleTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') refreshSchedule()
+  }, 60_000)
+
+  connectLiveWS()
+  document.addEventListener('visibilitychange', onLiveWsVisibilityChange)
+
   if (miniMapEl.value && !miniMapCreated) createMiniMap()
 })
 
 onUnmounted(() => {
-  if (etaTimer) clearInterval(etaTimer)
+  document.removeEventListener('visibilitychange', onLiveWsVisibilityChange)
+  liveWsIntentionalClose = true
+  if (liveWsReconnectTimer) clearTimeout(liveWsReconnectTimer)
+  if (scheduleTimer) clearInterval(scheduleTimer)
+  liveWs?.close()
+  liveWs = null
   if (miniMap) { miniMap.remove(); miniMap = null }
 })
 
@@ -384,6 +580,31 @@ const groupedDepartures = computed(() => {
     }
   }
   return groups
+})
+
+// A group's badge shows the live predicted clock when a tracked bus serves it,
+// else the scheduled time (both agency-local). Sort by what's SHOWN so the column
+// always reads top-down in time — a soon live arrival floats above its later
+// scheduled slot instead of sitting out of order. Wrap guard: a clock well before
+// "now" belongs to the next service day (night service 00:xx after a 23:xx now).
+function groupSortMinutes(group: any, nowMin: number): number {
+  const eta = groupLiveEta(group)
+  const clock = eta != null ? predictedClock(eta) : group.time
+  const [h, m] = clock.split(':').map(Number)
+  let mins = (h || 0) * 60 + (m || 0)
+  if (mins < nowMin - 120) mins += 1440
+  return mins
+}
+
+// Airport-board flow: chronology runs down the first column, then continues in the second
+const departureColumns = computed(() => {
+  const [nh, nm] = formatClockInStopTz(new Date(Date.now())).split(':').map(Number)
+  const nowMin = (nh || 0) * 60 + (nm || 0)
+  const groups = [...groupedDepartures.value].sort(
+    (a, b) => groupSortMinutes(a, nowMin) - groupSortMinutes(b, nowMin)
+  )
+  const half = Math.ceil(groups.length / 2)
+  return [groups.slice(0, half), groups.slice(half)].filter(c => c.length)
 })
 
 // Departure detail modal
@@ -443,7 +664,7 @@ async function createMiniMap() {
     container: miniMapEl.value,
     style: getMiniMapStyle(),
     center: [stopData.value.lon, stopData.value.lat],
-    zoom: 16,
+    zoom: 17,
     interactive: false,
     attributionControl: false,
     trackResize: false,
@@ -453,12 +674,27 @@ async function createMiniMap() {
 
   miniMap.once('load', async () => {
     miniMap.resize()
+    await decorateMiniMap()
+  })
+}
 
-    // Load bus-stop icon and add as symbol marker
+// Stop marker + POI cleanup. Re-applied after every setStyle (style swap drops custom layers/filters).
+async function decorateMiniMap() {
+  if (!miniMap || !stopData.value) return
+
+  for (const id of ['poi_z14', 'poi_z15', 'poi_z16']) {
+    if (miniMap.getLayer(id)) {
+      miniMap.setFilter(id, ['all', miniMap.getFilter(id), ['!=', 'class', 'parking']])
+    }
+  }
+
+  if (!miniMap.hasImage('bus-stop-icon')) {
     const { data: img } = await miniMap.loadImage('/img/bus-stop.png')
     if (!miniMap) return
     miniMap.addImage('bus-stop-icon', img)
+  }
 
+  if (!miniMap.getSource('stop-point')) {
     miniMap.addSource('stop-point', {
       type: 'geojson',
       data: {
@@ -467,6 +703,8 @@ async function createMiniMap() {
         properties: {},
       },
     })
+  }
+  if (!miniMap.getLayer('stop-point-icon')) {
     miniMap.addLayer({
       id: 'stop-point-icon',
       type: 'symbol',
@@ -477,11 +715,13 @@ async function createMiniMap() {
         'icon-allow-overlap': true,
       },
     })
-  })
+  }
 }
 
 watch(() => colorMode.value, () => {
-  if (miniMap) miniMap.setStyle(getMiniMapStyle())
+  if (!miniMap) return
+  miniMap.setStyle(getMiniMapStyle())
+  miniMap.once('style.load', () => { decorateMiniMap() })
 })
 </script>
 

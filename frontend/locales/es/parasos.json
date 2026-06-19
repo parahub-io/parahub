@@ -63,7 +63,7 @@
       "quiet_start": "Desde",
       "quiet_end": "Hasta",
       "submit": "Crear Grupo",
-      "wot_required": "Requiere nivel WoT 2+ para crear grupos"
+      "wot_required": "Requiere nivel WoT 3+ para crear grupos"
     },
 
     "member": {

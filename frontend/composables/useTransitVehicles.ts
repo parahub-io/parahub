@@ -16,10 +16,10 @@ interface VehicleData {
   v: string   // vehicle_id
   lat: number
   lon: number
-  b: number   // bearing
+  b: number | null   // bearing (null when the feed omits a real heading)
   s: number   // speed km/h
   r: string   // route_source_id
-  rc: string  // route_color hex (no #)
+  rc: string  // route_color hex (no #), '' when the feed defines none
   rn: string  // route_name
   rt: number  // route_type (GTFS: 0=tram, 1=metro, 2=rail, 3=bus, 4=ferry, 7=funicular, 11=trolleybus)
   st: string  // status
@@ -129,10 +129,14 @@ function toGeoJSON(): GeoJSON.FeatureCollection {
       geometry: { type: 'Point', coordinates: [v.lon, v.lat] },
       properties: {
         vehicle_id: v.v,
-        bearing: v.b || 0,
+        // bearing stays numeric for icon-rotate; has_bearing gates the chevron so
+        // vehicles without a real heading don't all point north (b === null/absent).
+        bearing: typeof v.b === 'number' ? v.b : 0,
+        has_bearing: typeof v.b === 'number' ? 1 : 0,
         speed: v.s || 0,
         route_id: v.r || '',
-        route_color: v.rc || 'EFF216',
+        route_color: v.rc || '3b82f6',
+        route_color_set: v.rc ? 1 : 0,
         route_name: v.rn || '',
         route_type: v.rt ?? 3,
         status: v.st || '',

@@ -2,7 +2,7 @@
 Tests for driver mode endpoints: shift start/stop, active shift, history.
 
 Tests invariants that must never break:
-- WoT 2+ or staff required (is_verified_wot check)
+- WoT 3+ or staff required (is_verified_wot check)
 - No duplicate active shifts per driver
 - Stop shift only works on ACTIVE shifts
 - Shift owner only (can't stop someone else's shift)

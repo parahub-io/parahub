@@ -17,7 +17,6 @@
     "landing_title": "Free Condominium Management",
     "landing_subtitle": "Open-source, modern and free — forever",
     "landing_meta": "Free and open-source condominium management — digital assemblies, weighted voting, transparent budget with Merkle audit. Lei 8/2022 compliant.",
-
     "meta_create_title": "Create Free Condominium — Parahub",
     "meta_create_desc": "Register your condominium online for free. Digital assemblies, weighted voting by ownership share, quota management — all Lei 8/2022 compliant.",
     "meta_fractions_title": "Condominium Fractions — Parahub",
@@ -28,7 +27,6 @@
     "meta_assembly_desc": "Create a condominium assembly with weighted digital voting by ownership share, Lei 8/2022 compliant.",
     "meta_invite_title": "Condominium Invite — Parahub",
     "meta_invite_desc": "Accept an invitation to join your condominium on Parahub — free and transparent management.",
-
     "address_placeholder": "Search address (street, city...)",
     "step_address": "Address",
     "step_info": "Information",
@@ -37,7 +35,6 @@
     "back": "Back",
     "create": "Create Condominium",
     "creating": "Creating...",
-
     "name": "Condominium name",
     "name_placeholder": "e.g. Condominium Rua Augusta 10",
     "nif": "NIF/NIPC",
@@ -46,7 +43,6 @@
     "description_placeholder": "Brief description of the condominium",
     "regulamento": "Internal regulations",
     "regulamento_placeholder": "Paste your condominium regulations text here (optional)",
-
     "fractions_title": "Fractions",
     "fractions_subtitle": "Add all fractions. Permilagem total must equal 1000.",
     "add_fraction": "Add Fraction",
@@ -56,18 +52,16 @@
     "floor_placeholder": "1",
     "type": "Type",
     "permilagem": "Permilagem",
-    "permilagem_help": "Ownership share in \u2030 (per mille)",
+    "permilagem_help": "Ownership share in ‰ (per mille)",
     "total_permilagem": "Total",
     "remove_fraction": "Remove",
     "description_fraction": "Description",
     "description_fraction_placeholder": "e.g. T2 3rd floor",
-
     "type_apartment": "Apartment",
     "type_garage": "Garage",
     "type_storage": "Storage",
     "type_commercial": "Commercial",
     "type_other": "Other",
-
     "fractions_tab": "Fractions",
     "quotas_tab": "Quotas",
     "assembly_tab": "Assembly",
@@ -83,7 +77,6 @@
     "invite_link": "Invite Link",
     "invite_copied": "Link copied!",
     "invite_generate": "Generate invite link",
-
     "quotas_title": "Monthly Quotas",
     "month_select": "Month",
     "expected": "Expected",
@@ -106,7 +99,6 @@
     "delinquency_alert": "{count} fraction(s) with 2+ months unpaid",
     "months_unpaid": "{count} mo. unpaid",
     "fractions_paid_summary": "{paid}/{total} fractions paid",
-
     "assembly_title": "Create Assembly",
     "assembly_subtitle": "Create a weighted vote for a condominium assembly",
     "poll_title": "Subject",
@@ -122,7 +114,6 @@
     "quorum_unanimity": "Unanimity (100%)",
     "ends_at": "Voting ends",
     "create_assembly": "Create Assembly",
-
     "assembly_history": "Assemblies",
     "empty_assemblies": "No assemblies yet",
     "empty_assemblies_subtitle": "Create your first assembly vote below.",
@@ -133,8 +124,7 @@
     "assembly_status_cancelled": "Cancelled",
     "quorum_reached": "Quorum reached",
     "quorum_not_reached": "Quorum not reached",
-    "assembly_weight_info": "Each vote is weighted by the owner's fraction permilagem (ownership share in \u2030). The result reflects the proportion of ownership, not just the number of voters.",
-
+    "assembly_weight_info": "Each vote is weighted by the owner's fraction permilagem (ownership share in ‰). The result reflects the proportion of ownership, not just the number of voters.",
     "invite_accept_title": "Condominium Invite",
     "invite_accept_subtitle": "You have been invited to join:",
     "invite_fraction": "Fraction",
@@ -144,7 +134,6 @@
     "invite_success": "Successfully joined!",
     "invite_error": "Invalid or expired invite link",
     "invite_already_assigned": "This fraction already has a resident",
-
     "landing_hero_title": "Modern condominium management — free and open-source",
     "landing_hero_subtitle": "Digital assemblies, weighted voting, transparent budget and community energy — all in compliance with Portuguese law (Lei 8/2022)",
     "landing_hero_cta": "Create your condominium",
@@ -174,6 +163,25 @@
     "landing_how_2": "Invite residents via secure links",
     "landing_how_3": "Start voting, manage budget and quotas",
     "landing_free_title": "Free forever",
-    "landing_free_desc": "Parahub is civic infrastructure. Condominium management should not cost money — unlike traditional companies, we charge nothing."
+    "landing_free_desc": "Parahub is civic infrastructure. Condominium management should not cost money — unlike traditional companies, we charge nothing.",
+    "overview_tab": "Overview",
+    "meta_overview_title": "Condominium Overview — Parahub",
+    "meta_overview_desc": "Condominium dashboard — budget breakdown, payment status, upcoming assemblies.",
+    "overview_current_month_title": "{month} payments",
+    "overview_view_quotas": "View quotas",
+    "overview_budget_title": "{year} budget breakdown",
+    "overview_view_treasury": "Treasury",
+    "overview_next_assembly_title": "Next assembly",
+    "overview_view_all_assemblies": "All assemblies",
+    "overview_ends": "Ends {time}",
+    "overview_no_assembly": "No assembly scheduled",
+    "overview_create_assembly": "Create assembly",
+    "overview_set_budget": "Set budget",
+    "overview_empty_title": "Your condominium is ready",
+    "overview_empty_subtitle": "Set a monthly budget to start tracking quotas, or create the first assembly.",
+    "stat_fractions": "Fractions",
+    "stat_monthly_budget": "Monthly",
+    "stat_collection_rate": "Collected",
+    "stat_outstanding": "Outstanding"
   }
 }

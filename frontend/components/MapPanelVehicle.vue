@@ -62,8 +62,8 @@
           <span class="text-neutral-900 dark:text-neutral-100">{{ vehicleData.direction_id === 0 ? t('map.transit.outbound') : t('map.transit.inbound') }}</span>
         </div>
 
-        <!-- Bearing -->
-        <div v-if="vehicleData.bearing" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+        <!-- Bearing — shown only when the feed gives a real heading (0°/north included) -->
+        <div v-if="vehicleData.has_bearing" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
           <span class="text-neutral-500 dark:text-neutral-400">{{ t('map.transit.bearing') }}</span>
           <span class="text-neutral-900 dark:text-neutral-100">{{ Math.round(vehicleData.bearing) }}° {{ compassDir }}</span>
         </div>

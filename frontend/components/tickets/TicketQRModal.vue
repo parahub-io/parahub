@@ -46,6 +46,7 @@ import QRCode from 'qrcode'
 interface TicketData {
   id: string
   qr_token: string
+  qr_payload?: string | null
   ticket_type_name: string
   category: string
   price_sats: number
@@ -63,7 +64,8 @@ watch(() => props.ticket, async (t) => {
   if (!t) return
   await nextTick()
   if (qrCanvas.value) {
-    QRCode.toCanvas(qrCanvas.value, t.qr_token, {
+    // Signed payload enables offline verification; legacy fallback = raw token
+    QRCode.toCanvas(qrCanvas.value, t.qr_payload || t.qr_token, {
       width: 224,
       margin: 2,
       color: { dark: '#000000', light: '#ffffff' },

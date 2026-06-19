@@ -8,7 +8,16 @@
     "schedule": "Расписание",
     "no_departures": "Нет ближайших отправлений",
     "direction": "Направление",
+    "towards": "в сторону {dest}",
+    "type_stop": "Остановка",
+    "type_station": "Станция",
+    "direction_outbound": "Туда",
+    "direction_inbound": "Обратно",
+    "line_variants": "Варианты маршрута",
+    "not_running_today": "не ходит сегодня",
+    "percursos_count": "{n} вар.",
     "stops_count": "{count} остановок",
+    "group_title": "Остановки в этой точке",
     "show_on_map": "Показать на карте",
     "back": "Назад",
     "departure_in": "через {min} мин",
@@ -24,6 +33,7 @@
     "route": "Маршрут",
     "departure": "Отправление",
     "scheduled": "По расписанию",
+    "live_eta": "Реальное время",
     "night_route": "Ночной",
     "next_departure": "Следующий рейс",
     "provider": "Поставщик данных",
@@ -41,6 +51,7 @@
       "show_all": "Все {n} городов",
       "hide": "Свернуть",
       "search_city": "Поиск города...",
+      "label": "Город",
       "select": "Выбрать город",
       "region_suffix": "(регион)"
     },
@@ -101,7 +112,6 @@
     "landing_how_3": "Смотрите транспорт на карте в реальном времени и проверяйте время отправления",
     "landing_free_title": "Бесплатно навсегда",
     "landing_free_desc": "Информация об общественном транспорте — это право, а не привилегия. Parahub не берёт денег, не следит, не продаёт данные.",
-
     "driver": {
       "title": "Режим водителя",
       "search_route": "Поиск маршрута...",
@@ -121,6 +131,7 @@
       "confirm_end": "Завершить текущую смену?",
       "shift_ended": "Смена завершена",
       "tts_label": "Объявления остановок"
-    }
+    },
+    "timetable_no_service": "В этот день не ходит"
   }
 }

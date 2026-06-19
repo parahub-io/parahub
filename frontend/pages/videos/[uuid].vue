@@ -135,12 +135,14 @@ const { data: video, pending } = await useAsyncData(
 const watchUrl = computed(() => `${PEERTUBE_URL}/w/${video.value?.shortUUID || uuid.value}`)
 
 // Fetch author profile for LN tips (client-side only — not needed for SSR/SEO)
+// PeerTube account.name = OIDC preferred_username = profile.local_name (see PK/peertube-system.md).
+// The public profile endpoint accepts both ULID and local_name, returning ln_address/spark_address.
 onMounted(async () => {
   if (video.value?.account?.name && video.value.account.name !== 'root') {
     try {
-      const profile = await $fetch<any>(`/api/v1/profiles/by-name/${video.value.account.name}/`)
+      const profile = await $fetch<any>(`/api/v1/profiles/${video.value.account.name}/`)
       authorProfile.value = profile
-    } catch { /* profile not found — no tip button */ }
+    } catch { /* profile not found or not publicly linked — no tip button */ }
   }
 })
 

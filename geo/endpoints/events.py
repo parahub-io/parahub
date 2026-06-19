@@ -360,7 +360,7 @@ def _join_event_matrix_room(event, profile) -> bool:
 @ratelimit(group='events:create', key=user_or_ip, rate='10/m', method='POST')
 def create_event(request, payload: EventInput):
     """
-    Create new event. Requires WoT level 2+ (or admin/parahub member).
+    Create new event. Requires WoT level 3+ (or admin/parahub member).
     Automatically creates Matrix chat room for the event.
     """
     from geo.models import Event, WorldObject
@@ -382,8 +382,8 @@ def create_event(request, payload: EventInput):
                 verified_profile=request.auth,
                 is_active=True
             ).count()
-            if verification_count < 2:
-                raise HttpError(403, "Requires WoT level 2+ to create events (or be admin/parahub member)")
+            if verification_count < 3:
+                raise HttpError(403, "Requires WoT level 3+ to create events (or be admin/parahub member)")
 
     # Validate event type and location
     if payload.event_type in ('OFFLINE', 'HYBRID'):

@@ -29,16 +29,17 @@ const currentImageIndex = ref(0)
 const fullscreenImage = ref(false)
 const showDeleteItemConfirm = ref(false)
 
-// Check if came from market list (has referrer from /market)
-const cameFromMarket = ref(false)
-
 // Navigate back to market
 function goBackToMarket() {
-  // If user came from market, use browser back to preserve filters
-  if (cameFromMarket.value) {
+  // Use browser back only when the previous history entry is the market list
+  // itself (preserves filters in its query). Otherwise — came from the edit
+  // page (/market/create), another listing, or external — go to the list
+  // directly. NB: document.referrer is unreliable, it stays empty across
+  // in-app SPA navigation; router history state is the accurate signal.
+  const back = router.options.history.state.back
+  if (typeof back === 'string' && /\/market(\?|$)/.test(back)) {
     router.back()
   } else {
-    // Otherwise navigate to market home
     router.push(localePath('/market'))
   }
 }
@@ -220,10 +221,6 @@ useObjectSubscription(item)
 
 // Init (client-side only)
 onMounted(async () => {
-  // Check if previous page was market
-  if (document.referrer) {
-    cameFromMarket.value = document.referrer.includes('/market')
-  }
   // Load translated category names
   try {
     const tree = await fetchCategoryTree()

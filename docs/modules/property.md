@@ -8,7 +8,7 @@ Property (in `iot` app) with fields:
 - **owner** -- FK to Profile
 - **name** -- unique per owner
 - **property_type** -- house, apartment, land, office, dacha, garage, other
-- **building** -- optional FK to geo.Building (auto-fills location + address on save)
+- **world_object** -- optional FK to geo.WorldObject (auto-fills location + address on save)
 - **location** -- PointField (GPS coordinates)
 - **territory** -- PolygonField (property boundaries, optional)
 - **address** -- text

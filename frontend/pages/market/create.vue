@@ -177,7 +177,7 @@
               : (creating ? $t('market.create_modal.submitting') : $t('market.create_modal.submit'))
             }}
           </UiButton>
-          <UiButton variant="outline" class="w-full" @click="navigateTo(localePath(isEditMode ? `/market/${editItemId}` : '/market'))">
+          <UiButton type="button" variant="outline" class="w-full" @click="navigateTo(localePath(isEditMode ? `/market/${editItemId}` : '/market'))">
             {{ $t('market.create_modal.cancel') }}
           </UiButton>
         </div>
@@ -187,7 +187,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useMapStore } from '~/stores/map'
 import { X, Mic, MicOff, Loader2 } from 'lucide-vue-next'
@@ -227,12 +227,12 @@ const categoryField = ref(null)
 const userCurrency = useLocalPref('preferred_currency', 'EUR')
 
 // Form data
-const newItem = ref({
+const defaultItem = () => ({
   type: 'CREDIT',
   category_id: '',
   title: '',
   description: '',
-  pricing_options: [],
+  pricing_options: [{ type: 'sale', amount: null, currency: userCurrency.value, unit: '', note: '' }],
   accepted_payment_methods: ['parahub_ln', 'bank_transfer', 'cash'],
   tags: '',
   location: {
@@ -244,8 +244,24 @@ const newItem = ref({
   establishment_id: null
 })
 
+const newItem = ref(defaultItem())
+
+// ULID of the item whose data is currently loaded into the form (edit mode), null in create mode
+const loadedEditId = ref(null)
+
 // Selected category object for sale_only check
 const selectedCategoryObject = ref(null)
+
+// The page instance survives navigation (app-wide KeepAlive in app.vue) — without an explicit
+// reset, the next visit shows the previous item's fields
+const resetForm = () => {
+  newItem.value = defaultItem()
+  selectedCategoryObject.value = null
+  aiAnalysisLogId.value = null
+  voiceMessage.value = ''
+  editVersion.value = 0
+  loadedEditId.value = null
+}
 
 const canRentInCategory = computed(() => {
   return !selectedCategoryObject.value?.sale_only
@@ -521,6 +537,7 @@ const loadEditData = async () => {
     }
 
     editVersion.value = item.version || 0
+    loadedEditId.value = editItemId.value
   } catch (error) {
     console.error('Failed to load item for editing:', error)
     toastStore.error($t('market.notifications.load_error'))
@@ -688,6 +705,7 @@ const createItem = async () => {
 
     useState('marketDirty', () => false).value = true
 
+    resetForm()
     toastStore.success($t('market.notifications.created'))
     await navigateTo(localePath(`/market/${itemResponse.slug || itemResponse.id}`))
   } catch (error) {
@@ -760,20 +778,51 @@ onMounted(async () => {
   if (isEditMode.value) {
     // Edit mode: load existing item data
     await loadEditData()
-  } else {
-    // Create mode: add first pricing option if empty
-    if (newItem.value.pricing_options.length === 0) {
-      newItem.value.pricing_options.push({
-        type: 'sale',
-        amount: null,
-        currency: userCurrency.value,
-        unit: '',
-        note: ''
-      })
-    }
   }
 
   window.addEventListener('keydown', handleEscape)
+})
+
+// KeepAlive re-entry: onMounted/onUnmounted do not fire on a cached instance,
+// so listeners/markers and form↔route sync must be handled here
+let hasActivated = false
+onActivated(() => {
+  window.addEventListener('keydown', handleEscape)
+
+  // Restore the map marker removed on deactivation
+  const { latitude, longitude } = newItem.value.location
+  if (latitude && longitude) {
+    mapStore.addMarker({
+      id: 'item-location',
+      coordinates: [longitude, latitude],
+      type: 'item'
+    })
+  }
+
+  if (!hasActivated) {
+    // First activation fires right after onMounted — already initialized there
+    hasActivated = true
+    return
+  }
+
+  if (isEditMode.value) {
+    // Always refetch: the item (and its version) may have changed since last load
+    loadEditData()
+  } else if (loadedEditId.value) {
+    // Last use was edit mode — don't leak that item's fields into the create form
+    resetForm()
+  }
+  // Create-mode re-entry with no prior edit keeps the unsubmitted draft (deliberate)
+})
+
+onDeactivated(() => {
+  window.removeEventListener('keydown', handleEscape)
+
+  if (voiceRecording.value) {
+    stopRecording()
+  }
+
+  mapStore.removeMarker('item-location')
 })
 
 onUnmounted(() => {

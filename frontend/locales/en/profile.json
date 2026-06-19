@@ -164,7 +164,7 @@
       "language_updated": "Language updated"
     },
     "association_member": "Association Member",
-    "association_member_title": "Member of PARAHUB - ASSOCIAÇÃO",
+    "association_member_title": "Member of Parahub - Associação",
     "member_badge": "Member",
     "members_count": "members",
     "association_join_intro": "You are joining a Portuguese non-profit association that develops the open decentralized Parahub infrastructure.",
@@ -189,7 +189,7 @@
     "leave_organization_error": "Failed to leave organization. Please try again.",
     "terms_accept_required": "You must accept the association statutes to join",
     "terms_acceptance_text": "I have read and agree to the association statutes and commit to uphold its provisions, contribute to the goals of the association, and refrain from actions that harm the reputation or assets of the association.",
-    "join_association_success": "Congratulations! You are now a member of PARAHUB - ASSOCIAÇÃO 🎉",
+    "join_association_success": "Congratulations! You are now a member of Parahub - Associação 🎉",
     "join_association_error": "Failed to join association. Please try again.",
     "not_member_of_organizations": "You are not a member of any organizations yet",
     "show_qr": "Show QR Code",
@@ -224,7 +224,7 @@
     "actions": {
       "generate_pgp_keys": "Generate PGP keys",
       "generate_pgp_keys_desc": "Required for signing deals and verifications",
-      "join_association": "Join PARAHUB - ASSOCIAÇÃO",
+      "join_association": "Join Parahub - Associação",
       "join_association_desc": "Get access to the community and additional features",
       "complete_questionnaire": "Complete psychometric questionnaire",
       "complete_questionnaire_desc": "questions remaining",

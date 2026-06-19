@@ -79,7 +79,7 @@ export default defineNuxtConfig({
         '/chat', '/chat-element', '/chat-fluffy',
         '/wallet', '/contracts',
         '/opensky', '/zenith', '/call', '/webmail',
-        '/design',
+        '/design', '/design/**',
         '/barter', '/iot',
         '/pgp-setup', '/pgp-test', '/seed-setup', '/seed-restore',
         '/ads/campaigns/**', '/ads/campaigns', '/ads/history', '/ads/settings',

@@ -13,7 +13,7 @@
       ],
       "attribution": "© OpenStreetMap contributors | © Parahub",
       "minzoom": 0,
-      "maxzoom": 20,
+      "maxzoom": 14,
       "type": "vector"
     }
   },

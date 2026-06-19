@@ -164,7 +164,7 @@
       "notify_sos_managed": "SOS-Alarme werden pro Gruppe verwaltet"
     },
     "association_member": "Vereinsmitglied",
-    "association_member_title": "Mitglied von PARAHUB - ASSOCIAÇÃO",
+    "association_member_title": "Mitglied von Parahub - Associação",
     "member_badge": "Mitglied",
     "members_count": "Mitglieder",
     "association_join_intro": "Sie treten einem portugiesischen gemeinnützigen Verein bei, der die offene dezentrale Parahub-Infrastruktur entwickelt.",
@@ -189,7 +189,7 @@
     "leave_organization_error": "Organisation konnte nicht verlassen werden. Bitte versuchen Sie es erneut.",
     "terms_accept_required": "Sie müssen die Vereinssatzung akzeptieren, um beizutreten",
     "terms_acceptance_text": "Ich habe die Vereinssatzung gelesen und akzeptiere sie. Ich verpflichte mich, ihre Bestimmungen einzuhalten, zu den Zielen des Vereins beizutragen und Handlungen zu unterlassen, die dem Ruf oder den Vermögenswerten des Vereins schaden.",
-    "join_association_success": "Herzlichen Glückwunsch! Sie sind jetzt Mitglied von PARAHUB - ASSOCIAÇÃO 🎉",
+    "join_association_success": "Herzlichen Glückwunsch! Sie sind jetzt Mitglied von Parahub - Associação 🎉",
     "join_association_error": "Beitritt zum Verein fehlgeschlagen. Bitte versuchen Sie es erneut.",
     "not_member_of_organizations": "Sie sind noch kein Mitglied einer Organisation",
     "show_qr": "QR-Code anzeigen",
@@ -224,7 +224,7 @@
     "actions": {
       "generate_pgp_keys": "PGP-Schlüssel generieren",
       "generate_pgp_keys_desc": "Erforderlich zum Signieren von Verträgen und Verifizierungen",
-      "join_association": "PARAHUB - ASSOCIAÇÃO beitreten",
+      "join_association": "Parahub - Associação beitreten",
       "join_association_desc": "Zugang zur Community und zusätzlichen Funktionen erhalten",
       "complete_questionnaire": "Psychometrischen Fragebogen ausfüllen",
       "complete_questionnaire_desc": "Fragen verbleibend",

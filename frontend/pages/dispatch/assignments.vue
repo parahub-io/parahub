@@ -280,7 +280,7 @@ const store = useDispatchStore()
 const isStaff = computed(() => authStore.user?.is_staff ?? false)
 
 // --- Tab filter ---
-const tab = ref('active')
+const tab = useTabSync(['active', 'completed', 'all'])
 
 const activeCount = computed(() => store.assignments.filter(a => a.status === 'ACTIVE').length)
 const assignedCount = computed(() => store.assignments.filter(a => a.status === 'ASSIGNED').length)

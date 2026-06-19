@@ -42,7 +42,7 @@
 
     <!-- No results -->
     <div
-      v-if="showDropdown && !loading && query.length >= 2 && filteredStops.length === 0 && stops.length > 0"
+      v-if="showDropdown && !loading && query.length >= 2 && filteredStops.length === 0"
       class="absolute z-50 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg shadow-lg p-3 text-sm text-neutral-500"
     >
       {{ $t('rides.stop_picker.no_results') }}
@@ -76,16 +76,19 @@ const emit = defineEmits<{
 
 const inputRef = ref<HTMLInputElement | null>(null)
 const query = ref('')
-const stops = ref<StopItem[]>([])
+const stops = ref<StopItem[]>([])      // nearby suggestions (initial load, GPS / map centre)
+const results = ref<StopItem[]>([])    // server-side name search results (city-scoped)
 const loading = ref(false)
 const showDropdown = ref(false)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-const filteredStops = computed(() => {
-  if (!query.value || query.value.length < 2) return stops.value.slice(0, 20)
-  const q = query.value.toLowerCase()
-  return stops.value.filter(s => s.name.toLowerCase().includes(q)).slice(0, 20)
-})
+// < 2 chars → nearby suggestions; otherwise server-side search results (loaded in onInput).
+// The old code only substring-filtered the one-shot nearby set, so any stop outside the
+// initial GPS/map-centre radius (e.g. a Lisbon stop while the map sat on Prague) was
+// unfindable. Name search now hits the API, scoped to the selected transit city.
+const filteredStops = computed(() =>
+  query.value.length >= 2 ? results.value : stops.value.slice(0, 20)
+)
 
 // Load nearby stops on mount based on geolocation
 onMounted(() => {
@@ -168,6 +171,53 @@ async function fetchStops(lat: number, lon: number) {
 
 function onInput() {
   showDropdown.value = true
+  const q = query.value.trim()
+  if (debounceTimer) clearTimeout(debounceTimer)
+  if (q.length < 2) {
+    results.value = []
+    loading.value = false
+    return
+  }
+  loading.value = true
+  debounceTimer = setTimeout(() => searchStops(q), 250)
+}
+
+// Server-side name search. Scoped to the selected transit city (same `transit_city` key the
+// transit page uses; a region scope descends to its cities, so a metro-area selection covers
+// suburban stops). Falls back to a global search when the city-scoped query is empty — the
+// rides page has no city picker of its own, so a stale/foreign selected city must never
+// dead-end a valid stop. No city set → global from the start.
+async function searchStops(q: string) {
+  loading.value = true
+  try {
+    const city = typeof localStorage !== 'undefined' ? localStorage.getItem('transit_city') : null
+    let found = await fetchSearch(q, city)
+    if (city && found.length === 0) {
+      found = await fetchSearch(q, null) // stop isn't in the selected city — search everywhere
+    }
+    // Drop a stale response if the user kept typing while we awaited.
+    if (q === query.value.trim()) results.value = found
+  } catch (err) {
+    console.error('Stop search failed:', err)
+    results.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchSearch(q: string, city: string | null): Promise<StopItem[]> {
+  const params: Record<string, string> = { q }
+  if (city) params.city = city
+  const data = await $fetch<any>('/api/v1/geo/transit/search/', { params })
+  return (data?.stops || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    lat: s.lat,
+    lon: s.lon,
+    routes: Array.isArray(s.routes)
+      ? s.routes.map((r: any) => (typeof r === 'string' ? r : r.short_name)).filter(Boolean).join(', ')
+      : '',
+  }))
 }
 
 function selectStop(stop: StopItem) {

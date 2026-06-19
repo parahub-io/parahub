@@ -119,7 +119,7 @@ def create_matrix_user_on_login(sender, request, user, **kwargs):
 @receiver(post_save, sender=EstablishmentMembership)
 def log_foundation_member_added(sender, instance, created, **kwargs):
     """
-    Log when a foundation member is added to PARAHUB - ASSOCIAÇÃO.
+    Log when a foundation member is added to Parahub - Associação.
 
     Foundation members do not receive automatic verifications - they can verify
     others immediately based on their legal status as Associados Fundadores.

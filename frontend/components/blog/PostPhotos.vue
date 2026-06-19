@@ -17,6 +17,11 @@ const uploading = ref(false)
 const lightboxIdx = ref(-1)
 
 async function fetchPhotos() {
+  if (!props.postId) {
+    photos.value = []
+    loading.value = false
+    return
+  }
   loading.value = true
   try {
     photos.value = await $fetch<any[]>('/api/v1/core/photos/', {
@@ -70,7 +75,9 @@ async function deletePhoto(photoId: string) {
   }
 }
 
-onMounted(fetchPhotos)
+// Re-fetch when postId changes (e.g. navigating between ?edit=A → ?edit=B).
+// `immediate: true` replaces onMounted — runs on initial mount too.
+watch(() => props.postId, fetchPhotos, { immediate: true })
 </script>
 
 <template>

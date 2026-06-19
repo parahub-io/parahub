@@ -10,7 +10,7 @@
         <p class="text-lg text-neutral-800 max-w-2xl mx-auto mb-2">
           {{ $t('mesh.subtitle') }}
         </p>
-        <p class="text-sm text-neutral-700 font-mono">
+        <p v-if="firmwareVersion" class="text-sm text-neutral-700 font-mono">
           {{ $t('mesh.version', { version: firmwareVersion }) }}
         </p>
       </div>
@@ -92,28 +92,23 @@
 
             <div class="grid sm:grid-cols-2 gap-3">
               <a
-                v-if="device.factoryUrl"
-                :href="device.factoryUrl"
+                v-if="factoryUrl(device)"
+                :href="factoryUrl(device)!"
                 class="btn-primary flex items-center gap-3 px-4 py-3"
               >
                 <Download class="w-5 h-5 flex-shrink-0" />
-                <div>
-                  <div class="text-sm font-semibold">{{ $t('mesh.factory') }}</div>
-                  <div class="text-xs opacity-70">{{ device.factorySize }}</div>
-                </div>
+                <span class="text-sm font-semibold">{{ $t('mesh.factory') }}</span>
               </a>
               <a
-                :href="device.sysupgradeUrl"
+                v-if="sysupgradeUrl(device)"
+                :href="sysupgradeUrl(device)!"
                 :class="[
                   'btn-secondary flex items-center gap-3 px-4 py-3',
-                  !device.factoryUrl ? 'sm:col-span-2' : ''
+                  !factoryUrl(device) ? 'sm:col-span-2' : ''
                 ]"
               >
                 <RefreshCw class="w-5 h-5 flex-shrink-0" />
-                <div>
-                  <div class="text-sm font-semibold">{{ $t('mesh.sysupgrade') }}</div>
-                  <div class="text-xs opacity-70">{{ device.sysupgradeSize }}</div>
-                </div>
+                <span class="text-sm font-semibold">{{ $t('mesh.sysupgrade') }}</span>
               </a>
             </div>
           </div>
@@ -261,7 +256,7 @@
         </NuxtLink>
 
         <a
-          href="https://git.parahub.io/norn/parahub-mesh"
+          href="https://github.com/parahub-io/parahub-mesh"
           target="_blank"
           rel="noopener noreferrer"
           class="card p-5 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors group"
@@ -299,7 +294,28 @@ useSeoMeta({
   ogDescription: computed(() => t('mesh.meta_desc')),
 })
 
-const firmwareVersion = '25.12.0-ph23'
+interface ManifestDevice { sysupgrade: string; sha256: string }
+interface Manifest { version: string | null; devices: Record<string, ManifestDevice> }
+
+const { data: manifest } = await useFetch<Manifest>('/api/mesh-manifest', {
+  default: () => ({ version: null, devices: {} }),
+  key: 'mesh-manifest',
+})
+
+const firmwareVersion = computed(() => manifest.value?.version || null)
+
+const sysupgradeUrl = (device: { profile: string }) => {
+  const file = manifest.value?.devices?.[device.profile]?.sysupgrade
+  return file ? `/firmware/${file}` : null
+}
+
+const factoryUrl = (device: { profile: string; hasFactory?: boolean; factoryExt?: string }) => {
+  if (!device.hasFactory) return null
+  const sys = manifest.value?.devices?.[device.profile]?.sysupgrade
+  if (!sys) return null
+  const ext = device.factoryExt || 'bin'
+  return `/firmware/${sys.replace('-squashfs-sysupgrade.bin', `-squashfs-factory.${ext}`)}`
+}
 
 const benefits = [
   { icon: Wifi, title: 'mesh.benefit_seamless', desc: 'mesh.benefit_seamless_desc' },
@@ -324,10 +340,8 @@ const devices = [
     price: '~\u20AC170',
     buyUrl: 'https://www.gl-inet.com/products/gl-mt6000/',
     image: '/images/mesh/mt6000.webp',
-    factoryUrl: '/firmware/openwrt-25.12.0-mediatek-filogic-glinet_gl-mt6000-squashfs-factory.bin',
-    factorySize: '45 MB',
-    sysupgradeUrl: '/firmware/openwrt-25.12.0-mediatek-filogic-glinet_gl-mt6000-squashfs-sysupgrade.bin',
-    sysupgradeSize: '17 MB'
+    profile: 'glinet_gl-mt6000',
+    hasFactory: true,
   },
   {
     id: 'axt1800',
@@ -342,10 +356,9 @@ const devices = [
     price: '~\u20AC120',
     buyUrl: 'https://www.gl-inet.com/products/gl-axt1800/',
     image: '/images/mesh/axt1800.webp',
-    factoryUrl: '/firmware/openwrt-25.12.0-qualcommax-ipq60xx-glinet_gl-axt1800-squashfs-factory.ubi',
-    factorySize: '20 MB',
-    sysupgradeUrl: '/firmware/openwrt-25.12.0-qualcommax-ipq60xx-glinet_gl-axt1800-squashfs-sysupgrade.bin',
-    sysupgradeSize: '19 MB'
+    profile: 'glinet_gl-axt1800',
+    hasFactory: true,
+    factoryExt: 'ubi',
   },
   {
     id: 'mt3000',
@@ -360,10 +373,8 @@ const devices = [
     price: '~\u20AC100',
     buyUrl: 'https://www.gl-inet.com/products/gl-mt3000/',
     image: '/images/mesh/mt3000.webp',
-    factoryUrl: null,
-    factorySize: null,
-    sysupgradeUrl: '/firmware/openwrt-25.12.0-mediatek-filogic-glinet_gl-mt3000-squashfs-sysupgrade.bin',
-    sysupgradeSize: '16 MB'
+    profile: 'glinet_gl-mt3000',
+    hasFactory: false,
   },
   {
     id: 'ax53u',
@@ -378,10 +389,8 @@ const devices = [
     price: '~\u20AC50',
     buyUrl: null,
     image: '/images/mesh/ax53u.webp',
-    factoryUrl: '/firmware/openwrt-25.12.0-ramips-mt7621-asus_rt-ax53u-squashfs-factory.bin',
-    factorySize: '17 MB',
-    sysupgradeUrl: '/firmware/openwrt-25.12.0-ramips-mt7621-asus_rt-ax53u-squashfs-sysupgrade.bin',
-    sysupgradeSize: '15 MB'
+    profile: 'asus_rt-ax53u',
+    hasFactory: true,
   },
   {
     id: 'ap3000outdoor',
@@ -396,10 +405,8 @@ const devices = [
     price: '~\u20AC60',
     buyUrl: 'https://www.cudy.com/en-eu/products/ap3000-outdoor-1-0',
     image: '/images/mesh/ap3000outdoor.webp',
-    factoryUrl: null,
-    factorySize: null,
-    sysupgradeUrl: '/firmware/openwrt-25.12.0-mediatek-filogic-cudy_ap3000outdoor-v1-squashfs-sysupgrade.bin',
-    sysupgradeSize: '16 MB'
+    profile: 'cudy_ap3000outdoor-v1',
+    hasFactory: false,
   },
   {
     id: 'cpe710',
@@ -414,10 +421,8 @@ const devices = [
     price: '~\u20AC80',
     buyUrl: null,
     image: '/images/mesh/cpe710.webp',
-    factoryUrl: '/firmware/openwrt-25.12.0-ath79-generic-tplink_cpe710-v1-squashfs-factory.bin',
-    factorySize: '7.9 MB',
-    sysupgradeUrl: '/firmware/openwrt-25.12.0-ath79-generic-tplink_cpe710-v1-squashfs-sysupgrade.bin',
-    sysupgradeSize: '16 MB'
+    profile: 'tplink_cpe710-v1',
+    hasFactory: true,
   },
   {
     id: 'ar300m16',
@@ -432,10 +437,8 @@ const devices = [
     price: '~\u20AC40',
     buyUrl: 'https://www.gl-inet.com/products/gl-ar300m/',
     image: '/images/mesh/ar300m16.webp',
-    factoryUrl: null,
-    factorySize: null,
-    sysupgradeUrl: '/firmware/openwrt-25.12.0-ath79-generic-glinet_gl-ar300m16-squashfs-sysupgrade.bin',
-    sysupgradeSize: '7.4 MB'
+    profile: 'glinet_gl-ar300m16',
+    hasFactory: false,
   }
 ]
 

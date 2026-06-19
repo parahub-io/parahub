@@ -207,7 +207,10 @@ export function useDriverMode() {
           nextStop.value = { id: msg.next_stop_id, name: msg.next_stop_name }
         }
         if (ttsEnabled.value) {
-          announceStop(msg.next_stop_name || msg.stop_name)
+          // Prefer the unabbreviated tts_stop_name so the synthesizer says
+          // "Rua …" not "R …"; fall back to the display name when the feed
+          // omits tts. Visible UI keeps the abbreviated name (set above).
+          announceStop(msg.next_stop_tts || msg.next_stop_name || msg.stop_tts || msg.stop_name)
         }
         break
 

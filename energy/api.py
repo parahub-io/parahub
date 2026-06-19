@@ -155,8 +155,8 @@ def _cell_to_detail(cell: EnergyCell) -> EnergyCellDetailOut:
     )
 
 
-def _check_wot2(profile: Profile):
-    """Raise 403 if profile doesn't meet WoT 2+ requirement."""
+def _check_wot3(profile: Profile):
+    """Raise 403 if profile doesn't meet WoT 3+ requirement."""
     if profile.account.is_superuser:
         return
     if profile.is_foundation_member():
@@ -165,8 +165,8 @@ def _check_wot2(profile: Profile):
         verified_profile=profile,
         is_active=True,
     ).count()
-    if count < 2:
-        raise HttpError(403, "Requires WoT level 2+ to join energy cells (or be admin/parahub member)")
+    if count < 3:
+        raise HttpError(403, "Requires WoT level 3+ to join energy cells (or be admin/parahub member)")
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -200,9 +200,9 @@ def cell_detail(request, cell_id: str):
 @router.post('/cells/', response=EnergyCellDetailOut, auth=ProfileAuth())
 @ratelimit(group='energy:cell_create', key=user_or_ip, rate='10/m', method='POST')
 def cell_create(request, payload: EnergyCellCreateIn):
-    """Create a new ACC energy cell. Requires WoT 2+."""
+    """Create a new ACC energy cell. Requires WoT 3+."""
     profile: Profile = request.auth
-    _check_wot2(profile)
+    _check_wot3(profile)
     establishment = None
     if payload.establishment_id:
         from geo.models import Establishment
@@ -274,9 +274,9 @@ def cell_members(request, cell_id: str):
 @router.post('/cells/{cell_id}/join/producer/', response={200: dict, 400: dict, 403: dict}, auth=ProfileAuth())
 @ratelimit(group='energy:join_producer', key=user_or_ip, rate='10/m', method='POST')
 def join_as_producer(request, cell_id: str, payload: JoinProducerIn):
-    """Join cell as producer (UPAC). Requires WoT 2+. Checks geographic radius."""
+    """Join cell as producer (UPAC). Requires WoT 3+. Checks geographic radius."""
     profile: Profile = request.auth
-    _check_wot2(profile)
+    _check_wot3(profile)
     cell = get_object_or_404(EnergyCell, id=cell_id)
 
     # Check not already a member of any cell
@@ -307,9 +307,9 @@ def join_as_producer(request, cell_id: str, payload: JoinProducerIn):
 @router.post('/cells/{cell_id}/join/consumer/', response={200: dict, 400: dict, 403: dict}, auth=ProfileAuth())
 @ratelimit(group='energy:join_consumer', key=user_or_ip, rate='10/m', method='POST')
 def join_as_consumer(request, cell_id: str, payload: JoinConsumerIn):
-    """Join cell as consumer (neighbor). Requires WoT 2+."""
+    """Join cell as consumer (neighbor). Requires WoT 3+."""
     profile: Profile = request.auth
-    _check_wot2(profile)
+    _check_wot3(profile)
     cell = get_object_or_404(EnergyCell, id=cell_id)
 
     # Check not already a member of any cell

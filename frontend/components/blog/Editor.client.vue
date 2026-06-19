@@ -3,11 +3,12 @@ import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
+import { TableKit } from '@tiptap/extension-table'
 import { Markdown } from 'tiptap-markdown'
 import { VideoEmbed, videoMarkdownToHtml } from '~/extensions/VideoEmbed'
 import {
   Code2, Eye, Heading2, Heading3, Bold, Italic, Strikethrough,
-  List, ListOrdered, Quote, CodeSquare, LinkIcon, Video, ImageIcon
+  List, ListOrdered, Quote, CodeSquare, LinkIcon, Video, ImageIcon, Table as TableIcon
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -22,10 +23,15 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const authStore = useAuthStore()
 
-const mode = ref<'code' | 'visual'>('code')
-const previewHtml = ref('')
+// Default: visual (friendlier for non-technical users).
+// Last choice persisted in localStorage so power users who prefer code stay in code.
+const MODE_STORAGE_KEY = 'blog-editor-mode'
+const mode = ref<'code' | 'visual'>('visual')
+if (import.meta.client) {
+  const saved = localStorage.getItem(MODE_STORAGE_KEY)
+  if (saved === 'code' || saved === 'visual') mode.value = saved
+}
 const imageUploading = ref(false)
-const showPreview = ref(false)
 
 const editor = useEditor({
   extensions: [
@@ -43,12 +49,16 @@ const editor = useEditor({
         class: 'blog-image',
       },
     }),
+    TableKit.configure({ table: { resizable: true } }),
     Markdown,
     VideoEmbed,
   ],
   content: videoMarkdownToHtml(props.modelValue),
   onUpdate: ({ editor: ed }) => {
-    const md = (ed as any).storage.markdown.getMarkdown()
+    let md = (ed as any).storage.markdown.getMarkdown()
+    // tiptap-markdown glues images to following block elements (headings, paragraphs)
+    // without a blank line, breaking markdown parsing. Ensure blank line after images.
+    md = md.replace(/(!\[[^\]]*\]\([^)]*\))(\n?)(?=\S)/g, '$1\n\n')
     emit('update:modelValue', md)
   },
   editorProps: {
@@ -93,6 +103,9 @@ function switchMode(m: 'code' | 'visual') {
     editor.value.commands.setContent(videoMarkdownToHtml(props.modelValue))
   }
   mode.value = m
+  if (import.meta.client) {
+    localStorage.setItem(MODE_STORAGE_KEY, m)
+  }
 }
 
 function onCodeInput(e: Event) {
@@ -169,14 +182,6 @@ function insertImage() {
   input.click()
 }
 
-/** Toolbar: insert image by URL (separate button or fallback) */
-function insertImageUrl() {
-  const url = window.prompt(t('cms.editor.imageUrlPrompt'), 'https://')
-  if (url && url !== 'https://') {
-    insertImageIntoEditor(url)
-  }
-}
-
 // Video embed
 function insertVideo() {
   const input = window.prompt(t('cms.editor.videoPrompt'), 'https://video.parahub.io/w/')
@@ -194,6 +199,12 @@ function insertVideo() {
   }
 }
 
+// Insert a default 3x3 table with a header row
+function insertTable() {
+  if (!editor.value) return
+  editor.value.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+}
+
 // Link toggle
 function toggleLink() {
   if (!editor.value) return
@@ -206,21 +217,6 @@ function toggleLink() {
     }
   }
 }
-
-// Markdown preview (client-side)
-async function updatePreview() {
-  const md = props.modelValue || ''
-  previewHtml.value = md
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="blog-image" />')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/\n/g, '<br>')
-}
-
-watch(() => props.modelValue, updatePreview, { immediate: true })
 
 onBeforeUnmount(() => {
   editor.value?.destroy()
@@ -336,6 +332,14 @@ const toolbarButtons = computed<ToolbarBtn[]>(() => {
         >
           <Video class="w-4 h-4" />
         </button>
+        <button
+          type="button"
+          @click="insertTable"
+          class="p-1.5 rounded transition-colors text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+          title="Вставить таблицу"
+        >
+          <TableIcon class="w-4 h-4" />
+        </button>
       </template>
 
       <!-- Code mode: media buttons + preview toggle -->
@@ -363,20 +367,6 @@ const toolbarButtons = computed<ToolbarBtn[]>(() => {
         >
           <Video class="w-4 h-4" />
         </button>
-        <div class="w-px h-5 bg-neutral-300 dark:bg-neutral-600 mx-1 md:hidden" />
-        <button
-          type="button"
-          @click="showPreview = !showPreview"
-          :class="[
-            'flex items-center gap-1.5 px-3 py-1 rounded text-sm font-medium transition-colors md:hidden',
-            showPreview
-              ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-sm'
-              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300',
-          ]"
-        >
-          <Eye class="w-4 h-4" />
-          {{ t('cms.editor.preview') }}
-        </button>
       </template>
 
       <!-- Upload indicator -->
@@ -386,20 +376,12 @@ const toolbarButtons = computed<ToolbarBtn[]>(() => {
     </div>
 
     <!-- Code mode: textarea + preview -->
-    <div v-if="mode === 'code'" class="grid grid-cols-1 md:grid-cols-2 border border-neutral-300 dark:border-neutral-600 rounded-b-lg overflow-hidden">
+    <div v-if="mode === 'code'" class="border border-neutral-300 dark:border-neutral-600 rounded-b-lg overflow-hidden">
       <textarea
-        v-show="!showPreview"
         :value="modelValue"
         @input="onCodeInput"
         :placeholder="t('cms.contentPlaceholder')"
-        class="min-h-[300px] md:min-h-[400px] p-4 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-mono text-sm resize-y focus:outline-none md:border-r border-neutral-300 dark:border-neutral-600"
-      />
-      <div
-        :class="[
-          'min-h-[300px] md:min-h-[400px] p-4 bg-neutral-50 dark:bg-neutral-900 prose dark:prose-invert prose-sm max-w-none overflow-auto',
-          showPreview ? '' : 'hidden md:block',
-        ]"
-        v-html="previewHtml"
+        class="w-full min-h-[400px] p-4 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-mono text-sm resize-y focus:outline-none"
       />
     </div>
 
@@ -446,5 +428,44 @@ const toolbarButtons = computed<ToolbarBtn[]>(() => {
   height: auto;
   border-radius: 0.5rem;
   margin: 1rem 0;
+}
+.blog-editor .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  table-layout: fixed;
+  overflow: hidden;
+}
+.blog-editor .tiptap th,
+.blog-editor .tiptap td {
+  border: 1px solid #d4d4d8;
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+  position: relative;
+  min-width: 4rem;
+}
+.dark .blog-editor .tiptap th,
+.dark .blog-editor .tiptap td {
+  border-color: #52525b;
+}
+.blog-editor .tiptap th {
+  background: #f4f4f5;
+  font-weight: 600;
+  text-align: left;
+}
+.dark .blog-editor .tiptap th {
+  background: #27272a;
+}
+.blog-editor .tiptap .selectedCell {
+  background: rgba(255, 226, 22, 0.18);
+}
+.blog-editor .tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background: #FFE216;
+  pointer-events: none;
 }
 </style>

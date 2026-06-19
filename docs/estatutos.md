@@ -4,6 +4,19 @@
 
 ---
 
+## Registo legal
+
+- **Denominação:** PARAHUB - ASSOCIAÇÃO
+- **NIPC:** 519 190 904
+- **CAE principal:** 62100 (Actividades de programação informática)
+- **Sede:** Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal
+- **Data de constituição:** 2026-04-08
+- **Escritura pública:** Cartório Notarial de Andreia Meireles Craveiro — Rua do Poço Novo 244, Cascais (Livro 134E, Folhas 43-44)
+- **Certidão Notarial Permanente:** [`CN-AE1AE24D-DC0C-43FC-BEDF-88D3F845E418`](https://www.notarios.pt) (válida até 2027-04-08)
+- **Publicação:** [publicacoes.mj.pt](https://publicacoes.mj.pt) (2026-04-08)
+
+---
+
 **ESTATUTOS DA**
 
 **PARAHUB - ASSOCIAÇÃO**

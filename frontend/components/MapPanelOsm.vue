@@ -14,8 +14,8 @@
 
     <div class="px-4 pt-2 space-y-4">
 
-    <!-- Building address (shown above establishments) -->
-    <div v-if="!selectedEstablishment && !showCreateForm && establishments.length > 0 && buildingFullAddress" class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 pb-2 border-b border-neutral-200 dark:border-neutral-700">
+    <!-- Building address (shown above establishments only if title is the name, not the address itself) -->
+    <div v-if="!selectedEstablishment && !showCreateForm && establishments.length > 0 && buildingFullAddress && buildingFullAddress !== featureTitle" class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 pb-2 border-b border-neutral-200 dark:border-neutral-700">
       <MapPin :size="14" class="flex-shrink-0" />
       <span>{{ buildingFullAddress }}</span>
     </div>
@@ -41,7 +41,7 @@
             <a
               v-if="est.phone"
               :href="`tel:${est.phone}`"
-              class="text-sm text-secondary-600 hover:underline flex items-center gap-1"
+              class="text-link text-sm flex items-center gap-1"
               @click.stop
             >
               <Phone :size="14" />
@@ -53,13 +53,9 @@
       </div>
 
       <!-- Add organization button -->
-      <button
-        @click="showCreateForm = true"
-        class="w-full mt-4 px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-700 text-secondary-600 dark:text-secondary-400 hover:border-secondary-400 hover:bg-secondary-50 dark:hover:bg-secondary-900/30 rounded-lg transition flex items-center justify-center gap-2 font-medium"
-      >
-        <Plus :size="20" />
+      <UiButton variant="outline" size="md" :icon="Plus" class="w-full mt-4" @click="showCreateForm = true">
         {{ $t('map.panel.add_organization') }}
-      </button>
+      </UiButton>
     </div>
 
     <!-- Establishment Details (Beautiful Design) -->
@@ -85,14 +81,16 @@
               </div>
             </div>
           </div>
-          <button
+          <UiButton
             v-if="selectedEstablishment.owner_id === authStore.profile?.id"
-            @click="startEdit"
-            class="flex-shrink-0 p-2 text-neutral-600 dark:text-neutral-700 hover:text-neutral-900 hover:bg-neutral-200 dark:hover:bg-primary-600/30"
+            variant="ghost"
+            size="sm"
+            icon-only
+            :icon="Edit"
+            class="flex-shrink-0 text-neutral-800 dark:text-neutral-800 hover:bg-neutral-900/10 dark:hover:bg-neutral-900/20"
             :title="$t('map.panel.edit_organization')"
-          >
-            <Edit :size="16" />
-          </button>
+            @click="startEdit"
+          />
         </div>
       </div>
 
@@ -138,7 +136,7 @@
         <div v-if="selectedEstablishment.world_object"
              class="border-l-4 border-transparent hover:border-primary bg-neutral-50 dark:bg-neutral-800 p-3">
           <div class="flex items-start gap-3">
-            <span class="flex-shrink-0 text-xl">📍</span>
+            <MapPin :size="18" class="flex-shrink-0 text-neutral-600 dark:text-neutral-400 mt-0.5" />
             <div class="flex-1 min-w-0">
               <p class="text-xs text-neutral-500 dark:text-neutral-400 mb-1">{{ $t('map.panel.address') }}</p>
               <p class="text-sm text-neutral-900 dark:text-neutral-100 font-medium">
@@ -169,7 +167,7 @@
            :href="`mailto:${selectedEstablishment.email}`"
            class="block border-l-4 border-transparent hover:border-primary bg-neutral-50 dark:bg-neutral-800 p-3">
           <div class="flex items-center gap-3">
-            <span class="flex-shrink-0 text-lg">✉️</span>
+            <Mail :size="18" class="flex-shrink-0 text-neutral-600 dark:text-neutral-400" />
             <div class="flex-1 min-w-0">
               <p class="text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">{{ $t('map.panel.email') }}</p>
               <p class="text-sm text-neutral-900 dark:text-neutral-100 font-medium truncate">{{ selectedEstablishment.email }}</p>
@@ -195,16 +193,14 @@
       <div v-if="selectedEstablishment.opening_hours && Object.keys(selectedEstablishment.opening_hours).length > 0"
            class="bg-neutral-50 dark:bg-neutral-800 p-3">
         <div class="flex items-center gap-2 mb-2">
-          <span class="text-lg">🕐</span>
+          <Clock :size="18" class="text-neutral-600 dark:text-neutral-400" />
           <h4 class="font-semibold text-neutral-900 dark:text-neutral-100 text-sm">{{ $t('map.panel.opening_hours') }}</h4>
-          <span
-            v-if="establishmentOpenStatus === true"
-            class="px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium"
-          >{{ $t('directory.establishments.open_now') }}</span>
-          <span
-            v-else-if="establishmentOpenStatus === false"
-            class="px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full text-xs font-medium"
-          >{{ $t('directory.establishments.closed_now') }}</span>
+          <UiBadge v-if="establishmentOpenStatus === true" variant="success" type="soft" size="sm">
+            {{ $t('directory.establishments.open_now') }}
+          </UiBadge>
+          <UiBadge v-else-if="establishmentOpenStatus === false" variant="error" type="soft" size="sm">
+            {{ $t('directory.establishments.closed_now') }}
+          </UiBadge>
         </div>
         <div class="space-y-1">
           <div v-for="(hours, day) in selectedEstablishment.opening_hours" :key="day"
@@ -229,7 +225,7 @@
     <div v-else-if="showCreateForm" class="space-y-4">
       <button
         @click="cancelForm"
-        class="flex items-center gap-2 text-secondary-600 hover:text-secondary-700 text-sm font-medium"
+        class="flex items-center gap-2 text-neutral-500 hover:text-primary transition text-sm font-medium"
       >
         <ChevronRight :size="16" class="rotate-180" />
         {{ $t('map.panel.back_to_list') }}
@@ -298,15 +294,14 @@
     </div>
 
     <!-- Empty building - show add button -->
-    <div v-else-if="!selectedEstablishment && !showCreateForm && establishments.length === 0 && feature?.sourceLayer === 'building'" class="space-y-4">
-      <div class="text-center py-8 text-neutral-500 dark:text-neutral-400">
-        <p class="mb-4">{{ $t('map.panel.no_organizations_yet') }}</p>
-        <div class="flex justify-center">
-          <UiButton variant="secondary" size="md" :icon="Plus" @click="showCreateForm = true">
-            {{ $t('map.panel.add_first_organization') }}
-          </UiButton>
-        </div>
-      </div>
+    <div v-else-if="!selectedEstablishment && !showCreateForm && establishments.length === 0 && feature?.sourceLayer === 'building'" class="py-12 text-center">
+      <Building2 class="w-12 h-12 mx-auto text-neutral-400 dark:text-neutral-600 mb-3" aria-hidden="true" />
+      <h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+        {{ $t('map.panel.no_organizations_yet') }}
+      </h3>
+      <UiButton variant="secondary" size="md" :icon="Plus" @click="showCreateForm = true">
+        {{ $t('map.panel.add_first_organization') }}
+      </UiButton>
     </div>
 
     <!-- OSM Properties -->
@@ -331,36 +326,30 @@
 
     <!-- Compact Action Buttons -->
     <div class="flex gap-2 border-t border-neutral-200 dark:border-neutral-700 pt-4">
-      <button
+      <UiButton
         v-if="establishments.length > 0 && hasProperties"
+        :variant="showOsmData ? 'secondary' : 'outline'"
+        size="sm"
+        :icon="ChevronDown"
+        class="flex-1"
         @click="showOsmData = !showOsmData"
-        class="flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition"
-        :class="showOsmData
-          ? 'bg-secondary-50 dark:bg-secondary-900 border-secondary-300 dark:border-secondary-700 text-secondary-700 dark:text-secondary-300'
-          : 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
       >
-        <ChevronDown :size="12" class="inline transition-transform mr-1" :class="{ 'rotate-180': showOsmData }" />
-        {{ showOsmData ? 'Hide' : 'Details' }}
-      </button>
+        {{ showOsmData ? $t('map.panel.hide_details') : $t('map.panel.details_toggle') }}
+      </UiButton>
 
-      <button
+      <UiButton
+        :variant="showDebug ? 'secondary' : 'outline'"
+        size="sm"
+        :icon="Code"
+        class="flex-1"
         @click="showDebug = !showDebug"
-        class="flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition"
-        :class="showDebug
-          ? 'bg-neutral-800 border-neutral-800 text-white'
-          : 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
       >
-        <Code :size="12" class="inline mr-1" />
-        Raw
-      </button>
+        {{ $t('map.panel.raw_data') }}
+      </UiButton>
 
-      <button
-        @click="openInOSM"
-        class="flex-1 px-3 py-2 text-xs font-medium bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 rounded-lg"
-      >
-        <ExternalLink :size="12" class="inline mr-1" />
+      <UiButton variant="outline" size="sm" :icon="ExternalLink" class="flex-1" @click="openInOSM">
         OSM
-      </button>
+      </UiButton>
     </div>
 
     <!-- Raw Data Content (collapsible) -->
@@ -428,14 +417,9 @@
             <span class="text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate block">{{ c.title }}</span>
             <span class="text-xs text-neutral-500">{{ c.creator_name }} & {{ c.partner_name }}</span>
           </div>
-          <span class="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ml-2"
-            :class="{
-              'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400': c.status === 'PENDING_PARTNER',
-              'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400': c.status === 'SIGNED' || c.status === 'COMPLETED',
-              'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400': c.status === 'DISPUTED',
-              'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400': !['PENDING_PARTNER','SIGNED','COMPLETED','DISPUTED'].includes(c.status),
-            }"
-          >{{ c.status }}</span>
+          <UiBadge :variant="contractStatusVariant(c.status)" type="soft" size="sm" class="flex-shrink-0 ml-2">
+            {{ c.status }}
+          </UiBadge>
         </div>
       </div>
       <UiButton v-if="authStore.isAuthenticated" variant="secondary" size="sm" :icon="FileText"
@@ -457,7 +441,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { X, ChevronDown, ChevronRight, ChevronLeft, Phone, ShieldCheck, ExternalLink, Code, Plus, Edit, MessageSquare, Send, MapPin, FileText } from 'lucide-vue-next'
+import { X, ChevronDown, ChevronRight, ChevronLeft, Phone, ShieldCheck, ExternalLink, Code, Plus, Edit, MessageSquare, Send, MapPin, Mail, Clock, FileText, Building2 } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import { useToastStore } from '~/stores/toast'
 import CategorySelect from '~/components/CategorySelect.vue'
@@ -533,8 +517,12 @@ const osmType = computed(() => {
   const sourceTable = osmData.value?.data?.source_table
   if (!sourceTable) return null
   if (sourceTable.includes('_point')) return 'node'
-  if (sourceTable.includes('_polygon')) return 'way'
-  if (sourceTable.includes('_linestring')) return 'way'
+  // imposm3 stores relation-derived geometries (multipolygons) with a negative
+  // osm_id; positive ids are ways. Without this, a building that is an OSM
+  // relation links to the way of the same number (e.g. an unrelated street).
+  if (sourceTable.includes('_polygon') || sourceTable.includes('_linestring')) {
+    return Number(osmId.value) < 0 ? 'relation' : 'way'
+  }
   return 'way'
 })
 
@@ -635,7 +623,13 @@ const featureTitle = computed(() => {
   if (!props.feature) return ''
   if (selectedEstablishment.value) return selectedEstablishment.value.name
   if (establishments.value.length > 0) {
+    const tileProps = props.feature.properties || {}
     const enriched = enrichedProperties.value || {}
+    const localized = localizedName(tileProps, enriched)
+    if (localized) return localized
+    if (enriched.name) return enriched.name
+    if (osmData.value?.data?.name) return osmData.value.data.name
+    if (tileProps.name) return tileProps.name
     return enriched.address_street && enriched.address_housenumber
       ? `${enriched.address_street} ${enriched.address_housenumber}` : 'Building'
   }
@@ -912,6 +906,13 @@ async function deleteComment(commentId: string) {
     })
     featureComments.value = featureComments.value.filter(c => c.id !== commentId)
   } catch (err: any) { toastStore.error(err?.data?.error || 'Failed to delete comment') }
+}
+
+function contractStatusVariant(status: string): 'warning' | 'success' | 'error' | 'neutral' {
+  if (status === 'PENDING_PARTNER') return 'warning'
+  if (status === 'SIGNED' || status === 'COMPLETED') return 'success'
+  if (status === 'DISPUTED') return 'error'
+  return 'neutral'
 }
 
 function formatCommentTime(iso: string): string {

@@ -45,6 +45,6 @@ A dedicated "Events" tab in the directory page lists upcoming events. Past event
 ## Access Control
 
 - **View events**: Public
-- **Create events**: WoT 2+ (verified by 2 or more users)
+- **Create events**: WoT 3+ (verified by 2 or more users)
 - **Join events**: Any authenticated user
 - **Edit/cancel events**: Organizer only

@@ -2,10 +2,15 @@
   <div class="py-6">
     <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="bg-white dark:bg-neutral-800 rounded-lg p-6">
-        <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
+        <img
+          :src="hasKeys && keyPair ? '/images/para/thumbs_up.png' : '/images/para/pointing.png'"
+          alt="Para"
+          class="mx-auto h-32 w-auto mb-4"
+        />
+        <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2 text-center">
           PGP Key Setup
         </h1>
-        <p class="text-neutral-600 dark:text-neutral-400 mb-6">
+        <p class="text-neutral-600 dark:text-neutral-400 mb-6 text-center">
           Generate your PGP keys to sign critical operations on Parahub.
           Your private key never leaves your device.
         </p>

@@ -61,6 +61,7 @@ class FederationConsumer(AsyncJsonWebsocketConsumer):
             'heartbeat': self._handle_heartbeat,
             'registry_update': self._handle_registry_update,
             'profile_migration': self._handle_profile_migration,
+            'cms_update': self._handle_cms_update,
         }.get(msg_type)
 
         if handler:
@@ -230,6 +231,29 @@ class FederationConsumer(AsyncJsonWebsocketConsumer):
         await sync_to_async(ws_publish)('feed:federation', {
             'type': 'profile_migration',
             **content,
+        })
+
+    async def _handle_cms_update(self, content):
+        """
+        Peer notifies us of new published CMS posts.
+
+        We can git pull their public CMS repo to sync content.
+        """
+        domain = content.get('domain', self._peer_domain)
+        records = content.get('records', [])
+
+        logger.info(
+            f"CMS update from {domain}: {len(records)} post(s)"
+        )
+
+        # Broadcast to local users
+        from parahub.services.ws_publish import ws_publish
+        from asgiref.sync import sync_to_async
+        await sync_to_async(ws_publish)('feed:federation', {
+            'type': 'cms_update',
+            'domain': domain,
+            'commit': content.get('commit', ''),
+            'records': records,
         })
 
     # ── Federation feed relay ──────────────────────────────────────────

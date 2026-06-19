@@ -54,7 +54,7 @@ Items can be posted on behalf of an organization (Establishment). The `Establish
 
 ## Technical Details
 
-- **Models**: `market/models.py` -- Item, ItemImage, Video
+- **Models**: `market/models.py` -- Item (photos via core.ObjectPhoto, videos via core.ObjectVideo)
 - **API**: `parahub/endpoints/items.py` -- CRUD, matching, search
 - **Frontend**: `pages/market/` (index, create, [id], my-items), `components/market/`
 - **Barter**: `barter/graph_service.py` (Neo4j), `barter/neo4j_client.py`

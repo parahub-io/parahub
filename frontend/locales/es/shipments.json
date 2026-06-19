@@ -64,7 +64,7 @@
       "verify_pickup": "Verificar Recogida",
       "enter_pickup_code": "Introduzca el código de recogida",
       "invalid_code": "Código de recogida inválido",
-      "wot_required": "Se requiere verificación WoT 2+ para activar modo hub",
+      "wot_required": "Se requiere verificación WoT 3+ para activar modo hub",
       "info_title": "Punto P-Hub",
       "send_here": "Enviar Aquí",
       "days": "días",

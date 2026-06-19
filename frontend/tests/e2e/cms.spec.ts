@@ -9,7 +9,7 @@
  *   5. RSS feed includes the published post
  *   6. Deletes the post from manage panel — verifies removal
  *
- * Requires: seed_test_users (alice with WoT 2+)
+ * Requires: seed_test_users (alice with WoT 3+)
  */
 
 import { test, expect, type Page } from '@playwright/test'

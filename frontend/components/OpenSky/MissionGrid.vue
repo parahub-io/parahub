@@ -13,8 +13,8 @@
     </div>
 
     <!-- Grid -->
-    <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      <OpenSkyMissionCard
+    <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 items-start">
+      <OpenSkyMissionCardRecon
         v-for="mission in missions"
         :key="mission.id"
         :mission="mission"

@@ -154,6 +154,10 @@
           "title": "Inhalte und Interaktionen",
           "text": "Der Nutzer trägt die volle Verantwortung für alle Inhalte, die er über den Dienst veröffentlicht, überträgt oder empfängt, sowie für alle seine Interaktionen mit anderen Nutzern."
         },
+        "imagery": {
+          "title": "Lizenz für Luftbilder (OpenSky)",
+          "text": "Bilder, die Sie in die OpenSky-Luftbildebene hochladen – sowie die daraus abgeleiteten Orthofotos, 3D-Meshes und Kartenkacheln – werden unter der Lizenz Creative Commons Namensnennung-Weitergabe unter gleichen Bedingungen 4.0 International (CC BY-SA 4.0) veröffentlicht. Mit dem Hochladen bestätigen Sie, dass Sie der Urheber sind oder die erforderlichen Rechte besitzen, und Sie räumen dem Betreiber und dem föderierten Parahub-Netzwerk eine nicht exklusive, unwiderrufliche, weltweite Lizenz ein, diese Bilder zu diesen Bedingungen zu hosten, zu verarbeiten, zu veröffentlichen und weiterzuverbreiten. Sie bleiben allein verantwortlich für die Einhaltung der geltenden Datenschutzgesetze (einschließlich der DSGVO) und der Luftfahrt-/Drohnenvorschriften (wie der ANAC in Portugal) und dürfen keine Bilder hochladen, die die Rechte oder die Privatsphäre anderer verletzen."
+        },
         "compliance": {
           "title": "Rechtliche Konformität",
           "text": "Der Nutzer verpflichtet sich, den Dienst in strikter Übereinstimmung mit den geltenden Gesetzen seiner Gerichtsbarkeit und der Gerichtsbarkeit des Betreiberstandorts zu nutzen."
@@ -1042,6 +1046,17 @@
       "total_sats": "Sats gespendet",
       "total_donations": "Spenden",
       "supporters": "Unterstützer"
+    },
+    "services": {
+      "title": "Plattformdienste",
+      "video": "Video",
+      "video_desc": "Video-Hosting und Streaming",
+      "git": "Projekte",
+      "git_desc": "Code-Repositories und Zusammenarbeit",
+      "chat": "Chat",
+      "chat_desc": "Verschlüsselte Nachrichten über Matrix",
+      "status": "Status",
+      "status_desc": "Plattform-Verfügbarkeitsüberwachung"
     }
   }
 }

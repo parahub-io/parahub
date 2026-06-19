@@ -34,55 +34,21 @@ Stored in Gitea repository. Context-aware responses about the platform, its feat
 - `ZenithQueryLog` for audit trail
 - API: `parahub/endpoints/zenith.py`
 
-## Yellow Gate (AI Agent Automation)
+## Image Generation
 
-Nine AI agents that autonomously work on the codebase, powered by Claude Opus 4.6:
+For editorial content (blog illustrations, mascot poses, marketing visuals). Nano Banana Pro/2 prompting with style anchors for series consistency. Output saved as `ObjectPhoto` attachments on posts/establishments/profiles.
 
-| Agent | Role | Dev Slot | Color |
-|-------|------|----------|-------|
-| **Pixel** | Frontend development | :8003/:3005 | Indigo |
-| **Forge** | Backend development | :8004/:3004 | Amber |
-| **Scout** | Data and research | :8005/:3006 | Emerald |
-| **Kevin** | Strategy and planning | N/A (no code) | Violet |
-| **Vera** | Secretary and outreach | N/A | Rose |
-| **Alice** | QA power user | N/A | Cyan |
-| **Bob** | QA newcomer | N/A | Orange |
-| **Atlas** | Architect and code review | N/A | Slate |
-| **Iris** | Product owner | N/A | Pink |
+## Psycho-Hash (Voluntary Personality Profiling)
 
-### How It Works
-1. Tasks created as Gitea issues with priority labels (P1/P2/P3) and agent assignment
-2. `run.sh` picks highest-priority issue via **intelligent task picker** (fetches all open assigned + unassigned issues, deduplicates, auto-selects or asks agent to choose)
-3. Agent runs Claude Code CLI with project context + agent profile + shared knowledge
-4. Agent commits changes, posts report to Gitea issue, closes on success
-5. If no issues exist, agent patrols backlog.md or does autonomous maintenance
+Users fill an "Inner Reality Map" questionnaire with an external AI chat (ChatGPT/Claude), ask for a 4-word summary, and paste it back as their public **Psycho-Hash** (4 words, cardinality 1000^4). Used for Web of Trust compatibility matching. Private `form3_data` (legacy 30-question form) retained in DB but no longer has UI. Model: `identity.PsychProfile`. UI: inline in `/profile` photo section.
 
-### Kevin (Strategist)
-Kevin creates strategy issues and decomposes them into actionable task issues for other agents. Does not write code. Always runs with `RUN_COUNT=1`. Uses `strategy` label in Gitea.
+## Support Voice (Anonymous Help)
 
-### Vera (Secretary)
-Daily briefings, Matrix daemon for DM responses, web research, and email outreach via Mailcow. Platform identity with Parahub account + Matrix + email (vera@parahub.io).
-
-### Gitea MCP Integration
-Agents use native Gitea MCP tools (`list_issues`, `issue_read`, `issue_write`, `label_read`, etc.) instead of raw API calls. Per-agent token via `YELLOWGATE_AGENT` env var.
-
-### Features
-- **Per-agent dev slots**: isolated build/test environments via cookie routing (`parahub_dev=N`)
-- **Post-commit hooks**: auto-restart only the committer's dev slot, stale-mark other slots
-- **Process isolation**: setsid + systemd-run scopes, per-agent flock, crash recovery
-- **Configurable timeout**: 59 minutes default, up to 4 hours for developer/analyst agents
-- **WebSocket dashboard**: real-time Redis log streaming with syntax highlighting
-- **Emergency stop**: per-agent or global stop from UI
-
-### Monitoring
-`monitor.sh` (bash, 30min cycle): NetData alarms, Uptime Kuma health checks, auto-heal (systemd restart, disk cleanup, cert renewal), GTFS-RT vehicle count validation, journalctl error tracking. Metrics to `.agents/metrics.log`, alerts to `.agents/alerts.log`.
-
-### Dashboard
-Staff-only UI at `/yellow-gate` with fighting game character select aesthetic. Per-agent color theming. Components: AgentPanel, LiveLog, SessionHistory, StatsPanel, TaskBoard.
+Voice-to-voice support pipeline for end users. ElevenLabs STT (`scribe_v1`) -> Gemini Flash (knowledge lookup against `docs/`) -> ElevenLabs TTS (`eleven_multilingual_v2`). Anonymous (no login required).
 
 ## Technical Details
 
 - **AI Vision**: `parahub/services/vision_ai.py`, `parahub/services/quota.py`
 - **Zenith**: `parahub/services/zenith_service.py`, `parahub/endpoints/zenith.py`
-- **Agents**: `agents/models.py` (Agent, AgentSession), `agents/api.py`, `.agents/` (profiles, run.sh)
-- **Frontend**: `components/IoT/HiveCard.vue`, `pages/yellow-gate/` (AgentPanel, LiveLog, SessionHistory, StatsPanel, TaskBoard)
+- **Psycho-Hash**: `identity/models.py` (PsychProfile), `parahub/endpoints/profiles.py`
+- **Support Voice**: `parahub/consumers/support_voice.py`

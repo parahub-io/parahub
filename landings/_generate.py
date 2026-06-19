@@ -12,6 +12,7 @@ Usage:
 
 import json
 import os
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +24,8 @@ BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
 LOCALES_DIR = PROJECT_DIR / 'frontend' / 'locales'
 STYLE_CSS = (BASE_DIR / 'style.css').read_text() if (BASE_DIR / 'style.css').exists() else ''
+# Bespoke Para-in-activity scene per subdomain (watercolor). Copied into each output/ as para.webp.
+ILLUSTRATIONS_DIR = BASE_DIR / '_assets' / 'illustrations'
 
 LOCALES = [
     {'code': 'en', 'lang': 'en-US', 'name': 'English'},
@@ -43,6 +46,23 @@ FOOTER_TAGLINES = {
     'fr': 'Infrastructure civique open-source',
     'de': 'Open-Source-Bürgerinfrastruktur',
     'ru': 'Гражданская инфраструктура с открытым кодом',
+}
+
+# Map landing subdomain → legal.json `about.features.<key>` (translated short feature name).
+# Single source of truth shared with the About page — cross-link labels reuse it so they
+# render in the visitor's locale instead of the bare Portuguese subdomain.
+FEATURE_KEY_BY_SUBDOMAIN = {
+    'boleias': 'carpool',
+    'condominios': 'condo',
+    'contratos': 'contracts',
+    'democracia': 'governance',
+    'directorio': 'directory',
+    'energia': 'energy',
+    'eventos': 'events',
+    'mesh': 'mesh',
+    'sos': 'sos',
+    'transporte': 'transit',
+    'troca': 'barter',
 }
 
 # Lucide SVG icons (24x24, stroke-width 2, no fill)
@@ -86,6 +106,29 @@ def load_translations(namespace: str, locale_code: str) -> dict:
     return data.get(namespace, data)
 
 
+_feature_titles_cache = {}
+
+
+def load_feature_titles(locale_code: str) -> dict:
+    """Load short feature titles (legal.json `about.features.<key>.title`) for a locale.
+
+    Reused as cross-link labels so they render localized. Cached per locale.
+    """
+    if locale_code in _feature_titles_cache:
+        return _feature_titles_cache[locale_code]
+    legal_file = LOCALES_DIR / locale_code / 'legal.json'
+    titles = {}
+    if legal_file.exists():
+        with open(legal_file) as f:
+            data = json.load(f)
+        feats = data.get('legal', data).get('about', {}).get('features', {})
+        for key, val in feats.items():
+            if isinstance(val, dict) and val.get('title'):
+                titles[key] = val['title']
+    _feature_titles_cache[locale_code] = titles
+    return titles
+
+
 def get_locale_path(locale_code: str, default_locale: str) -> str:
     """Get URL path for a locale (default locale = /)."""
     if locale_code == default_locale:
@@ -125,6 +168,7 @@ def discover_all_landings() -> list:
             landings.append({
                 'name': item.name,
                 'subdomain': cfg['subdomain'],
+                'default_locale': cfg['default_locale'],
             })
     return landings
 
@@ -163,19 +207,19 @@ def generate_landing(landing_name: str, all_landings: list = None):
     )
     template = env.get_template('_template.html')
 
-    # Cross-links to other landings (exclude self)
-    cross_links = []
-    if all_landings:
-        for l in all_landings:
-            if l['subdomain'] != subdomain:
-                cross_links.append({
-                    'url': f"https://{l['subdomain']}.parahub.io",
-                    'label': l['subdomain'].capitalize(),
-                })
+    # Other landings (exclude self) — cross-link URLs are built per-locale below
+    other_landings = [l for l in (all_landings or []) if l['subdomain'] != subdomain]
 
     alternates = build_alternates(subdomain, default_locale, exclude=HIDDEN_FOOTER_LOCALES)
     output_dir = landing_dir / 'output'
     output_dir.mkdir(exist_ok=True)
+
+    # Copy the landing's bespoke Para illustration into output/ (served same-origin as /para.webp)
+    illustration_src = ILLUSTRATIONS_DIR / f'{subdomain}.webp'
+    mascot_image = None
+    if illustration_src.exists():
+        shutil.copy(illustration_src, output_dir / 'para.webp')
+        mascot_image = '/para.webp'
 
     generated = []
 
@@ -186,6 +230,20 @@ def generate_landing(landing_name: str, all_landings: list = None):
             continue
 
         locale_path = get_locale_path(locale_code, default_locale)
+
+        # Cross-links to other landings, localized to the current locale: both the
+        # path (each target's default_locale decides /xx/ vs /) and the label
+        # (translated feature name from legal.json, falling back to the subdomain).
+        feature_titles = load_feature_titles(locale_code)
+        cross_links = []
+        for l in other_landings:
+            target_path = get_locale_path(locale_code, l['default_locale'])
+            feature_key = FEATURE_KEY_BY_SUBDOMAIN.get(l['subdomain'])
+            label = feature_titles.get(feature_key) or l['subdomain'].capitalize()
+            cross_links.append({
+                'url': f"https://{l['subdomain']}.parahub.io{target_path}",
+                'label': label,
+            })
 
         # Build locale-aware CTA URL
         if locale_code == 'en':
@@ -220,6 +278,7 @@ def generate_landing(landing_name: str, all_landings: list = None):
             year=datetime.now(timezone.utc).year,
             footer_tagline=FOOTER_TAGLINES.get(locale_code, FOOTER_TAGLINES['en']),
             cross_links=cross_links,
+            mascot_image=mascot_image,
             inline_css=STYLE_CSS,
         )
 
@@ -338,6 +397,11 @@ server {{
 
     location = /og.png {{
         try_files /og.png =404;
+        add_header Cache-Control "public, max-age=604800";
+    }}
+
+    location = /para.webp {{
+        try_files /para.webp =404;
         add_header Cache-Control "public, max-age=604800";
     }}
 

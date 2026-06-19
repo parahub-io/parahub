@@ -11,7 +11,7 @@ Tests invariants that must never break:
 - Markdown rendering + XSS sanitization
 - Access control: only author/OWNER/ADMIN can edit/delete
 - Draft posts hidden from public feed
-- WoT 2+ required for publishing (not drafts)
+- WoT 3+ required for publishing (not drafts)
 - RSS feed returns valid XML
 """
 
@@ -81,9 +81,9 @@ def _auth_request(factory, account, profile, method='get', path='/fake/', data=N
     return request
 
 
-def _add_wot2(profile, instance):
-    """Give profile 2 verifications to pass WoT 2+ check."""
-    for i in range(2):
+def _add_wot3(profile, instance):
+    """Give profile 3 verifications to pass WoT 3+ check."""
+    for i in range(3):
         acc = _account(instance, username=f'verifier{i}_{profile.local_name}')
         verifier = _profile(acc, instance, local_name=acc.username)
         Verification.objects.create(
@@ -424,10 +424,10 @@ class PostCreateAPITest(TestCase):
         self.instance = _instance()
         self.acc = _account(self.instance)
         self.profile = _profile(self.acc, self.instance)
-        _add_wot2(self.profile, self.instance)
+        _add_wot3(self.profile, self.instance)
 
     def test_create_draft_no_wot(self):
-        """Draft creation doesn't require WoT 2+."""
+        """Draft creation doesn't require WoT 3+."""
         from cms.api import create_post, PostCreateIn
         acc2 = _account(self.instance, 'newbie')
         prof2 = _profile(acc2, self.instance, 'newbie')
@@ -439,8 +439,8 @@ class PostCreateAPITest(TestCase):
         self.assertEqual(result.title, 'My Draft')
         self.assertEqual(result.status, 'draft')
 
-    def test_create_published_requires_wot2(self):
-        """Publishing requires WoT 2+."""
+    def test_create_published_requires_wot3(self):
+        """Publishing requires WoT 3+."""
         from cms.api import create_post, PostCreateIn
         acc2 = _account(self.instance, 'newbie')
         prof2 = _profile(acc2, self.instance, 'newbie')
@@ -453,7 +453,7 @@ class PostCreateAPITest(TestCase):
             create_post(request, payload)
         self.assertEqual(ctx.exception.status_code, 403)
 
-    def test_create_published_with_wot2(self):
+    def test_create_published_with_wot3(self):
         from cms.api import create_post, PostCreateIn
         request = _auth_request(self.factory, self.acc, self.profile, 'post')
         payload = PostCreateIn(
@@ -534,7 +534,7 @@ class PostUpdateAPITest(TestCase):
         self.instance = _instance()
         self.acc = _account(self.instance)
         self.profile = _profile(self.acc, self.instance)
-        _add_wot2(self.profile, self.instance)
+        _add_wot3(self.profile, self.instance)
         self.post = Post.objects.create(
             author=self.profile, title='Test', content='Content',
         )
@@ -607,8 +607,8 @@ class PostUpdateAPITest(TestCase):
             update_post(request, org_post.id, PostUpdateIn(title='Nope'))
         self.assertEqual(ctx.exception.status_code, 403)
 
-    def test_publish_draft_requires_wot2(self):
-        """Changing draft → published requires WoT 2+."""
+    def test_publish_draft_requires_wot3(self):
+        """Changing draft → published requires WoT 3+."""
         from cms.api import update_post, PostUpdateIn
         acc2 = _account(self.instance, 'newbie')
         prof2 = _profile(acc2, self.instance, 'newbie')
@@ -680,7 +680,7 @@ class PostListAPITest(TestCase):
         self.instance = _instance()
         self.acc = _account(self.instance)
         self.profile = _profile(self.acc, self.instance)
-        _add_wot2(self.profile, self.instance)
+        _add_wot3(self.profile, self.instance)
 
     def test_only_published_in_public_feed(self):
         from cms.api import list_posts
@@ -1068,12 +1068,14 @@ class SiteResolveAPITest(TestCase):
 
     def test_resolve_by_slug_org(self):
         from cms.api import resolve_site
+        Site.objects.create(establishment=self.est)
         request = self.factory.get('/fake/')
         result = resolve_site(request, slug=self.est.slug, type='org')
         self.assertEqual(result.establishment_slug, self.est.slug)
 
     def test_resolve_by_slug_user(self):
         from cms.api import resolve_site
+        Site.objects.create(profile=self.profile)
         request = self.factory.get('/fake/')
         result = resolve_site(request, slug=self.profile.local_name, type='u')
         self.assertEqual(result.profile_local_name, self.profile.local_name)
@@ -1106,13 +1108,15 @@ class SiteResolveAPITest(TestCase):
             resolve_site(request)
         self.assertEqual(ctx.exception.status_code, 400)
 
-    def test_resolve_auto_creates_site(self):
-        """Resolving a slug auto-creates a Site if it doesn't exist."""
+    def test_resolve_missing_site_404_no_auto_create(self):
+        """Anonymous resolve does NOT auto-create a Site — 404 if none exists."""
         from cms.api import resolve_site
         self.assertFalse(Site.objects.filter(establishment=self.est).exists())
         request = self.factory.get('/fake/')
-        result = resolve_site(request, slug=self.est.slug, type='org')
-        self.assertTrue(Site.objects.filter(establishment=self.est).exists())
+        with self.assertRaises(HttpError) as ctx:
+            resolve_site(request, slug=self.est.slug, type='org')
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertFalse(Site.objects.filter(establishment=self.est).exists())
 
     def test_resolve_inactive_site_404(self):
         from cms.api import resolve_site
@@ -1208,6 +1212,7 @@ class SitePageAPITest(TestCase):
             site=self.site, title='Hidden', slug='hidden', is_published=False,
         )
         request = self.factory.get('/fake/')
+        request.auth = None
         result = list_site_pages(request, self.est.id)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].title, 'Published')

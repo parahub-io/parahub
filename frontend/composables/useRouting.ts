@@ -95,7 +95,7 @@ interface MotisItinerary {
 // Module-level refs for KeepAlive persistence
 const origin = ref<RoutePoint | null>(null)
 const destination = ref<RoutePoint | null>(null)
-const costing = ref<'auto' | 'pedestrian' | 'bicycle' | 'multimodal'>('auto')
+const costing = ref<'auto' | 'pedestrian' | 'bicycle' | 'multimodal'>('multimodal')
 const departureTime = ref<string>('')
 const routeData = ref<ValhallaTrip | null>(null)
 const motisData = ref<{ itineraries: MotisItinerary[] } | null>(null)

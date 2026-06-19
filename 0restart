@@ -13,7 +13,7 @@ ERRORS=""
 
 echo "🔨 Building frontend..."
 rm -rf "$FRONTEND_DIR/.output-tmp"
-if ! BUILD_OUTPUT=$(cd "$FRONTEND_DIR" && NUXT_OUTPUT_DIR=.output-tmp npm run build 2>&1); then
+if ! BUILD_OUTPUT=$(cd "$FRONTEND_DIR" && NODE_OPTIONS="--max-old-space-size=8192" NUXT_OUTPUT_DIR=.output-tmp npm run build 2>&1); then
     echo "✗ Frontend build failed"
     echo ""
     echo "$BUILD_OUTPUT"

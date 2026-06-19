@@ -7,8 +7,8 @@
       </div>
 
       <!-- Error State -->
-      <UiAlert v-else-if="error" variant="error">
-        {{ error }}
+      <UiAlert v-else-if="loadError" variant="error">
+        {{ loadError }}
         <button @click="router.push(localePath('/governance/polls'))" class="mt-2 text-sm text-error-700 dark:text-error-300 hover:underline">
           ← {{ $t('governance.pollDetail.backToList') }}
         </button>
@@ -191,6 +191,37 @@
             </label>
           </div>
 
+          <div
+            v-if="voteError"
+            class="mb-4 p-4 rounded-lg border"
+            :class="voteNeedsKeys
+              ? 'border-warning-300 bg-warning-50 dark:border-warning-700 dark:bg-warning-900/20'
+              : 'border-error-300 bg-error-50 dark:border-error-700 dark:bg-error-900/20'"
+          >
+            <div class="flex items-start gap-3">
+              <AlertCircle
+                class="w-5 h-5 flex-shrink-0 mt-0.5"
+                :class="voteNeedsKeys ? 'text-warning-600 dark:text-warning-400' : 'text-error-600 dark:text-error-400'"
+              />
+              <div class="flex-1">
+                <div
+                  class="text-sm"
+                  :class="voteNeedsKeys ? 'text-warning-800 dark:text-warning-200' : 'text-error-800 dark:text-error-200'"
+                >
+                  {{ voteError }}
+                </div>
+                <NuxtLink
+                  v-if="voteNeedsKeys"
+                  :to="localePath('/seed-restore')"
+                  class="inline-flex items-center gap-1 mt-2 text-sm font-medium text-warning-700 dark:text-warning-300 hover:underline"
+                >
+                  <KeyRound class="w-4 h-4" />
+                  {{ $t('governance.errors.restoreKeys') }}
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
+
           <div class="flex gap-3">
             <button
               @click="castVote"
@@ -343,7 +374,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ArrowLeft, User, Calendar, Clock, CheckCircle, Vote, UserPlus, AlertCircle, Trophy, GitBranch, Shield } from 'lucide-vue-next'
+import { ArrowLeft, User, Calendar, Clock, CheckCircle, Vote, UserPlus, AlertCircle, Trophy, GitBranch, Shield, KeyRound } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import { usePollWebSocket } from '~/composables/usePollWebSocket'
 import { usePGP } from '~/composables/usePGP'
@@ -352,7 +383,7 @@ const route = useRoute()
 const router = useRouter()
 const localePath = useLocalePath()
 const authStore = useAuthStore()
-const { loadKeys, signCanonicalPayload } = usePGP()
+const { loadKeys, signCanonicalPayload, hasKeys } = usePGP()
 const { t: $t, locale } = useI18n()
 const pollId = computed(() => route.params.id as string)
 
@@ -364,11 +395,13 @@ const { data: poll, pending: loading, error: fetchError } = await useAsyncData(
   })
 )
 const myStatus = ref<any>(null)
-const error = computed(() => {
+const loadError = computed(() => {
   if (!fetchError.value) return null
   const err = fetchError.value as any
   return err.data?.message || err.message || $t('governance.errors.loadingPoll')
 })
+const voteError = ref<string>('')
+const voteNeedsKeys = ref(false)
 
 // SEO meta
 useSeoMeta({
@@ -446,7 +479,16 @@ async function castVote() {
   if (!selectedOption.value) return
 
   voting.value = true
-  error.value = ''
+  voteError.value = ''
+  voteNeedsKeys.value = false
+
+  await loadKeys()
+  if (!hasKeys.value) {
+    voteNeedsKeys.value = true
+    voteError.value = $t('governance.errors.pgpKeysRequired')
+    voting.value = false
+    return
+  }
 
   try {
     await authStore.ensureToken()
@@ -471,12 +513,11 @@ async function castVote() {
       }
     })
 
-    // Refresh poll and status
     await fetchPoll()
     selectedOption.value = null
   } catch (e: any) {
     console.error('Failed to cast vote:', e)
-    error.value = e.data?.message || e.message || $t('governance.errors.voting')
+    voteError.value = e.data?.detail || e.data?.message || e.message || $t('governance.errors.voting')
   } finally {
     voting.value = false
   }
@@ -567,7 +608,7 @@ async function revokeDelegation() {
     await fetchPoll()
   } catch (e: any) {
     console.error('Failed to revoke delegation:', e)
-    error.value = e.data?.message || e.message || $t('governance.errors.revokingDelegation')
+    voteError.value = e.data?.detail || e.data?.message || e.message || $t('governance.errors.revokingDelegation')
   } finally {
     revokingDelegation.value = false
   }

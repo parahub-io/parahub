@@ -171,6 +171,7 @@ useSeoMeta({
 })
 
 const condoTabs = computed(() => [
+  { id: 'overview', label: t('condo.overview_tab'), icon: Info, to: localePath(`/condo/${slug}`) },
   { id: 'fractions', label: t('condo.fractions_tab'), icon: Grid3x3, to: localePath(`/condo/${slug}/fractions`) },
   { id: 'quotas', label: t('condo.quotas_tab'), icon: Receipt, to: localePath(`/condo/${slug}/quotas`) },
   { id: 'assembly', label: t('condo.assembly_tab'), icon: Vote, to: localePath(`/condo/${slug}/assembly`) },

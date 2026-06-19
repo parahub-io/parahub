@@ -200,7 +200,9 @@
       "pollEnded": "Le vote est terminé",
       "noPermission": "Vous n'avez pas la permission de voter dans ce vote",
       "loadingDelegationChains": "Erreur lors du chargement des chaînes de délégation",
-      "loadingAuditLog": "Erreur lors du chargement du journal d'audit"
+      "loadingAuditLog": "Erreur lors du chargement du journal d'audit",
+      "pgpKeysRequired": "Clés PGP requises pour voter. Votre profil a une clé PGP enregistrée — restaurez-la d'abord sur cet appareil.",
+      "restoreKeys": "Restaurer les clés"
     },
     "landing_title": "Démocratie directe et liquide",
     "landing_meta": "Vote en démocratie liquide avec délégation transitive et audit cryptographique. Gratuit et open-source.",

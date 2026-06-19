@@ -38,6 +38,9 @@
       <h3 class="text-lg sm:text-xl font-semibold mt-6 sm:mt-8 mb-2 sm:mb-3">{{ $t('terms.sections.responsibilities.content.title') }}</h3>
       <p class="mb-6">{{ $t('terms.sections.responsibilities.content.text') }}</p>
 
+      <h3 class="text-lg sm:text-xl font-semibold mt-6 sm:mt-8 mb-2 sm:mb-3">{{ $t('terms.sections.responsibilities.imagery.title') }}</h3>
+      <p class="mb-6">{{ $t('terms.sections.responsibilities.imagery.text') }}</p>
+
       <h3 class="text-lg sm:text-xl font-semibold mt-6 sm:mt-8 mb-2 sm:mb-3">{{ $t('terms.sections.responsibilities.compliance.title') }}</h3>
       <p class="mb-6">{{ $t('terms.sections.responsibilities.compliance.text') }}</p>
 
@@ -94,7 +97,7 @@ const { t, locale } = useI18n()
 const localePath = useLocalePath()
 
 const effectiveDate = computed(() => {
-  const date = new Date('2026-04-12')
+  const date = new Date('2026-04-08')
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'long',

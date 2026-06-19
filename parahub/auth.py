@@ -185,6 +185,7 @@ class OptionalProfileAuth(HttpBearer):
     def authenticate(self, request, token: Optional[str]) -> Any:
         """
         Authenticate if token is present, but don't fail if missing.
+        Falls back to Django session auth (for SSR requests that forward cookies).
         Always returns True to prevent 401 errors.
         """
         if token:
@@ -202,6 +203,16 @@ class OptionalProfileAuth(HttpBearer):
                     logger.debug("OptionalProfileAuth: No profile found")
             except Exception as e:
                 logger.debug(f"OptionalProfileAuth failed (this is ok): {e}")
+
+        # Fallback: try Django session auth (e.g. SSR forwarding cookies)
+        if not hasattr(request, 'auth_profile') and hasattr(request, 'user') and request.user.is_authenticated:
+            try:
+                profile = GlobalAuth().get_user_profile(request)
+                if profile:
+                    request.auth_profile = profile
+                    logger.debug(f"OptionalProfileAuth: Set auth_profile from session to {profile.hna}")
+            except Exception as e:
+                logger.debug(f"OptionalProfileAuth session fallback failed: {e}")
 
         # Always return something truthy to prevent 401
         # The endpoint will check hasattr(request, 'auth_profile') to know if user is authenticated

@@ -164,7 +164,7 @@
       "country_update_failed": "Error al actualizar el país"
     },
     "association_member": "Miembro de la Asociación",
-    "association_member_title": "Miembro de PARAHUB - ASSOCIAÇÃO",
+    "association_member_title": "Miembro de Parahub - Associação",
     "member_badge": "Miembro",
     "members_count": "miembros",
     "association_join_intro": "Se está uniendo a una asociación sin fines de lucro portuguesa que desarrolla la infraestructura descentralizada y abierta Parahub.",
@@ -189,7 +189,7 @@
     "leave_organization_error": "Error al salir de la organización. Por favor, inténtelo de nuevo.",
     "terms_accept_required": "Debe aceptar los estatutos de la asociación para unirse",
     "terms_acceptance_text": "He leído y acepto los estatutos de la asociación y me comprometo a cumplir sus disposiciones, contribuir a los objetivos de la asociación y abstenerme de acciones que dañen la reputación o los activos de la asociación.",
-    "join_association_success": "¡Felicitaciones! Ahora es miembro de PARAHUB - ASSOCIAÇÃO 🎉",
+    "join_association_success": "¡Felicitaciones! Ahora es miembro de Parahub - Associação 🎉",
     "join_association_error": "Error al unirse a la asociación. Por favor, inténtelo de nuevo.",
     "not_member_of_organizations": "Aún no es miembro de ninguna organización",
     "show_qr": "Mostrar código QR",
@@ -224,7 +224,7 @@
     "actions": {
       "generate_pgp_keys": "Generar claves PGP",
       "generate_pgp_keys_desc": "Requerido para firmar acuerdos y verificaciones",
-      "join_association": "Unirse a PARAHUB - ASSOCIAÇÃO",
+      "join_association": "Unirse a Parahub - Associação",
       "join_association_desc": "Obtenga acceso a la comunidad y funciones adicionales",
       "complete_questionnaire": "Completar cuestionario psicométrico",
       "complete_questionnaire_desc": "preguntas restantes",

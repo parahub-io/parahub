@@ -180,11 +180,26 @@ watch(showAllPilots, async (showAll) => {
   }
 })
 
+// Guard against double-registration of realtime handler
+let realtimeConnected = false
+
+function safeConnect() {
+  if (realtimeConnected) return
+  connectRealtimeUpdates()
+  realtimeConnected = true
+}
+
+function safeDisconnect() {
+  if (!realtimeConnected) return
+  disconnectRealtimeUpdates()
+  realtimeConnected = false
+}
+
 // Fetch missions on mount + connect WS
 onMounted(() => {
   if (authStore.isAuthenticated) {
     fetchMyMissions()
-    connectRealtimeUpdates()
+    safeConnect()
   } else {
     // Unauthenticated: show all missions
     loadingAll.value = true
@@ -193,16 +208,16 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  disconnectRealtimeUpdates()
+  safeDisconnect()
 })
 
 // Watch for auth changes
 watch(() => authStore.isAuthenticated, (isAuth) => {
   if (isAuth) {
     fetchMyMissions()
-    connectRealtimeUpdates()
+    safeConnect()
   } else {
-    disconnectRealtimeUpdates()
+    safeDisconnect()
   }
 })
 </script>

@@ -200,7 +200,9 @@
       "pollEnded": "Poll has ended",
       "noPermission": "You don't have permission to vote in this poll",
       "loadingDelegationChains": "Error loading delegation chains",
-      "loadingAuditLog": "Error loading audit log"
+      "loadingAuditLog": "Error loading audit log",
+      "pgpKeysRequired": "PGP keys required to vote. Your profile has a PGP key registered — restore it on this device first.",
+      "restoreKeys": "Restore keys"
     },
     "landing_title": "Direct and liquid democracy",
     "landing_meta": "Liquid democracy voting with transitive delegation and cryptographic audit. Free and open-source.",

@@ -163,6 +163,25 @@
     "assembly_votes": "{voted}/{eligible} abgestimmt",
     "assembly_weight_info": "Jede Stimme wird nach dem Bruchteil des Eigentümers gewichtet (Eigentumsanteil in ‰). Das Ergebnis spiegelt den Eigentumsanteil wider, nicht nur die Anzahl der Wähler.",
     "quorum_not_reached": "Quorum nicht erreicht",
-    "quorum_reached": "Quorum erreicht"
+    "quorum_reached": "Quorum erreicht",
+    "overview_tab": "Übersicht",
+    "meta_overview_title": "Wohnungseigentümergemeinschaft-Übersicht — Parahub",
+    "meta_overview_desc": "WEG-Dashboard — Budget, Zahlungsstatus, anstehende Versammlungen.",
+    "overview_current_month_title": "Zahlungen im {month}",
+    "overview_view_quotas": "Quoten ansehen",
+    "overview_budget_title": "Budget {year}",
+    "overview_view_treasury": "Finanzen",
+    "overview_next_assembly_title": "Nächste Versammlung",
+    "overview_view_all_assemblies": "Alle Versammlungen",
+    "overview_ends": "Endet {time}",
+    "overview_no_assembly": "Keine Versammlung geplant",
+    "overview_create_assembly": "Versammlung erstellen",
+    "overview_set_budget": "Budget festlegen",
+    "overview_empty_title": "Ihre WEG ist bereit",
+    "overview_empty_subtitle": "Legen Sie ein Monatsbudget fest, um Quoten zu verfolgen, oder erstellen Sie die erste Versammlung.",
+    "stat_fractions": "Einheiten",
+    "stat_monthly_budget": "Monatlich",
+    "stat_collection_rate": "Eingenommen",
+    "stat_outstanding": "Ausstehend"
   }
 }

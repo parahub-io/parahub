@@ -37,12 +37,48 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        from geo.models import OpenSkyMission
-        from geo.opensky_processor import process_mission
+        from geo.opensky_processor import sweep_orphaned_processing_dirs, opensky_tile_lock
 
         dry_run = options['dry_run']
         specific_mission = options.get('mission_id')
         max_missions = options['max_missions']
+
+        # Reclaim orphaned ODM scratch from past failures before doing any work —
+        # /fast-processing is a small SSD and stale temp dirs otherwise accumulate.
+        if not dry_run:
+            try:
+                n = sweep_orphaned_processing_dirs()
+                if n:
+                    self.stdout.write(self.style.SUCCESS(f"Reclaimed {n} orphaned scratch dir(s)"))
+            except Exception as e:
+                self.stderr.write(self.style.WARNING(f"Orphan sweep skipped: {e}"))
+
+        # Serialize tile mutations vs the manual consolidation pipeline. Dry-run
+        # mutates nothing, so it bypasses the lock. Non-blocking: if a
+        # consolidation holds the lock, skip this tick (the 5-min timer retries).
+        if dry_run:
+            self._process(dry_run, specific_mission, max_missions)
+            return
+        # Robust guard (independent of the advisory lock, which a connection blip
+        # during the multi-hour ODM could drop): never process while a
+        # consolidation is mid-run — they'd race on latest/ and OpenSkyTileLayer.
+        from geo.models import OpenSkyMission
+        if OpenSkyMission.objects.filter(
+            is_consolidation=True, status=OpenSkyMission.Status.PROCESSING
+        ).exists():
+            self.stdout.write(self.style.WARNING(
+                "Consolidation in progress — skipping this tick"))
+            return
+        with opensky_tile_lock(blocking=False) as held:
+            if not held:
+                self.stdout.write(self.style.WARNING(
+                    "OpenSky tile lock held (consolidation in progress) — skipping this tick"))
+                return
+            self._process(dry_run, specific_mission, max_missions)
+
+    def _process(self, dry_run, specific_mission, max_missions):
+        from geo.models import OpenSkyMission
+        from geo.opensky_processor import process_mission
 
         if specific_mission:
             # Process specific mission

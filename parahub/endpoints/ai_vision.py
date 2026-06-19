@@ -419,7 +419,7 @@ def voice_to_listing(request, audio: UploadedFile):
         user_language = request.COOKIES.get('preferred_language', 'en')
     user_currency = request.auth_profile.preferred_currency or 'EUR'
 
-    lang_names = {'en': 'English', 'ru': 'Russian', 'pt': 'Portuguese', 'es': 'Spanish', 'fr': 'French', 'de': 'German'}
+    lang_names = {'en': 'English', 'ru': 'Russian', 'pt': 'European Portuguese (português de Portugal, NOT Brazilian)', 'es': 'Spanish', 'fr': 'French', 'de': 'German'}
     lang_name = lang_names.get(user_language, 'English')
 
     # Step 3: Send transcript + categories to Gemini Flash
@@ -436,7 +436,7 @@ User's speech transcript:
 User's preferred currency: {user_currency}
 Respond in: {lang_name}
 
-Available categories ({len(categories)} total, format: number:name):
+Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
 {category_list}
 
 Respond with ONLY a valid JSON object (no markdown, no explanations):

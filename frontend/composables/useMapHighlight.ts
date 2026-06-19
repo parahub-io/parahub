@@ -24,12 +24,27 @@ const mapMarkers = new Map<string, any>()
 /**
  * Attach hover hex highlight + pointer cursor to a map layer.
  * Reuses the shared `poi-hover-hex-src` source set up by useMapHighlight.
+ * When `getLockOnMarker` returns a marker already sitting on the hovered feature,
+ * the lock-on hex is tinted red (`lockon-hot`) instead of stacking a second hex.
  */
-export function attachHoverHex(map: any, layerId: string, iconSize = 1.2) {
+export function attachHoverHex(map: any, layerId: string, iconSize = 1.2, getLockOnMarker?: () => any) {
+  // Screen-distance check (rendered geojson coords are tile-quantized, exact match won't hold)
+  const lockOnAt = (coords: [number, number]) => {
+    const marker = getLockOnMarker?.()
+    if (!marker) return null
+    const a = map.project(coords)
+    const b = map.project(marker.getLngLat())
+    return Math.hypot(a.x - b.x, a.y - b.y) < 24 ? marker : null
+  }
   map.on('mouseenter', layerId, (e: any) => {
     map.getCanvas().style.cursor = 'pointer'
-    map.setLayoutProperty('poi-hover-hex-layer', 'icon-size', iconSize)
     const coords = e.features?.[0]?.geometry?.coordinates
+    const locked = coords && coords.length === 2 ? lockOnAt(coords as [number, number]) : null
+    if (locked) {
+      locked.getElement().classList.add('lockon-hot')
+      return
+    }
+    map.setLayoutProperty('poi-hover-hex-layer', 'icon-size', iconSize)
     const src = map.getSource('poi-hover-hex-src')
     if (src && coords) {
       src.setData({
@@ -40,6 +55,7 @@ export function attachHoverHex(map: any, layerId: string, iconSize = 1.2) {
   })
   map.on('mouseleave', layerId, () => {
     map.getCanvas().style.cursor = ''
+    getLockOnMarker?.()?.getElement()?.classList.remove('lockon-hot')
     const src = map.getSource('poi-hover-hex-src')
     if (src) src.setData({ type: 'FeatureCollection', features: [] })
   })

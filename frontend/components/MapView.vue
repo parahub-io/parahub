@@ -11,6 +11,33 @@
     >
       <!-- Maplibre mini-map renders here -->
       <div ref="mapRoot" class="mini-map-root" role="application" :aria-label="$t('map.aria_interactive_map')"></div>
+
+      <!-- WebGL unavailable fallback -->
+      <div v-if="webglError" class="webgl-error-overlay" role="alert">
+        <div class="webgl-error-card">
+          <AlertTriangle class="webgl-error-icon" aria-hidden="true" />
+          <h2 class="webgl-error-title">{{ $t('map.webgl_error.title') }}</h2>
+          <p class="webgl-error-desc">{{ $t('map.webgl_error.description') }}</p>
+          <p class="webgl-error-fix-intro">{{ $t('map.webgl_error.fix_intro') }}</p>
+          <ol class="webgl-error-steps">
+            <li>
+              <i18n-t keypath="map.webgl_error.fix_settings" tag="span">
+                <template #settings>
+                  <code>chrome://settings/system</code>
+                </template>
+              </i18n-t>
+            </li>
+            <li>
+              <i18n-t keypath="map.webgl_error.fix_check" tag="span">
+                <template #gpu>
+                  <code>chrome://gpu</code>
+                </template>
+              </i18n-t>
+            </li>
+          </ol>
+          <button @click="reloadPage" class="webgl-error-retry">{{ $t('map.webgl_error.retry') }}</button>
+        </div>
+      </div>
       <!-- Cached screenshot overlay for instant KeepAlive restore -->
       <img class="map-snapshot-overlay" style="display: none" alt="" aria-hidden="true">
 
@@ -170,7 +197,8 @@
               >
                 <Box class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 <span class="layers-popover-label">{{ $t('map.layers.aerial_3d') }}</span>
-                <Eye v-if="tiles3dEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
+                <Loader2 v-if="tiles3dLoading" class="w-3.5 h-3.5 flex-shrink-0 opacity-70 animate-spin" aria-hidden="true" />
+                <Eye v-else-if="tiles3dEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
                 <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
               </button>
               <button
@@ -258,7 +286,7 @@
             <button
               @click.stop="architectPopoverOpen = !architectPopoverOpen; layersPopoverOpen = false; iotPopoverOpen = false; hideIoTPreview()"
               class="opensky-btn"
-              :class="{ active: measureActive || sunStudyActive || isochroneActive }"
+              :class="{ active: measureActive || sunStudyActive || isochroneActive || droneReachActive }"
               :title="$t('map.architect.title')"
             >
               <Ruler class="w-5 h-5" />
@@ -267,7 +295,7 @@
               <button
                 class="layers-popover-item"
                 :class="{ active: measureActive && measureMode === 'distance' }"
-                @click="if (sunStudyActive) sunStudy.stopSunStudy(); if (isochroneActive) isochrone.stopIsochrone(); measure.toggleMeasure('distance'); architectPopoverOpen = false"
+                @click="if (sunStudyActive) sunStudy.stopSunStudy(); if (isochroneActive) isochrone.stopIsochrone(); if (droneReachActive) droneReach.stopDroneReach(); measure.toggleMeasure('distance'); architectPopoverOpen = false"
               >
                 <Ruler class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 <span class="layers-popover-label">{{ $t('map.architect.measure') }}</span>
@@ -275,7 +303,7 @@
               <button
                 class="layers-popover-item"
                 :class="{ active: measureActive && measureMode === 'area' }"
-                @click="if (sunStudyActive) sunStudy.stopSunStudy(); if (isochroneActive) isochrone.stopIsochrone(); measure.toggleMeasure('area'); architectPopoverOpen = false"
+                @click="if (sunStudyActive) sunStudy.stopSunStudy(); if (isochroneActive) isochrone.stopIsochrone(); if (droneReachActive) droneReach.stopDroneReach(); measure.toggleMeasure('area'); architectPopoverOpen = false"
               >
                 <Pentagon class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 <span class="layers-popover-label">{{ $t('map.architect.measure_area') }}</span>
@@ -283,7 +311,7 @@
               <button
                 class="layers-popover-item"
                 :class="{ active: sunStudyActive }"
-                @click="if (measureActive) measure.stopMeasure(); if (isochroneActive) isochrone.stopIsochrone(); sunStudy.toggleSunStudy(); architectPopoverOpen = false"
+                @click="if (measureActive) measure.stopMeasure(); if (isochroneActive) isochrone.stopIsochrone(); if (droneReachActive) droneReach.stopDroneReach(); sunStudy.toggleSunStudy(); architectPopoverOpen = false"
               >
                 <Sun class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 <span class="layers-popover-label">{{ $t('map.architect.sun_study') }}</span>
@@ -291,10 +319,18 @@
               <button
                 class="layers-popover-item"
                 :class="{ active: isochroneActive }"
-                @click="if (measureActive) measure.stopMeasure(); if (sunStudyActive) sunStudy.stopSunStudy(); isochrone.toggleIsochrone(); architectPopoverOpen = false"
+                @click="if (measureActive) measure.stopMeasure(); if (sunStudyActive) sunStudy.stopSunStudy(); if (droneReachActive) droneReach.stopDroneReach(); isochrone.toggleIsochrone(); architectPopoverOpen = false"
               >
                 <Clock class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 <span class="layers-popover-label">{{ $t('map.architect.isochrone') }}</span>
+              </button>
+              <button
+                class="layers-popover-item"
+                :class="{ active: droneReachActive }"
+                @click="if (measureActive) measure.stopMeasure(); if (sunStudyActive) sunStudy.stopSunStudy(); if (isochroneActive) isochrone.stopIsochrone(); droneReach.toggleDroneReach(); architectPopoverOpen = false"
+              >
+                <Radio class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                <span class="layers-popover-label">{{ $t('map.architect.drone_reach') }}</span>
               </button>
             </div>
           </div>
@@ -329,31 +365,6 @@
                 <component :is="propertyTypeIcon(p.property_type)" class="w-3 h-3 opacity-60" />
                 <span class="tracker-item-name">{{ p.name }}</span>
                 <span v-if="p.device_count" class="tracker-item-speed">{{ p.device_count }} IoT</span>
-              </button>
-            </template>
-            <!-- Mesh Routers section -->
-            <div class="tracker-popover-header" @click="iotRoutersExpanded = !iotRoutersExpanded" @keydown.enter="iotRoutersExpanded = !iotRoutersExpanded" @keydown.space.prevent="iotRoutersExpanded = !iotRoutersExpanded" role="button" tabindex="0" style="cursor: pointer;">
-              <div class="iot-section-toggle">
-                <ChevronRight class="w-3 h-3 iot-chevron" :class="{ expanded: iotRoutersExpanded }" />
-                <Radio class="w-3.5 h-3.5" />
-                <span class="tracker-popover-title">{{ $t('mesh.mesh_routers') }}</span>
-              </div>
-            </div>
-            <template v-if="iotRoutersExpanded">
-              <div v-if="meshRouterPositionsList.length === 0" class="tracker-popover-empty">
-                No routers with location
-              </div>
-              <button
-                v-for="r in meshRouterPositionsList"
-                :key="r.device_id"
-                class="tracker-popover-item"
-                @click="selectAndFlyToMeshRouter(r)"
-                @mouseenter="showIoTPreview(r.latitude, r.longitude)"
-                @mouseleave="hideIoTPreview()"
-              >
-                <span class="tracker-status-dot" :class="r.status === 'online' ? 'online' : r.status === 'recent' ? 'online' : 'offline'"></span>
-                <span class="tracker-item-name">{{ r.name }}</span>
-                <span v-if="r.firmware_role" class="tracker-item-speed">{{ r.firmware_role }}</span>
               </button>
             </template>
             <!-- GPS Trackers section -->
@@ -409,6 +420,32 @@
             <Grid3x3 class="w-5 h-5" :class="{ 'animate-pulse': missionGenerating }" />
           </button>
         </div>
+      </div>
+
+      <!-- OpenSky mission planning hint (top center, in grid mode) -->
+      <div v-if="tileGridMode" class="opensky-plan-bar">
+        <template v-if="hoveredTileBudget">
+          <span class="opensky-plan-tile">Z17/{{ hoveredTileBudget.x }}/{{ hoveredTileBudget.y }}</span>
+          <span class="opensky-plan-sep">·</span>
+          <span class="opensky-plan-budget">
+            <span class="opensky-plan-level">1 · ~{{ hoveredTileBudget.battery1 }} min</span>
+            <span class="opensky-plan-desc">ortho</span>
+          </span>
+          <span class="opensky-plan-sep">·</span>
+          <span class="opensky-plan-budget">
+            <span class="opensky-plan-level">3 · ~{{ hoveredTileBudget.battery3 }} min</span>
+            <span class="opensky-plan-desc">baseline 3D</span>
+          </span>
+          <span class="opensky-plan-sep">·</span>
+          <span class="opensky-plan-budget">
+            <span class="opensky-plan-level">5 · ~{{ hoveredTileBudget.battery5 }} min</span>
+            <span class="opensky-plan-desc">ultra 3D</span>
+          </span>
+          <span class="opensky-plan-hint">click to download 5 KMZ</span>
+        </template>
+        <template v-else>
+          <span class="opensky-plan-hint">Hover a tile — pick your budget (1 / 3 / 5 batteries)</span>
+        </template>
       </div>
 
       <!-- Measure bar (bottom center) -->
@@ -468,6 +505,13 @@
           <span class="sun-study-stat">
             Az {{ sunPosition?.azimuthDeg?.toFixed(0) }}° · Alt {{ sunPosition?.altitudeDeg?.toFixed(1) }}°
           </span>
+          <span
+            class="sun-study-stat sun-study-uv"
+            :title="$t('map.architect.uv_tooltip')"
+          >
+            <span class="sun-study-uv-dot" :style="{ background: uvCategory.color }"></span>
+            UV {{ uvIndex }} · {{ $t(`map.architect.uv_${uvCategory.tier}`) }}
+          </span>
           <span class="sun-study-stat">↓ {{ sunTimes?.sunset }}</span>
         </div>
       </div>
@@ -502,6 +546,51 @@
         <button @click="isochrone.stopIsochrone()" class="measure-bar-btn measure-bar-btn-close">×</button>
       </div>
 
+      <!-- Drone reachability panel (bottom center) -->
+      <div v-if="droneReachActive" class="dronereach-bar">
+        <template v-if="!droneReach.launchPoint.value">
+          <span class="measure-bar-hint">{{ $t('map.architect.drone_reach_hint') }}</span>
+        </template>
+        <template v-else>
+          <span class="isochrone-bar-legend">
+            <span class="isochrone-dot" style="background: #22c55e"></span>{{ $t('map.architect.dr_capturable') }}<span v-if="droneReach.stats.value"> {{ droneReach.stats.value.capturable }}</span>
+            <span class="isochrone-dot" style="background: #ef4444; margin-left: 8px"></span>{{ $t('map.architect.dr_terrain') }}<span v-if="droneReach.stats.value"> {{ droneReach.stats.value.terrain }}</span>
+            <span class="isochrone-dot" style="background: #f59e0b; margin-left: 8px"></span>{{ $t('map.architect.dr_los') }}<span v-if="droneReach.stats.value"> {{ droneReach.stats.value.los }}</span>
+            <span class="isochrone-dot" style="background: #7e22ce; margin-left: 8px"></span>{{ $t('map.architect.dr_restricted') }}<span v-if="droneReach.stats.value"> {{ droneReach.stats.value.restricted }}</span>
+          </span>
+        </template>
+        <span v-if="droneReachSelectedZone" class="dronereach-zoneinfo">
+          <span class="isochrone-dot" :style="{ background: '#dc2626' }"></span>
+          {{ droneReachSelectedZone.name || droneReachSelectedZone.id }} ·
+          {{ $t('map.architect.dr_zone_' + String(droneReachSelectedZone.restriction).toLowerCase(), String(droneReachSelectedZone.restriction)) }}
+          · {{ droneReachSelectedZone.lower_m }}–{{ droneReachSelectedZone.upper_m }}m {{ droneReachSelectedZone.upper_ref }}
+        </span>
+        <div class="dronereach-controls">
+          <label class="dronereach-ctl" :title="$t('map.architect.dr_agl_hint')">
+            <span>AGL</span>
+            <input type="range" min="30" max="120" step="10" :value="droneReachAgl"
+              @input="droneReach.setParam('agl', +($event.target as HTMLInputElement).value)" />
+            <span class="dronereach-val">{{ droneReachAgl }}m</span>
+          </label>
+          <label class="dronereach-ctl" :title="$t('map.architect.dr_margin_hint')">
+            <span>{{ $t('map.architect.dr_margin') }}</span>
+            <input type="range" min="0" max="100" step="10" :value="droneReachMargin"
+              @input="droneReach.setParam('margin', +($event.target as HTMLInputElement).value)" />
+            <span class="dronereach-val">{{ droneReachMargin }}m</span>
+          </label>
+          <div class="dronereach-radius">
+            <button v-for="r in [500, 2000, 5000]" :key="r"
+              class="isochrone-mode-btn" :class="{ active: droneReachRadius === r }"
+              @click="droneReach.setParam('radiusM', r)">{{ r < 1000 ? r + 'm' : (r / 1000) + 'km' }}</button>
+          </div>
+          <button class="isochrone-mode-btn dronereach-zonetoggle" :class="{ active: droneReachShowZones }"
+            :title="$t('map.architect.dr_zones_hint')"
+            @click="droneReach.setShowZones(!droneReachShowZones)">{{ $t('map.architect.dr_zones') }}</button>
+        </div>
+        <span v-if="droneReachLoading" class="isochrone-loading">⏳</span>
+        <button @click="droneReach.stopDroneReach()" class="measure-bar-btn measure-bar-btn-close">×</button>
+      </div>
+
     </div>
   </div>
 </template>
@@ -509,7 +598,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { MapPin, Map as MapIcon, ArrowLeft, Layers, Grid3x3, Plane, Radar, Eye, EyeOff, Building2, Radio, ChevronRight, Bus, Route, Zap, Home, Warehouse, LandPlot, Landmark, Package, Wifi, Satellite, Cross, Ruler, Sun, Pentagon, Clock, Box } from 'lucide-vue-next'
+import { MapPin, Map as MapIcon, ArrowLeft, Layers, Grid3x3, Plane, Radar, Radio, Eye, EyeOff, Building2, ChevronRight, Bus, Route, Zap, Home, Warehouse, LandPlot, Landmark, Package, Wifi, Satellite, Cross, Ruler, Sun, Pentagon, Clock, Box, Loader2, AlertTriangle } from 'lucide-vue-next'
 import { createGeolocationControl } from '~/composables/useGeolocationControl'
 import { useMapKeyboard } from '~/composables/useMapKeyboard'
 import { useMapHighlight } from '~/composables/useMapHighlight'
@@ -526,6 +615,7 @@ import { useMapChurchLayer } from '~/composables/useMapChurchLayer'
 import { useMapMeasure } from '~/composables/useMapMeasure'
 import { useMapSunStudy } from '~/composables/useMapSunStudy'
 import { useMapIsochrone } from '~/composables/useMapIsochrone'
+import { useMapDroneReach } from '~/composables/useMapDroneReach'
 
 const router = useRouter()
 const localePath = useLocalePath()
@@ -595,7 +685,7 @@ const {
 const currentOpenSkyMission = computed(() => route.query.opensky_mission as string | undefined)
 
 const openSky = useMapOpenSky(currentOpenSkyMission)
-const { openSkyEnabled, openSkyMode, missionGenerating, tileGridMode } = openSky
+const { openSkyEnabled, openSkyMode, missionGenerating, tileGridMode, hoveredTileBudget } = openSky
 
 // Layers popover state
 const layersPopoverOpen = ref(false)
@@ -603,9 +693,8 @@ const layersPopoverOpen = ref(false)
 const iot = useMapIoTLayers()
 const {
   trackersEnabled, trackerPositionsList,
-  meshRouterPositionsList,
   energyCellsEnabled,
-  iotPopoverOpen, iotRoutersExpanded, iotTrackersExpanded,
+  iotPopoverOpen, iotTrackersExpanded,
   showIoTPreview, hideIoTPreview,
 } = iot
 
@@ -628,7 +717,7 @@ const church = useMapChurchLayer()
 const { churchEnabled } = church
 
 const tiles3d = useMap3DTiles()
-const { tiles3dEnabled } = tiles3d
+const { tiles3dEnabled, tiles3dLoading } = tiles3d
 
 // ======== Map Tools ========
 
@@ -636,10 +725,15 @@ const measure = useMapMeasure()
 const { measureActive, measureMode } = measure
 
 const sunStudy = useMapSunStudy()
-const { sunStudyActive, sunTimeMinutes, sunDateISO, realtimeMode, sunPosition, sunTimes, formattedTime, isGoldenHour, isNight } = sunStudy
+const { sunStudyActive, sunTimeMinutes, sunDateISO, realtimeMode, sunPosition, sunTimes, formattedTime, isGoldenHour, isNight, uvIndex, uvCategory } = sunStudy
 
 const isochrone = useMapIsochrone()
 const { isochroneActive, isochroneLoading, costingMode, costingLabel } = isochrone
+
+const droneReach = useMapDroneReach()
+const { droneReachActive, droneReachLoading } = droneReach
+const { agl: droneReachAgl, margin: droneReachMargin, radiusM: droneReachRadius } = droneReach
+const { showZones: droneReachShowZones, selectedZone: droneReachSelectedZone } = droneReach
 
 const architectPopoverOpen = ref(false)
 const customControlsTop = ref('250px') // updated dynamically after map init
@@ -770,11 +864,6 @@ const trackerSignalAgeText = (t: any): string => {
   return rem > 0 ? `${h}h${rem}m` : `${h}h`
 }
 
-const selectAndFlyToMeshRouter = (r: any) => {
-  selectIoTDevice('mesh_router', r)
-  iot.flyToMeshRouter(r.latitude, r.longitude, r.name)
-}
-
 const selectAndFlyToTracker = (t: any) => {
   selectIoTDevice('tracker', { ...t, status: t.traccar_status })
   iot.flyToTracker(t.latitude, t.longitude, t.name)
@@ -835,10 +924,11 @@ const selectAndFlyToProperty = (p: any) => {
   const map = mapStore.mapInstance
   if (map) {
     const animEnabled = useLocalPref('animation_enabled', true)
+    const padding = iot.getPanelPadding()
     if (animEnabled.value !== false) {
-      map.flyTo({ center: [p.longitude, p.latitude], zoom: 17, essential: true, speed: 4.5 })
+      map.flyTo({ center: [p.longitude, p.latitude], zoom: 17, essential: true, speed: 4.5, padding })
     } else {
-      map.jumpTo({ center: [p.longitude, p.latitude], zoom: 17 })
+      map.jumpTo({ center: [p.longitude, p.latitude], zoom: 17, padding })
     }
   }
   iotPopoverOpen.value = false
@@ -1006,6 +1096,8 @@ const miniMapContainer = ref<HTMLDivElement | null>(null)
 const mapRoot = ref<HTMLDivElement | null>(null)
 const featurePanelRef = ref<any>(null)
 const loading = ref(true)
+const webglError = ref(false)
+const reloadPage = () => { if (typeof window !== 'undefined') window.location.reload() }
 let miniMap: any = null
 
 // KeepAlive active state
@@ -1126,6 +1218,7 @@ const handleEstablishmentSelected = (establishmentId: string | null) => {
   const center = miniMap.getCenter()
   const query = buildMapQuery(center.lat, center.lng, miniMap.getZoom(), selectedFeature.value)
   if (establishmentId) query.establishmentId = establishmentId
+  else delete query.establishmentId
   router.replace({ path: localePath('/map'), query })
 }
 
@@ -1210,6 +1303,8 @@ const onEscapeKey = (e: KeyboardEvent) => {
     sunStudy.stopSunStudy()
   } else if (isochroneActive.value) {
     isochrone.stopIsochrone()
+  } else if (droneReachActive.value) {
+    droneReach.stopDroneReach()
   } else {
     return // nothing to close
   }
@@ -1345,7 +1440,14 @@ onMounted(async () => {
       measure.setupLayers(miniMap)
       sunStudy.setupLayers(miniMap)
       isochrone.setupLayers(miniMap)
+      droneReach.setupLayers(miniMap)
       highlight.setupInteractiveFeatures(miniMap) // after all sync layers exist; async layers re-register via callback
+
+      // Frame the OpenSky mission tile centered in the viewport (fitBounds + padding),
+      // overriding the raw query center/zoom so the whole tile is framed on any screen.
+      if (currentOpenSkyMission.value) {
+        openSky.fitMissionBounds(miniMap, currentOpenSkyMission.value, { animate: false })
+      }
 
       // Auto-enable transit + marker/route from /transit "Show on map"
       if (window._pendingTransitMarker) {
@@ -1437,6 +1539,7 @@ onMounted(async () => {
         church.setupLayersOnly(miniMap)
         transit.resetDataLoaded()
         transit.setupLayers(miniMap)
+        transit.redrawActiveRoute(miniMap)  // setStyle wiped the single-route overlay
         browse.setupLayers(miniMap)
         measure.setupLayers(miniMap)
         sunStudy.setupLayers(miniMap)
@@ -1450,16 +1553,20 @@ onMounted(async () => {
     }, { flush: 'post' })
 
     // Watch for OpenSky mission filter changes
-    watch(currentOpenSkyMission, (newMissionId) => {
+    watch(currentOpenSkyMission, async (newMissionId) => {
       if (!miniMap) return
-      openSky.setupLayers(miniMap, newMissionId)
-      // Fly to coordinates from query params (e.g. navigating from /opensky "Show on map")
+      await openSky.setupLayers(miniMap, newMissionId)
+      // Frame the mission tile centered (e.g. navigating from /opensky "Show on map").
       if (newMissionId) {
-        const lat = parseFloat(route.query.lat as string)
-        const lng = parseFloat(route.query.lng as string)
-        const zoom = parseFloat(route.query.zoom as string)
-        if (!isNaN(lat) && !isNaN(lng)) {
-          miniMap.flyTo({ center: [lng, lat], zoom: !isNaN(zoom) ? zoom : 17, speed: 4.5 })
+        const fitted = await openSky.fitMissionBounds(miniMap, newMissionId, { animate: true })
+        // Fallback to raw query center/zoom if the tile's bounds are unknown.
+        if (!fitted) {
+          const lat = parseFloat(route.query.lat as string)
+          const lng = parseFloat(route.query.lng as string)
+          const zoom = parseFloat(route.query.zoom as string)
+          if (!isNaN(lat) && !isNaN(lng)) {
+            miniMap.flyTo({ center: [lng, lat], zoom: !isNaN(zoom) ? zoom : 17, speed: 4.5 })
+          }
         }
       }
     })
@@ -1490,6 +1597,7 @@ onMounted(async () => {
       // Intercept click for architect tools (handled by composable's own handlers)
       if (measureActive.value) return
       if (isochroneActive.value) return
+      if (droneReachActive.value) return
 
       // Intercept click for routing waypoints
       if (awaitingMapClick.value) {
@@ -1512,7 +1620,7 @@ onMounted(async () => {
       }
 
       // If clicked on a transit vehicle, let the vehicle handler handle it (skip OSM panel)
-      const vehicleHit = miniMap.queryRenderedFeatures(event.point, { layers: ['transit-vehicles-circle', 'transit-vehicles-icon'].filter(id => miniMap.getLayer(id)) })
+      const vehicleHit = miniMap.queryRenderedFeatures(event.point, { layers: ['transit-vehicles-circle', 'transit-vehicles-icon', 'transit-vehicles-heading', 'transit-vehicles-bar'].filter(id => miniMap.getLayer(id)) })
       if (vehicleHit?.length > 0) return
 
       // If clicked on an IoT device, open IoT panel (before avatar check — IoT uses exact pixel hit, avatars use radius)
@@ -1744,6 +1852,18 @@ onMounted(async () => {
         return true
       })
 
+      // Mobile: a deliberately-selected entity panel (IoT / vehicle / avatar / condo / hub /
+      // establishment) must be DISMISSED by tapping the map, not hijacked by an OSM feature
+      // underneath it (e.g. tapping near a tracker at z17 lands on a forest landcover polygon).
+      // The bottom sheet slides away as expected. OSM→OSM swap (selectedFeature open) is preserved.
+      const entityPanelOpen = !!selectedVehicle.value || !!selectedIoTDevice.value
+        || !!selectedCondominium.value || !!selectedHub.value || !!selectedEstablishment.value
+        || avatar.activeAvatarPanel.value !== null
+      if (entityPanelOpen && typeof window !== 'undefined' && window.innerWidth < 768) {
+        closeFeaturePanel()
+        return
+      }
+
       if (features.length > 0) {
         let feature = features[0]
         if (feature.sourceLayer === 'housenumber') {
@@ -1789,8 +1909,12 @@ onMounted(async () => {
     // Watch for marker changes in store
     watch(() => mapStore.markers, () => { highlight.syncMarkers(miniMap, mapStore) }, { deep: true })
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('[MapView] Failed to initialize:', err)
+    const msg = String(err?.message || err || '')
+    if (msg.includes('WebGL') || msg.includes('webglcontextcreationerror')) {
+      webglError.value = true
+    }
     loading.value = false
   }
 })
@@ -1849,6 +1973,10 @@ onActivated(() => {
 
   iot.resumeRefresh()
   mesh.resumeRefresh()
+  sunStudy.resumeSunStudy()
+  keyboard.attach()
+  document.addEventListener('click', onDocumentClick)
+  document.addEventListener('keydown', onEscapeKey)
 
   // Handle transit=1 query param
   if (route.query.transit === '1') {
@@ -1879,8 +2007,13 @@ onDeactivated(() => {
     setMapZoom(miniMap.getZoom())
   }
   isActive.value = false
+  keyboard.detach()
+  document.removeEventListener('click', onDocumentClick)
+  document.removeEventListener('keydown', onEscapeKey)
   iot.pauseRefresh()
   mesh.pauseRefresh()
+  sunStudy.pauseSunStudy()
+  if (droneReachActive.value) droneReach.stopDroneReach()
   transit.disconnectWs()
   trackerWs.disconnect()
   avatar.disconnectMapPresence?.()
@@ -1905,6 +2038,7 @@ onBeforeUnmount(() => {
   mesh.pauseRefresh()
   transit.disconnectWs()
   trackerWs.disconnect()
+  tiles3d.dispose()
   if (isMapPresenceConnected.value) avatar.disconnectMapPresence()
   miniMap = null
 })
@@ -1973,6 +2107,86 @@ onBeforeUnmount(() => {
 }
 :root.dark .mini-map-root {
   background: #0d0d1f;
+}
+
+.webgl-error-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(13, 13, 31, 0.78);
+  backdrop-filter: blur(4px);
+}
+.webgl-error-card {
+  max-width: 32rem;
+  width: 100%;
+  padding: 1.75rem;
+  border-radius: 0.75rem;
+  background: rgb(255 255 255);
+  color: rgb(23 23 23);
+  box-shadow: 0 20px 50px -12px rgba(0,0,0,0.45);
+  border: 1px solid rgb(229 229 229);
+}
+:root.dark .webgl-error-card {
+  background: rgb(38 38 38);
+  color: rgb(245 245 245);
+  border-color: rgb(64 64 64);
+}
+.webgl-error-icon {
+  width: 2rem;
+  height: 2rem;
+  color: rgb(234 88 12);
+  margin-bottom: 0.5rem;
+}
+.webgl-error-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.webgl-error-desc {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  color: rgb(82 82 82);
+}
+:root.dark .webgl-error-desc {
+  color: rgb(212 212 212);
+}
+.webgl-error-fix-intro {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+.webgl-error-steps {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.webgl-error-steps code {
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  background: rgb(245 245 245);
+  font-size: 0.85em;
+}
+:root.dark .webgl-error-steps code {
+  background: rgb(64 64 64);
+}
+.webgl-error-retry {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background: rgb(234 88 12);
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  border: 0;
+  transition: background 0.15s;
+}
+.webgl-error-retry:hover {
+  background: rgb(194 65 12);
 }
 
 .map-snapshot-overlay {
@@ -2361,7 +2575,8 @@ onBeforeUnmount(() => {
   right: 48px;
   top: 0;
   width: 210px;
-  max-height: calc(100vh - 300px);
+  /* dvh + safe-area так, чтобы хвост списка не уходил под Android nav bar */
+  max-height: calc(100dvh - 300px - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   overflow-y: auto;
   background: var(--color-surface);
   border-radius: 8px;
@@ -2481,6 +2696,55 @@ onBeforeUnmount(() => {
 :root.dark .measure-bar {
   background: rgba(30, 30, 30, 0.9);
   backdrop-filter: blur(8px);
+}
+
+.opensky-plan-bar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--color-surface);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+  pointer-events: none;
+  font-size: 13px;
+}
+:root.dark .opensky-plan-bar {
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(8px);
+}
+.opensky-plan-tile {
+  font-weight: 700;
+  color: #3b82f6;
+  font-variant-numeric: tabular-nums;
+}
+.opensky-plan-sep {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+.opensky-plan-budget {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.opensky-plan-level {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.opensky-plan-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.opensky-plan-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 .measure-bar-distance {
@@ -2666,6 +2930,21 @@ onBeforeUnmount(() => {
   color: var(--color-text-muted);
 }
 
+.sun-study-uv {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+}
+
+.sun-study-uv-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .sun-study-badge {
   font-size: 11px;
   font-weight: 600;
@@ -2708,6 +2987,15 @@ onBeforeUnmount(() => {
     transform: none;
     justify-content: center;
   }
+  .opensky-plan-bar {
+    left: 10px;
+    right: 10px;
+    transform: none;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-size: 11px;
+    padding: 6px 10px;
+  }
   .sun-study-panel {
     left: 10px;
     right: 10px;
@@ -2719,6 +3007,14 @@ onBeforeUnmount(() => {
     right: 10px;
     transform: none;
     justify-content: center;
+  }
+  .dronereach-bar {
+    left: 10px;
+    right: 10px;
+    transform: none;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-size: 11px;
   }
 }
 
@@ -2792,6 +3088,76 @@ onBeforeUnmount(() => {
 .isochrone-loading {
   font-size: 14px;
   animation: pulse 1s infinite;
+}
+
+/* Drone reachability bar (reuses isochrone-bar look) */
+.dronereach-bar {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--color-surface);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+}
+:root.dark .dronereach-bar {
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(8px);
+}
+.dronereach-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dronereach-ctl {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.dronereach-ctl input[type="range"] {
+  width: 64px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+.dronereach-val {
+  min-width: 30px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.dronereach-radius {
+  display: flex;
+  gap: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.dronereach-radius .isochrone-mode-btn {
+  font-size: 11px;
+  padding: 4px 7px;
+}
+.dronereach-zonetoggle {
+  font-size: 11px;
+  padding: 4px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.dronereach-zoneinfo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--color-text);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 </style>

@@ -131,6 +131,7 @@ class Command(BaseCommand):
         now = time.time()
         now_dt = datetime.fromtimestamp(now, tz=timezone.utc)
         total_vehicles = 0
+        total_fresh = 0
         routes_batch: dict[str, dict] = {}   # route_group → {vehicles: [], stop_ids: set}
         history_batch = []
 
@@ -159,22 +160,34 @@ class Command(BaseCommand):
                         TransitDataSource.objects.filter(id=ds_id).update(last_error='')
                 )()
 
+            # Write-side freshness split (180s, same convention as all read
+            # paths): the full feed incl. stale parked-bus ghosts (CM keeps a
+            # bus's last fix for hours) goes ONLY to the transit:rt mirror
+            # (relay + diagnostics / transport debug mode); everything else —
+            # STT, geo/vdata spatial index, route pushes, history — takes
+            # `fresh`, so Redis display keys and downstream readers never
+            # carry stale fixes and ghosts stop refreshing vprev/history.
+            fresh = [v for v in vehicles if v.get('t', 0) >= now - 180]
+            total_fresh += len(fresh)
+
             # STT: track stop transitions, record segment times, detect zombies
             # Mutates vehicle dicts in-place (adds 'z', 'eta' fields)
             try:
-                await stt.process_vehicles(redis_pub, ds_id_str, vehicles, now)
+                await stt.process_vehicles(redis_pub, ds_id_str, fresh, now)
             except Exception as e:
                 logger.error(f'STT processing failed for {ds.name}: {e}')
 
-            # a) Redis HASH — backward compatible (schedule endpoint reads this)
+            # a) Redis HASH — unfiltered feed mirror (GTFS-RT relay endpoints,
+            # schedule endpoint with its own cutoff, debug/diagnostics)
             await sync_to_async(
                 lambda ds_id=ds.id, v=vehicles: cache.set(f'transit:rt:{ds_id}', orjson.dumps(v), timeout=180)
             )()
 
-            # b) Redis GEO spatial index + vehicle data HASH
+            # b) Redis GEO spatial index + vehicle data HASH (fresh only; the
+            # members SET diff below auto-evicts vehicles that went stale)
             current_members = set()
             pipe = redis_pub.pipeline(transaction=False)
-            for v in vehicles:
+            for v in fresh:
                 member = f'{ds_id_str}:{v["v"]}'
                 current_members.add(member)
                 pipe.geoadd('transit:geo', (v['lon'], v['lat'], member))
@@ -198,8 +211,9 @@ class Command(BaseCommand):
                 await redis_pub.sadd(prev_key, *current_members)
                 await redis_pub.expire(prev_key, 300)
 
-            # c) Batch by route for route subscriptions (with vehicle data)
-            for v in vehicles:
+            # c) Batch by route for route subscriptions (with vehicle data) —
+            # `fresh` already carries the 180s cutoff
+            for v in fresh:
                 route_src = v.get('r')
                 if route_src:
                     route_group = f'transit_route:{ds_id_str}_{route_src}'
@@ -208,8 +222,9 @@ class Command(BaseCommand):
                     if v.get('sid'):
                         batch['stop_ids'].add(v['sid'])
 
-            # d) Downsample history
-            for v in vehicles:
+            # d) Downsample history (fresh only — a parked ghost would write
+            # identical rows every minute for hours)
+            for v in fresh:
                 key = f'{ds.id}:{v["v"]}'
                 if now - last_saved.get(key, 0) >= HISTORY_MIN_INTERVAL_S:
                     last_saved[key] = now
@@ -247,7 +262,7 @@ class Command(BaseCommand):
 
         elapsed = (time.monotonic() - t0) * 1000
         logger.info(
-            f'Poll: {total_vehicles} vehicles from {len(sources)} sources, '
+            f'Poll: {total_vehicles} vehicles ({total_fresh} fresh) from {len(sources)} sources, '
             f'{len(history_batch)} history rows, {len(routes_batch)} routes in {elapsed:.0f}ms'
         )
 
@@ -302,7 +317,7 @@ class Command(BaseCommand):
             if not v.get('lat') or not v.get('lon'):
                 continue
             route_src = v.get('route_id', '')
-            color, name, place_slug, rtype, route_slug = route_cache.route_info.get(route_src, ('3b82f6', '', '', 3, ''))
+            color, name, place_slug, rtype, route_slug = route_cache.route_info.get(route_src, ('', '', '', 3, ''))
 
             # Direction from pattern_id
             pattern_id = v.get('pattern_id', '')
@@ -330,10 +345,14 @@ class Command(BaseCommand):
                 'v': v.get('id', ''),
                 'lat': v['lat'],
                 'lon': v['lon'],
-                'b': v.get('bearing', 0),
+                # CM uses bearing:0 as a sentinel for "unknown" (~22% of vehicles
+                # report exactly 0, vs ~0.5% expected for genuine due-north) — treat
+                # 0/missing as no heading so the map skips the direction chevron
+                # instead of pointing a fifth of the fleet north. See PK/gtfs-feed-quirks.md.
+                'b': v.get('bearing') or None,
                 's': round(v.get('speed', 0) * 3.6, 1),
                 'r': route_src,
-                'rc': color or '3b82f6',
+                'rc': color,
                 'rn': name,
                 'rt': rtype,
                 'st': v.get('current_status', ''),
@@ -360,7 +379,7 @@ class Command(BaseCommand):
             if not vp.position.latitude or not vp.position.longitude:
                 continue
             route_src = vp.trip.route_id
-            color, name, place_slug, rtype, route_slug = route_cache.route_info.get(route_src, ('3b82f6', '', '', 3, ''))
+            color, name, place_slug, rtype, route_slug = route_cache.route_info.get(route_src, ('', '', '', 3, ''))
             direction_id = vp.trip.direction_id
             headsign = route_cache.headsign_info.get((route_src, direction_id), '')
 
@@ -379,14 +398,20 @@ class Command(BaseCommand):
                 'v': vp.vehicle.id or entity.id,
                 'lat': vp.position.latitude,
                 'lon': vp.position.longitude,
-                'b': vp.position.bearing,
+                # proto2 returns 0.0 for an unset bearing, indistinguishable from
+                # genuine due north — use HasField so a missing bearing stays None
+                # and the map skips the direction chevron instead of pointing up.
+                'b': vp.position.bearing if vp.position.HasField('bearing') else None,
                 's': round(vp.position.speed * 3.6, 1),
                 'r': route_src,
-                'rc': color or '3b82f6',
+                'rc': color,
                 'rn': name,
                 'rt': rtype,
                 'st': STATUS_MAP.get(vp.current_status, str(vp.current_status)),
-                't': vp.timestamp,
+                # Fallback to receive time (mirrors the CM JSON path): protobuf
+                # default 0 for a missing timestamp would otherwise read as
+                # infinitely stale and silently blank the whole feed
+                't': vp.timestamp or int(time.time()),
                 'tid': vp.trip.trip_id,
                 'sid': stop_id,
                 'd': direction_id,

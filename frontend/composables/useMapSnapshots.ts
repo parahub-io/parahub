@@ -12,6 +12,7 @@ let mapInstance: any = null
 let mapReady = false
 let initPromise: Promise<void> | null = null
 let captureQueue: Promise<void> = Promise.resolve()
+const MAX_CACHE_SIZE = 50
 const cache = new Map<string, string>()
 
 function cacheKey(lat: number, lon: number, zoom: number, theme: string): string {
@@ -101,6 +102,11 @@ export function useMapSnapshots() {
 
         const dataUrl = map.getCanvas().toDataURL('image/webp', 0.85)
         cache.set(key, dataUrl)
+        // LRU eviction: Map iteration order = insertion order
+        if (cache.size > MAX_CACHE_SIZE) {
+          const oldest = cache.keys().next().value
+          if (oldest !== undefined) cache.delete(oldest)
+        }
         resolve(dataUrl)
       })
     })

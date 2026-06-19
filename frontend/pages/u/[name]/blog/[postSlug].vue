@@ -1,9 +1,4 @@
 <script setup lang="ts">
-import {
-  ArrowLeft, Calendar, User, Pin,
-  FileText, Download, Pencil
-} from 'lucide-vue-next'
-
 definePageMeta({})
 
 const route = useRoute()
@@ -14,26 +9,33 @@ const authStore = useAuthStore()
 const authorName = computed(() => String(route.params.name))
 const postSlug = computed(() => String(route.params.postSlug))
 
+// Auth headers: forward cookies during SSR, JWT on client (for draft preview)
+const ssrHeaders = useRequestHeaders(['cookie'])
+
 const { data: post, error } = await useAsyncData(
   () => `blog-user-${authorName.value}-${postSlug.value}`,
-  () => $fetch<any>(`/api/v1/cms/posts/by-slug/${postSlug.value}/`, {
-    params: { author_name: authorName.value },
-  }),
+  () => {
+    const headers: Record<string, string> = {}
+    if (import.meta.server && ssrHeaders.cookie) {
+      headers.cookie = ssrHeaders.cookie
+    } else if (import.meta.client && authStore.token) {
+      headers['Authorization'] = `Bearer ${authStore.token}`
+    }
+    return $fetch<any>(`/api/v1/cms/posts/by-slug/${postSlug.value}/`, {
+      params: { author_name: authorName.value },
+      headers,
+      credentials: 'include',
+    })
+  },
   { watch: [postSlug] },
 )
-
-const canEdit = computed(() => {
-  if (!authStore.isAuthenticated || !post.value) return false
-  const profile = authStore.activeProfile
-  if (!profile) return false
-  return post.value.author_id === profile.id
-})
 
 useHead({
   title: post.value?.title || t('cms.blog'),
   link: [{ rel: 'alternate', type: 'application/rss+xml', title: 'RSS', href: `/api/v1/cms/posts/rss/?author_name=${authorName.value}` }],
   ...(post.value?.is_demo ? { meta: [{ name: 'robots', content: 'noindex, nofollow' }] } : {}),
 })
+useBlogHreflang(post, computed(() => `/u/${authorName.value}/blog`))
 const postDesc = computed(() => post.value?.meta_description || post.value?.excerpt || '')
 useSeoMeta({
   title: post.value?.title,
@@ -70,79 +72,12 @@ if (post.value) {
 </script>
 
 <template>
-  <div class="py-6">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <NuxtLink :to="localePath(`/u/${authorName}/blog`)" class="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-secondary mb-4">
-        <ArrowLeft class="w-4 h-4" />
-        {{ t('cms.blog') }}
-      </NuxtLink>
-
-      <UiAlert v-if="error" variant="error" class="mb-6">{{ t('cms.postNotFound') }}</UiAlert>
-
-      <template v-if="post">
-        <div class="mb-6">
-          <div class="flex items-center gap-2 mb-2 flex-wrap">
-            <UiBadge v-if="post.is_pinned" variant="warning" type="soft" size="sm">
-              <Pin class="w-3 h-3 mr-1" />{{ t('cms.pinned') }}
-            </UiBadge>
-            <UiBadge v-if="post.status === 'draft'" variant="default" type="soft" size="sm">{{ t('cms.draft') }}</UiBadge>
-            <UiBadge v-for="tag in post.tags" :key="tag.id" variant="info" type="soft" size="sm">{{ tag.name }}</UiBadge>
-          </div>
-
-          <div class="flex items-start justify-between gap-4">
-            <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">{{ post.title }}</h1>
-            <NuxtLink v-if="canEdit" :to="localePath(`/blog/create?edit=${post.id}`)" class="btn-outline btn-sm shrink-0">
-              <Pencil class="w-4 h-4" />{{ t('cms.editPost') }}
-            </NuxtLink>
-          </div>
-
-          <!-- Translation switcher -->
-          <BlogTranslationSwitcher
-            v-if="post.translations?.length || canEdit"
-            :current-language="post.language"
-            :translations="post.translations || []"
-            :can-edit="canEdit"
-            :post-id="post.id"
-            :link-base="`/u/${authorName}/blog`"
-            class="mt-3"
-          />
-
-          <div class="flex items-center gap-4 mt-3 text-sm text-neutral-500 dark:text-neutral-400">
-            <div class="flex items-center gap-1.5">
-              <User class="w-4 h-4" />
-              <span>{{ post.author_display_name || post.author_hna }}</span>
-            </div>
-            <div v-if="post.published_at" class="flex items-center gap-1">
-              <Calendar class="w-4 h-4" />
-              <span>{{ new Date(post.published_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <img v-if="post.featured_image_url" :src="post.featured_image_url" :alt="post.title" class="w-full rounded-lg mb-6 max-h-96 object-cover" />
-
-        <div class="prose dark:prose-invert prose-neutral max-w-none mb-8" v-html="post.content_html" />
-
-        <div v-if="post.files && post.files.length > 0" class="card p-4 mb-6">
-          <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
-            <FileText class="w-5 h-5" />{{ t('cms.files.title') }}
-          </h2>
-          <div class="space-y-2">
-            <a v-for="file in post.files" :key="file.id" :href="file.url" target="_blank" class="flex items-center justify-between p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-primary transition-colors">
-              <div class="flex items-center gap-2 min-w-0">
-                <FileText class="w-4 h-4 text-neutral-500 shrink-0" />
-                <span class="text-sm text-neutral-900 dark:text-neutral-100 truncate">{{ file.filename }}</span>
-                <span class="text-xs text-neutral-400">{{ Math.round(file.size_bytes / 1024) }} KB</span>
-              </div>
-              <Download class="w-4 h-4 text-neutral-400 shrink-0" />
-            </a>
-          </div>
-        </div>
-
-        <BlogPostPhotos :post-id="post.id" />
-        <ObjectVideos :object-id="post.id" class="mt-4" />
-        <BlogPostComments :post-id="post.id" :allow-comments="post.allow_comments" :comments-count="post.comments_count" />
-      </template>
-    </div>
-  </div>
+  <UiAlert v-if="error" variant="error" class="max-w-4xl mx-auto mt-6 px-4">{{ t('cms.postNotFound') }}</UiAlert>
+  <BlogPostView
+    v-else-if="post"
+    :post="post"
+    :back-link="`/u/${authorName}/blog`"
+    :back-label="post.author_display_name || t('cms.blog')"
+    :translation-link-base="`/u/${authorName}/blog`"
+  />
 </template>

@@ -2,13 +2,42 @@
 OpenSky Mission Generator — WPML flight plans for drone aerial survey.
 
 Uses standard Web Mercator tiles (Z/X/Y) at zoom 17 (~305×240m per tile).
-Each tile generates 3 KMZ: nadir (NS) + oblique East (EW) + oblique North (NS).
+Each tile generates 5 KMZ — pilot flies as many as budget allows:
+
+    1_2D.kmz    — nadir (gimbal -90°)   — orthophoto (always fly)
+    2_3D-N.kmz  — oblique, camera North — captures south-facing walls
+    3_3D-E.kmz  — oblique, camera East  — captures west-facing walls
+    4_3D-S.kmz  — oblique, camera South — captures north-facing walls
+    5_3D-W.kmz  — oblique, camera West  — captures east-facing walls
+
+Flight budget ramp (monotonic quality, each battery adds one wall direction):
+    1 battery  → 1        — ortho only, no 3D
+    3 batteries → 1+2+3   — 2 of 4 facades (diagonal, south + west) — baseline 3D
+    5 batteries → 1..5    — all 4 facades — ultra 3D
+
+The ordering N→E→S→W is chosen so that the 3-battery subset (N+E) gives
+orthogonal facades (south + west) rather than opposite (e.g. south+north)
+— orthogonal coverage is photogrammetrically more informative per battery.
+
 Lawnmower pattern clipped to tile bounds + buffer for ODM stitching.
 
 Parameters (50MP sensor at 100m AGL):
 - Altitude: 100m AGL
-- Overlap: 80% (frontal and side)
+- Overlap: 80% on nadir, 70% on oblique (frontal and side)
 - Flight speed: ~5 m/s
+
+Nadir stays at 80% — orthophoto quality depends on dense overlap for
+clean SIFT matching over featureless surfaces (roofs, pavement).
+
+Obliques reduced to 70% because:
+- 4 orthogonal directions provide cross-direction constraints that
+  compensate for lower per-mission density — ODM matches features of
+  the same wall across N+E+S+W flights
+- ~33% fewer flight lines per oblique → ~33% less flight time per
+  oblique → ~3× fewer photos per oblique → much less upload, storage,
+  and ODM processing load
+- Still above the 60% practical floor for SIFT matching on textured
+  surfaces (walls, vegetation)
 """
 
 import io
@@ -22,13 +51,27 @@ import time
 # === Constants ===
 
 ALTITUDE_M = 100
-OVERLAP_PERCENT = 80
 FLIGHT_SPEED_MS = 5.0
 GROUND_WIDTH_M = 133   # Cross-track coverage at 100m AGL
 GROUND_HEIGHT_M = 100   # Along-track coverage at 100m AGL
 
-STEP_BETWEEN_LINES_M = GROUND_HEIGHT_M * (1 - OVERLAP_PERCENT / 100)  # 20m
-STEP_BETWEEN_POINTS_M = GROUND_WIDTH_M * (1 - OVERLAP_PERCENT / 100)  # ~26.6m
+# Nadir: dense 80% overlap — orthophoto needs this for clean SIFT on roofs/pavement.
+OVERLAP_PERCENT = 80   # Legacy name retained for `STEP_BETWEEN_*` (nadir)
+# Lawnmower geometry: parallel lines are spaced ACROSS the flight direction, photos
+# are taken ALONG it. So line spacing is bounded by the cross-track footprint
+# (GROUND_WIDTH, the wide/long sensor edge ⟂ heading) and point spacing by the
+# along-track footprint (GROUND_HEIGHT). Confirmed against flown Mini 4 Pro EXIF
+# (landscape 4032×3024, gimbal yaw ≈ flight heading → long edge is cross-track).
+STEP_BETWEEN_LINES_M = GROUND_WIDTH_M * (1 - OVERLAP_PERCENT / 100)   # ~26.6m → 80% side overlap
+STEP_BETWEEN_POINTS_M = GROUND_HEIGHT_M * (1 - OVERLAP_PERCENT / 100)  # 20m → 80% frontal overlap
+
+# Oblique: relaxed 70% overlap — 4 cardinal directions cross-constrain each wall,
+# so each individual oblique mission can be sparser without losing SIFT matching.
+# ~1.5× wider spacing → ~33% fewer flight lines → ~33% less flight time per oblique
+# → ~2–3× fewer photos per oblique, dramatically cutting upload/ODM load.
+OBLIQUE_OVERLAP_PERCENT = 70
+OBLIQUE_STEP_BETWEEN_LINES_M = GROUND_WIDTH_M * (1 - OBLIQUE_OVERLAP_PERCENT / 100)   # ~39.9m → 70% side
+OBLIQUE_STEP_BETWEEN_POINTS_M = GROUND_HEIGHT_M * (1 - OBLIQUE_OVERLAP_PERCENT / 100)  # 30m → 70% frontal
 
 TILE_ZOOM = 17           # ~305×240m at mid-latitudes
 BUFFER_M = 37            # Buffer beyond tile edge for ODM stitching overlap
@@ -374,16 +417,41 @@ def generate_waylines_wpml(waypoints: List[Waypoint], drone_enum: int = 68, gimb
 
 def generate_kmz(
     z: int, x: int, y: int,
-    mission_name: str = "OpenSky Mission",
     direction: str = 'ns',
-    gimbal_pitch: int = -90
+    gimbal_pitch: int = -90,
+    forced_heading: int | None = None,
 ) -> bytes:
-    """Generate WPML KMZ file for a single tile mission."""
-    waypoints = generate_tile_snake_pattern(z, x, y, direction=direction)
+    """
+    Generate WPML KMZ file for a single tile mission.
+
+    Args:
+        direction: 'ns' (North-South lines) or 'ew' (East-West lines)
+        gimbal_pitch: -90 for nadir, -45 for oblique
+        forced_heading: If set, all waypoints use this heading (0/90/180/270).
+            Oblique missions require a fixed heading so the camera always
+            points in one cardinal direction (see PK/opensky-system.md).
+            If None and gimbal is oblique, falls back to the natural heading
+            of the first waypoint for backward compatibility.
+    """
+    # Oblique missions use sparser spacing (70% overlap) to cut flight time
+    # and photo count. Nadir keeps dense 80% for orthophoto quality.
+    if gimbal_pitch != -90:
+        line_spacing = OBLIQUE_STEP_BETWEEN_LINES_M
+        point_spacing = OBLIQUE_STEP_BETWEEN_POINTS_M
+    else:
+        line_spacing = STEP_BETWEEN_LINES_M
+        point_spacing = STEP_BETWEEN_POINTS_M
+
+    waypoints = generate_tile_snake_pattern(
+        z, x, y,
+        direction=direction,
+        line_spacing_m=line_spacing,
+        point_spacing_m=point_spacing,
+    )
 
     # Oblique missions require fixed heading (see PK/opensky-system.md)
     if gimbal_pitch != -90 and waypoints:
-        fixed_heading = waypoints[0].heading
+        fixed_heading = forced_heading if forced_heading is not None else waypoints[0].heading
         for wp in waypoints:
             wp.heading = fixed_heading
 
@@ -415,17 +483,66 @@ def calculate_mission_stats(waypoints: List[Waypoint]) -> dict:
 
 
 def calculate_tile_stats(z: int, x: int, y: int) -> dict:
-    """Calculate statistics for a single tile mission (nadir + 2 oblique)."""
-    ns_wps = generate_tile_snake_pattern(z, x, y, direction='ns')
-    ew_wps = generate_tile_snake_pattern(z, x, y, direction='ew')
-    ns_stats = calculate_mission_stats(ns_wps)
-    ew_stats = calculate_mission_stats(ew_wps)
+    """
+    Calculate statistics for a single tile mission (5 sub-missions).
+
+    Nadir uses dense 80% overlap; obliques use relaxed 70% — per-mission
+    stats differ. Returns three budget levels the pilot can choose from:
+        budget_1_battery  — ortho only (1_2D)
+        budget_3_batteries — baseline 3D (1_2D + 2_3D-N + 3_3D-E)
+        budget_5_batteries — ultra 3D, all 4 facades (1..5)
+    """
+    # Nadir (80% overlap, NS lines)
+    nadir_wps_list = generate_tile_snake_pattern(z, x, y, direction='ns')
+    nadir_stats = calculate_mission_stats(nadir_wps_list)
+
+    # Oblique NS (70% overlap — used by 2_3D-N and 4_3D-S)
+    oblique_ns_list = generate_tile_snake_pattern(
+        z, x, y,
+        direction='ns',
+        line_spacing_m=OBLIQUE_STEP_BETWEEN_LINES_M,
+        point_spacing_m=OBLIQUE_STEP_BETWEEN_POINTS_M,
+    )
+    oblique_ns_stats = calculate_mission_stats(oblique_ns_list)
+
+    # Oblique EW (70% overlap — used by 3_3D-E and 5_3D-W)
+    oblique_ew_list = generate_tile_snake_pattern(
+        z, x, y,
+        direction='ew',
+        line_spacing_m=OBLIQUE_STEP_BETWEEN_LINES_M,
+        point_spacing_m=OBLIQUE_STEP_BETWEEN_POINTS_M,
+    )
+    oblique_ew_stats = calculate_mission_stats(oblique_ew_list)
 
     west, south, east, north = tile_bounds(z, x, y)
     center_lat, center_lng = tile_center(z, x, y)
     mpd = 111320 * math.cos(math.radians(center_lat))
     width_m = (east - west) * mpd
     height_m = (north - south) * 111320
+
+    nadir_time = nadir_stats.get("estimated_time_min", 0)
+    oblique_ns_time = oblique_ns_stats.get("estimated_time_min", 0)
+    oblique_ew_time = oblique_ew_stats.get("estimated_time_min", 0)
+
+    nadir_wps = nadir_stats.get("waypoints_count", 0)
+    oblique_ns_wps = oblique_ns_stats.get("waypoints_count", 0)
+    oblique_ew_wps = oblique_ew_stats.get("waypoints_count", 0)
+
+    # Flight layout per mission:
+    #   1_2D    — nadir    (80%), NS lines
+    #   2_3D-N  — oblique  (70%), NS lines (camera N)
+    #   3_3D-E  — oblique  (70%), EW lines (camera E)
+    #   4_3D-S  — oblique  (70%), NS lines (camera S)
+    #   5_3D-W  — oblique  (70%), EW lines (camera W)
+    total_waypoints_5 = nadir_wps + 2 * oblique_ns_wps + 2 * oblique_ew_wps
+    total_time_5 = nadir_time + 2 * oblique_ns_time + 2 * oblique_ew_time
+
+    # 3-battery bundle = nadir + 2_3D-N + 3_3D-E = nadir + 1×oblique-NS + 1×oblique-EW
+    total_waypoints_3 = nadir_wps + oblique_ns_wps + oblique_ew_wps
+    total_time_3 = nadir_time + oblique_ns_time + oblique_ew_time
+
+    oblique_ns_meta = {**oblique_ns_stats, "gimbal_pitch": OBLIQUE_GIMBAL_PITCH, "direction": "ns", "overlap_percent": OBLIQUE_OVERLAP_PERCENT}
+    oblique_ew_meta = {**oblique_ew_stats, "gimbal_pitch": OBLIQUE_GIMBAL_PITCH, "direction": "ew", "overlap_percent": OBLIQUE_OVERLAP_PERCENT}
 
     return {
         "tile": {"z": z, "x": x, "y": y},
@@ -435,61 +552,114 @@ def calculate_tile_stats(z: int, x: int, y: int) -> dict:
         "height_m": round(height_m),
         "area_m2": round(width_m * height_m),
         "buffer_m": BUFFER_M,
-        "nadir_mission": ns_stats,
-        "oblique_ew_mission": ew_stats,
-        "oblique_ns_mission": ns_stats,
-        "total_waypoints": ns_stats.get("waypoints_count", 0) * 2 + ew_stats.get("waypoints_count", 0),
-        "total_time_min": round(
-            ns_stats.get("estimated_time_min", 0) * 2 + ew_stats.get("estimated_time_min", 0), 1
-        ),
-        "batteries": 3,
+        "missions": {
+            "1_2D":   {**nadir_stats, "gimbal_pitch": -90, "direction": "ns", "overlap_percent": OVERLAP_PERCENT},
+            "2_3D-N": {**oblique_ns_meta, "camera_heading": 0},
+            "3_3D-E": {**oblique_ew_meta, "camera_heading": 90},
+            "4_3D-S": {**oblique_ns_meta, "camera_heading": 180},
+            "5_3D-W": {**oblique_ew_meta, "camera_heading": 270},
+        },
+        "budgets": {
+            "1_battery": {
+                "files": ["1_2D"],
+                "time_min": round(nadir_time, 1),
+                "waypoints": nadir_wps,
+                "facades_covered": 0,
+                "description": "Ortho only (2D map)",
+            },
+            "3_batteries": {
+                "files": ["1_2D", "2_3D-N", "3_3D-E"],
+                "time_min": round(total_time_3, 1),
+                "waypoints": total_waypoints_3,
+                "facades_covered": 2,
+                "description": "Baseline 3D (south + west walls)",
+            },
+            "5_batteries": {
+                "files": ["1_2D", "2_3D-N", "3_3D-E", "4_3D-S", "5_3D-W"],
+                "time_min": round(total_time_5, 1),
+                "waypoints": total_waypoints_5,
+                "facades_covered": 4,
+                "description": "Ultra 3D (all 4 walls)",
+            },
+        },
+        # Aggregates for the full 5-file download (useful for logging / sanity checks)
+        "total_waypoints": total_waypoints_5,
+        "total_time_min": round(total_time_5, 1),
     }
 
 
-def generate_readme(base_name: str, z: int, x: int, y: int) -> str:
-    """Generate README.txt with flight instructions."""
+def generate_readme(z: int, x: int, y: int) -> str:
+    """Generate README.txt with flight instructions for 5-file mission bundle."""
     center_lat, center_lng = tile_center(z, x, y)
-    ns_wps = generate_tile_snake_pattern(z, x, y, direction='ns')
-    ns_stats = calculate_mission_stats(ns_wps)
-    time_per = ns_stats.get('estimated_time_min', 25)
+
+    # Nadir (80% overlap, NS lines)
+    nadir_wps = generate_tile_snake_pattern(z, x, y, direction='ns')
+    t_nadir = calculate_mission_stats(nadir_wps).get('estimated_time_min', 17)
+
+    # Oblique (70% overlap) — separate NS and EW patterns
+    obl_ns_wps = generate_tile_snake_pattern(
+        z, x, y, direction='ns',
+        line_spacing_m=OBLIQUE_STEP_BETWEEN_LINES_M,
+        point_spacing_m=OBLIQUE_STEP_BETWEEN_POINTS_M,
+    )
+    obl_ew_wps = generate_tile_snake_pattern(
+        z, x, y, direction='ew',
+        line_spacing_m=OBLIQUE_STEP_BETWEEN_LINES_M,
+        point_spacing_m=OBLIQUE_STEP_BETWEEN_POINTS_M,
+    )
+    t_obl_ns = calculate_mission_stats(obl_ns_wps).get('estimated_time_min', 12)
+    t_obl_ew = calculate_mission_stats(obl_ew_wps).get('estimated_time_min', 12)
+
+    t_1 = round(t_nadir, 0)
+    t_3 = round(t_nadir + t_obl_ns + t_obl_ew, 0)
+    t_5 = round(t_nadir + 2 * t_obl_ns + 2 * t_obl_ew, 0)
     west, south, east, north = tile_bounds(z, x, y)
 
-    return f"""OPENSKY FLIGHT PLAN — {base_name}
+    return f"""OPENSKY FLIGHT PLAN — Z{z}/{x}/{y}
 {'=' * 50}
 
-Tile: Z{z}/{x}/{y}
+Tile:   Z{z}/{x}/{y}
 Center: {center_lat:.6f}, {center_lng:.6f}
 Bounds: N{north:.6f} S{south:.6f} E{east:.6f} W{west:.6f}
 
-CONTENTS
---------
-{base_name}_2D.kmz       Camera straight down (nadir, gimbal -90 deg)
-                          North-South flight lines
-                          For orthophoto (2D map tiles)
+CONTENTS (5 flight plans)
+-------------------------
+1_2D.kmz     Nadir (gimbal -90 deg)     — orthophoto for 2D map
+2_3D-N.kmz   Oblique, camera North      — captures SOUTH-facing walls
+3_3D-E.kmz   Oblique, camera East       — captures WEST-facing walls
+4_3D-S.kmz   Oblique, camera South      — captures NORTH-facing walls
+5_3D-W.kmz   Oblique, camera West       — captures EAST-facing walls
 
-{base_name}_3D-E.kmz     Camera at 45 deg facing East (oblique, gimbal -45 deg)
-                          East-West flight lines
+Each oblique mission captures ONE facade direction (the wall facing
+toward the camera). To cover all 4 sides of buildings, fly all 4
+oblique missions. Flying fewer is fine — you'll get partial facade
+coverage proportional to how many you fly.
 
-{base_name}_3D-N.kmz     Camera at 45 deg facing North (oblique, gimbal -45 deg)
-                          North-South flight lines
+FLIGHT BUDGET — fly as many as you need
+---------------------------------------
+1 battery   1_2D                                    ~{t_1:.0f} min
+            Orthophoto only (2D map). No 3D model.
 
-Both 3D missions together give full facade coverage for 3D reconstruction.
+3 batteries 1_2D + 2_3D-N + 3_3D-E                  ~{t_3:.0f} min
+            Baseline 3D: south + west walls (2 of 4 facades).
+            Equivalent to the previous 3-battery OpenSky workflow.
 
-FLIGHT ORDER
-------------
-1. Fly 2D mission  ({base_name}_2D.kmz)   — ~{time_per:.0f} min, 1 battery
-2. Swap battery
-3. Fly 3D-E mission ({base_name}_3D-E.kmz) — ~{time_per:.0f} min, 1 battery
-4. Swap battery
-5. Fly 3D-N mission ({base_name}_3D-N.kmz) — ~{time_per:.0f} min, 1 battery
-6. Upload ALL photos (2D + 3D-E + 3D-N) together to OpenSky
+5 batteries 1_2D + 2_3D-N + 3_3D-E + 4_3D-S + 5_3D-W  ~{t_5:.0f} min
+            Ultra 3D: all 4 walls covered. Recommended for buildings,
+            monuments, dense areas. Spread across multiple sessions
+            is fine — upload all photos together at the end.
+
+Numbers are ordered so each next battery adds maximum new information.
+Fly them in numeric order (1 → 2 → 3 → 4 → 5).
 
 PARAMETERS
 ----------
 Altitude:       100m AGL
-Overlap:        80%
+Overlap:        80% on nadir, 70% on obliques (sparser oblique spacing
+                means ~33% faster per oblique flight and fewer photos
+                to upload — 4 cardinal directions cross-constrain the
+                mesh, so you don't need dense overlap per mission)
 Speed:          ~5 m/s
-Batteries:      3 (one per mission)
 
 CAMERA SETTINGS
 ---------------
@@ -505,7 +675,14 @@ HOW TO FLY (DJI Fly)
 2. Import .kmz file via DJI Fly > Waypoint Mission > Import
 3. Review waypoints on map, then start mission
 4. After each mission: swap battery, import next .kmz, fly again
-5. Upload all photos from all flights to the same OpenSky mission
+5. Upload ALL photos (from all flights for this tile) to the same
+   OpenSky mission. The mission must contain nadir photos before
+   processing — oblique-only missions are rejected at finalize.
+
+You don't have to fly everything in one session. You can fly
+1_2D today, come back next weekend to add 2_3D-N and 3_3D-E,
+then append the rest later. Each subsequent upload reprocesses
+the mission with ALL accumulated photos.
 
 Generated by OpenSky (parahub.io)
 """
@@ -513,28 +690,50 @@ Generated by OpenSky (parahub.io)
 
 def generate_tile_zip(z: int, x: int, y: int, base_name: str = "OpenSky") -> bytes:
     """
-    Generate ZIP with 3 KMZ files (nadir + 2 oblique) for a single tile.
+    Generate ZIP with 5 KMZ files (nadir + 4 oblique) for a single tile.
 
     Structure:
-        {base_name}_2D.kmz     — NS lines, gimbal -90° (nadir orthophoto)
-        {base_name}_3D-E.kmz   — EW lines, gimbal -45°, heading East (oblique)
-        {base_name}_3D-N.kmz   — NS lines, gimbal -45°, heading North (oblique)
-        README.txt              — Flight instructions
+        1_2D.kmz    — NS lines, gimbal -90°              (nadir orthophoto)
+        2_3D-N.kmz  — NS lines, gimbal -45°, heading 0°  (camera North → south walls)
+        3_3D-E.kmz  — EW lines, gimbal -45°, heading 90° (camera East  → west walls)
+        4_3D-S.kmz  — NS lines, gimbal -45°, heading 180°(camera South → north walls)
+        5_3D-W.kmz  — EW lines, gimbal -45°, heading 270°(camera West  → east walls)
+        README.txt  — Flight instructions + budget matrix (1/3/5 batteries)
 
-    Two oblique directions (E + N) give full facade coverage for 3D reconstruction.
+    Pilot flies as many as budget allows (see README):
+        1 battery  → ortho only (1)
+        3 batteries → baseline 3D, 2 of 4 facades (1+2+3)
+        5 batteries → ultra 3D, all 4 facades (1..5)
+
+    Filenames are prefixed with flight-order numbers so DJI Fly sorts
+    them correctly alphabetically. `base_name` is retained for backward
+    compatibility of the ZIP download filename but not used inside.
+
     Fixed heading per mission for oblique compatibility (see PK/opensky-system.md).
     """
+    # Generator dispatch: (filename, direction, gimbal_pitch)
+    # The actual camera heading is set by the first waypoint in each direction
+    # (NS → heading 0, EW → heading 90). For opposite-direction obliques (S and W)
+    # we rotate the heading of every waypoint post-hoc to 180/270.
+    files = [
+        ("1_2D.kmz",    "ns", -90,                    None),  # nadir
+        ("2_3D-N.kmz",  "ns", OBLIQUE_GIMBAL_PITCH,   0),     # camera North
+        ("3_3D-E.kmz",  "ew", OBLIQUE_GIMBAL_PITCH,   90),    # camera East
+        ("4_3D-S.kmz",  "ns", OBLIQUE_GIMBAL_PITCH,   180),   # camera South
+        ("5_3D-W.kmz",  "ew", OBLIQUE_GIMBAL_PITCH,   270),   # camera West
+    ]
+
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        nadir_kmz = generate_kmz(z, x, y, f"{base_name}_2D", direction='ns', gimbal_pitch=-90)
-        zf.writestr(f"{base_name}_2D.kmz", nadir_kmz)
+        for fname, direction, pitch, forced_heading in files:
+            kmz_bytes = generate_kmz(
+                z, x, y,
+                direction=direction,
+                gimbal_pitch=pitch,
+                forced_heading=forced_heading,
+            )
+            zf.writestr(fname, kmz_bytes)
 
-        oblique_ew = generate_kmz(z, x, y, f"{base_name}_3D-E", direction='ew', gimbal_pitch=OBLIQUE_GIMBAL_PITCH)
-        zf.writestr(f"{base_name}_3D-E.kmz", oblique_ew)
-
-        oblique_ns = generate_kmz(z, x, y, f"{base_name}_3D-N", direction='ns', gimbal_pitch=OBLIQUE_GIMBAL_PITCH)
-        zf.writestr(f"{base_name}_3D-N.kmz", oblique_ns)
-
-        zf.writestr("README.txt", generate_readme(base_name, z, x, y))
+        zf.writestr("README.txt", generate_readme(z, x, y))
 
     return zip_buffer.getvalue()

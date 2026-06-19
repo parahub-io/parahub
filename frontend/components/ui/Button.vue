@@ -69,14 +69,14 @@ const isLink = computed(() => !!props.to || props.tag === 'a')
   >
     <Loader2
       v-if="loading"
-      :class="[iconSizeClass, 'animate-spin']"
+      :class="[iconSizeClass, 'animate-spin', 'shrink-0']"
       :aria-hidden="true"
     />
     <span v-if="loading && iconOnly" class="sr-only">Loading</span>
     <component
       v-else-if="icon"
       :is="icon"
-      :class="iconSizeClass"
+      :class="[iconSizeClass, 'shrink-0']"
       :aria-hidden="true"
     />
     <slot v-if="!iconOnly" />

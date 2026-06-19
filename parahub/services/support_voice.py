@@ -19,6 +19,14 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 PROJECT_DIR = Path('/opt/parahub')
+
+
+class EmptyTranscription(Exception):
+    """Raised when STT returns empty text (quiet audio, background noise)."""
+    pass
+
+
+_RETRYABLE_STATUSES = {429, 500, 502, 503}
 KNOWLEDGE_FILE = PROJECT_DIR / 'support_kb' / 'knowledge.md'
 
 # ElevenLabs
@@ -151,20 +159,35 @@ class SupportVoicePipeline:
         await self.send_status('transcribing')
         ext = 'webm' if 'webm' in content_type else 'wav'
 
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                'https://api.elevenlabs.io/v1/speech-to-text',
-                headers={'xi-api-key': self.elevenlabs_key},
-                files={'file': (f'audio.{ext}', audio_bytes, content_type)},
-                data={'model_id': DEFAULT_STT_MODEL},
-            )
-
-        if resp.status_code != 200:
-            raise RuntimeError(f"STT error {resp.status_code}: {resp.text[:200]}")
+        last_err = None
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=60) as client:
+                    resp = await client.post(
+                        'https://api.elevenlabs.io/v1/speech-to-text',
+                        headers={'xi-api-key': self.elevenlabs_key},
+                        files={'file': (f'audio.{ext}', audio_bytes, content_type)},
+                        data={'model_id': DEFAULT_STT_MODEL},
+                    )
+                if resp.status_code in _RETRYABLE_STATUSES and attempt == 0:
+                    logger.warning(f"STT transient error {resp.status_code}, retrying...")
+                    await asyncio.sleep(1)
+                    continue
+                if resp.status_code != 200:
+                    raise RuntimeError(f"STT error {resp.status_code}: {resp.text[:200]}")
+                break
+            except httpx.TimeoutException as e:
+                last_err = e
+                if attempt == 0:
+                    logger.warning("STT timeout, retrying...")
+                    continue
+                raise RuntimeError(f"STT timeout: {e}") from e
+        else:
+            raise RuntimeError(f"STT failed after retry: {last_err}")
 
         text = resp.json().get('text', '').strip()
         if not text:
-            raise RuntimeError("Empty transcription")
+            raise EmptyTranscription()
         return text
 
     async def think(self, user_text: str) -> str:
@@ -235,29 +258,44 @@ class SupportVoicePipeline:
         except Exception:
             pass
 
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                f'https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}',
-                headers={
-                    'xi-api-key': self.elevenlabs_key,
-                    'Content-Type': 'application/json',
-                    'Accept': 'audio/mpeg',
-                },
-                json={
-                    'text': text,
-                    'model_id': DEFAULT_TTS_MODEL,
-                    'voice_settings': {
-                        'stability': 0.7,
-                        'similarity_boost': 0.8,
-                        'style': 0.15,
-                        'use_speaker_boost': True,
-                    },
-                    'speed': 1.0,
-                },
-            )
-
-        if resp.status_code != 200:
-            raise RuntimeError(f"TTS error {resp.status_code}: {resp.text[:200]}")
+        last_err = None
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=60) as client:
+                    resp = await client.post(
+                        f'https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}',
+                        headers={
+                            'xi-api-key': self.elevenlabs_key,
+                            'Content-Type': 'application/json',
+                            'Accept': 'audio/mpeg',
+                        },
+                        json={
+                            'text': text,
+                            'model_id': DEFAULT_TTS_MODEL,
+                            'voice_settings': {
+                                'stability': 0.7,
+                                'similarity_boost': 0.8,
+                                'style': 0.15,
+                                'use_speaker_boost': True,
+                            },
+                            'speed': 1.0,
+                        },
+                    )
+                if resp.status_code in _RETRYABLE_STATUSES and attempt == 0:
+                    logger.warning(f"TTS transient error {resp.status_code}, retrying...")
+                    await asyncio.sleep(1)
+                    continue
+                if resp.status_code != 200:
+                    raise RuntimeError(f"TTS error {resp.status_code}: {resp.text[:200]}")
+                break
+            except httpx.TimeoutException as e:
+                last_err = e
+                if attempt == 0:
+                    logger.warning("TTS timeout, retrying...")
+                    continue
+                raise RuntimeError(f"TTS timeout: {e}") from e
+        else:
+            raise RuntimeError(f"TTS failed after retry: {last_err}")
 
         audio = resp.content
         try:

@@ -64,7 +64,7 @@
       "verify_pickup": "Verify Pickup",
       "enter_pickup_code": "Enter pickup code",
       "invalid_code": "Invalid pickup code",
-      "wot_required": "WoT 2+ verification required to activate hub mode",
+      "wot_required": "WoT 3+ verification required to activate hub mode",
       "info_title": "P-Hub Point",
       "send_here": "Send Here",
       "days": "days",

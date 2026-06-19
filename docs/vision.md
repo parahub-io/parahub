@@ -53,6 +53,8 @@ Cooperatives form on the platform. P2P arbitration becomes recognized. Circular 
 
 ## Philosophical Roots
 
+Parahub is built on **mutualist principles**: voluntary association, direct exchange, no coercive intermediaries. We oppose rent extraction — not production, profit, or trade. Participants keep 100% of the value they create.
+
 Parahub continues the ideas of Gandhi and Tolstoy through modern technology: local self-governance, direct democracy, mutual aid, non-violence. Combined with cypherpunk principles of cryptographic sovereignty, open source transparency, and voluntary association.
 
 Compatible with: FOSS, Cypherpunk, Austrian economics, Mutualism, Solarpunk, Right to Repair, Degrowth (via circular economy).

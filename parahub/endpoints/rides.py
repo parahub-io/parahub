@@ -231,7 +231,7 @@ def _get_valhalla_route(origin: RouteLocation, destination: RouteLocation) -> Op
 @rides_router.post("/requests/", response={200: dict, 400: dict, 403: dict}, auth=ProfileAuth())
 @ratelimit(group='rides:create_request', key=user_or_ip, rate='10/m', method='POST')
 def create_request(request, body: RideRequestCreate):
-    """Create a ride request. Requires WoT 2+ verification."""
+    """Create a ride request. Requires WoT 3+ verification."""
     profile = request.auth
     if not profile.is_verified_wot:
         raise HttpError(403, "WoT verification required to create ride requests")

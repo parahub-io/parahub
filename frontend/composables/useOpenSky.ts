@@ -18,17 +18,29 @@ export interface OpenSkyMission {
   pilot_id: string | null
   pilot_name: string | null
   area?: GeoJSON.Polygon | null
+  area_m2?: number | null
   center_lat: number | null
   center_lng: number | null
+  place_label?: string | null
+  place_region?: string | null
   source_photos_count: number
+  direction_counts?: {
+    nadir: number
+    n: number
+    e: number
+    s: number
+    w: number
+    unknown: number
+  }
   tiles_count: number
   tiles_size_mb?: number
   min_zoom?: number
   max_zoom?: number
   uploaded_at: string
+  captured_at: string | null
   published_at: string | null
   processing_started_at: string | null
-  processing_step: '' | 'odm' | 'reprojection' | 'alignment' | 'tiling' | 'finalizing'
+  processing_step: '' | 'odm' | 'reprojection' | 'alignment' | 'tiling' | 'mesh' | 'finalizing'
   error_message?: string | null
   mesh_status?: MeshStatus
   mesh_size_mb?: number
@@ -63,22 +75,25 @@ export interface OpenSkyMissionBounds {
 export const useOpenSky = () => {
   const authStore = useAuthStore()
 
-  const stats = ref<OpenSkyStats | null>(null)
-  const missions = ref<OpenSkyMission[]>([])
-  const myMissions = ref<OpenSkyMission[]>([])
-  const publishedBounds = ref<OpenSkyMissionBounds[]>([])
-  const loading = ref(false)
-  const uploading = ref(false)
-  const uploadProgress = ref(0)
+  // Shared state (useState, not ref): UploadForm, MyMissions and the page each call
+  // useOpenSky() — per-call refs would give each component an invisible private copy
+  // (upload refreshed UploadForm's list while MyMissions' grid never saw the new card)
+  const stats = useState<OpenSkyStats | null>('opensky-stats', () => null)
+  const missions = useState<OpenSkyMission[]>('opensky-missions', () => [])
+  const myMissions = useState<OpenSkyMission[]>('opensky-my-missions', () => [])
+  const publishedBounds = useState<OpenSkyMissionBounds[]>('opensky-published-bounds', () => [])
+  const loading = useState('opensky-loading', () => false)
+  const uploading = useState('opensky-uploading', () => false)
+  const uploadProgress = useState('opensky-upload-progress', () => 0)
 
   // Multi-file upload state
-  const multiUploadState = ref<{
+  const multiUploadState = useState<{
     currentBatch: number
     totalBatches: number
     currentFile: number
     totalFiles: number
     currentFileName: string
-  } | null>(null)
+  } | null>('opensky-multi-upload-state', () => null)
 
   // Batch settings
   const BATCH_SIZE_MB = 500  // Max MB per batch
@@ -264,7 +279,7 @@ export const useOpenSky = () => {
    * Upload multiple files as a single mission (supports ZIP or JPG)
    * JPG files are automatically batched to stay under size limits
    */
-  const uploadMultipleFiles = async (files: File[], name?: string, satelliteAlign?: boolean, existingMissionId?: string): Promise<OpenSkyMission> => {
+  const uploadMultipleFiles = async (files: File[], name?: string, _satelliteAlign?: boolean, existingMissionId?: string, licenseConsent = false): Promise<OpenSkyMission> => {
     await authStore.ensureToken()
     uploading.value = true
     uploadProgress.value = 0
@@ -272,12 +287,7 @@ export const useOpenSky = () => {
     let missionId: string | null = existingMissionId || null
     let lastMission: OpenSkyMission | null = null
 
-    // Check if all files are JPG (direct upload) or ZIP
-    const allJpg = files.every(f => f.name.toLowerCase().match(/\.jpe?g$/))
-    const allZip = files.every(f => f.name.toLowerCase().endsWith('.zip'))
-
-    // For JPG files, create batches; for ZIP, each file is a batch
-    const batches = allJpg ? createBatches(files) : files.map(f => [f])
+    const batches = createBatches(files)
     const totalFiles = files.length
 
     multiUploadState.value = {
@@ -304,20 +314,15 @@ export const useOpenSky = () => {
 
         const formData = new FormData()
 
-        if (allJpg) {
-          // Direct JPG upload - use 'files' field for multiple
-          for (const file of batch) {
-            formData.append('files', file)
-          }
-        } else {
-          // ZIP upload - use 'file' field
-          formData.append('file', batch[0])
+        for (const file of batch) {
+          formData.append('files', file)
         }
 
         if (batchIdx === 0 && !existingMissionId) {
           if (name) formData.append('name', name)
-          if (satelliteAlign) formData.append('satellite_align', 'true')
           formData.append('multi_file', 'true')
+          // New mission: pilot accepted CC BY-SA 4.0 imagery license (gated by backend)
+          if (licenseConsent) formData.append('license_consent', 'true')
         } else {
           formData.append('mission_id', existingMissionId || missionId!)
         }

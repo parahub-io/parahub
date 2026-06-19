@@ -22,7 +22,7 @@ Operators scan QR codes via camera (`/tickets/scan`). Server verifies QR token a
 
 | Action | Requirement |
 |--------|------------|
-| Create ticket type | WoT 2+ or staff |
+| Create ticket type | WoT 3+ or staff |
 | Purchase ticket | WoT 1+ (any authenticated) |
 | Validate ticket | Ticket type operator or staff |
 

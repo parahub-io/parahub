@@ -238,12 +238,19 @@ class DriverConsumer(AsyncWebsocketConsumer):
             self._last_stop_id = stop_id
             stop_name = self._get_stop_name(stop_id)
             next_stop = self._get_next_stop(stop_id)
+            next_stop_id = next_stop[0] if next_stop else ''
+            # Unabbreviated tts_stop_name for the SPOKEN announcement — one indexed
+            # lookup, fired only on a stop transition (rare). Client falls back to
+            # the abbreviated name when a feed omits tts. See Stop.tts_name.
+            tts = await self._get_tts_names([stop_id, next_stop_id])
             announcement = {
                 'type': 'stop_announcement',
                 'stop_id': stop_id,
                 'stop_name': stop_name,
-                'next_stop_id': next_stop[0] if next_stop else '',
+                'stop_tts': tts.get(stop_id, ''),
+                'next_stop_id': next_stop_id,
                 'next_stop_name': next_stop[1] if next_stop else '',
+                'next_stop_tts': tts.get(next_stop_id, ''),
             }
 
         # Send ack (and announcement if any)
@@ -295,6 +302,23 @@ class DriverConsumer(AsyncWebsocketConsumer):
                 for s in self._stop_seq
             ] if len(self._stop_seq) <= 200 else [],
         }).decode())
+
+    @database_sync_to_async
+    def _get_tts_names(self, source_ids):
+        """{source_id: tts_name} for these stops of this data source (only stops
+        that actually have a tts_name). One indexed query; empty when the feed
+        omits tts_stop_name. See Stop.tts_name (GTFS tts_stop_name)."""
+        ids = [s for s in source_ids if s]
+        if not ids or not self._ds_id:
+            return {}
+        from geo.models import Stop
+        return {
+            sid: tts
+            for sid, tts in Stop.objects.filter(
+                agency__data_source_id=self._ds_id, source_id__in=ids
+            ).values_list('source_id', 'tts_name')
+            if tts
+        }
 
     def _get_stop_name(self, stop_source_id: str) -> str:
         """Get stop name from cached shape data."""

@@ -200,7 +200,9 @@
       "pollEnded": "Die Abstimmung ist beendet",
       "noPermission": "Sie haben keine Berechtigung, bei dieser Abstimmung abzustimmen",
       "loadingDelegationChains": "Fehler beim Laden der Delegierungsketten",
-      "loadingAuditLog": "Fehler beim Laden des Prüfprotokolls"
+      "loadingAuditLog": "Fehler beim Laden des Prüfprotokolls",
+      "pgpKeysRequired": "PGP-Schlüssel zum Abstimmen erforderlich. Ihr Profil hat einen registrierten PGP-Schlüssel — stellen Sie ihn zuerst auf diesem Gerät wieder her.",
+      "restoreKeys": "Schlüssel wiederherstellen"
     },
     "landing_title": "Direkte und liquide Demokratie",
     "landing_meta": "Liquid-Democracy-Abstimmung mit transitiver Delegation und kryptografischem Audit. Kostenlos und Open-Source.",

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import {
-  ArrowLeft, Upload, X, FileText, Download, Trash2, Video, Tag
+  ArrowLeft, Upload, X, FileText, Download, Trash2, Video, Tag, Eye, Sparkles
 } from 'lucide-vue-next'
+import { marked } from 'marked'
 import { useToastStore } from '~/stores/toast'
 import { useCategories } from '~/composables/useCategories'
 
@@ -19,6 +20,17 @@ const isEdit = computed(() => !!editId.value)
 
 const translateFromId = computed(() => String(route.query.translate || ''))
 
+// Back link — honors ?back=<internal path> from manage pages.
+// Only accepts internal paths (leading `/`, not `//`) to avoid open-redirect.
+const backLink = computed(() => {
+  const raw = route.query.back
+  const back = Array.isArray(raw) ? raw[0] : raw
+  if (typeof back === 'string' && back.startsWith('/') && !back.startsWith('//')) {
+    return back
+  }
+  return localePath('/blog')
+})
+
 // Form state
 const form = reactive({
   title: '',
@@ -28,6 +40,7 @@ const form = reactive({
   establishment_id: '' as string,
   meta_description: '',
   featured_image_id: '',
+  featured_image_url: '',
   is_pinned: false,
   allow_comments: true,
   allow_tips: true,
@@ -71,6 +84,73 @@ function getTagById(id: string) {
   return availableTags.value.find(t => t.id === id)
 }
 
+async function loadPost(id: string) {
+  try {
+    await authStore.ensureToken()
+    const post = await $fetch<any>(`/api/v1/cms/posts/${id}/`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    form.title = post.title
+    form.content = post.content
+    form.status = post.status
+    form.language = post.language
+    form.establishment_id = post.establishment_id || ''
+    form.meta_description = post.meta_description || ''
+    form.featured_image_id = post.featured_image_id || ''
+    form.featured_image_url = post.featured_image_url || ''
+    form.is_pinned = post.is_pinned
+    form.allow_comments = post.allow_comments
+    form.allow_tips = post.allow_tips
+    form.tag_ids = (post.tags || []).map((t: any) => t.id)
+    form.translation_of_id = post.translation_of_id || ''
+    postFiles.value = post.files || []
+
+    // Load the original post info if this is a translation
+    if (post.translation_of_id) {
+      try {
+        const orig = await $fetch<any>(`/api/v1/cms/posts/${post.translation_of_id}/`, {
+          credentials: 'include',
+          headers: { Authorization: `Bearer ${authStore.token}` },
+        })
+        selectedOriginal.value = orig
+      } catch { /* ignore */ }
+    } else {
+      selectedOriginal.value = null
+    }
+  } catch (e: any) {
+    toast.error('Failed to load post')
+  }
+}
+
+function resetForm() {
+  form.title = ''
+  form.content = ''
+  form.status = 'draft'
+  form.language = 'en'
+  form.establishment_id = ''
+  form.meta_description = ''
+  form.featured_image_id = ''
+  form.featured_image_url = ''
+  form.is_pinned = false
+  form.allow_comments = true
+  form.allow_tips = true
+  form.tag_ids = []
+  form.translation_of_id = ''
+  postFiles.value = []
+  selectedOriginal.value = null
+}
+
+// Re-load post when query param changes (same route, different ?edit=)
+watch(editId, async (newId, oldId) => {
+  if (newId === oldId) return
+  if (newId) {
+    await loadPost(newId)
+  } else {
+    resetForm()
+  }
+})
+
 onMounted(async () => {
   if (authStore.isAuthenticated) {
     await authStore.ensureToken()
@@ -89,40 +169,15 @@ onMounted(async () => {
     availableTags.value = roots.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug, icon: c.icon }))
   } catch { /* ignore */ }
 
-  // Load existing post if editing
   if (editId.value) {
-    try {
-      const post = await $fetch<any>(`/api/v1/cms/posts/${editId.value}/`, {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${authStore.token}` },
-      })
-      form.title = post.title
-      form.content = post.content
-      form.status = post.status
-      form.language = post.language
-      form.establishment_id = post.establishment_id || ''
-      form.meta_description = post.meta_description || ''
-      form.featured_image_id = post.featured_image_id || ''
-      form.is_pinned = post.is_pinned
-      form.allow_comments = post.allow_comments
-      form.allow_tips = post.allow_tips
-      form.tag_ids = (post.tags || []).map((t: any) => t.id)
-      form.translation_of_id = post.translation_of_id || ''
-      postFiles.value = post.files || []
+    await loadPost(editId.value)
+  }
 
-      // Load the original post info if this is a translation
-      if (post.translation_of_id) {
-        try {
-          const orig = await $fetch<any>(`/api/v1/cms/posts/${post.translation_of_id}/`, {
-            credentials: 'include',
-            headers: { Authorization: `Bearer ${authStore.token}` },
-          })
-          selectedOriginal.value = orig
-        } catch { /* ignore */ }
-      }
-    } catch (e: any) {
-      toast.error('Failed to load post')
-    }
+  // Handle ?est=SLUG — pre-select establishment
+  const estSlug = route.query.est as string
+  if (estSlug && !editId.value && !form.establishment_id) {
+    const match = establishments.value.find((e: any) => e.slug === estSlug)
+    if (match) form.establishment_id = match.id
   }
 
   // Handle ?translate=POST_ID — pre-fill translation_of and copy settings
@@ -143,7 +198,10 @@ onMounted(async () => {
       // Load the actual original if we pointed to a parent
       if (orig.translation_of_id) {
         try {
-          const root = await $fetch<any>(`/api/v1/cms/posts/${orig.translation_of_id}/`)
+          const root = await $fetch<any>(`/api/v1/cms/posts/${orig.translation_of_id}/`, {
+            credentials: 'include',
+            headers: { Authorization: `Bearer ${authStore.token}` },
+          })
           selectedOriginal.value = root
         } catch { /* ignore */ }
       }
@@ -212,13 +270,134 @@ async function save(targetStatus?: string) {
         router.push(localePath(`/blog/${post.slug}`))
       }
     } else if (!isEdit.value) {
-      // Redirect to edit mode after first save
-      router.replace({ query: { edit: post.id } })
+      // Redirect to edit mode after first save; preserve ?back= if present.
+      router.replace({ query: { ...route.query, edit: post.id } })
     }
   } catch (e: any) {
     toast.error(e.data?.message || 'Failed to save post')
   } finally {
     saving.value = false
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]!))
+}
+
+function preview() {
+  // Frontend-only render — does NOT save to DB.
+  // Renders form.title and form.content as HTML in a new tab via blob URL.
+  if (!form.title.trim()) {
+    toast.error('Title is required')
+    return
+  }
+
+  // Strip ::video[uuid] directives — marked doesn't know them, render as placeholder
+  const content = form.content.replace(/::video\[([^\]]+)\]/g, (_, uuid) => `\n\n*[Video embed: ${uuid}]*\n\n`)
+  const html = marked.parse(content, { async: false }) as string
+
+  const fullHtml = `<!DOCTYPE html>
+<html lang="${escapeHtml(form.language || 'en')}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base href="${window.location.origin}/">
+<title>Preview: ${escapeHtml(form.title)}</title>
+<style>
+body { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 3rem; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; line-height: 1.6; color: #1f1f1f; background: #fafafa; }
+h1 { font-size: 2rem; margin: 0 0 0.5rem; line-height: 1.2; }
+h2 { font-size: 1.5rem; margin: 2rem 0 0.75rem; padding-top: 0.5rem; border-top: 1px solid #e5e5e5; }
+h3 { font-size: 1.25rem; margin: 1.5rem 0 0.5rem; }
+p { margin: 0 0 1rem; }
+img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 1.5rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+img.hero { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 0.75rem; margin: 0 0 2rem; box-shadow: none; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #ddd; padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+th { background: #f5f5f5; font-weight: 600; }
+blockquote { border-left: 3px solid #ddd; padding-left: 1rem; margin: 1rem 0; color: #555; }
+code { background: #f3f4f6; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875em; }
+pre { background: #1f2937; color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+pre code { background: transparent; padding: 0; color: inherit; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+a { color: #2563eb; text-decoration: underline; }
+</style>
+</head>
+<body>
+${form.featured_image_url ? `<img class="hero" src="${escapeHtml(form.featured_image_url)}" alt="${escapeHtml(form.title)}">` : ''}
+<h1>${escapeHtml(form.title)}</h1>
+${html}
+</body>
+</html>`
+
+  const blob = new Blob([fullHtml], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  window.open(url, '_blank')
+  // Note: blob URL is not revoked — browser releases when tab closes.
+}
+
+// Illustration generation (parahub-associacao admins only)
+const ILLUSTRATION_SLUG = 'parahub-associacao'
+const canGenerateIllustration = computed(() => {
+  if (!isEdit.value) return false
+  const est = establishments.value.find((e: any) => e.slug === ILLUSTRATION_SLUG)
+  if (!est) return false
+  return form.establishment_id === est.id
+})
+const generating = ref(false)
+const illustrationPrompt = ref('')
+const uploadingFeatured = ref(false)
+
+async function uploadFeaturedImage(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || !editId.value) return
+
+  uploadingFeatured.value = true
+  try {
+    await authStore.ensureToken()
+    const formData = new FormData()
+    formData.append('image', file)
+    formData.append('object_id', editId.value)
+    formData.append('order', '0')
+
+    const res = await $fetch<any>('/api/v1/core/photos/', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    form.featured_image_id = res.id
+    form.featured_image_url = res.url
+    toast.success(t('cms.photoUploaded'))
+  } catch (e: any) {
+    toast.error(e.data?.error || t('cms.photoUploadFailed'))
+  } finally {
+    uploadingFeatured.value = false
+    input.value = ''
+  }
+}
+
+async function generateIllustration() {
+  if (!editId.value) return
+  generating.value = true
+  try {
+    await authStore.ensureToken()
+    const res = await $fetch<any>(`/api/v1/cms/posts/${editId.value}/generate-illustration/`, {
+      method: 'POST',
+      body: { prompt: illustrationPrompt.value || null },
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    form.featured_image_id = res.photo_id
+    form.featured_image_url = res.url || ''
+    toast.success(t('cms.illustrationGenerated'))
+  } catch (e: any) {
+    toast.error(e.data?.message || 'Failed to generate illustration')
+  } finally {
+    generating.value = false
   }
 }
 
@@ -324,9 +503,9 @@ useHead({ title: isEdit.value ? t('cms.editPost') : t('cms.createPost') })
   <div class="py-6">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Back -->
-      <NuxtLink :to="localePath('/blog')" class="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-secondary mb-4">
+      <NuxtLink :to="backLink" class="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-secondary mb-4">
         <ArrowLeft class="w-4 h-4" />
-        {{ t('cms.blog') }}
+        {{ route.query.back ? t('common.back') : t('cms.blog') }}
       </NuxtLink>
 
       <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-6">
@@ -349,6 +528,63 @@ useHead({ title: isEdit.value ? t('cms.editPost') : t('cms.createPost') })
               {{ est.name }}
             </option>
           </select>
+        </div>
+
+        <!-- Featured image (top — matches public page layout) -->
+        <div v-if="isEdit" class="card p-4">
+          <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-3">
+            {{ t('cms.featuredImage') }}
+          </h2>
+          <div v-if="form.featured_image_url" class="relative mb-3">
+            <img
+              :src="form.featured_image_url"
+              :alt="form.title"
+              class="w-full aspect-[2/1] object-cover rounded-lg border border-neutral-200 dark:border-neutral-700"
+            />
+            <UiButton
+              variant="outline-error"
+              size="sm"
+              class="absolute top-2 right-2"
+              @click="form.featured_image_id = ''; form.featured_image_url = ''"
+            >
+              <X class="w-4 h-4" />
+            </UiButton>
+          </div>
+          <label class="btn-outline btn-sm cursor-pointer inline-flex items-center gap-2">
+            <Upload class="w-4 h-4" />
+            {{ uploadingFeatured ? t('cms.editor.uploading') : t('cms.uploadPhoto') }}
+            <input
+              type="file"
+              accept="image/*"
+              class="hidden"
+              :disabled="uploadingFeatured"
+              @change="uploadFeaturedImage"
+            />
+          </label>
+        </div>
+
+        <!-- AI Illustration (parahub-associacao admins only) — sits next to featured image -->
+        <div v-if="canGenerateIllustration" class="card p-4">
+          <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
+            <Sparkles class="w-5 h-5" />
+            {{ t('cms.generateIllustration') }}
+          </h2>
+          <p class="text-xs text-neutral-400 mb-3">{{ t('cms.generateIllustrationHint') }}</p>
+          <textarea
+            v-model="illustrationPrompt"
+            :placeholder="t('cms.illustrationPromptPlaceholder')"
+            rows="2"
+            class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent mb-3"
+          />
+          <UiButton
+            variant="outline"
+            size="sm"
+            :loading="generating"
+            @click="generateIllustration"
+          >
+            <Sparkles class="w-4 h-4" />
+            {{ illustrationPrompt.trim() ? t('cms.generateIllustrationBtn') : t('cms.generateIllustrationAutoBtn') }}
+          </UiButton>
         </div>
 
         <!-- Title -->
@@ -561,6 +797,15 @@ useHead({ title: isEdit.value ? t('cms.editPost') : t('cms.createPost') })
             class="flex-1"
           >
             {{ t('cms.saveDraft') }}
+          </UiButton>
+          <UiButton
+            variant="outline"
+            :loading="saving"
+            @click="preview"
+            class="flex-1"
+          >
+            <Eye class="w-4 h-4 mr-1.5" />
+            {{ t('cms.preview') }}
           </UiButton>
           <UiButton
             variant="primary"

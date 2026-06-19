@@ -199,6 +199,7 @@ class MembershipResponse(BaseModel):
     profile_hna: str
     profile_display_name: Optional[str] = None
     role: str
+    position_title: str = ''
     joined_at: datetime
     membership_level: Optional[str] = None
     is_treasurer: bool = False
@@ -403,7 +404,7 @@ def _format_world_object_response(wo) -> BuildingResponse:
 @router.post("/buildings/", auth=ProfileAuth(), response=BuildingResponse)
 @ratelimit(group='directory:create_building', key=user_or_ip, rate='60/m', method='POST')
 def create_building(request, payload: BuildingInput):
-    """Create new building. Requires WoT level 2+ (or admin/parahub member)"""
+    """Create new building. Requires WoT level 3+ (or admin/parahub member)"""
     from geo.models import WorldObject
     from identity.models import Verification
 
@@ -413,13 +414,13 @@ def create_building(request, payload: BuildingInput):
         is_parahub_member = request.auth.is_foundation_member()
 
         if not is_parahub_member:
-            # Check WoT (requires 2+ verifications)
+            # Check WoT (requires 3+ verifications)
             verification_count = Verification.objects.filter(
                 verified_profile=request.auth,
                 is_active=True
             ).count()
-            if verification_count < 2:
-                raise HttpError(403, "Requires WoT level 2+ to create buildings (or be admin/parahub member)")
+            if verification_count < 3:
+                raise HttpError(403, "Requires WoT level 3+ to create buildings (or be admin/parahub member)")
 
     with transaction.atomic():
         if payload.osm_way_id:
@@ -480,7 +481,7 @@ def get_building(request, building_id: str):
 @router.post("/establishments/", auth=ProfileAuth(), response={200: EstablishmentResponse, 403: dict, 404: dict})
 @ratelimit(group='directory:create_establishment', key=user_or_ip, rate='60/m', method='POST')
 def create_establishment(request, payload: EstablishmentInput):
-    """Create new establishment. Requires WoT level 2+ (or admin/parahub member)"""
+    """Create new establishment. Requires WoT level 3+ (or admin/parahub member)"""
     from geo.models import Establishment, WorldObject
     from taxonomy.models import Category
     from identity.models import Verification
@@ -491,13 +492,13 @@ def create_establishment(request, payload: EstablishmentInput):
         is_parahub_member = request.auth.is_foundation_member()
 
         if not is_parahub_member:
-            # Check WoT (requires 2+ verifications)
+            # Check WoT (requires 3+ verifications)
             verification_count = Verification.objects.filter(
                 verified_profile=request.auth,
                 is_active=True
             ).count()
-            if verification_count < 2:
-                raise HttpError(403, "Requires WoT level 2+ to create establishments (or be admin/parahub member)")
+            if verification_count < 3:
+                raise HttpError(403, "Requires WoT level 3+ to create establishments (or be admin/parahub member)")
 
     with transaction.atomic():
         # Get world object if provided
@@ -1016,6 +1017,7 @@ def join_establishment(request, establishment_id: str, data: JoinEstablishmentRe
         profile_hna=profile.hna,
         profile_display_name=profile.display_name,
         role=membership.role,
+        position_title=membership.position_title,
         joined_at=membership.created_at,
         membership_level=membership.membership_level,
         is_treasurer=membership.is_treasurer,
@@ -1065,6 +1067,7 @@ def list_establishment_members(request, establishment_id: str):
             profile_hna=m.profile.hna,
             profile_display_name=m.profile.display_name,
             role=m.role,
+            position_title=m.position_title,
             joined_at=m.created_at,
             membership_level=m.membership_level,
             is_treasurer=m.is_treasurer,
@@ -1434,7 +1437,7 @@ def list_establishment_reviews(request, establishment_id: str):
 @router.post("/establishments/{establishment_id}/reviews/", auth=ProfileAuth(), response={201: ReviewResponse})
 @ratelimit(group='directory:create_review', key=user_or_ip, rate='10/m', method='POST')
 def create_establishment_review(request, establishment_id: str, payload: ReviewInput):
-    """Create a review. Requires WoT 2+ (or admin/parahub member)."""
+    """Create a review. Requires WoT 3+ (or admin/parahub member)."""
     from geo.models import Establishment, EstablishmentReview
     from identity.models import Verification
 
@@ -1445,8 +1448,8 @@ def create_establishment_review(request, establishment_id: str, payload: ReviewI
     wot_count = 0
     if not profile.account.is_superuser and not profile.is_foundation_member():
         wot_count = Verification.objects.filter(verified_profile=profile, is_active=True).count()
-        if wot_count < 2:
-            raise HttpError(403, "Requires WoT level 2+ to write reviews (or be admin/parahub member)")
+        if wot_count < 3:
+            raise HttpError(403, "Requires WoT level 3+ to write reviews (or be admin/parahub member)")
     else:
         wot_count = Verification.objects.filter(verified_profile=profile, is_active=True).count()
 

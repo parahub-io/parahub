@@ -2,7 +2,7 @@
 Tests for condominium management endpoints: fractions, quotas, invites, assemblies.
 
 Tests invariants that must never break:
-- WoT 2+ requirement for creating condominiums
+- WoT 3+ requirement for creating condominiums
 - Permilagem sum must be exactly 1000
 - Only OWNER/ADMIN can manage fractions, payments, invites, assemblies
 - Members (non-admin) can list fractions and quotas but not modify
@@ -89,8 +89,8 @@ def _make_anon_request(factory, method='get', path='/fake/'):
     return request
 
 
-def _add_verifications(profile, count=2):
-    """Add WoT verifications to a profile so it passes WoT 2+ check."""
+def _add_verifications(profile, count=3):
+    """Add WoT verifications to a profile so it passes WoT 3+ check."""
     instance = profile.instance
     for i in range(count):
         acc = _create_account(instance, f'v{i}_{profile.local_name}')
@@ -167,7 +167,7 @@ class CondominiumCreateTest(TestCase):
         self.instance = _create_instance()
         self.account = _create_account(self.instance, 'alice')
         self.profile = _create_profile(self.account, self.instance)
-        _add_verifications(self.profile, count=2)
+        _add_verifications(self.profile, count=3)
         self.building = _create_building()
 
     @patch('geo.endpoints.events._create_event_matrix_room', return_value=None)
@@ -226,7 +226,7 @@ class CondominiumCreateTest(TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
 
     def test_create_condominium_wot_insufficient(self):
-        """User without WoT 2+ → 403."""
+        """User without WoT 3+ → 403."""
         from geo.endpoints.condominium import create_condominium, CondominiumCreateInput, FractionInput
 
         no_wot_acc = _create_account(self.instance, 'nowot')
@@ -675,6 +675,131 @@ class QuotaListTest(TestCase):
         # All should be unpaid (no payments exist)
         for q in result.items:
             self.assertFalse(q.paid)
+
+
+# ===========================================================================
+# Financial Summary Tests
+# ===========================================================================
+
+class FinancialSummaryTest(TestCase):
+    """Test GET /condominiums/{slug}/financial-summary/ endpoint."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.instance = _create_instance()
+        self.alice_acc = _create_account(self.instance, 'alice')
+        self.alice = _create_profile(self.alice_acc, self.instance)
+        self.bob_acc = _create_account(self.instance, 'bob')
+        self.bob = _create_profile(self.bob_acc, self.instance, 'bob')
+        self.charlie_acc = _create_account(self.instance, 'charlie')
+        self.charlie = _create_profile(self.charlie_acc, self.instance, 'charlie')
+
+        self.est, self.fractions = _create_condominium(self.alice)
+        CondominiumService.create_default_budget_categories(self.est)
+
+    def test_member_sees_summary(self):
+        """Member sees basic financial summary."""
+        from geo.endpoints.condominium import financial_summary
+
+        request = _make_auth_request(self.factory, self.alice_acc, self.alice)
+        result = financial_summary(request, self.est.slug)
+
+        self.assertEqual(result.year, timezone.now().year)
+        self.assertEqual(result.monthly_budget, Decimal('500.00'))
+        self.assertEqual(result.annual_budget, Decimal('6000.00'))
+        self.assertEqual(result.fractions_total, 3)
+        # 6 default categories from create_default_budget_categories
+        self.assertEqual(len(result.categories), 6)
+
+    def test_outsider_cannot_access(self):
+        """Non-member, non-staff gets 403."""
+        from geo.endpoints.condominium import financial_summary
+
+        request = _make_auth_request(self.factory, self.charlie_acc, self.charlie)
+        with self.assertRaises(HttpError) as ctx:
+            financial_summary(request, self.est.slug)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_staff_non_member_can_access(self):
+        """Staff account bypasses membership requirement."""
+        from geo.endpoints.condominium import financial_summary
+
+        self.charlie_acc.is_staff = True
+        self.charlie_acc.save(update_fields=['is_staff'])
+        request = _make_auth_request(self.factory, self.charlie_acc, self.charlie)
+        result = financial_summary(request, self.est.slug)
+
+        self.assertEqual(result.fractions_total, 3)
+
+    def test_collection_rate_with_payments(self):
+        """Collection rate reflects recorded payments for the current year."""
+        from geo.endpoints.condominium import financial_summary
+
+        # Use a past month of the current year so it's captured in YTD
+        now = timezone.now()
+        last_month = now.month - 1 if now.month > 1 else 1
+        month_str = f"{now.year:04d}-{last_month:02d}"
+
+        QuotaPayment.objects.create(
+            fraction=self.fractions[0],
+            month=month_str,
+            amount=Decimal('200.00'),
+            paid_at=now,
+            confirmed_by=self.alice,
+        )
+
+        request = _make_auth_request(self.factory, self.alice_acc, self.alice)
+        result = financial_summary(request, self.est.slug)
+
+        self.assertEqual(result.collected_ytd, Decimal('200.00'))
+        # expected_ytd = 500 * months_elapsed; must be >= 500 so rate < 1
+        self.assertGreater(result.expected_ytd, Decimal('0'))
+        self.assertLess(result.collection_rate, Decimal('1'))
+        self.assertEqual(
+            result.outstanding_balance,
+            result.expected_ytd - result.collected_ytd,
+        )
+
+    def test_zero_budget_yields_zero_rate(self):
+        """monthly_budget=0 → collection_rate=0, no division error."""
+        from geo.endpoints.condominium import financial_summary
+
+        self.est.attributes['monthly_budget'] = '0'
+        self.est.save(update_fields=['attributes'])
+
+        request = _make_auth_request(self.factory, self.alice_acc, self.alice)
+        result = financial_summary(request, self.est.slug)
+
+        self.assertEqual(result.monthly_budget, Decimal('0.00'))
+        self.assertEqual(result.annual_budget, Decimal('0.00'))
+        self.assertEqual(result.expected_ytd, Decimal('0.00'))
+        self.assertEqual(result.collection_rate, Decimal('0'))
+
+    def test_past_year_uses_full_12_months(self):
+        """For a past year, months_elapsed=12."""
+        from geo.endpoints.condominium import financial_summary
+
+        past_year = timezone.now().year - 1
+        request = _make_auth_request(self.factory, self.alice_acc, self.alice)
+        result = financial_summary(request, self.est.slug, year=past_year)
+
+        self.assertEqual(result.year, past_year)
+        self.assertEqual(result.months_elapsed, 12)
+        self.assertEqual(result.expected_ytd, Decimal('6000.00'))
+        # Current month snapshot is zero when looking at a past year
+        self.assertEqual(result.current_month_expected, Decimal('0.00'))
+        self.assertEqual(result.fractions_paid_current, 0)
+
+    def test_categories_sum_matches_annual_budget(self):
+        """Equal-split fallback: sum of category annual_amount ≈ annual_budget."""
+        from geo.endpoints.condominium import financial_summary
+
+        request = _make_auth_request(self.factory, self.alice_acc, self.alice)
+        result = financial_summary(request, self.est.slug)
+
+        total_from_categories = sum((c.annual_amount for c in result.categories), Decimal('0'))
+        # With 6 categories and 6000 annual, 6000/6=1000 each → sum exactly 6000
+        self.assertEqual(total_from_categories, result.annual_budget)
 
 
 class QuotaPaymentRecordTest(TestCase):

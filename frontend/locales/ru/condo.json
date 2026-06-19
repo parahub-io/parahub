@@ -17,7 +17,6 @@
     "landing_title": "Бесплатное управление кондоминиумом",
     "landing_subtitle": "Open-source, современное и бесплатное — навсегда",
     "landing_meta": "Бесплатное open-source управление кондоминиумом — цифровые собрания, взвешенное голосование, прозрачный бюджет с аудитом Merkle. Соответствует Lei 8/2022.",
-
     "meta_create_title": "Создать кондоминиум бесплатно — Parahub",
     "meta_create_desc": "Зарегистрируйте свой кондоминиум онлайн бесплатно. Цифровые собрания, взвешенное голосование, управление взносами.",
     "meta_fractions_title": "Помещения кондоминиума — Parahub",
@@ -28,7 +27,6 @@
     "meta_assembly_desc": "Создать собрание кондоминиума с цифровым взвешенным голосованием по долям собственности.",
     "meta_invite_title": "Приглашение в кондоминиум — Parahub",
     "meta_invite_desc": "Принять приглашение присоединиться к кондоминиуму на Parahub — бесплатное и прозрачное управление.",
-
     "address_placeholder": "Поиск адреса (улица, город...)",
     "step_address": "Адрес",
     "step_info": "Информация",
@@ -37,7 +35,6 @@
     "back": "Назад",
     "create": "Создать кондоминиум",
     "creating": "Создание...",
-
     "name": "Название кондоминиума",
     "name_placeholder": "напр. Кондоминиум Rua Augusta 10",
     "nif": "NIF/NIPC",
@@ -46,7 +43,6 @@
     "description_placeholder": "Краткое описание кондоминиума",
     "regulamento": "Внутренний регламент",
     "regulamento_placeholder": "Вставьте текст регламента кондоминиума (необязательно)",
-
     "fractions_title": "Доли",
     "fractions_subtitle": "Добавьте все доли. Сумма permilagem должна равняться 1000.",
     "add_fraction": "Добавить долю",
@@ -56,18 +52,16 @@
     "floor_placeholder": "1",
     "type": "Тип",
     "permilagem": "Permilagem",
-    "permilagem_help": "Доля собственности в \u2030 (промилле)",
+    "permilagem_help": "Доля собственности в ‰ (промилле)",
     "total_permilagem": "Итого",
     "remove_fraction": "Удалить",
     "description_fraction": "Описание",
     "description_fraction_placeholder": "напр. 2-комн., 3 этаж",
-
     "type_apartment": "Квартира",
     "type_garage": "Гараж",
     "type_storage": "Кладовая",
     "type_commercial": "Коммерческое",
     "type_other": "Другое",
-
     "fractions_tab": "Доли",
     "quotas_tab": "Взносы",
     "assembly_tab": "Собрание",
@@ -83,7 +77,6 @@
     "invite_link": "Ссылка-приглашение",
     "invite_copied": "Ссылка скопирована!",
     "invite_generate": "Сгенерировать ссылку-приглашение",
-
     "quotas_title": "Ежемесячные взносы",
     "month_select": "Месяц",
     "expected": "Ожидается",
@@ -106,7 +99,6 @@
     "delinquency_alert": "{count} помещений с задолженностью 2+ месяца",
     "months_unpaid": "{count} мес. не оплачено",
     "fractions_paid_summary": "{paid}/{total} помещений оплачено",
-
     "assembly_title": "Создать собрание",
     "assembly_subtitle": "Создать взвешенное голосование для собрания кондоминиума",
     "poll_title": "Тема",
@@ -122,7 +114,6 @@
     "quorum_unanimity": "Единогласно (100%)",
     "ends_at": "Голосование завершится",
     "create_assembly": "Создать собрание",
-
     "assembly_history": "Собрания",
     "empty_assemblies": "Собраний пока нет",
     "empty_assemblies_subtitle": "Создайте первое голосование ниже.",
@@ -133,8 +124,7 @@
     "assembly_status_cancelled": "Отменено",
     "quorum_reached": "Кворум достигнут",
     "quorum_not_reached": "Кворум не достигнут",
-    "assembly_weight_info": "Каждый голос взвешивается по permilagem доли собственника (доля в \u2030). Результат отражает пропорцию собственности, а не просто количество голосующих.",
-
+    "assembly_weight_info": "Каждый голос взвешивается по permilagem доли собственника (доля в ‰). Результат отражает пропорцию собственности, а не просто количество голосующих.",
     "invite_accept_title": "Приглашение в кондоминиум",
     "invite_accept_subtitle": "Вас пригласили присоединиться к:",
     "invite_fraction": "Доля",
@@ -144,7 +134,6 @@
     "invite_success": "Вы успешно присоединились!",
     "invite_error": "Недействительная или просроченная ссылка-приглашение",
     "invite_already_assigned": "У этой доли уже есть жилец",
-
     "landing_hero_title": "Современное управление кондоминиумом — бесплатно и open-source",
     "landing_hero_subtitle": "Цифровые собрания, взвешенное голосование, прозрачный бюджет и общественная энергетика — всё в соответствии с Lei 8/2022",
     "landing_hero_cta": "Создать свой кондоминиум",
@@ -174,6 +163,25 @@
     "landing_how_2": "Пригласите жильцов по защищённым ссылкам",
     "landing_how_3": "Начните голосовать, управлять бюджетом и взносами",
     "landing_free_title": "Бесплатно навсегда",
-    "landing_free_desc": "Parahub — это гражданская инфраструктура. Управление кондоминиумом не должно стоить денег — в отличие от традиционных компаний, мы не берём ни копейки."
+    "landing_free_desc": "Parahub — это гражданская инфраструктура. Управление кондоминиумом не должно стоить денег — в отличие от традиционных компаний, мы не берём ни копейки.",
+    "overview_tab": "Обзор",
+    "meta_overview_title": "Обзор кондоминиума — Parahub",
+    "meta_overview_desc": "Панель управления кондоминиума — бюджет, платежи, ближайшие собрания.",
+    "overview_current_month_title": "Платежи за {month}",
+    "overview_view_quotas": "К квотам",
+    "overview_budget_title": "Бюджет на {year}",
+    "overview_view_treasury": "Казна",
+    "overview_next_assembly_title": "Ближайшее собрание",
+    "overview_view_all_assemblies": "Все собрания",
+    "overview_ends": "Окончание {time}",
+    "overview_no_assembly": "Собраний не запланировано",
+    "overview_create_assembly": "Создать собрание",
+    "overview_set_budget": "Задать бюджет",
+    "overview_empty_title": "Кондоминиум готов",
+    "overview_empty_subtitle": "Задайте ежемесячный бюджет для отслеживания квот или создайте первое собрание.",
+    "stat_fractions": "Доли",
+    "stat_monthly_budget": "Месяц",
+    "stat_collection_rate": "Собрано",
+    "stat_outstanding": "Долг"
   }
 }

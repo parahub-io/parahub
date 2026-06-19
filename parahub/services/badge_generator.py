@@ -591,9 +591,9 @@ class BadgeGenerator:
         lines = []
 
         # Two dates on one line: registration year | issue date
-        # Format: "2025 | 10.12.2025" (member since | document issued)
+        # Format: "2025 | 2026-05-28" (member since | document issued, ISO 8601)
         created_at = getattr(profile, 'created_at', None)
-        issue_date = date.today().strftime('%d.%m.%Y')
+        issue_date = date.today().isoformat()
 
         if created_at:
             member_year = created_at.year

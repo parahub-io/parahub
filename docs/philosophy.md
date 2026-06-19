@@ -4,6 +4,20 @@
 
 Global P2P infrastructure for direct interaction without intermediaries. Fighting the "inefficiency tax" that platforms extract: Amazon 15-30%, Upwork 20%, banks 2-5%. Continuing the ideas of Gandhi and Tolstoy through modern technology -- local self-governance, direct democracy, mutual aid.
 
+## Positioning
+
+Parahub is built on **mutualist principles**: voluntary association, direct exchange, no coercive intermediaries. We oppose rent extraction — not production, profit, or trade. Participants keep 100% of the value they create. Zero platform fees means the platform takes no rent; it does not mean participants work for free.
+
+## Are We a Platform?
+
+Fair question. Formally, yes — Parahub is infrastructure someone has to maintain. The difference is threefold.
+
+**We don't stand between people.** When you negotiate, pay, or vote through Parahub, we are technically not part of that transaction. Money moves directly. Messages move directly. We simply provide the place where it happens.
+
+**We don't take a cut.** Zero fees is not a marketing gimmick but an architectural decision. The Parahub Association is a Portuguese non-profit — it lives on member dues and donations, not on a share of other people's deals. The more people use the system, the cheaper it is to maintain per user, and the easier it becomes to operate without commissions at all.
+
+**We can't lock you out.** The code is open, the license is free. If the association disappears tomorrow, anyone can run their own copy. If we dislike something you do, we cannot disconnect you from the infrastructure you've already deployed yourself. Our "power" over you is the power of a library over a reader, not a bank over a depositor.
+
 ## Inviolable Constraints
 
 These principles define the system's integrity. They are not negotiable.
@@ -53,6 +67,8 @@ Multi-party barter with 2-5 participants (configurable), powered by Neo4j graph 
 - **Direct Democracy**: 1 user = 1 vote, with liquid democracy delegation. All votes are PGP-signed.
 - **Arbitration**: Peer-based dispute resolution. Arbitrators selected by Web of Trust standing and specialization. Decisions affect reputation. Appeal mechanism available.
 - **Community Moderation**: Content flagged and voted on by the community. Admin intervention only for clearly illegal content.
+
+**Visible Price Changes Decisions.** As long as a cost stays abstract, support is "free" — surveys show generous willingness to back almost anything. The moment the price becomes personal and visible in real time (every euro from the shared budget — who spent it, on what, with whose vote) people start calculating and choosing what actually matters. Transparency here is not a political virtue but an engineering prerequisite for rational collective decisions, and a practical safeguard against anyone quietly disposing of other people's money.
 
 ## Technical Principles
 

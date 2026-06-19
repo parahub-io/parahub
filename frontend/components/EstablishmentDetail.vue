@@ -28,7 +28,7 @@
 
       <!-- Header card -->
       <div class="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
-        <!-- Name + verified -->
+        <!-- Name + verified + rating -->
         <div class="flex items-start gap-3">
           <div class="flex-1 min-w-0">
             <h1 class="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2 flex-wrap">
@@ -54,19 +54,6 @@
             </div>
           </div>
 
-          <!-- Action buttons (owner/admin) -->
-          <div class="flex items-center gap-1 shrink-0">
-            <UiButton variant="ghost" size="sm" :icon="Newspaper" :to="localePath(`/org/${establishment.slug || props.id}/blog`)" class="shrink-0">
-              {{ $t('cms.blog') }}
-            </UiButton>
-            <UiButton v-if="canManageTreasurer" variant="ghost" size="sm" :icon="Settings" :to="localePath(`/org/${establishment.slug || props.id}/manage`)" class="shrink-0">
-              {{ $t('cms.manage.title') }}
-            </UiButton>
-            <UiButton v-if="isOwner" variant="ghost" size="sm" :icon="Pencil" :to="localePath(`/org/${establishment.slug || props.id}/edit`)" class="shrink-0">
-              {{ $t('common.edit') }}
-            </UiButton>
-          </div>
-
           <!-- Rating -->
           <div v-if="establishment.rating_count > 0" class="flex-shrink-0 text-right">
             <div class="flex items-center gap-1">
@@ -75,6 +62,19 @@
             </div>
             <span class="text-xs text-neutral-400">{{ establishment.rating_count }} {{ establishment.rating_count === 1 ? 'review' : 'reviews' }}</span>
           </div>
+        </div>
+
+        <!-- Quick links row -->
+        <div class="mt-3 flex flex-wrap gap-1">
+          <UiButton variant="ghost" size="sm" :icon="Newspaper" :to="localePath(`/org/${establishment.slug || props.id}/blog`)">
+            {{ $t('cms.blog') }}
+          </UiButton>
+          <UiButton v-if="canManageTreasurer" variant="ghost" size="sm" :icon="Settings" :to="localePath(`/org/${establishment.slug || props.id}/manage`)">
+            {{ $t('cms.manage.title') }}
+          </UiButton>
+          <UiButton v-if="isOwner" variant="ghost" size="sm" :icon="Pencil" :to="localePath(`/org/${establishment.slug || props.id}/edit`)">
+            {{ $t('common.edit') }}
+          </UiButton>
         </div>
 
         <!-- Description -->
@@ -230,10 +230,7 @@
                   {{ bm.profile_display_name || bm.profile_hna.split('@')[0] }}
                 </NuxtLink>
                 <span class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 rounded text-xs shrink-0">
-                  {{ $t(`directory.board.role_${bm.role.toLowerCase()}`) }}
-                </span>
-                <span v-if="bm.is_treasurer" class="px-1.5 py-0.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded text-xs shrink-0">
-                  {{ $t('directory.act_as.treasurer') }}
+                  {{ bm.position_title || $t(`directory.board.role_${bm.role.toLowerCase()}`) }}
                 </span>
                 <span v-if="bm.is_auditor" class="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded text-xs shrink-0">
                   {{ $t('directory.act_as.auditor') }}
@@ -950,7 +947,7 @@ const canManageTreasurer = computed(() => {
 })
 
 const canActivateHub = computed(() => {
-  // WoT 2+ (is_verified_wot) or staff
+  // WoT 3+ (is_verified_wot) or staff
   const profile = authStore.profile
   if (!profile) return false
   return profile.is_verified_wot || authStore.user?.is_staff
@@ -958,7 +955,10 @@ const canActivateHub = computed(() => {
 
 const boardMembers = computed(() => {
   const BOARD_ROLES = new Set(['OWNER', 'ADMIN'])
-  return members.value.filter(m => BOARD_ROLES.has(m.role) || m.is_treasurer || m.is_auditor)
+  const ROLE_ORDER: Record<string, number> = { OWNER: 0, ADMIN: 1 }
+  return members.value
+    .filter(m => BOARD_ROLES.has(m.role) || m.is_treasurer || m.is_auditor)
+    .sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9) || new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime())
 })
 
 const getTypeLabel = (type: string) => {

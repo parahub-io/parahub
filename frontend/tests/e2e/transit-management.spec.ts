@@ -60,6 +60,10 @@ test.describe('Transit Management — CRUD flow', () => {
   })
 
   test.afterAll(() => {
+    // Delete any remaining e2e data sources (cascades to Agency, Shape, Stop, Route, Vehicle, CalendarDate)
+    djangoShell(
+      "from geo.models import TransitDataSource; TransitDataSource.objects.filter(slug__startswith='e2e-transit-').delete()",
+    )
     // Revert alice's staff status
     djangoShell(
       "from identity.models import Account; a = Account.objects.get(username='alice'); a.is_staff = False; a.save(update_fields=['is_staff'])",

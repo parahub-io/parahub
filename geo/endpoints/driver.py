@@ -3,7 +3,7 @@ Driver Mode API: self-service GPS broadcasting for transit drivers.
 
 Drivers select a GTFS route and broadcast GPS from browser/tablet.
 Positions flow through the same Redis transit pipeline as GTFS-RT.
-WoT 2+ required (or staff).
+WoT 3+ required (or staff).
 """
 
 import logging
@@ -73,11 +73,11 @@ class ShiftOut(Schema):
 # --- Helpers ---
 
 def _check_wot(profile):
-    """WoT 2+ or staff required."""
+    """WoT 3+ or staff required."""
     if profile.account.is_staff:
         return
     if not profile.is_verified_wot:
-        raise HttpError(403, "WoT 2+ verification required for Driver Mode")
+        raise HttpError(403, "WoT 3+ verification required for Driver Mode")
 
 
 def _is_heartbeat_alive(shift: DriverShift) -> bool:

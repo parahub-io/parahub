@@ -34,7 +34,7 @@ Both session cookie AND JWT header are required for authenticated endpoints.
 | `/api/v1/wot/` | Web of Trust verifications |
 | `/api/v1/barter/` | Barter exchange management |
 | `/api/v1/governance/polls/` | Polls, voting, delegation |
-| `/api/v1/geo/` | Buildings, events, transit, geocoding, OpenSky |
+| `/api/v1/geo/` | WorldObjects, establishments, events, transit, geocoding, OpenSky |
 | `/api/v1/energy/` | Energy cells and memberships |
 | `/api/v1/treasury/{slug}/` | Participatory budgets |
 | `/api/v1/ads/` | Ad campaigns |
@@ -47,7 +47,10 @@ Both session cookie AND JWT header are required for authenticated endpoints.
 | `/api/v1/geo/driver/` | Driver mode GPS broadcasting |
 | `/api/v1/tickets/` | Ticket types, purchase, validate |
 | `/api/v1/income/` | Donation config, transparency |
-| `/api/v1/agents/` | AI agent management |
+| `/api/v1/cms/` | Blog posts, mini-sites, pages, files |
+| `/api/v1/parasos/` | Safety groups, SOS alerts, responses |
+| `/api/v1/property/` | User-owned properties ("My Home") |
+| `/api/v1/federation/` | Node registry, peer discovery, migrations |
 
 ### Response Format
 
@@ -64,8 +67,6 @@ Both session cookie AND JWT header are required for authenticated endpoints.
 
 ### WebSocket
 
-Nine WebSocket endpoints:
-
 ```
 ws://parahub.io/ws/v1/realtime/              # Authenticated: subscriptions, notifications, rooms
 ws://parahub.io/ws/v1/public/                # Anonymous: system broadcasts
@@ -74,8 +75,8 @@ ws://parahub.io/ws/v1/transit/               # Anonymous: live vehicle positions
 ws://parahub.io/ws/v1/driver/                # Authenticated: driver GPS broadcasting
 ws://parahub.io/ws/v1/trackers/              # Authenticated: IoT tracker positions
 ws://parahub.io/ws/v1/federation/            # Authenticated: inter-node federation protocol
-ws://parahub.io/ws/v1/agents/voice/<name>/   # Staff: AI agent voice chat
-ws://parahub.io/ws/v1/support/voice/         # Staff: support voice interface
+ws://parahub.io/ws/v1/parasos/{group_id}/    # Member: SOS alerts and responder updates
+ws://parahub.io/ws/v1/support/voice/         # Anonymous: support voice pipeline
 ```
 
 Realtime consumer messages:
@@ -114,19 +115,22 @@ Realtime consumer messages:
     services/             # Business logic services
     crypto/               # PGP utilities
   identity/               # Accounts, profiles, partners, contracts
-  market/                 # Items, images
+  core/                   # Universal attachments (ObjectPhoto, ObjectVideo, ObjectFile)
+  market/                 # Marketplace items
   barter/                 # Neo4j barter graph
   debts/                  # P2P debts
-  geo/                    # Maps, directory, transit, events, OpenSky
+  geo/                    # Maps, directory (WorldObject/Establishment), transit, events, OpenSky, condominium
   governance/             # Polls, liquid democracy
   logistics/              # P-Hub shipments, carpool
   ads/                    # P2P advertising
   energy/                 # Solar energy ACC
   treasury/               # Participatory budgets
   taxonomy/               # Categories
-  iot/                    # IoT devices, trackers, dispatch
+  iot/                    # IoT devices, trackers, dispatch, property, Home Assistant
   tickets/                # Unified ticketing
-  agents/                 # AI agents
+  cms/                    # Blog posts and mini-sites
+  parasos/                # Emergency mutual aid (SafetyGroup, SOSAlert)
+  psy/                    # Psycho-Hash (voluntary personality profiling)
   notifications/          # Web Push
   frontend/               # Nuxt application
     pages/                # Vue router pages

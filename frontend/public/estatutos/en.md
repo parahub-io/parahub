@@ -1,3 +1,16 @@
+## Legal registration
+
+- **Name:** PARAHUB - ASSOCIAÇÃO
+- **NIPC:** 519 190 904
+- **Main CAE code:** 62100 (Computer programming activities)
+- **Registered office:** Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal
+- **Date of incorporation:** 2026-04-08
+- **Notarial deed:** Cartório Notarial de Andreia Meireles Craveiro — Rua do Poço Novo 244, Cascais (Book 134E, Sheets 43-44)
+- **Permanent notarial certificate:** [`CN-AE1AE24D-DC0C-43FC-BEDF-88D3F845E418`](https://www.notarios.pt) (valid until 2027-04-08)
+- **Publication:** [publicacoes.mj.pt](https://publicacoes.mj.pt) (2026-04-08)
+
+---
+
 ## CHAPTER I — **General Provisions**
 
 #### Article 1 **Name, nature, scope, duration and legal framework**

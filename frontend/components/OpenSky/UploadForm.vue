@@ -1,26 +1,27 @@
 <template>
   <div class="p-6">
-    <h2 class="text-xl font-bold mb-4">{{ missionId ? $t('opensky.add_photos_title', 'Add Photos to Mission') : $t('opensky.upload_title', 'Upload Drone Photos') }}</h2>
+    <!-- Title is rendered by the wrapping <Modal> (opensky/index.vue) — no local heading here to avoid a duplicate. -->
 
     <!-- Drag & Drop Zone -->
     <div
       class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors"
       :class="isDragging ? 'border-primary bg-primary/5' : 'border-neutral-300 dark:border-neutral-600 hover:border-primary/50'"
+      @dragenter.prevent="isDragging = true"
       @dragover.prevent="isDragging = true"
-      @dragleave="isDragging = false"
-      @drop.prevent="handleDrop"
+      @dragleave.prevent="isDragging = false"
+      @drop.prevent.stop="handleDrop"
       @click="triggerFileInput"
     >
       <Upload class="w-12 h-12 mx-auto mb-4 text-neutral-400" />
-      <p class="mb-2">{{ $t('opensky.drag_drop_multi', 'Drag & drop JPG photos or ZIP archives') }}</p>
-      <p class="text-sm text-neutral-500">{{ $t('opensky.select_multiple', 'Direct JPG upload is faster (no ZIP compression needed)') }}</p>
+      <p class="mb-2">{{ $t('opensky.drag_drop_jpg', 'Drag & drop JPG photos') }}</p>
+      <p class="text-sm text-neutral-500">{{ $t('opensky.select_multiple', 'Select all photos from the mission folder') }}</p>
       <button type="button" class="mt-2 px-4 py-2 bg-neutral-200 dark:bg-neutral-700 rounded hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors">
         {{ $t('opensky.select_files', 'Select Files') }}
       </button>
       <input
         ref="fileInput"
         type="file"
-        accept=".zip,.jpg,.jpeg"
+        accept=".jpg,.jpeg"
         multiple
         class="hidden"
         @change="handleFileSelect"
@@ -55,28 +56,6 @@
       </div>
     </div>
 
-    <!-- Mission Name (optional, hidden when appending) -->
-    <div v-if="!missionId" class="mt-4">
-      <label class="block text-sm font-medium mb-1">{{ $t('opensky.mission_name', 'Mission name (optional)') }}</label>
-      <input
-        v-model="missionName"
-        type="text"
-        :placeholder="$t('opensky.mission_name_placeholder', 'e.g., Downtown Survey 2024')"
-        class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-      />
-    </div>
-
-    <!-- Satellite Alignment Option (staff only) -->
-    <label v-if="authStore.user?.is_staff" class="flex items-center gap-2 mt-3 cursor-pointer select-none">
-      <input
-        type="checkbox"
-        v-model="satelliteAlign"
-        class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary"
-      />
-      <span class="text-sm">{{ $t('opensky.satellite_align', 'Align to satellite imagery') }}</span>
-      <span class="text-xs text-neutral-500">{{ $t('opensky.satellite_align_hint', '(corrects GPS offset)') }}</span>
-    </label>
-
     <!-- Upload Progress -->
     <div v-if="uploading" class="mt-4">
       <div class="h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
@@ -101,10 +80,19 @@
     <!-- Error Message -->
     <UiAlert v-if="errorMessage" variant="error" class="mt-4">{{ errorMessage }}</UiAlert>
 
+    <!-- License consent (new missions only — appends inherit the original consent) -->
+    <label v-if="!missionId" class="mt-4 flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-400 cursor-pointer">
+      <input type="checkbox" v-model="licenseConsent" class="mt-0.5 shrink-0 accent-primary" />
+      <span>
+        {{ $t('opensky.license_consent_label', 'I am the author of these photos (or hold the rights) and I publish them under the CC BY-SA 4.0 license.') }}
+        <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener" class="text-link">{{ $t('opensky.license_learn_more', 'License details') }}</a>
+      </span>
+    </label>
+
     <!-- Submit -->
     <button
       @click="upload"
-      :disabled="selectedFiles.length === 0 || uploading"
+      :disabled="selectedFiles.length === 0 || uploading || (!missionId && !licenseConsent)"
       class="mt-4 w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <span v-if="uploading" class="flex items-center justify-center gap-2">
@@ -118,7 +106,7 @@
     <p class="mt-4 text-sm text-neutral-500">
       {{ missionId
         ? $t('opensky.upload_info_append', 'Upload oblique photos from the same tile. Photos must be within the same area as the original mission.')
-        : $t('opensky.upload_info_hex', 'Upload photos from one tile at a time. Use the tile grid on the map to plan flights. GPS EXIF required. Max 2GB.')
+        : $t('opensky.upload_info_hex', 'Upload all photos (nadir + oblique) together for best results. GPS EXIF required. One tile per mission.')
       }}
     </p>
   </div>
@@ -136,23 +124,28 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const { uploadMission, uploadMultipleFiles, uploading, uploadProgress, multiUploadState, formatSize } = useOpenSky()
-const authStore = useAuthStore()
+const { uploadMultipleFiles, uploading, uploadProgress, multiUploadState, formatSize } = useOpenSky()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFiles = ref<File[]>([])
-const missionName = ref('')
-const satelliteAlign = ref(false)
 const isDragging = ref(false)
 const errorMessage = ref('')
+
+// Author/license affirmation. It's the same declaration every upload (the pilot is
+// always the author), so we remember the last choice and pre-tick it next time
+// instead of forcing a fresh click. Client-only to avoid SSR hydration mismatch.
+const LICENSE_CONSENT_KEY = 'opensky:licenseConsent'
+const licenseConsent = ref(false)
+watch(licenseConsent, (v) => {
+  if (import.meta.client) localStorage.setItem(LICENSE_CONSENT_KEY, v ? 'true' : 'false')
+})
 
 const totalSize = computed(() => selectedFiles.value.reduce((sum, f) => sum + f.size, 0))
 
 const { t } = useI18n()
 
 const photoCountWarning = computed(() => {
-  const jpgCount = selectedFiles.value.filter(f => f.name.toLowerCase().match(/\.jpe?g$/)).length
-  if (jpgCount > 600) {
+  if (selectedFiles.value.length > 600) {
     return t('opensky.too_many_photos_warning', 'Over 600 photos — are you uploading multiple tiles? Upload one tile per mission for best results.')
   }
   return ''
@@ -169,43 +162,79 @@ const handleFileSelect = (event: Event) => {
   }
 }
 
+const extractFiles = (dt: DataTransfer | null): File[] => {
+  if (!dt) return []
+  const out: File[] = []
+  // Prefer items API — slightly more robust than .files (handles cases where
+  // .files is empty but items has 'file' kind entries, e.g. some Linux WMs)
+  if (dt.items && dt.items.length > 0) {
+    for (let i = 0; i < dt.items.length; i++) {
+      const item = dt.items[i]
+      if (item.kind === 'file') {
+        const f = item.getAsFile()
+        if (f) out.push(f)
+      }
+    }
+  }
+  if (out.length === 0 && dt.files && dt.files.length > 0) {
+    for (let i = 0; i < dt.files.length; i++) out.push(dt.files[i])
+  }
+  return out
+}
+
 const handleDrop = (event: DragEvent) => {
   isDragging.value = false
-  const files = event.dataTransfer?.files
-  if (files && files.length > 0) {
-    validateAndAddFiles(Array.from(files))
+  const files = extractFiles(event.dataTransfer)
+  if (files.length > 0) {
+    validateAndAddFiles(files)
   }
 }
 
+// Window-level drop catcher: while the upload form is mounted (modal open),
+// prevent the browser from navigating to file:// when the user drops a file
+// outside the dashed dropzone. Forwards the drop into the regular handler.
+const handleWindowDragOver = (event: DragEvent) => {
+  // Must preventDefault on dragover for the drop event to fire on window
+  if (event.dataTransfer?.types?.includes('Files')) {
+    event.preventDefault()
+  }
+}
+const handleWindowDrop = (event: DragEvent) => {
+  if (!event.dataTransfer?.types?.includes('Files')) return
+  // If the dropzone already handled it, .prevent set defaultPrevented=true
+  if (event.defaultPrevented) return
+  event.preventDefault()
+  const files = extractFiles(event.dataTransfer)
+  if (files.length > 0) {
+    validateAndAddFiles(files)
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('dragover', handleWindowDragOver)
+  window.addEventListener('drop', handleWindowDrop)
+  if (localStorage.getItem(LICENSE_CONSENT_KEY) === 'true') licenseConsent.value = true
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('dragover', handleWindowDragOver)
+  window.removeEventListener('drop', handleWindowDrop)
+})
+
 const validateAndAddFiles = (files: File[]) => {
   errorMessage.value = ''
-  const maxSize = 2 * 1024 * 1024 * 1024 // 2GB per file
-
-  // Check if mixing JPG and ZIP
-  const existingTypes = selectedFiles.value.length > 0
-    ? (selectedFiles.value[0].name.toLowerCase().endsWith('.zip') ? 'zip' : 'jpg')
-    : null
 
   for (const file of files) {
-    const isZip = file.name.toLowerCase().endsWith('.zip')
-    const isJpg = file.name.toLowerCase().match(/\.jpe?g$/)
-
-    // Check file type
-    if (!isZip && !isJpg) {
-      errorMessage.value = `${file.name}: Only JPG or ZIP files are allowed`
+    if (!file.name.toLowerCase().match(/\.jpe?g$/)) {
+      errorMessage.value = `${file.name}: ${t('opensky.only_jpg', 'Only JPG files are allowed')}`
       continue
     }
 
-    // Don't mix JPG and ZIP
-    const newType = isZip ? 'zip' : 'jpg'
-    if (existingTypes && existingTypes !== newType) {
-      errorMessage.value = 'Cannot mix JPG and ZIP files. Choose one type.'
-      continue
-    }
-
-    // Check file size (only for ZIP, JPG will be batched)
-    if (isZip && file.size > maxSize) {
-      errorMessage.value = `${file.name}: ZIP too large (max 2GB)`
+    // Reject 0-byte files. Common cause: dragging from a network mount (NFS/SMB),
+    // phone via MTP, or cloud-storage placeholder — the browser gets a "ghost"
+    // File reference without real metadata. The native file picker reads the
+    // file properly, so the workaround is to use the "Select Files" button.
+    if (file.size === 0) {
+      errorMessage.value = `${file.name}: ${t('opensky.empty_file_error', 'File is empty (0 bytes). If dragging from a network mount, phone, or cloud storage, copy to a local folder first — or use the "Select Files" button.')}`
       continue
     }
 
@@ -238,18 +267,10 @@ const upload = async () => {
 
   try {
     let mission
-    const isSingleZip = selectedFiles.value.length === 1 &&
-                        selectedFiles.value[0].name.toLowerCase().endsWith('.zip')
-
     if (props.missionId) {
-      // Appending to existing mission (e.g. adding oblique photos)
-      mission = await uploadMultipleFiles(selectedFiles.value, undefined, satelliteAlign.value, props.missionId)
-    } else if (isSingleZip) {
-      // Single ZIP file: use original upload (immediate processing)
-      mission = await uploadMission(selectedFiles.value[0], missionName.value || undefined, satelliteAlign.value)
+      mission = await uploadMultipleFiles(selectedFiles.value, undefined, false, props.missionId)
     } else {
-      // Multiple files or JPG: use batched multi-file upload
-      mission = await uploadMultipleFiles(selectedFiles.value, missionName.value || undefined, satelliteAlign.value)
+      mission = await uploadMultipleFiles(selectedFiles.value, undefined, false, undefined, licenseConsent.value)
     }
 
     emit('uploaded', mission)

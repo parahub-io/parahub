@@ -130,6 +130,94 @@ def list_videos(request, object_id: str):
     return [_video_to_response(v) for v in ObjectVideo.objects.filter(object_id=object_id)]
 
 
+class UploadResponse(BaseModel):
+    peertube_uuid: str
+    title: str
+
+
+@router.post("/upload-config/", auth=ProfileAuth(), response={200: UploadConfigResponse, 400: dict})
+@ratelimit(group='core:video_upload_config', key=user_or_ip, rate='10/m', method='POST')
+def get_upload_config(request):
+    """Get PeerTube upload endpoint and channel info for the current user."""
+    from core.services.peertube import get_user_upload_config
+
+    config = get_user_upload_config(request.auth)
+    if not config:
+        return 400, {"error": "PeerTube user not found. Login to video.parahub.io first."}
+
+    return 200, UploadConfigResponse(**config)
+
+
+@router.post("/upload/", auth=ProfileAuth(), response={200: UploadResponse, 400: dict, 500: dict})
+@ratelimit(group='core:video_upload', key=user_or_ip, rate='5/m', method='POST')
+def upload_video(request):
+    """
+    Proxy upload: frontend → Django → PeerTube (localhost).
+    Accepts multipart form with 'videofile' + optional 'name'.
+    Uses admin token + user's PeerTube channel.
+    Streams via MultipartEncoder to avoid loading entire file into memory.
+    """
+    import requests as req
+    from requests_toolbelt import MultipartEncoder
+    from core.services.peertube import get_user_upload_config, get_admin_token, PEERTUBE_INTERNAL_URL, PEERTUBE_HOST
+
+    profile = request.auth
+
+    videofile = request.FILES.get('videofile')
+    if not videofile:
+        return 400, {"error": "No videofile provided"}
+
+    # 4GB limit
+    if videofile.size > 4 * 1024 * 1024 * 1024:
+        return 400, {"error": "File too large (max 4GB)"}
+
+    # Get user's PeerTube channel
+    config = get_user_upload_config(profile)
+    if not config or not config.get('channel_id'):
+        return 400, {"error": "PeerTube user not found. Login to video.parahub.io first."}
+
+    token = get_admin_token()
+    if not token:
+        return 500, {"error": "PeerTube auth failed"}
+
+    name = request.POST.get('name', videofile.name or 'Untitled')
+
+    try:
+        videofile.seek(0)
+        encoder = MultipartEncoder(fields={
+            'channelId': str(config['channel_id']),
+            'name': name[:120],
+            'privacy': '1',
+            'videofile': (videofile.name or 'video.mp4', videofile.file, videofile.content_type or 'video/mp4'),
+        })
+        resp = req.post(
+            f'{PEERTUBE_INTERNAL_URL}/api/v1/videos/upload',
+            headers={
+                'Host': PEERTUBE_HOST,
+                'Authorization': f'Bearer {token}',
+                'Content-Type': encoder.content_type,
+            },
+            data=encoder,
+            timeout=600,
+        )
+        if resp.status_code not in (200, 201):
+            logger.error(f"PeerTube upload failed: {resp.status_code} {resp.text[:200]}")
+            return 500, {"error": "PeerTube upload failed"}
+
+        data = resp.json()
+        pt_uuid = data.get('video', {}).get('uuid', '')
+        pt_name = data.get('video', {}).get('name', name)
+
+        logger.info(f"Video uploaded to PeerTube: {pt_uuid} by {profile.local_name} channel={config['channel_id']}")
+        return 200, UploadResponse(peertube_uuid=pt_uuid, title=pt_name)
+
+    except Exception as e:
+        logger.error(f"PeerTube upload error: {e}")
+        return 500, {"error": "Upload failed"}
+
+
+# IMPORTANT: dynamic /{video_id}/ routes must come AFTER static /upload/ + /upload-config/ —
+# Django Ninja path-matches in registration order, and {video_id} otherwise swallows "upload".
 @router.get("/{video_id}/", auth=None, response={200: VideoResponse, 404: dict})
 @ratelimit(group='core:get_video', key='ip', rate='60/m')
 def get_video_detail(request, video_id: str):
@@ -165,91 +253,6 @@ def delete_video(request, video_id: str):
     video.delete()
     logger.info(f"Video deleted: {video_id} (PeerTube {video.peertube_uuid})")
     return 200, {"success": True}
-
-
-@router.post("/upload-config/", auth=ProfileAuth(), response={200: UploadConfigResponse, 400: dict})
-@ratelimit(group='core:video_upload_config', key=user_or_ip, rate='10/m', method='POST')
-def get_upload_config(request):
-    """Get PeerTube upload endpoint and channel info for the current user."""
-    from core.services.peertube import get_user_upload_config
-
-    config = get_user_upload_config(request.auth)
-    if not config:
-        return 400, {"error": "PeerTube user not found. Login to video.parahub.io first."}
-
-    return 200, UploadConfigResponse(**config)
-
-
-class UploadResponse(BaseModel):
-    peertube_uuid: str
-    title: str
-
-
-@router.post("/upload/", auth=ProfileAuth(), response={200: UploadResponse, 400: dict, 500: dict})
-@ratelimit(group='core:video_upload', key=user_or_ip, rate='5/m', method='POST')
-def upload_video(request):
-    """
-    Proxy upload: frontend → Django → PeerTube (localhost).
-    Accepts multipart form with 'videofile' + optional 'name'.
-    Uses admin token + user's PeerTube channel.
-    Streams via MultipartEncoder to avoid loading entire file into memory.
-    """
-    import requests as req
-    from requests_toolbelt import MultipartEncoder
-    from core.services.peertube import get_user_upload_config, get_admin_token, PEERTUBE_INTERNAL_URL
-
-    profile = request.auth
-
-    videofile = request.FILES.get('videofile')
-    if not videofile:
-        return 400, {"error": "No videofile provided"}
-
-    # 4GB limit
-    if videofile.size > 4 * 1024 * 1024 * 1024:
-        return 400, {"error": "File too large (max 4GB)"}
-
-    # Get user's PeerTube channel
-    config = get_user_upload_config(profile)
-    if not config or not config.get('channel_id'):
-        return 400, {"error": "PeerTube user not found. Login to video.parahub.io first."}
-
-    token = get_admin_token()
-    if not token:
-        return 500, {"error": "PeerTube auth failed"}
-
-    name = request.POST.get('name', videofile.name or 'Untitled')
-
-    try:
-        videofile.seek(0)
-        encoder = MultipartEncoder(fields={
-            'channelId': str(config['channel_id']),
-            'name': name[:120],
-            'privacy': '1',
-            'videofile': (videofile.name or 'video.mp4', videofile.file, videofile.content_type or 'video/mp4'),
-        })
-        resp = req.post(
-            f'{PEERTUBE_INTERNAL_URL}/api/v1/videos/upload',
-            headers={
-                'Authorization': f'Bearer {token}',
-                'Content-Type': encoder.content_type,
-            },
-            data=encoder,
-            timeout=600,
-        )
-        if resp.status_code not in (200, 201):
-            logger.error(f"PeerTube upload failed: {resp.status_code} {resp.text[:200]}")
-            return 500, {"error": "PeerTube upload failed"}
-
-        data = resp.json()
-        pt_uuid = data.get('video', {}).get('uuid', '')
-        pt_name = data.get('video', {}).get('name', name)
-
-        logger.info(f"Video uploaded to PeerTube: {pt_uuid} by {profile.local_name} channel={config['channel_id']}")
-        return 200, UploadResponse(peertube_uuid=pt_uuid, title=pt_name)
-
-    except Exception as e:
-        logger.error(f"PeerTube upload error: {e}")
-        return 500, {"error": "Upload failed"}
 
 
 @router.post("/sync/{video_id}/", auth=ProfileAuth(), response={200: VideoResponse, 404: dict})

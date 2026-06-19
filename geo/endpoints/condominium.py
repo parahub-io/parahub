@@ -114,6 +114,31 @@ class QuotaPageResponse(BaseModel):
     delinquent_count: int
 
 
+class FinancialSummaryCategory(BaseModel):
+    category_id: Optional[str] = None
+    slug: str
+    name: str
+    percent: Decimal  # 0..100, share of annual budget
+    annual_amount: Decimal
+
+
+class FinancialSummaryResponse(BaseModel):
+    year: int
+    monthly_budget: Decimal
+    annual_budget: Decimal
+    categories: List[FinancialSummaryCategory]
+    current_month: str  # "YYYY-MM"
+    months_elapsed: int
+    expected_ytd: Decimal
+    collected_ytd: Decimal
+    outstanding_balance: Decimal
+    collection_rate: Decimal  # 0..1, 0 if expected=0
+    current_month_expected: Decimal
+    current_month_collected: Decimal
+    fractions_total: int
+    fractions_paid_current: int
+
+
 class BudgetUpdateInput(BaseModel):
     monthly_budget: Decimal = Field(..., ge=0)
 
@@ -195,7 +220,7 @@ def _format_payment(p) -> QuotaPaymentResponse:
 
 
 def _wot_check(request):
-    """Require WoT level 2+ (or admin/foundation member)."""
+    """Require WoT level 3+ (or admin/foundation member)."""
     from identity.models import Verification
     profile = request.auth
     if profile.account.is_superuser:
@@ -203,8 +228,8 @@ def _wot_check(request):
     if profile.is_foundation_member():
         return
     count = Verification.objects.filter(verified_profile=profile, is_active=True).count()
-    if count < 2:
-        raise HttpError(403, "Requires WoT level 2+ to manage condominiums")
+    if count < 3:
+        raise HttpError(403, "Requires WoT level 3+ to manage condominiums")
 
 
 # ===== Map Schema =====
@@ -724,6 +749,136 @@ def list_quotas(request, slug: str, month: str = None):
         fractions_paid=fractions_paid,
         fractions_total=len(items),
         delinquent_count=delinquent_count,
+    )
+
+
+@router.get("/condominiums/{slug}/financial-summary/", auth=ProfileAuth(),
+            response=FinancialSummaryResponse)
+@ratelimit(group='condo:financial', key=user_or_ip, rate='30/m')
+def financial_summary(request, slug: str, year: int = None):
+    """
+    Aggregated financial health: annual budget, category breakdown,
+    collection rate, outstanding balance, and current-period status.
+
+    Access: condominium members + staff only.
+    """
+    from django.db.models import Sum
+    from geo.models import CondominiumFraction, QuotaPayment
+    from treasury.models import BudgetCategory, BudgetEpoch
+
+    est = _resolve_condo(slug)
+    if not _check_condo_member(request, est) and not request.auth.account.is_staff:
+        raise HttpError(403, "Not a member of this condominium")
+
+    now = timezone.now()
+    target_year = year or now.year
+    current_year = now.year
+    current_month_str = now.strftime('%Y-%m')
+
+    monthly_budget = Decimal(str(est.attributes.get('monthly_budget', '0')))
+    annual_budget = (monthly_budget * 12).quantize(Decimal('0.01'))
+
+    # Months elapsed in target year: full year if past, current month if this year, 0 if future
+    if target_year < current_year:
+        months_elapsed = 12
+    elif target_year == current_year:
+        months_elapsed = now.month
+    else:
+        months_elapsed = 0
+
+    # ---- Category breakdown ----
+    # Prefer latest finalized BudgetEpoch of target year (median-voted allocation).
+    # Fall back to equal-weight split across active categories.
+    epoch = (
+        BudgetEpoch.objects
+        .filter(establishment=est,
+                status=BudgetEpoch.Status.FINALIZED,
+                label__startswith=f"{target_year:04d}-")
+        .order_by('-start_date')
+        .first()
+    )
+    categories: List[FinancialSummaryCategory] = []
+    use_epoch = False
+    if epoch and epoch.frozen_allocations:
+        total_percent = sum(Decimal(str(a.get('median_percent', 0))) for a in epoch.frozen_allocations)
+        if total_percent > 0:
+            use_epoch = True
+            for alloc in epoch.frozen_allocations:
+                percent = Decimal(str(alloc.get('median_percent', 0)))
+                amount = (annual_budget * percent / Decimal('100')).quantize(Decimal('0.01'))
+                categories.append(FinancialSummaryCategory(
+                    category_id=alloc.get('category_id'),
+                    slug=alloc.get('slug', ''),
+                    name=alloc.get('name', ''),
+                    percent=percent,
+                    annual_amount=amount,
+                ))
+    if not use_epoch:
+        active_cats = list(BudgetCategory.objects.filter(establishment=est, is_active=True).order_by('order', 'name'))
+        if active_cats:
+            share = Decimal('100') / Decimal(len(active_cats))
+            per_amount = (annual_budget / Decimal(len(active_cats))).quantize(Decimal('0.01'))
+            for cat in active_cats:
+                categories.append(FinancialSummaryCategory(
+                    category_id=cat.id,
+                    slug=cat.slug,
+                    name=cat.name,
+                    percent=share.quantize(Decimal('0.01')),
+                    annual_amount=per_amount,
+                ))
+
+    # ---- Totals ----
+    fractions_total = CondominiumFraction.objects.filter(establishment=est).count()
+
+    expected_ytd = (monthly_budget * months_elapsed).quantize(Decimal('0.01'))
+
+    collected_ytd = QuotaPayment.objects.filter(
+        fraction__establishment=est,
+        month__startswith=f"{target_year:04d}-",
+        paid_at__isnull=False,
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    collected_ytd = Decimal(collected_ytd).quantize(Decimal('0.01'))
+
+    outstanding_balance = (expected_ytd - collected_ytd).quantize(Decimal('0.01'))
+    collection_rate = (
+        (collected_ytd / expected_ytd).quantize(Decimal('0.0001'))
+        if expected_ytd > 0 else Decimal('0')
+    )
+
+    # ---- Current month snapshot (only meaningful for current year) ----
+    if target_year == current_year:
+        current_month_expected = monthly_budget.quantize(Decimal('0.01'))
+        current_month_collected = QuotaPayment.objects.filter(
+            fraction__establishment=est,
+            month=current_month_str,
+            paid_at__isnull=False,
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        current_month_collected = Decimal(current_month_collected).quantize(Decimal('0.01'))
+        fractions_paid_current = QuotaPayment.objects.filter(
+            fraction__establishment=est,
+            month=current_month_str,
+            paid_at__isnull=False,
+        ).values('fraction_id').distinct().count()
+    else:
+        current_month_expected = Decimal('0.00')
+        current_month_collected = Decimal('0.00')
+        fractions_paid_current = 0
+
+    return FinancialSummaryResponse(
+        year=target_year,
+        monthly_budget=monthly_budget.quantize(Decimal('0.01')),
+        annual_budget=annual_budget,
+        categories=categories,
+        current_month=current_month_str,
+        months_elapsed=months_elapsed,
+        expected_ytd=expected_ytd,
+        collected_ytd=collected_ytd,
+        outstanding_balance=outstanding_balance,
+        collection_rate=collection_rate,
+        current_month_expected=current_month_expected,
+        current_month_collected=current_month_collected,
+        fractions_total=fractions_total,
+        fractions_paid_current=fractions_paid_current,
     )
 
 

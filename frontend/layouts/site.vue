@@ -153,15 +153,21 @@ const navItems = computed<NavItem[]>(() => {
 
   // Built-in sections from nav_sections
   const sections = (site.value.nav_sections || []).sort((a: any, b: any) => a.order - b.order)
+  const sectionLabels: Record<string, string> = {
+    blog: t('cms.site.sectionBlog'),
+    gallery: t('cms.site.sectionGallery'),
+    items: t('cms.site.sectionItems'),
+    contact: t('cms.site.sectionContact'),
+  }
+  const sectionRoutes: Record<string, string> = {
+    blog: '/blog/',
+    gallery: '/blog/?tag=galeria',
+    items: '/items/',
+    contact: '/contact/',
+  }
   for (const s of sections) {
-    if (s.type === 'blog') {
-      items.push({ slug: 'blog', label: t('cms.blog'), to: '/blog/' })
-    } else if (s.type === 'gallery') {
-      items.push({ slug: 'gallery', label: t('cms.manage.files') || 'Gallery', to: '/blog/?tag=galeria' })
-    } else if (s.type === 'items') {
-      items.push({ slug: 'items', label: t('market.items') || 'Items', to: '/items/' })
-    } else if (s.type === 'contact') {
-      items.push({ slug: 'contact', label: t('directory.contact') || 'Contact', to: '/contact/' })
+    if (sectionLabels[s.type]) {
+      items.push({ slug: s.type, label: sectionLabels[s.type], to: sectionRoutes[s.type] })
     }
   }
 

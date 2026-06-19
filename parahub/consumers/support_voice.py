@@ -308,24 +308,39 @@ class SupportVoiceConsumer(AsyncWebsocketConsumer):
             return
 
         self._processing = True
+        stage = 'stt'
         try:
+            from parahub.services.support_voice import EmptyTranscription
+
             # STT
             user_text = await self.pipeline.transcribe(audio_bytes, content_type='audio/webm')
             await self._send_status('transcript', text=user_text)
 
             # Think (Gemini)
+            stage = 'think'
             response_text = await self.pipeline.think(user_text)
 
             # TTS
+            stage = 'tts'
             await self._send_status('response', text=response_text)
             response_audio = await self.pipeline.speak(response_text)
 
             await self.send(bytes_data=response_audio)
             await self._send_json({'type': 'done'})
             await self._track_cost(COST_PER_TURN_MILLICENTS)
+        except EmptyTranscription:
+            logger.info("Empty transcription for support voice (quiet/noisy audio)")
+            await self._send_json({'type': 'error', 'message': 'Could not understand audio. Please speak clearly and try again.'})
         except Exception as e:
-            logger.exception("Support voice pipeline error")
-            await self._send_json({'type': 'error', 'message': 'Voice processing failed. Please try again.'})
+            if stage == 'stt':
+                logger.exception("Support STT failed")
+                await self._send_json({'type': 'error', 'message': 'Speech recognition failed. Please try again.'})
+            elif stage == 'tts':
+                logger.exception("Support TTS failed")
+                await self._send_json({'type': 'error', 'message': 'Voice synthesis failed. Please try again.'})
+            else:
+                logger.exception(f"Support voice pipeline error ({stage})")
+                await self._send_json({'type': 'error', 'message': 'Voice processing failed. Please try again.'})
         finally:
             self._processing = False
 

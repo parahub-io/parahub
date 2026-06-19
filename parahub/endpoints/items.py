@@ -21,7 +21,6 @@ import orjson
 from parahub.auth import ProfileAuth, OptionalProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 from parahub.endpoints.ai_vision import _is_valid_image_magic
-from parahub.middleware.pgp import PGPSignatureAuth
 from market.models import Item
 from core.models import ObjectPhoto
 from taxonomy.models import Category, Tag

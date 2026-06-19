@@ -30,6 +30,10 @@ async function fetchPage() {
       page.value = await $fetch<any>(
         `/api/v1/cms/sites/by-establishment/${site.value.establishment_id}/pages/by-slug/${pageSlug.value}/`
       )
+    } else if (site.value.profile_local_name) {
+      page.value = await $fetch<any>(
+        `/api/v1/cms/sites/by-profile/${site.value.profile_local_name}/pages/by-slug/${pageSlug.value}/`
+      )
     }
   } catch {
     error.value = true

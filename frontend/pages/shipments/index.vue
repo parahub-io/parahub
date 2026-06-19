@@ -205,7 +205,7 @@ const loading = ref(true)
 const shipments = ref<Shipment[]>([])
 const availableShipments = ref<Shipment[]>([])
 const hubs = ref<any[]>([])
-const activeTab = ref('all')
+const activeTab = useTabSync(['all', 'sent', 'received', 'carrying', 'available'])
 const offeringId = ref<string | null>(null)
 const offerFee = ref(0)
 

@@ -54,6 +54,7 @@ class StopPoint:
     source_id: str
     lat: float
     lon: float
+    sched_offset: float | None = None  # cumulative scheduled seconds from first stop (GTFS), None if unknown
 
 
 @dataclass
@@ -95,9 +96,16 @@ class RouteCache:
         Args:
             data_source_ids: If set, only load routes belonging to these TransitDataSource IDs.
                              None = load all routes (backward compatible).
+
+        Scheduled segment offsets are only consumed via the Redis rstops
+        snapshot (parahub.services.transit_eta readers), so offline refreshes
+        (no redis_conn — e.g. the driver-mode consumer's snapping cache) skip
+        that query: unfiltered it aggregates the whole geo_stoptime table
+        (~36M rows, ~17 s).
         """
         t0 = time.monotonic()
-        load_fn = lambda: self._load_all(data_source_ids)
+        include_sched = redis_conn is not None
+        load_fn = lambda: self._load_all(data_source_ids, include_sched_offsets=include_sched)
         route_info, headsign_info, shapes, stop_seqs = await sync_to_async(
             load_fn, thread_sensitive=True
         )()
@@ -126,13 +134,147 @@ class RouteCache:
         pipe = redis_conn.pipeline(transaction=False)
         for (route_src, dir_id), stops in stop_seqs.items():
             key = f'transit:rstops:{route_src}:{dir_id}'
-            # Store as JSON array of [source_id, lat, lon] for compactness
-            value = orjson.dumps([[s.source_id, s.lat, s.lon] for s in stops])
+            # Store as JSON array of [source_id, lat, lon, sched_offset_s] for
+            # compactness. 4th element = cumulative scheduled seconds from the
+            # first stop (None when unknown); readers degrade gracefully if it
+            # (or the whole element) is absent on older snapshots.
+            value = orjson.dumps(
+                [[s.source_id, s.lat, s.lon, s.sched_offset] for s in stops]
+            )
             pipe.set(key, value, ex=3600)
         await pipe.execute()
         logger.debug(f"Wrote {len(stop_seqs)} stop sequences to Redis")
 
-    def _load_all(self, data_source_ids=None):
+    def _load_stop_seqs(self, route_ids, include_sched_offsets):
+        """Travel-ordered stop sequence per (route, direction) for the STT engine.
+
+        Source = the **representative trip** (the trip with the most stops) per
+        (route, direction) — the same rule as the route page's
+        ``_build_route_detail._stop_list`` and ``Route.geometry``. A single
+        ``route_id`` can bundle several branch / short-turn / depot patterns
+        whose ``stop_sequence`` each restart at 1; the old build read the
+        ``RouteStop`` union ordered by ``rs.sequence``, which interleaves those
+        patterns into a physically-impossible zigzag (a route's Prague-end and
+        Slaný-end stops alternating). That scrambled order silently corrupted
+        *everything* downstream: STT direction detection and forward tracking
+        (stops not in travel order → direction never confirms), and the
+        cumulative ETA chain written to ``transit:rstops`` — the scattered,
+        non-monotonic live times the route page showed (PID 342 etc.). Falls
+        back to the ``RouteStop`` union only for (route, dir) keys with no trip
+        at all (legacy / undirected routes).
+
+        When ``include_sched_offsets``, the same single pass also accumulates
+        each stop's cumulative scheduled seconds from the first stop
+        (``sched_offset``, for the ETA fallback cascade). Offline refreshes
+        (driver-mode snapping cache, no Redis) skip the offsets but still get
+        the correct order. A stop the rep trip has no time for stays ``None``
+        (graceful). Note: the rep-trip selection needs the per-trip stop COUNT,
+        so a full (route_ids=None) refresh scans geo_stoptime (~17 s); per-source
+        daemon refreshes are filtered and fast.
+        """
+        from django.db import connection
+
+        rep_sql = """
+            WITH trip_lens AS (
+                SELECT t.id AS trip_id, t.route_id, t.direction_id, COUNT(*) AS n
+                FROM geo_trip t
+                JOIN geo_stoptime st ON st.trip_id = t.id
+                {filter}
+                GROUP BY t.id, t.route_id, t.direction_id
+            ),
+            rep_trip AS (
+                SELECT DISTINCT ON (route_id, direction_id) trip_id, route_id, direction_id
+                FROM trip_lens
+                ORDER BY route_id, direction_id, n DESC, trip_id
+            )
+            SELECT r.source_id, rep.direction_id, s.source_id,
+                   ST_Y(s.location::geometry), ST_X(s.location::geometry),
+                   st.departure_time
+            FROM rep_trip rep
+            JOIN geo_route r ON r.id = rep.route_id
+            JOIN geo_stoptime st ON st.trip_id = rep.trip_id
+            JOIN geo_stop s ON s.id = st.stop_id
+            ORDER BY rep.route_id, rep.direction_id, st.stop_sequence
+        """.format(filter="WHERE t.route_id = ANY(%s)" if route_ids is not None else "")
+        rep_params = [route_ids] if route_ids is not None else []
+
+        stop_seqs = {}
+        with connection.cursor() as cursor:
+            cursor.execute(rep_sql, rep_params)
+            cur_group = None      # (route_src, raw direction_id) — detects group boundary
+            skip_group = False    # legacy NULL-direction colliding onto real dir 0
+            prev_secs = None
+            cum = 0
+            for route_src, direction_id, stop_src, lat, lon, dep in cursor.fetchall():
+                dir_id = direction_id if direction_id is not None else 0
+                key = (route_src, dir_id)
+                group = (route_src, direction_id)
+                if group != cur_group:
+                    cur_group = group
+                    prev_secs = None
+                    cum = 0
+                    # Real dir 0 sorts before NULL→0 (NULLS LAST), so it builds
+                    # first and wins; a later NULL group on the same key is dropped.
+                    skip_group = key in stop_seqs
+                    if not skip_group:
+                        stop_seqs[key] = []
+                if skip_group:
+                    continue
+                sp = StopPoint(source_id=stop_src, lat=lat, lon=lon)
+                if include_sched_offsets and dep is not None:
+                    secs = dep.hour * 3600 + dep.minute * 60 + dep.second
+                    if prev_secs is not None:
+                        delta = secs - prev_secs
+                        if delta < 0:  # GTFS times stored mod 24h — midnight wrap
+                            delta += 86400
+                        cum += delta
+                    prev_secs = secs
+                    sp.sched_offset = cum
+                stop_seqs[key].append(sp)
+
+        # Fallback: (route, dir) keys with no representative trip at all
+        # (legacy / undirected routes with RouteStops but no Trip) keep the old
+        # RouteStop-union order. Cheap (~600ms) and only fills missing keys.
+        self._fill_routestop_union(stop_seqs, route_ids)
+        return stop_seqs
+
+    @staticmethod
+    def _fill_routestop_union(stop_seqs, route_ids):
+        """Fill (route, dir) keys absent from ``stop_seqs`` with the RouteStop
+        union ordered by sequence — the legacy path, only for routes with no
+        trip to derive a representative ordering from."""
+        from django.db import connection
+
+        union_sql = """
+            SELECT r.source_id, rs.direction_id, rs.sequence,
+                   s.source_id,
+                   ST_Y(s.location::geometry), ST_X(s.location::geometry)
+            FROM geo_routestop rs
+            JOIN geo_route r ON r.id = rs.route_id
+            JOIN geo_stop s ON s.id = rs.stop_id
+        """
+        params = []
+        if route_ids is not None:
+            union_sql += " WHERE r.id = ANY(%s)"
+            params = [route_ids]
+        union_sql += " ORDER BY rs.route_id, rs.direction_id, rs.sequence"
+
+        raw = {}  # (route_src, dir) → [(sequence, StopPoint)] for missing keys only
+        with connection.cursor() as cursor:
+            cursor.execute(union_sql, params)
+            for route_src, direction_id, sequence, stop_src, lat, lon in cursor.fetchall():
+                dir_id = direction_id if direction_id is not None else 0
+                key = (route_src, dir_id)
+                if key in stop_seqs:  # representative trip already covered it
+                    continue
+                raw.setdefault(key, []).append(
+                    (sequence, StopPoint(source_id=stop_src, lat=lat, lon=lon))
+                )
+        for key, items in raw.items():
+            items.sort(key=lambda x: x[0])
+            stop_seqs[key] = [sp for _, sp in items]
+
+    def _load_all(self, data_source_ids=None, include_sched_offsets=True):
         from geo.models import Route
         from django.db import connection
 
@@ -155,7 +297,8 @@ class RouteCache:
             route_qs = route_qs.filter(id__in=route_ids)
         for r in route_qs:
             place_slug = r.place.slug if r.place else ''
-            route_info[r.source_id] = (r.route_color or '3b82f6', r.short_name, place_slug, r.route_type, r.slug or '')
+            # Raw feed color ('' when the feed defines none) — display fallbacks live at read sites
+            route_info[r.source_id] = (r.route_color or '', r.short_name, place_slug, r.route_type, r.slug or '')
 
         # 2. Headsign info — LATERAL join: one headsign per (route, direction), ~128ms vs 757ms
         headsign_info = {}
@@ -178,38 +321,12 @@ class RouteCache:
             for route_src, direction_id, headsign in cursor.fetchall():
                 headsign_info[(route_src, direction_id)] = headsign
 
-        # 3. Stop sequences for STT engine: (route_source_id, direction_id) → [StopPoint]
-        # Raw SQL: 204K rows in ~600ms vs ~7s with ORM
-        stop_seqs_raw = {}     # (route_source_id, direction_id) → [(sequence, StopPoint)]
-        stop_sql = """
-            SELECT r.source_id, rs.direction_id, rs.sequence,
-                   s.source_id,
-                   ST_Y(s.location::geometry), ST_X(s.location::geometry)
-            FROM geo_routestop rs
-            JOIN geo_route r ON r.id = rs.route_id
-            JOIN geo_stop s ON s.id = rs.stop_id
-        """
-        params = []
-        if route_ids is not None:
-            stop_sql += " WHERE r.id = ANY(%s)"
-            params = [route_ids]
-        stop_sql += " ORDER BY rs.route_id, rs.direction_id, rs.sequence"
-
-        with connection.cursor() as cursor:
-            cursor.execute(stop_sql, params)
-            for route_src, direction_id, sequence, stop_src, lat, lon in cursor.fetchall():
-                # direction_id=NULL → treat as direction 0 (circular/legacy routes)
-                dir_id = direction_id if direction_id is not None else 0
-                key = (route_src, dir_id)
-                stop_seqs_raw.setdefault(key, []).append(
-                    (sequence, StopPoint(source_id=stop_src, lat=lat, lon=lon))
-                )
-
-        # Sort by sequence and extract StopPoints
-        stop_seqs = {}
-        for key, items in stop_seqs_raw.items():
-            items.sort(key=lambda x: x[0])
-            stop_seqs[key] = [sp for _, sp in items]
+        # 3. Stop sequences for the STT engine: (route_source_id, direction_id)
+        # → travel-ordered [StopPoint], from the representative (most-stops)
+        # trip, NOT the RouteStop union (which zigzags multi-pattern route_ids —
+        # see _load_stop_seqs). Same single pass attaches scheduled offsets when
+        # they'll be written to the Redis snapshot (online refreshes only).
+        stop_seqs = self._load_stop_seqs(route_ids, include_sched_offsets)
 
         # 4a. Stop projections onto shapes (ST_LineLocatePoint in DB: ~4s vs ~27s in Python)
         # Uses geo_shape table (deduplicated, ~17K rows) instead of scanning 1.28M trips.
@@ -227,9 +344,10 @@ class RouteCache:
                     SELECT DISTINCT ON (t.route_id, t.direction_id)
                         t.route_id, t.direction_id, t.shape_ref_id
                     FROM geo_trip t
+                    JOIN geo_shape tsh ON tsh.id = t.shape_ref_id
                     {route_filter}
                       {"AND" if route_filter else "WHERE"} t.shape_ref_id IS NOT NULL
-                    ORDER BY t.route_id, t.direction_id
+                    ORDER BY t.route_id, t.direction_id, tsh.length_m DESC NULLS LAST
                 )
                 SELECT r.source_id, rs2.direction_id,
                        s.source_id, s.name,
@@ -252,9 +370,10 @@ class RouteCache:
                     SELECT DISTINCT ON (t.route_id, t.direction_id)
                         t.route_id, t.direction_id, t.shape_ref_id
                     FROM geo_trip t
+                    JOIN geo_shape tsh ON tsh.id = t.shape_ref_id
                     {route_filter}
                       {"AND" if route_filter else "WHERE"} t.shape_ref_id IS NOT NULL
-                    ORDER BY t.route_id, t.direction_id
+                    ORDER BY t.route_id, t.direction_id, tsh.length_m DESC NULLS LAST
                 )
                 SELECT r.source_id, rt.direction_id, s.geometry, s.length_m
                 FROM route_trips rt
@@ -526,6 +645,44 @@ class SttProcessor:
                 writes.append((vprev_key, new_state))
             else:
                 writes.append((vprev_key, new_state))
+
+            # Anchor the DISPLAY (route page) to the STT-resolved position. STT
+            # tracks each bus's index along the SAME representative stop sequence
+            # the page renders, so its (direction, idx) pins the vehicle to an
+            # actual displayed stop — which the raw feed values do not, for two
+            # independent reasons:
+            #   1. Direction: many feeds never set trip.direction_id (PID → every
+            #      vehicle defaults to 0), so return buses were bucketed into the
+            #      outbound column and showed no icon while their dir-1 column
+            #      rendered a live ETA chain.
+            #   2. Stop: the feed snaps to a platform code the displayed trip may
+            #      not use — at one physical stop dir-0 and dir-1 have different
+            #      platform ids (PID Brandýsek: dir0 …Z2, dir1 …Z1; the feed
+            #      reported the dir-0 platform for a dir-1 bus), so exact-sid icon
+            #      matching never fired even once the direction was right.
+            # Writing vdata.{d,sid,hs} from STT fixes both; vdata.sid becomes the
+            # route-canonical stop (same physical station, the displayed platform),
+            # so the icon, the ETA origin (resolve_origin on sid), the stop page's
+            # "live here" match, and the GTFS-RT relay all read one STT-consistent
+            # position instead of the feed's direction_id=0 + opposite-platform sid.
+            # (The transit:rt mirror shares these dicts, like the existing z/eta
+            # injection — intentional: a consistent view, not the loose feed values.)
+            st_now = new_state.get('st')
+            if st_now == ST_CONFIRMED and new_state.get('d') in ('0', '1'):
+                di = int(new_state['d'])
+                seq = self.cache.stop_seqs.get((route_src, di))
+                idx = int(new_state.get('idx', -1))
+                if seq and 0 <= idx < len(seq):
+                    v['d'] = di
+                    v['sid'] = seq[idx].source_id
+                    hs = self.cache.headsign_info.get((route_src, di))
+                    if hs:
+                        v['hs'] = hs
+            elif st_now == ST_DUAL:
+                # Direction genuinely unknown (terminus turnaround / re-init):
+                # don't guess. None → no direction column on the page (honest, no
+                # wrong-side icon) and the ETA fallback skips it (no phantom chain).
+                v['d'] = None
 
             # Add ETA to next stop for broadcast
             if new_state.get('st') in (ST_CONFIRMED,) and new_state.get('d') != '-1':

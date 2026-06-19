@@ -165,7 +165,7 @@ Coverage: multiple cities worldwide with real-time GPS tracking. Check available
 
 Browse routes and schedules at /transit.
 
-**Driver Mode:** Verified drivers (WoT 2+) can broadcast their GPS position so passengers see them on the map like official transit. Activate at /driver.
+**Driver Mode:** Verified drivers (WoT 3+) can broadcast their GPS position so passengers see them on the map like official transit. Activate at /driver.
 
 ---
 
@@ -238,7 +238,7 @@ Community events and meetups — online, offline, or hybrid.
 3. Share event link
 4. Attendees RSVP and join chat
 
-Requirements: Verified (WoT 2+) to create events.
+Requirements: Verified (WoT 3+) to create events.
 
 ---
 
@@ -260,7 +260,7 @@ Parahub has a built-in blog and website builder for users and organizations.
 3. Write your post, attach files or photos
 4. Save as draft or publish immediately
 
-Requirements: Verified (WoT 2+) to publish posts. Drafts can be saved without verification.
+Requirements: Verified (WoT 3+) to publish posts. Drafts can be saved without verification.
 
 **Mini-sites:**
 - Organizations get a free website at {name}.org.parahub.io
@@ -292,7 +292,7 @@ Neighborhood emergency response network — faster than calling 911.
 3. In emergency: press SOS, choose level
 4. Group members see alert, respond with status
 
-Requirements: WoT 1+ to join, WoT 2+ to create groups.
+Requirements: WoT 1+ to join, WoT 3+ to create groups.
 
 ---
 

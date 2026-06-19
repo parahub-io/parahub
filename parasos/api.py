@@ -497,7 +497,7 @@ def _ws_broadcast_response(alert, response, event_type='sos.response'):
 @ratelimit(group='parasos:create_group', key=user_or_ip, rate='5/m', method='POST')
 def create_group(request, payload: GroupCreateInput):
     """
-    Create safety group. Requires WoT level 2+.
+    Create safety group. Requires WoT level 3+.
     Automatically creates Matrix chat room.
     """
     from parasos.models import SafetyGroup, SafetyGroupMember
@@ -510,8 +510,8 @@ def create_group(request, payload: GroupCreateInput):
         wot_count = Verification.objects.filter(
             verified_profile=profile, is_active=True,
         ).count()
-        if wot_count < 2:
-            raise HttpError(403, "Requires WoT level 2+ to create safety groups")
+        if wot_count < 3:
+            raise HttpError(403, "Requires WoT level 3+ to create safety groups")
 
     with transaction.atomic():
         center = None

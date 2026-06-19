@@ -28,6 +28,8 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.utils import timezone as dj_timezone
 
+from geo.management.commands.import_gtfs import HTTP_HEADERS, _normalize_gtfs_zip
+
 from geo.models import Agency, Route, Stop, TransitDataSource, Trip
 
 CACHE_DIR = os.path.join(settings.BASE_DIR, 'gtfs_cache')
@@ -39,6 +41,9 @@ GTFS_FILES = [
     'feed_info.txt', 'transfers.txt', 'frequencies.txt',
 ]
 GTFS_REQUIRED = {'agency.txt', 'stops.txt', 'routes.txt', 'trips.txt', 'stop_times.txt'}
+
+MOTIS_INPUT_DIR = '/opt/motis/input'
+MOTIS_CONTAINER = 'parahub-motis'
 
 
 def _cache_path(ds):
@@ -79,7 +84,7 @@ def _bundle_gtfs_from_url(base_url, output_path, stdout=None):
     at a directory URL rather than a single ZIP download.
     """
     base = base_url.rstrip('/')
-    headers = {'User-Agent': 'Mozilla/5.0 (parahub GTFS updater)'}
+    headers = HTTP_HEADERS
     downloaded = {}
 
     for fname in GTFS_FILES:
@@ -125,8 +130,64 @@ _GTFS_PK = {
 }
 
 
-def _merge_gtfs_zips(zip_paths, output_path, skip_stop_times=True):
-    """Merge multiple GTFS ZIPs into one with row-level deduplication."""
+def _stream_merge_stop_times(zip_paths, zout):
+    """Stream-merge stop_times.txt across feeds into an already-open output zip.
+
+    stop_times is far too large to buffer like the other GTFS files — MTA Bus
+    NYC's 5 boroughs are ~5-7M rows (~5GB as Python dicts). Rows are instead
+    concatenated feed-by-feed straight into the zip entry. No dedup: trips are
+    already deduped by trip_id upstream and per-feed trip_id namespaces don't
+    collide (MTA boroughs), so no two feeds emit stop_times for the same trip.
+    Returns the number of data rows written.
+    """
+    # Pass 1: union header (cheap — one header line per feed)
+    union_header = []
+    seen_h = set()
+    sources = []  # (zpath, inner_fname)
+    for zpath in zip_paths:
+        with zipfile.ZipFile(zpath) as zf:
+            for fname in zf.namelist():
+                basename = os.path.basename(fname)
+                if basename != 'stop_times.txt' or basename.startswith('.'):
+                    continue
+                sources.append((zpath, fname))
+                with zf.open(fname) as f:
+                    reader = csv.reader(io.TextIOWrapper(f, encoding='utf-8-sig'))
+                    for h in next(reader, []):
+                        if h not in seen_h:
+                            seen_h.add(h)
+                            union_header.append(h)
+    if not sources:
+        return 0
+
+    # Pass 2: stream rows straight into the zip entry (never all in memory)
+    count = 0
+    entry = zout.open('stop_times.txt', mode='w', force_zip64=True)
+    text_out = io.TextIOWrapper(entry, encoding='utf-8', newline='')
+    try:
+        writer = csv.DictWriter(text_out, fieldnames=union_header, extrasaction='ignore')
+        writer.writeheader()
+        for zpath, fname in sources:
+            with zipfile.ZipFile(zpath) as zf, zf.open(fname) as f:
+                reader = csv.DictReader(io.TextIOWrapper(f, encoding='utf-8-sig'))
+                for row in reader:
+                    writer.writerow(row)
+                    count += 1
+    finally:
+        text_out.close()  # flushes + closes the zip entry
+    return count
+
+
+def _merge_gtfs_zips(zip_paths, output_path, skip_stop_times=False):
+    """Merge multiple GTFS ZIPs into one with row-level deduplication.
+
+    All GTFS files except stop_times.txt are read fully into memory and deduped
+    by GTFS primary key. stop_times.txt is delegated to _stream_merge_stop_times
+    (streamed, not buffered) — a multi-feed set like MTA Bus NYC's 5 boroughs is
+    5-7M rows, too large to hold as dicts. skip_stop_times=True drops it entirely
+    (legacy behaviour — leaves stops/routes unconnected, no schedule; only use
+    when stop_times is deliberately unwanted).
+    """
     merged = {}
     headers = {}
     seen = {}
@@ -137,8 +198,8 @@ def _merge_gtfs_zips(zip_paths, output_path, skip_stop_times=True):
                 basename = os.path.basename(fname)
                 if not basename.endswith('.txt') or basename.startswith('.'):
                     continue
-                if skip_stop_times and basename == 'stop_times.txt':
-                    continue
+                if basename == 'stop_times.txt':
+                    continue  # streamed separately below (never buffered)
                 with zf.open(fname) as f:
                     text = io.TextIOWrapper(f, encoding='utf-8-sig')
                     reader = csv.DictReader(text)
@@ -170,6 +231,7 @@ def _merge_gtfs_zips(zip_paths, output_path, skip_stop_times=True):
                             if key is not None:
                                 seen[basename].add(key)
 
+    st_rows = 0
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zout:
         for fname, rows in merged.items():
             buf = io.StringIO()
@@ -178,7 +240,106 @@ def _merge_gtfs_zips(zip_paths, output_path, skip_stop_times=True):
             writer.writerows(rows)
             zout.writestr(fname, buf.getvalue())
 
-    return sum(len(r) for r in merged.values())
+        if not skip_stop_times:
+            st_rows = _stream_merge_stop_times(zip_paths, zout)
+
+    return sum(len(r) for r in merged.values()) + st_rows
+
+
+def _sync_to_motis(ds, zip_path, stdout=None):
+    """Copy fresh GTFS ZIP into /opt/motis/input/ under canonical name.
+
+    Nested-zip feeds (SEPTA) are flattened via _normalize_gtfs_zip first —
+    MOTIS reads the raw file, so it must be a standard flat GTFS.
+
+    Returns True if the destination file was created or changed (caller
+    should then restart MOTIS), False if it was already identical (no-op).
+    """
+    if not ds.motis_input_name:
+        return False
+
+    normalized_path, is_temp = _normalize_gtfs_zip(zip_path, stdout=stdout)
+    try:
+        dest = os.path.join(MOTIS_INPUT_DIR, ds.motis_input_name)
+        if os.path.exists(dest) and _sha256_file(dest) == _sha256_file(normalized_path):
+            return False
+        tmp = dest + '.tmp'
+        shutil.copyfile(normalized_path, tmp)
+        os.replace(tmp, dest)
+        return True
+    finally:
+        if is_temp and os.path.exists(normalized_path):
+            os.unlink(normalized_path)
+
+
+def _reimport_motis(stdout):
+    """Full MOTIS re-import cycle: stop server, run `/motis import`, start server.
+
+    MOTIS `server` mode reads pre-built /data/ (nigiri timetable, OSR) — NOT
+    raw /input/*.zip. A simple `docker restart` does NOT pick up new /input/
+    files, so we must do a full re-import to refresh transit data.
+
+    Duration: ~6-30 min typically (osr/matches cached), up to ~2h on cold
+    cache. Server is unavailable for routing during this window.
+
+    On failure (import non-zero exit): /data/ may be partially overwritten;
+    attempts to start server anyway so error surfaces via /api/v1/plan
+    returning errors rather than silently serving stale data. No automatic
+    rollback yet — see `.todo/motis-blue-green-reimport.md`.
+    """
+    import subprocess
+    try:
+        inspect = subprocess.run(
+            ['docker', 'inspect', MOTIS_CONTAINER, '--format', '{{.Config.Image}}'],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+        image = inspect.stdout.strip()
+        if not image:
+            stdout.write(f"  WARN: could not determine MOTIS image — skipping re-import")
+            return False
+        stdout.write(f"  MOTIS re-import: image={image}")
+
+        stdout.write(f"  MOTIS: stopping server...")
+        subprocess.run(['docker', 'compose', 'stop', 'motis'],
+                       cwd='/opt/parahub', check=True, capture_output=True, timeout=120)
+
+        stdout.write(f"  MOTIS: /motis import (typically 6-30min, up to 2h cold cache)...")
+        import_proc = subprocess.run(
+            [
+                'docker', 'run', '--rm',
+                '--name', 'parahub-motis-import',
+                '-w', '/data',
+                '-v', '/opt/motis/data:/data',
+                '-v', '/opt/motis/input:/input',
+                '-v', '/opt/planet/planet-latest.osm.pbf:/input/planet-latest.osm.pbf:ro',
+                '--network', 'none',
+                '--memory=32g', '--cpus=8',
+                image,
+                '/motis', 'import', 'config.yml',
+            ],
+            capture_output=True, text=True, timeout=10800,
+        )
+
+        if import_proc.returncode != 0:
+            stdout.write(f"  ERROR: MOTIS import rc={import_proc.returncode}")
+            tail = (import_proc.stderr or import_proc.stdout or '')[-800:]
+            stdout.write(f"  output tail: {tail}")
+            subprocess.run(['docker', 'compose', 'up', '-d', 'motis'],
+                           cwd='/opt/parahub', capture_output=True, timeout=120)
+            return False
+
+        stdout.write(f"  MOTIS: import done, starting server...")
+        subprocess.run(['docker', 'compose', 'up', '-d', 'motis'],
+                       cwd='/opt/parahub', check=True, capture_output=True, timeout=120)
+        stdout.write(f"  MOTIS: server up with fresh data")
+        return True
+
+    except subprocess.TimeoutExpired as e:
+        stdout.write(f"  ERROR: MOTIS re-import timeout after {e.timeout}s")
+        return False
+    except Exception as e:
+        stdout.write(f"  WARN: MOTIS re-import failed: {e}")
+        return False
 
 
 def _delta_str(delta):
@@ -206,8 +367,16 @@ class Command(BaseCommand):
             help="Skip download, reimport from cached ZIP (useful when upstream is down)",
         )
         parser.add_argument(
+            '--no-motis-reimport', action='store_true',
+            help="Sync new ZIPs to /opt/motis/input/ but skip the MOTIS re-import cycle at the end",
+        )
+        parser.add_argument(
             '--dry-run', action='store_true',
             help="Download and check hash but do not import",
+        )
+        parser.add_argument(
+            '--no-group-recompute', action='store_true',
+            help="Skip the StopGroup (virtual stops) recompute at the end",
         )
 
     def handle(self, *args, **options):
@@ -224,6 +393,7 @@ class Command(BaseCommand):
                 return
 
         results = []
+        any_motis_synced = False
         for ds in qs:
             result = self._process_feed(
                 ds,
@@ -231,7 +401,26 @@ class Command(BaseCommand):
                 dry_run=options['dry_run'],
                 from_cache=options['from_cache'],
             )
+            if result.get('motis_synced'):
+                any_motis_synced = True
             results.append((ds.name, result))
+
+        if any_motis_synced and not options['dry_run'] and not options['no_motis_reimport']:
+            self.stdout.write("")
+            self.stdout.write("MOTIS inputs changed — full re-import cycle...")
+            _reimport_motis(self.stdout)
+
+        imported_any = any(
+            not r.get('skipped') and not r.get('error') and not r.get('dry_run')
+            for _, r in results
+        )
+        if imported_any and not options['no_group_recompute']:
+            self.stdout.write("")
+            self.stdout.write("Stops changed — recomputing virtual stop groups...")
+            try:
+                call_command('recompute_stop_groups', stdout=self.stdout, stderr=self.stderr)
+            except Exception as e:  # feeds are already imported — don't fail the run
+                self.stderr.write(self.style.ERROR(f"StopGroup recompute failed: {e}"))
 
         self.stdout.write("")
         for name, result in results:
@@ -266,7 +455,7 @@ class Command(BaseCommand):
                             self.stdout.write(f"    {url}")
                             fd, part_path = tempfile.mkstemp(suffix='.zip', prefix='gtfs_part_')
                             os.close(fd)
-                            resp = requests.get(url, stream=True, timeout=300, allow_redirects=True)
+                            resp = requests.get(url, headers=HTTP_HEADERS, stream=True, timeout=300, allow_redirects=True)
                             resp.raise_for_status()
                             with open(part_path, 'wb') as f:
                                 for chunk in resp.iter_content(65536):
@@ -309,7 +498,7 @@ class Command(BaseCommand):
                         need_bundle = False
 
                         try:
-                            resp = requests.get(ds.url, stream=True, timeout=300)
+                            resp = requests.get(ds.url, headers=HTTP_HEADERS, stream=True, timeout=300)
                             resp.raise_for_status()
                             with open(tmp_path, 'wb') as f:
                                 for chunk in resp.iter_content(65536):
@@ -402,7 +591,11 @@ class Command(BaseCommand):
             ds.last_error = ''
             ds.save(update_fields=['last_import_hash', 'last_import_stats', 'last_imported_at', 'last_error'])
 
-            return {'skipped': False, 'stats': stats, 'from_cache': used_cache}
+            motis_synced = _sync_to_motis(ds, zip_path, stdout=self.stdout)
+            if motis_synced:
+                self.stdout.write(f"  {ds.name}: synced to MOTIS /input/{ds.motis_input_name}")
+
+            return {'skipped': False, 'stats': stats, 'from_cache': used_cache, 'motis_synced': motis_synced}
 
         except Exception as e:
             duration = round(time.time() - t0, 1)

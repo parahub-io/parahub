@@ -149,6 +149,7 @@ class SitePage(ULIDModel):
     order = models.IntegerField(default=0)
     show_in_nav = models.BooleanField(default=True)
     is_published = models.BooleanField(default=True)
+    is_homepage = models.BooleanField(default=False, help_text="Render this page content on site root /")
 
     class Meta:
         ordering = ['order', 'created_at']
@@ -169,6 +170,9 @@ class SitePage(ULIDModel):
             self.content_html = render_markdown(self.content)
         else:
             self.content_html = ''
+        if self.is_homepage:
+            # Ensure only one homepage per site
+            SitePage.objects.filter(site=self.site, is_homepage=True).exclude(pk=self.pk).update(is_homepage=False)
         super().save(**kwargs)
 
 
@@ -228,7 +232,17 @@ class Post(ULIDModel):
     # Publishing queue
     publish_order = models.PositiveIntegerField(
         null=True, blank=True,
-        help_text="Topic ordering for publish queue. PT+EN share the same number.",
+        help_text="Strategic topic ordering (from editorial plan). PT+EN+RU share the same number. Used as display/sort hint, not enforced.",
+    )
+
+    # Approval (manual gate before publish). NULL = draft, set = ready to publish.
+    approved_at = models.DateTimeField(null=True, blank=True, db_index=True,
+                                        help_text="When OWNER/ADMIN marked this post ready to publish")
+    approved_by = models.ForeignKey(
+        'identity.Profile', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='approved_posts',
+        help_text="Profile that marked this post approved",
     )
 
     # Denormalized

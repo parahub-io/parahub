@@ -224,7 +224,7 @@ class Command(BaseCommand):
                         defaults={'verification_method': 'IN_PERSON'},
                     )
                 self.stdout.write(self.style.SUCCESS(
-                    f'Created {len(pairs)} mutual verifications (WoT 2+)'
+                    f'Created {len(pairs)} mutual verifications (WoT 3+)'
                 ))
 
         self.stdout.write('')

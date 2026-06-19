@@ -8,7 +8,16 @@
     "schedule": "Horaires",
     "no_departures": "Aucun départ à venir",
     "direction": "Direction",
+    "towards": "vers {dest}",
+    "type_stop": "Arrêt",
+    "type_station": "Station",
+    "direction_outbound": "Aller",
+    "direction_inbound": "Retour",
+    "line_variants": "Variantes d'itinéraire",
+    "not_running_today": "ne circule pas aujourd'hui",
+    "percursos_count": "{n} variantes",
     "stops_count": "{count} arrêts",
+    "group_title": "Arrêts à cet endroit",
     "show_on_map": "Voir sur la carte",
     "back": "Retour",
     "departure_in": "dans {min} min",
@@ -24,6 +33,7 @@
     "route": "Ligne",
     "departure": "Départ",
     "scheduled": "Horaire",
+    "live_eta": "Temps réel",
     "night_route": "Nuit",
     "next_departure": "Prochain départ",
     "provider": "Fournisseur",
@@ -41,6 +51,7 @@
       "show_all": "Toutes les {n} villes",
       "hide": "Réduire",
       "search_city": "Rechercher une ville...",
+      "label": "Ville",
       "select": "Sélectionner une ville",
       "region_suffix": "(région)"
     },
@@ -101,7 +112,6 @@
     "landing_how_3": "Voyez les véhicules en direct sur la carte et consultez les horaires de départ",
     "landing_free_title": "Gratuit pour toujours",
     "landing_free_desc": "L'information sur les transports publics est un droit, pas un privilège. Parahub ne facture pas, ne piste pas, ne vend pas de données.",
-
     "driver": {
       "title": "Mode Conducteur",
       "search_route": "Rechercher une ligne...",
@@ -121,6 +131,7 @@
       "confirm_end": "Terminer le service en cours ?",
       "shift_ended": "Service terminé",
       "tts_label": "Annonces d'arrêt"
-    }
+    },
+    "timetable_no_service": "Pas de service ce jour-là"
   }
 }

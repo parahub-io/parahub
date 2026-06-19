@@ -39,7 +39,7 @@
     <OpenSkyMyMissions @add-photos="openAddPhotos" />
 
     <!-- Upload Modal -->
-    <Modal v-model="showUploadModal" :title="$t('opensky.upload_title')" size="lg">
+    <Modal v-model="showUploadModal" :title="appendMissionId ? $t('opensky.add_photos_title', 'Add Photos to Mission') : $t('opensky.upload_title')" size="lg">
       <OpenSkyUploadForm :mission-id="appendMissionId" @uploaded="onMissionUploaded" @close="showUploadModal = false" />
     </Modal>
   </div>

@@ -6,12 +6,12 @@ Business and organization directory with building-centric listings, map integrat
 
 The directory lets communities map their local businesses, cooperatives, associations, and other organizations. Click on a building on the map to see what's inside, or browse the catalog with filters.
 
-## Buildings and Establishments
+## WorldObjects and Establishments
 
-- **Building**: A physical structure linked to OpenStreetMap data. Has an address, type (residential, commercial, etc.), and number of floors
-- **Establishment**: A business or organization inside a building. Has a name, category, opening hours, contact info, photos, and more
+- **WorldObject**: A universal real-world entity (building, landmark, infrastructure). Linked to OpenStreetMap data via xeno_source/xeno_id. Has address, type, and location
+- **Establishment**: A business or organization linked to a WorldObject. Has a name, category, opening hours, contact info, and more
 
-One building can house many establishments (like a shopping center). Establishments can also exist without a building (online organizations).
+One WorldObject can house many establishments (like a shopping center). Establishments can also exist without a WorldObject (online organizations).
 
 ## Organization Types
 
@@ -23,7 +23,7 @@ Establishments can be: company, NGO, cooperative, association, condominium, comm
 Opening hours (in OSM format) are displayed on every listing. A real-time badge shows whether the establishment is currently open or closed.
 
 ### Reviews and Ratings
-Verified users (WoT 2+) can leave star ratings (1-5) and written reviews. Establishment owners can reply to reviews. Average ratings and review counts are displayed on listings.
+Verified users (WoT 3+) can leave star ratings (1-5) and written reviews. Establishment owners can reply to reviews. Average ratings and review counts are displayed on listings.
 
 ### Membership
 Organizations (associations, cooperatives, NGOs, communities) support membership management:
@@ -47,7 +47,7 @@ Establishments can set a Lightning/Spark address for receiving payments directly
 ## Access Control
 
 - **View/search**: Public (no login required)
-- **Create building or establishment**: WoT 2+ (verified by 2 or more users)
-- **Write reviews**: WoT 2+
+- **Create building or establishment**: WoT 3+ (verified by 2 or more users)
+- **Write reviews**: WoT 3+
 - **Edit/delete establishment**: Owner only
 - **Manage members/treasurer/auditor**: Owner or Admin

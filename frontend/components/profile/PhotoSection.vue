@@ -141,7 +141,7 @@
         </p>
 
         <!-- Status -->
-        <div v-if="vpStatus.has_photo" class="mb-3">
+        <div v-if="vpStatus.has_photo" class="mb-3 flex flex-wrap items-center gap-2">
           <div
             class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
             :class="vpStatus.reconfirmation_needed
@@ -154,6 +154,14 @@
               ? $t('profile.verification_photo.reconfirmation_warning', { count: vpStatus.reconfirmation_count })
               : $t('profile.verification_photo.status_ready') }}
           </div>
+          <span
+            v-if="vpStatus.face_fingerprint"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300"
+            :title="$t('profile.verification_photo.fingerprint_hint', 'Biometric signature of your face — approximately stable across photos of you (most hex chars stay the same), distinct from other people')"
+          >
+            <Fingerprint class="w-3 h-3" />
+            {{ vpStatus.face_fingerprint }}
+          </span>
         </div>
 
         <!-- GDPR Consent checkbox -->
@@ -297,7 +305,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { UserCircle, Upload, User, Check, AlertTriangle, Loader2, Download, Grid3X3, Brain, X, Copy, ShieldCheck } from 'lucide-vue-next'
+import { UserCircle, Upload, User, Check, AlertTriangle, Loader2, Download, Grid3X3, Brain, X, Copy, ShieldCheck, Fingerprint } from 'lucide-vue-next'
 import { useNotification } from '~/composables/useNotification'
 import { useAuthStore } from '~/stores/auth'
 import AccordionSection from './AccordionSection.vue'
@@ -332,6 +340,7 @@ const vpStatus = ref<{
   biometric_consent?: boolean
   reconfirmation_needed?: boolean
   reconfirmation_count?: number
+  face_fingerprint?: string | null
 }>({ has_photo: false })
 const vpConsent = ref(false)
 const vpUploading = ref(false)
@@ -507,6 +516,7 @@ async function uploadVerificationPhoto(event: Event) {
       success: boolean
       face_detected: boolean
       reconfirmation_needed: boolean
+      quality_warnings?: string[]
     }>('/api/v1/profiles/me/verification-photo/', {
       method: 'POST',
       body: formData,
@@ -516,6 +526,7 @@ async function uploadVerificationPhoto(event: Event) {
 
     if (response.success) {
       showSuccess(t('profile.verification_photo.uploaded'))
+      for (const w of response.quality_warnings || []) showError(w)
       await loadVpStatus()
     }
   } catch (error: any) {

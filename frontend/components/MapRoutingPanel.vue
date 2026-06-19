@@ -813,6 +813,15 @@ onUnmounted(() => {
   left: 50%;
   color: #f4c110;
   opacity: 0;
+  transition: color 0.15s ease;
+}
+/* Hovering a feature that already has a lock-on hex: tint it red instead of stacking a second hex */
+.geocode-preview-marker.lockon-hot .geocode-preview-bracket {
+  color: #ef4444;
+}
+.geocode-preview-marker.lockon-hot .geocode-preview-dot {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
 }
 .geocode-preview-b1 {
   animation: geocode-lock-in 0.5s 0s cubic-bezier(0, 0.55, 0.45, 1) forwards,

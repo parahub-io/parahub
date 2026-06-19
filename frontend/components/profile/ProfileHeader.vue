@@ -26,10 +26,10 @@
           </div>
 
           <div class="flex-1 min-w-0">
-            <h1 v-if="user?.first_name && user?.last_name" class="text-2xl font-semibold text-neutral-900 dark:text-neutral-50 mb-1">
-              {{ `${user.first_name} ${user.last_name}` }}
+            <h1 v-if="displayName" class="text-2xl font-semibold text-neutral-900 dark:text-neutral-50 mb-1">
+              {{ displayName }}
             </h1>
-            <p class="text-base text-neutral-500 dark:text-neutral-400 mb-2">{{ userHNA || user?.email }}</p>
+            <p class="text-base text-neutral-500 dark:text-neutral-400 mb-2">{{ userHNA || user?.profile?.hna || user?.email }}</p>
 
             <input
               id="profile-bio"
@@ -120,10 +120,10 @@
 
         <!-- Name & HNA -->
         <div class="space-y-1 text-center">
-          <h1 v-if="user?.first_name && user?.last_name" class="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-            {{ `${user.first_name} ${user.last_name}` }}
+          <h1 v-if="displayName" class="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
+            {{ displayName }}
           </h1>
-          <p class="text-base text-neutral-500 dark:text-neutral-400">{{ userHNA || user?.email }}</p>
+          <p class="text-base text-neutral-500 dark:text-neutral-400">{{ userHNA || user?.profile?.hna || user?.email }}</p>
         </div>
 
         <input
@@ -267,10 +267,20 @@ const authStore = useAuthStore()
 const { showSuccess, showError } = useNotification()
 
 const user = computed(() => authStore.user)
+
+// display_name is present in both SSR session data and /me/ response;
+// first_name/last_name only exist after fetchUser() — relying on them caused
+// the name to pop in post-mount and shift the whole page down
+const displayName = computed(() => {
+  const u = user.value
+  if (!u) return ''
+  return u.profile?.display_name || `${u.first_name || ''} ${u.last_name || ''}`.trim()
+})
+
 const userInitials = computed(() => {
-  if (user.value?.first_name && user.value?.last_name) {
-    return `${user.value.first_name[0]}${user.value.last_name[0]}`.toUpperCase()
-  }
+  const parts = displayName.value.split(' ').filter(Boolean)
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+  if (parts.length === 1) return parts[0][0].toUpperCase()
   return user.value?.email?.[0]?.toUpperCase() || '?'
 })
 
@@ -278,6 +288,11 @@ const avatarUrl = computed(() => user.value?.profile?.avatar_url || null)
 
 // Bio
 const bioText = ref(authStore.profile?.bio || '')
+// Store profile is repopulated after mount (fetchUser, profile switch) —
+// sync the field unless the user already edited it
+watch(() => authStore.profile?.bio, (val, oldVal) => {
+  if (typeof val === 'string' && bioText.value === (oldVal || '')) bioText.value = val
+})
 const saveBio = async () => {
   const trimmed = bioText.value.trim()
   if (trimmed === (authStore.profile?.bio || '')) return

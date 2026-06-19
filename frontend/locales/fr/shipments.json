@@ -64,7 +64,7 @@
       "verify_pickup": "Vérifier le Retrait",
       "enter_pickup_code": "Entrez le code de retrait",
       "invalid_code": "Code de retrait invalide",
-      "wot_required": "Vérification WoT 2+ requise pour activer le mode hub",
+      "wot_required": "Vérification WoT 3+ requise pour activer le mode hub",
       "info_title": "Point P-Hub",
       "send_here": "Envoyer ici",
       "days": "jours",

@@ -12,6 +12,7 @@ import csv
 import io
 import logging
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -29,6 +30,23 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from geo.models import Agency, CalendarDate, Place, Route, RouteStop, Shape, Stop, StopTime, TransitDataSource, Trip
+
+
+# Some operators (e.g. Metro de Lisboa) return 403 to requests with no
+# User-Agent — always send a browser-like UA on GTFS downloads.
+# Single source of truth: update_gtfs_feeds imports this too.
+HTTP_HEADERS = {'User-Agent': 'Mozilla/5.0 (parahub GTFS updater)'}
+
+
+# Feeds (TransitDataSource.slug) whose route_id encodes line grouping as
+# "<line>_<variant>" but ship no line_id/path_type columns (CM ext) — line_id
+# and path_type are synthesized from route_id so percursos grouping (search
+# collapse, variants selector) works. Strictly opt-in: elsewhere short_name
+# collisions mean *distinct* routes (PID "MHD 4" = Benešov and Kolín city
+# buses, NYC "S" = three different shuttles). Before adding a feed verify
+# every short_name maps to exactly one route_id prefix — PK/gtfs-feed-quirks.md.
+SYNTHESIZE_LINE_ID_FEEDS = {"carris-lisboa", "carris-metropolitana"}
+_VARIANT_ROUTE_ID_RE = re.compile(r"^(.+)_(\d+)$")
 
 
 # Primary key fields for GTFS deduplication during multi-ZIP merge
@@ -131,9 +149,14 @@ def _normalize_gtfs_zip(zip_path, stdout=None):
 # -S remove redundant shapes, -C remove duplicate services,
 # -D drop erroneous entries, -n check null coords, -s minimize shapes (Douglas-Peucker)
 # --keep-ids preserve all IDs (critical for RT matching)
+# -F keep-additional-fields: gtfstidy otherwise drops every column it doesn't
+#    itself use — including tts_stop_name (and parish/locality/municipality).
+#    We need tts_stop_name (Stop.tts_name, driver-mode TTS). Additive only:
+#    keeps extra columns, drops no rows, changes no IDs. MOTIS/import ignore
+#    columns they don't read.
 # NOT used: -O (orphan removal — too aggressive, drops routes with empty stop_times),
 #           -R (route dedup — merges route_ids), -I/-P/-T (ID changes)
-_GTFSTIDY_FLAGS = ['-SCDns', '--keep-ids']
+_GTFSTIDY_FLAGS = ['-SCDns', '--keep-ids', '-F']
 
 
 def _gtfstidy(zip_path, stdout=None):
@@ -401,7 +424,7 @@ class Command(BaseCommand):
     def _download(self, url):
         """Download GTFS ZIP to a unique temp file (safe for parallel runs)."""
         self.stdout.write(f"Downloading {url}...")
-        resp = requests.get(url, stream=True, timeout=120)
+        resp = requests.get(url, headers=HTTP_HEADERS, stream=True, timeout=120)
         resp.raise_for_status()
         size = int(resp.headers.get("content-length", 0))
         self.stdout.write(f"  Content-Length: {size / 1024 / 1024:.1f} MB")
@@ -600,6 +623,7 @@ class Command(BaseCommand):
             stops_data.append({
                 "gtfs_id": gtfs_id,
                 "name": row.get("stop_name", "").strip(),
+                "tts_name": row.get("tts_stop_name", "").strip(),
                 "lat": float(lat),
                 "lon": float(lon),
                 "location_type": loc_type,
@@ -642,6 +666,11 @@ class Command(BaseCommand):
                     stop.location_type = sd["location_type"]
                     changed = True
 
+                # tts_name change (no slug/place impact — display/TTS only)
+                if stop.tts_name != sd["tts_name"]:
+                    stop.tts_name = sd["tts_name"]
+                    changed = True
+
                 if changed:
                     to_update.append(stop)
                 else:
@@ -651,6 +680,7 @@ class Command(BaseCommand):
                     agency=agency,
                     source_id=sd["gtfs_id"],
                     name=sd["name"],
+                    tts_name=sd["tts_name"],
                     location=loc,
                     location_type=sd["location_type"],
                 ))
@@ -660,7 +690,7 @@ class Command(BaseCommand):
         if to_update:
             Stop.objects.bulk_update(
                 to_update,
-                ["name", "location", "location_type", "slug", "place_id"],
+                ["name", "tts_name", "location", "location_type", "slug", "place_id"],
                 batch_size=5000,
             )
 
@@ -717,13 +747,15 @@ class Command(BaseCommand):
         """
         self.stdout.write("\n[4/9] Importing routes...")
         agency_map = getattr(self, '_agency_map', {})
+        ds = agency.data_source
+        synthesize_line_id = ds is not None and ds.slug in SYNTHESIZE_LINE_ID_FEEDS
 
         routes_data = []
         feed_source_ids = set()
         for row in self._read_csv(zf, "routes.txt"):
             gtfs_id = row.get("route_id", "").strip()
             gtfs_agency_id = row.get("agency_id", "").strip()
-            routes_data.append({
+            rd = {
                 "gtfs_id": gtfs_id,
                 "gtfs_agency_id": gtfs_agency_id,
                 "short_name": row.get("route_short_name", "").strip()[:50],
@@ -732,7 +764,17 @@ class Command(BaseCommand):
                 "route_type": int(row.get("route_type", "3").strip() or "3"),
                 "route_color": row.get("route_color", "").strip()[:6],
                 "route_text_color": row.get("route_text_color", "").strip()[:6],
-            })
+                # Non-standard line grouping (CM ext). Absent on standard feeds → blank.
+                "line_id": row.get("line_id", "").strip()[:100],
+                "line_long_name": row.get("line_long_name", "").strip()[:255],
+                "path_type": int(row.get("path_type", "0").strip() or "0"),
+            }
+            if synthesize_line_id and not rd["line_id"]:
+                m = _VARIANT_ROUTE_ID_RE.match(gtfs_id)
+                if m:
+                    rd["line_id"] = m.group(1)[:100]
+                    rd["path_type"] = int(m.group(2))
+            routes_data.append(rd)
             feed_source_ids.add(gtfs_id)
 
         # For multi-agency feeds, load existing routes for ALL agencies in this data source
@@ -798,6 +840,18 @@ class Command(BaseCommand):
                     route.route_text_color = rd["route_text_color"]
                     changed = True
 
+                if route.line_id != rd["line_id"]:
+                    route.line_id = rd["line_id"]
+                    changed = True
+
+                if route.line_long_name != rd["line_long_name"]:
+                    route.line_long_name = rd["line_long_name"]
+                    changed = True
+
+                if route.path_type != rd["path_type"]:
+                    route.path_type = rd["path_type"]
+                    changed = True
+
                 if changed:
                     to_update.append(route)
                 else:
@@ -812,6 +866,9 @@ class Command(BaseCommand):
                     route_type=rd["route_type"],
                     route_color=rd["route_color"],
                     route_text_color=rd["route_text_color"],
+                    line_id=rd["line_id"],
+                    line_long_name=rd["line_long_name"],
+                    path_type=rd["path_type"],
                 ))
 
         if to_create:
@@ -820,6 +877,7 @@ class Command(BaseCommand):
             Route.objects.bulk_update(to_update, [
                 "agency", "short_name", "long_name", "description", "route_type",
                 "route_color", "route_text_color", "slug",
+                "line_id", "line_long_name", "path_type",
             ], batch_size=5000)
 
         # Clean up duplicate routes: if same source_id exists under multiple agencies,
@@ -1155,8 +1213,9 @@ class Command(BaseCommand):
             if not stop_pk:
                 continue
 
+            dep_raw = row.get("departure_time", "").strip()
             arr_time = self._parse_gtfs_time(row.get("arrival_time", "").strip())
-            dep_time = self._parse_gtfs_time(row.get("departure_time", "").strip())
+            dep_time = self._parse_gtfs_time(dep_raw)
             if not arr_time or not dep_time:
                 continue
 
@@ -1165,6 +1224,7 @@ class Command(BaseCommand):
                 stop_id=stop_pk,
                 arrival_time=arr_time,
                 departure_time=dep_time,
+                departure_secs=self._parse_gtfs_secs(dep_raw),
                 stop_sequence=seq,
             ))
 
@@ -1217,32 +1277,52 @@ class Command(BaseCommand):
         h = h % 24
         return f"{h:02d}:{m:02d}:{s:02d}"
 
+    def _parse_gtfs_secs(self, time_str):
+        """GTFS time → seconds from service-day start, NOT wrapped (24:20→88800).
+        Preserves the day-offset that _parse_gtfs_time loses to %24, so night
+        service orders/displays correctly across midnight. None if unparseable."""
+        if not time_str:
+            return None
+        parts = time_str.split(":")
+        if len(parts) != 3:
+            return None
+        try:
+            h, m, s = int(parts[0]), int(parts[1]), int(parts[2])
+        except ValueError:
+            return None
+        return h * 3600 + m * 60 + s
+
     def _assign_route_geometry(self, agency, shape_map, route_map):
-        """Assign Route.geometry from the first trip's shape for each route."""
+        """Assign Route.geometry from each route's longest shape (max length_m).
+
+        Not "first trip's shape": trips of one route_id can reference short-turn
+        shape variants (e.g. Metro de Lisboa Az: 693-trip full line + 2-trip
+        short-turns), and an arbitrary pick can truncate the drawn route line.
+        """
         self.stdout.write("\n[9/9] Assigning route geometry...")
         if not shape_map:
             self.stdout.write("  No shapes available, skipping")
             return
 
-        # Get one shape per route (from trips with shape_ref)
-        from django.db.models import Min
-        route_shapes = (
-            Trip.objects.filter(route__agency=agency, shape_ref__isnull=False)
-            .values("route_id")
-            .annotate(first_trip_id=Min("id"))
-        )
-
-        updated = 0
-        for rs in route_shapes:
-            try:
-                trip = Trip.objects.select_related("shape_ref").only(
-                    "shape_ref__geometry"
-                ).get(id=rs["first_trip_id"])
-                if trip.shape_ref and trip.shape_ref.geometry:
-                    Route.objects.filter(id=rs["route_id"]).update(geometry=trip.shape_ref.geometry)
-                    updated += 1
-            except Trip.DoesNotExist:
-                continue
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE geo_route r
+                SET geometry = pick.geometry
+                FROM (
+                    SELECT DISTINCT ON (t.route_id) t.route_id, sh.geometry
+                    FROM geo_trip t
+                    JOIN geo_route rt ON rt.id = t.route_id
+                    JOIN geo_shape sh ON sh.id = t.shape_ref_id
+                    WHERE rt.agency_id = %s AND t.shape_ref_id IS NOT NULL
+                    ORDER BY t.route_id, sh.length_m DESC NULLS LAST
+                ) pick
+                WHERE r.id = pick.route_id
+                """,
+                [str(agency.id)],
+            )
+            updated = cursor.rowcount
 
         self.stdout.write(f"  Assigned geometry to {updated} routes")
 

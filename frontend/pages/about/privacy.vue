@@ -118,7 +118,7 @@ const { t, tm, locale } = useI18n()
 const localePath = useLocalePath()
 
 const effectiveDate = computed(() => {
-  const date = new Date('2026-04-12')
+  const date = new Date('2026-04-08')
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'long',

@@ -34,8 +34,8 @@ The map displays multiple data layers controlled via a unified **Layers** button
 
 2GIS-style organization directory integrated with the map:
 
-- **Buildings** -- physical addresses with OSM data
-- **Establishments** -- businesses, organizations, cooperatives within buildings
+- **WorldObject** -- universal real-world entity (building, landmark, public space) with OSM/OpenAddresses provenance (`xeno_source`); supports photo/comment/ownership-log attachments, claim/transfer flow
+- **Establishments** -- businesses, organizations, cooperatives anchored to a WorldObject (FK `world_object`)
 - Membership management (Owner/Admin/Member roles)
 - Public Board (Direção) section: governance structure with president, board members, treasurer, auditor — role badges, linked profiles, joined dates
 - Organization detail: open/closed status badge (based on opening hours), directions button (external map link), share button
@@ -44,7 +44,7 @@ The map displays multiple data layers controlled via a unified **Layers** button
 - Treasury (participatory budget per establishment)
 - Hub mode: any establishment can activate P-Hub for parcel drop-off/pick-up
 
-Click a building on the map to see establishments inside, with a clean in-panel navigation (list -> details -> back).
+Click a WorldObject on the map to see establishments inside, with a clean in-panel navigation (list -> details -> back).
 
 ## Map Presence
 
@@ -81,6 +81,6 @@ Directions panel with three modes (Car, Walk, Bike):
 
 - **Frontend**: `pages/map.vue`, `components/MapLibre*.vue`, `components/MapRoutingPanel.vue`, `components/MapFeaturePanel.vue`
 - **Composables**: `useRouting` (Valhalla directions)
-- **Backend**: `geo/endpoints/geocoding.py` (Pelias proxy), `geo/endpoints/buildings.py` (directory)
+- **Backend**: `geo/endpoints/geocoding.py` (Pelias proxy), `geo/endpoints/buildings.py` (directory; historical filename — model is WorldObject)
 - **WebSocket**: `parahub/consumers/map_presence.py`
 - **Services**: `parahub/services/map_presence.py`

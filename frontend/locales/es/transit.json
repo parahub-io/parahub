@@ -8,7 +8,16 @@
     "schedule": "Horario",
     "no_departures": "Sin próximas salidas",
     "direction": "Dirección",
+    "towards": "sentido {dest}",
+    "type_stop": "Parada",
+    "type_station": "Estación",
+    "direction_outbound": "Ida",
+    "direction_inbound": "Vuelta",
+    "line_variants": "Variantes de ruta",
+    "not_running_today": "no circula hoy",
+    "percursos_count": "{n} variantes",
     "stops_count": "{count} paradas",
+    "group_title": "Paradas en este lugar",
     "show_on_map": "Ver en el mapa",
     "back": "Volver",
     "departure_in": "en {min} min",
@@ -24,6 +33,7 @@
     "route": "Línea",
     "departure": "Salida",
     "scheduled": "Horario",
+    "live_eta": "Tiempo real",
     "night_route": "Nocturno",
     "next_departure": "Próxima salida",
     "provider": "Proveedor",
@@ -41,6 +51,7 @@
       "show_all": "Todas las {n} ciudades",
       "hide": "Mostrar menos",
       "search_city": "Buscar ciudad...",
+      "label": "Ciudad",
       "select": "Seleccionar ciudad",
       "region_suffix": "(región)"
     },
@@ -101,7 +112,6 @@
     "landing_how_3": "Ve vehículos en vivo en el mapa y consulta horarios de salida",
     "landing_free_title": "Gratis para siempre",
     "landing_free_desc": "La información de transporte público es un derecho, no un privilegio. Parahub no cobra, no rastrea, no vende datos.",
-
     "driver": {
       "title": "Modo Conductor",
       "search_route": "Buscar línea...",
@@ -121,6 +131,7 @@
       "confirm_end": "¿Finalizar el turno actual?",
       "shift_ended": "Turno finalizado",
       "tts_label": "Anuncios de parada"
-    }
+    },
+    "timetable_no_service": "Sin servicio este día"
   }
 }

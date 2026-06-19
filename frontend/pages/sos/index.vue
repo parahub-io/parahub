@@ -98,7 +98,7 @@ useSeoMeta({
   description: t('parasos.meta_description'),
 })
 
-const activeTab = ref<'my' | 'nearby'>('my')
+const activeTab = useTabSync(['my', 'nearby'])
 const searchQuery = ref('')
 const loading = ref(true)
 const groups = ref<any[]>([])

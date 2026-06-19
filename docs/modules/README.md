@@ -28,7 +28,7 @@ Detailed documentation for individual Parahub subsystems. See [Features](../feat
 | [Federation](federation.md) | Git-based multi-node federation, profile migration, cross-node WoT |
 | [Events](events.md) | Community events and meetups, auto Matrix chat |
 | [Governance](governance.md) | Liquid democracy, polls, treasury, transparency |
-| [Condominium](condominium.md) | Building management (Lei 8/2022), fractions, weighted voting |
+| [Condominium](condominium.md) | Condominium management (Lei 8/2022), fractions, weighted voting |
 | [Property](property.md) | Personal property management ("My Home"), cross-system integration |
 | [Home Assistant](home-assistant.md) | Smart home integration, entity discovery and control |
 | [Carpool](carpool.md) | Passenger-driven rideshare at transit stops |
@@ -38,4 +38,4 @@ Detailed documentation for individual Parahub subsystems. See [Features](../feat
 | [OpenSky](opensky.md) | Community drone mapping, 3D mesh generation |
 | [Ads](ads.md) | P2P advertising with Lightning payments |
 | [Wallet](wallet.md) | Non-custodial Lightning wallet |
-| [AI](ai.md) | Image analysis, Zenith assistant, Yellow Gate agents (9) |
+| [AI](ai.md) | Image analysis, Zenith assistant, image generation, Psycho-Hash, support voice |

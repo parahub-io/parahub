@@ -2,7 +2,9 @@
  * OpenSky aerial imagery tiles + tile grid mission planning + KMZ download.
  *
  * Grid: standard Web Mercator tiles (Z17, same as OSM/Google).
- * User hovers → tile highlights, click → download 2 KMZ (nadir + oblique).
+ * User hovers → tile highlights, click → download 5 KMZ flight plans
+ * (1_2D nadir + 2_3D-N + 3_3D-E + 4_3D-S + 5_3D-W cardinal obliques).
+ * Pilot picks their own flight budget (1/3/5 batteries) per tile.
  */
 
 import { ref, computed } from 'vue'
@@ -10,6 +12,10 @@ import type { Ref } from 'vue'
 
 const TILE_ZOOM = 17         // ~305×240m per tile at mid-latitudes
 const GRID_MIN_ZOOM = 12     // Don't render grid below this zoom
+
+// Crowdsourced aerial imagery is published under CC BY-SA 4.0. Shown in the
+// map AttributionControl whenever the OpenSky raster layer is visible.
+const OPENSKY_ATTRIBUTION = 'Aerial imagery © Parahub pilots · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>'
 
 // === Standard slippy map tile math (pure integer, no cos tricks) ===
 
@@ -31,6 +37,30 @@ function tile2lat(y: number, z: number): number {
   return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))
 }
 
+// Flight budget estimate — matches backend calculate_tile_stats().
+// Z17 nadir-only flight at the equator: ~19 min (measured at true 80/80 spacing —
+// line spacing 26.6m cross-track). Tiles shrink with cos(lat), so actual time scales
+// down roughly linearly. NS/EW lawnmower are nearly symmetric for square-ish tiles,
+// so we use a single per-mission nadir time.
+//
+// Oblique missions use 70% overlap (vs 80% nadir) — ~1.5× wider line spacing means
+// ~32% less flight time per oblique. Measured ratio across latitudes: ~0.68.
+//
+// Rough client-side estimate only — authoritative value comes from backend preview endpoint.
+const NADIR_TIME_MIN_EQUATOR = 19
+const OBLIQUE_TIME_FRACTION = 0.68
+
+function estimateBudget(lat: number) {
+  const scale = Math.max(0.3, Math.cos(lat * Math.PI / 180))
+  const nadir = NADIR_TIME_MIN_EQUATOR * scale
+  const oblique = nadir * OBLIQUE_TIME_FRACTION
+  return {
+    battery1: Math.round(nadir),
+    battery3: Math.round(nadir + 2 * oblique),
+    battery5: Math.round(nadir + 4 * oblique),
+  }
+}
+
 export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
   const authStore = useAuthStore()
   const mapStore = useMapStore()
@@ -39,6 +69,10 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
   const openSkyMode = useLocalPref('opensky_mode', false)
   const missionGenerating = ref(false)
   const tileGridMode = ref(false)
+
+  // Budget estimate for the currently hovered tile, shown in an info card
+  // in mission planning mode. Null when nothing hovered / grid mode off.
+  const hoveredTileBudget = ref<{ battery1: number; battery3: number; battery5: number; x: number; y: number } | null>(null)
 
   // OpenSky missions from API
   const openSkyMissions = ref<Array<{
@@ -57,8 +91,8 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       openSkyMissions.value = [{
         id: 'podame',
         bounds: [-8.379033, 42.024431, -8.375944, 42.026092],
-        minzoom: 13,
-        maxzoom: 23
+        minzoom: 11,
+        maxzoom: 22
       }]
     }
   }
@@ -88,21 +122,34 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       type: 'raster',
       tiles: [tileUrl],
       tileSize: 256,
-      minzoom: 13,
-      maxzoom: 23,
+      minzoom: 11,
+      // Pyramid ends at z22 (see published-bounds); 23 here made every pan at
+      // max zoom fire guaranteed-404 volleys through nginx→WireGuard→skystore.
+      // MapLibre overzooms z22 tiles for display beyond.
+      maxzoom: 22,
+      attribution: OPENSKY_ATTRIBUTION,
       ...(missionBounds ? { bounds: missionBounds } : {})
     })
 
     const shouldBeVisible = missionId ? true : openSkyEnabled.value
 
-    const overlayLayers = ['trackers-circle', 'energy-cells-circle', 'mesh-public-icon']
-    const beforeId = overlayLayers.find(id => map.getLayer(id))
+    // Place OpenSky raster below ALL custom overlays so interactive layers
+    // (measure ruler, transit, isochrone, IoT, mesh, etc.) stay visible on top.
+    const overlayPrefixes = [
+      'highlight-', 'measure-', 'transit-', 'isochrone-', 'sun-', 'browse-',
+      'iot-', 'mesh-', 'condo-', 'hub-', 'gov-', 'church-',
+      'trackers-', 'energy-cells-', 'poi-hover-',
+    ]
+    // -hover/-active suffixes: building/road feature-state highlight layers (useMapHighlight)
+    const beforeId = map.getStyle().layers.find((l: any) =>
+      overlayPrefixes.some(p => l.id.startsWith(p)) || l.id.endsWith('-hover') || l.id.endsWith('-active')
+    )?.id
 
     map.addLayer({
       id: unifiedLayerId,
       type: 'raster',
       source: unifiedSourceId,
-      minzoom: 13,
+      minzoom: 11,
       maxzoom: 23,
       layout: { visibility: shouldBeVisible ? 'visible' : 'none' },
       paint: { 'raster-opacity': 1 }
@@ -121,7 +168,8 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
           tileSize: 256,
           bounds: mission.bounds,
           minzoom: mission.minzoom,
-          maxzoom: mission.maxzoom
+          maxzoom: mission.maxzoom,
+          attribution: OPENSKY_ATTRIBUTION
         })
       }
     })
@@ -171,6 +219,17 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
           geometry: {
             type: 'Polygon' as const,
             coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]]
+          }
+        })
+        // Separate Point at the tile centre for the coordinate label. A point
+        // lands in exactly one MapLibre internal tile, so the symbol renders once;
+        // a centroid-on-polygon label gets duplicated wherever the polygon is split.
+        features.push({
+          type: 'Feature' as const,
+          properties: { x, y, label: true },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [(w + e) / 2, (n + s) / 2]
           }
         })
       }
@@ -249,7 +308,31 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       id: 'opensky-tile-grid-outline',
       type: 'line',
       source: 'opensky-tile-grid',
+      filter: ['==', ['geometry-type'], 'Polygon'],
       paint: { 'line-color': '#6b7280', 'line-width': 0.5, 'line-opacity': 0.4 }
+    })
+
+    // Tile coordinate label at each tile center — x over y (same numbers as the
+    // mission filename OpenSky_Z17_{x}_{y}, without the zoom). Only from z15: below
+    // that the tiles are too small for 6-digit labels and they'd just collide-cull.
+    map.addLayer({
+      id: 'opensky-tile-grid-label',
+      type: 'symbol',
+      source: 'opensky-tile-grid',
+      minzoom: 15,
+      filter: ['==', ['geometry-type'], 'Point'],
+      layout: {
+        'text-field': ['concat', ['to-string', ['get', 'x']], '\n', ['to-string', ['get', 'y']]],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 15, 9, 17, 11, 19, 13],
+        'text-line-height': 1.05,
+        'text-allow-overlap': false,
+      },
+      paint: {
+        'text-color': '#6b7280',
+        'text-halo-color': 'rgba(255, 255, 255, 0.9)',
+        'text-halo-width': 1.2,
+      }
     })
 
     // Covered (published) tiles — yellow fill
@@ -296,6 +379,10 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       _hoveredTileX = x
       _hoveredTileY = y
       map.getSource('opensky-tile-highlight')?.setData(_generateHighlight(x, y))
+      // Latitude of tile center used for flight-time estimate — tile height is constant,
+      // width scales with cos(lat). Center latitude is a good proxy.
+      const tileCenterLat = (tile2lat(y, TILE_ZOOM) + tile2lat(y + 1, TILE_ZOOM)) / 2
+      hoveredTileBudget.value = { ...estimateBudget(tileCenterLat), x, y }
     }
 
     const onClick = (e: any) => {
@@ -320,7 +407,7 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
   }
 
   function _disableTileGrid(map: any) {
-    for (const id of ['opensky-tile-highlight-outline', 'opensky-tile-highlight-fill', 'opensky-covered-tiles-outline', 'opensky-covered-tiles-fill', 'opensky-tile-grid-outline']) {
+    for (const id of ['opensky-tile-highlight-outline', 'opensky-tile-highlight-fill', 'opensky-covered-tiles-outline', 'opensky-covered-tiles-fill', 'opensky-tile-grid-label', 'opensky-tile-grid-outline']) {
       if (map.getLayer(id)) map.removeLayer(id)
     }
     for (const id of ['opensky-tile-highlight', 'opensky-covered-tiles', 'opensky-tile-grid']) {
@@ -337,6 +424,7 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
 
     _hoveredTileX = null
     _hoveredTileY = null
+    hoveredTileBudget.value = null
     map.getCanvas().style.cursor = ''
   }
 
@@ -383,7 +471,7 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       document.body.removeChild(a)
       URL.revokeObjectURL(blobUrl)
 
-      useToastStore().success('Mission downloaded! ZIP contains nadir + oblique KMZ. Import to DJI Fly app.')
+      useToastStore().success('Mission downloaded! ZIP contains 5 flight plans (1/3/5 battery budget — see README). Import the KMZ files into DJI Fly.')
     } catch (error: any) {
       console.error('Failed to download mission:', error)
       useToastStore().error('Failed to generate mission')
@@ -408,12 +496,43 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
     toggleTileGrid()
   }
 
+  /**
+   * Frame a mission's tile so it sits centered in the *visible* map area.
+   * Uses fitBounds (not a fixed center+zoom) so the whole tile is framed on any
+   * screen size; the padding keeps it clear of the top nav and floating controls.
+   * Returns false when the mission's bounds are unknown (caller can fall back).
+   */
+  async function fitMissionBounds(
+    map: any,
+    missionId: string,
+    opts: { animate?: boolean } = {}
+  ): Promise<boolean> {
+    if (!map || !missionId) return false
+    if (openSkyMissions.value.length === 0) await loadOpenSkyMissions()
+    const b = openSkyMissions.value.find(m => m.id === missionId)?.bounds
+    if (!b) return false
+    const animate = opts.animate !== false
+    map.fitBounds(
+      [[b[0], b[1]], [b[2], b[3]]],
+      {
+        // top a touch larger to clear the floating search box / layer controls
+        padding: { top: 100, bottom: 80, left: 80, right: 80 },
+        maxZoom: 19,
+        animate,
+        duration: animate ? 900 : 0,
+      }
+    )
+    return true
+  }
+
   return {
     openSkyEnabled,
     openSkyMode,
     missionGenerating,
     tileGridMode,
+    hoveredTileBudget,
     setupLayers,
+    fitMissionBounds,
     toggleLayer,
     toggleMissionArea,
     toggleTileGrid,

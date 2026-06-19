@@ -18,10 +18,10 @@ class TransitDataSourceAdmin(admin.ModelAdmin):
 
 @admin.register(OpenSkyMission)
 class OpenSkyMissionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'status', 'pilot', 'reputation_reward', 'created_at']
-    list_filter = ['status', 'created_at']
+    list_display = ['id', 'status', 'pilot', 'license', 'license_consent_at', 'created_at']
+    list_filter = ['status', 'license', 'created_at']
     search_fields = ['pilot__local_name', 'published_data_cid']
-    readonly_fields = ['id', 'created_at', 'updated_at']
+    readonly_fields = ['id', 'created_at', 'updated_at', 'license_consent_at']
 
 
 @admin.register(Agency)
@@ -88,11 +88,10 @@ class PlaceAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
 
 
-@admin.register(StopTime)
-class StopTimeAdmin(admin.ModelAdmin):
-    list_display = ['trip', 'stop', 'arrival_time', 'departure_time', 'stop_sequence']
-    list_filter = ['trip__route', 'arrival_time']
-    search_fields = ['trip__headsign', 'stop__name']
+# StopTime is NOT registered with admin: it has a composite primary key
+# (trip, stop_sequence) — Django forbids admin registration of composite-PK
+# models — and a 41M-row table is not browsable in admin anyway. Inspect via
+# the transit API / shell.
 
 
 @admin.register(WorldObject)

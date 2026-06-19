@@ -27,6 +27,8 @@ from geo.mission_generator import (
     BUFFER_M,
     STEP_BETWEEN_LINES_M,
     STEP_BETWEEN_POINTS_M,
+    OBLIQUE_STEP_BETWEEN_LINES_M,
+    OBLIQUE_STEP_BETWEEN_POINTS_M,
 )
 
 
@@ -234,32 +236,41 @@ class KMZContentTest(TestCase):
     """Verify KMZ file structure and content."""
 
     def test_zip_structure(self):
-        """ZIP must contain nadir KMZ + 2 oblique KMZ + README."""
+        """ZIP must contain 5 KMZ (nadir + 4 cardinal obliques) + README."""
         x, y = latlng_to_tile(38.75, -9.15, TILE_ZOOM)
-        zip_data = generate_tile_zip(TILE_ZOOM, x, y, 'Test')
+        zip_data = generate_tile_zip(TILE_ZOOM, x, y)
         with zipfile.ZipFile(io.BytesIO(zip_data)) as zf:
             names = zf.namelist()
 
-        self.assertIn('Test_2D.kmz', names)
-        self.assertIn('Test_3D-E.kmz', names)
-        self.assertIn('Test_3D-N.kmz', names)
+        self.assertIn('1_2D.kmz', names)
+        self.assertIn('2_3D-N.kmz', names)
+        self.assertIn('3_3D-E.kmz', names)
+        self.assertIn('4_3D-S.kmz', names)
+        self.assertIn('5_3D-W.kmz', names)
         self.assertIn('README.txt', names)
-        self.assertEqual(len(names), 4)
+        self.assertEqual(len(names), 6)
 
     def test_kmz_internal_structure(self):
         """Each KMZ must contain wpmz/template.kml and wpmz/waylines.wpml."""
-        kmz_data = generate_kmz(TILE_ZOOM, 62204, 50209, 'Test', direction='ns')
+        kmz_data = generate_kmz(TILE_ZOOM, 62204, 50209, direction='ns')
         with zipfile.ZipFile(io.BytesIO(kmz_data)) as kmz:
             names = kmz.namelist()
         self.assertIn('wpmz/template.kml', names)
         self.assertIn('wpmz/waylines.wpml', names)
 
     def test_gimbal_angles(self):
-        """Nadir must have -90° gimbal, oblique must have -45°."""
+        """Nadir KMZ must have -90° gimbal, all 4 obliques must have -45°."""
         x, y = latlng_to_tile(38.75, -9.15, TILE_ZOOM)
-        zip_data = generate_tile_zip(TILE_ZOOM, x, y, 'G')
+        zip_data = generate_tile_zip(TILE_ZOOM, x, y)
 
-        for kmz_name, expected_pitch in [('G_2D.kmz', '-90'), ('G_3D-E.kmz', '-45'), ('G_3D-N.kmz', '-45')]:
+        expectations = [
+            ('1_2D.kmz',   '-90'),
+            ('2_3D-N.kmz', '-45'),
+            ('3_3D-E.kmz', '-45'),
+            ('4_3D-S.kmz', '-45'),
+            ('5_3D-W.kmz', '-45'),
+        ]
+        for kmz_name, expected_pitch in expectations:
             with self.subTest(kmz=kmz_name):
                 with zipfile.ZipFile(io.BytesIO(zip_data)) as outer:
                     kmz_data = outer.read(kmz_name)
@@ -270,9 +281,85 @@ class KMZContentTest(TestCase):
                 self.assertEqual(pitches, {expected_pitch},
                     f"{kmz_name}: expected pitch {expected_pitch}, got {pitches}")
 
+    def test_oblique_uses_sparser_spacing(self):
+        """
+        Oblique missions run at 70% overlap (wider line/point spacing) to
+        save flight time. Verify by comparing waypoint counts: each oblique
+        KMZ must have strictly fewer waypoints than the nadir KMZ for the
+        same tile. Also verify the ratio is roughly the expected ~0.45.
+        """
+        # Use Lisbon (mid-latitude, typical tile size)
+        x, y = latlng_to_tile(38.75, -9.15, TILE_ZOOM)
+        zip_data = generate_tile_zip(TILE_ZOOM, x, y)
+
+        def _wp_count(kmz_name):
+            with zipfile.ZipFile(io.BytesIO(zip_data)) as outer:
+                kmz_data = outer.read(kmz_name)
+            with zipfile.ZipFile(io.BytesIO(kmz_data)) as kmz:
+                wpml = kmz.read('wpmz/waylines.wpml')
+            root = ET.fromstring(wpml)
+            return len(root.findall('.//{http://www.opengis.net/kml/2.2}Placemark'))
+
+        nadir = _wp_count('1_2D.kmz')
+        for oblique_name in ['2_3D-N.kmz', '3_3D-E.kmz', '4_3D-S.kmz', '5_3D-W.kmz']:
+            with self.subTest(kmz=oblique_name):
+                obl = _wp_count(oblique_name)
+                self.assertLess(obl, nadir,
+                    f"{oblique_name} ({obl} wps) must have fewer waypoints than 1_2D ({nadir} wps)")
+                # Waypoint ratio should be roughly (1/1.5)^2 ≈ 0.44 — allow 0.35..0.6
+                ratio = obl / nadir
+                self.assertGreater(ratio, 0.35, f"{oblique_name}: ratio {ratio:.2f} too low — overlap reduction too aggressive")
+                self.assertLess(ratio, 0.6, f"{oblique_name}: ratio {ratio:.2f} too high — overlap reduction didn't take effect")
+
+    def test_oblique_constants_relation(self):
+        """Oblique spacing must be strictly wider than nadir spacing (70% < 80%)."""
+        self.assertGreater(OBLIQUE_STEP_BETWEEN_LINES_M, STEP_BETWEEN_LINES_M)
+        self.assertGreater(OBLIQUE_STEP_BETWEEN_POINTS_M, STEP_BETWEEN_POINTS_M)
+        # Sanity: 70% overlap is 1.5× wider than 80% overlap
+        self.assertAlmostEqual(
+            OBLIQUE_STEP_BETWEEN_LINES_M / STEP_BETWEEN_LINES_M, 1.5, places=2
+        )
+        self.assertAlmostEqual(
+            OBLIQUE_STEP_BETWEEN_POINTS_M / STEP_BETWEEN_POINTS_M, 1.5, places=2
+        )
+
+    def test_oblique_fixed_headings(self):
+        """
+        Each oblique KMZ must have ONE fixed camera heading matching its
+        cardinal direction: N=0, E=90, S=180, W=270. Nadir can vary.
+        """
+        x, y = latlng_to_tile(38.75, -9.15, TILE_ZOOM)
+        zip_data = generate_tile_zip(TILE_ZOOM, x, y)
+
+        expectations = {
+            '2_3D-N.kmz': 0,
+            '3_3D-E.kmz': 90,
+            '4_3D-S.kmz': 180,
+            '5_3D-W.kmz': 270,
+        }
+        ns = {
+            'kml': 'http://www.opengis.net/kml/2.2',
+            'wpml': 'http://www.uav.com/wpmz/1.0.2',
+        }
+        for kmz_name, expected_heading in expectations.items():
+            with self.subTest(kmz=kmz_name):
+                with zipfile.ZipFile(io.BytesIO(zip_data)) as outer:
+                    kmz_data = outer.read(kmz_name)
+                with zipfile.ZipFile(io.BytesIO(kmz_data)) as kmz:
+                    wpml = kmz.read('wpmz/waylines.wpml')
+                root = ET.fromstring(wpml)
+
+                headings = set()
+                for pm in root.findall('.//kml:Placemark', ns):
+                    h = pm.find('.//wpml:waypointHeadingAngle', ns)
+                    if h is not None:
+                        headings.add(int(h.text))
+                self.assertEqual(headings, {expected_heading},
+                    f"{kmz_name}: expected all waypoints heading={expected_heading}, got {headings}")
+
     def test_setup_waypoint_no_photo(self):
         """Setup waypoint (idx 0) must have gimbalRotate but NOT takePhoto."""
-        kmz_data = generate_kmz(TILE_ZOOM, 62204, 50209, 'W', direction='ns')
+        kmz_data = generate_kmz(TILE_ZOOM, 62204, 50209, direction='ns')
         with zipfile.ZipFile(io.BytesIO(kmz_data)) as kmz:
             wpml = kmz.read('wpmz/waylines.wpml')
 
@@ -289,7 +376,7 @@ class KMZContentTest(TestCase):
 
     def test_survey_waypoints_have_photo(self):
         """All non-setup waypoints must have takePhoto action."""
-        kmz_data = generate_kmz(TILE_ZOOM, 62204, 50209, 'P', direction='ns')
+        kmz_data = generate_kmz(TILE_ZOOM, 62204, 50209, direction='ns')
         with zipfile.ZipFile(io.BytesIO(kmz_data)) as kmz:
             wpml = kmz.read('wpmz/waylines.wpml')
 
@@ -309,12 +396,47 @@ class TileStatsTest(TestCase):
     """Test mission statistics calculation."""
 
     def test_stats_structure(self):
-        """calculate_tile_stats returns expected keys."""
+        """calculate_tile_stats returns expected top-level and budget keys."""
         stats = calculate_tile_stats(TILE_ZOOM, 62204, 50209)
         for key in ['tile', 'center', 'bounds', 'width_m', 'height_m',
-                     'nadir_mission', 'oblique_ew_mission', 'oblique_ns_mission',
-                     'total_waypoints', 'total_time_min', 'batteries']:
-            self.assertIn(key, stats, f"Missing key: {key}")
+                     'missions', 'budgets', 'total_waypoints', 'total_time_min']:
+            self.assertIn(key, stats, f"Missing top-level key: {key}")
+
+        # 5 missions with the exact numeric prefix naming
+        for mname in ['1_2D', '2_3D-N', '3_3D-E', '4_3D-S', '5_3D-W']:
+            self.assertIn(mname, stats['missions'], f"Missing mission: {mname}")
+
+        # 3 budget levels
+        for budget in ['1_battery', '3_batteries', '5_batteries']:
+            self.assertIn(budget, stats['budgets'], f"Missing budget: {budget}")
+            b = stats['budgets'][budget]
+            for bkey in ['files', 'time_min', 'waypoints', 'facades_covered', 'description']:
+                self.assertIn(bkey, b, f"Missing {budget}.{bkey}")
+
+    def test_budget_monotonicity(self):
+        """
+        Each next battery must add strictly more info: more files,
+        more time, more waypoints, more facades covered.
+        """
+        stats = calculate_tile_stats(TILE_ZOOM, 62204, 50209)
+        b1 = stats['budgets']['1_battery']
+        b3 = stats['budgets']['3_batteries']
+        b5 = stats['budgets']['5_batteries']
+
+        self.assertEqual(len(b1['files']), 1)
+        self.assertEqual(len(b3['files']), 3)
+        self.assertEqual(len(b5['files']), 5)
+
+        # b3 must be a superset of b1, b5 must be a superset of b3
+        self.assertTrue(set(b1['files']).issubset(set(b3['files'])))
+        self.assertTrue(set(b3['files']).issubset(set(b5['files'])))
+
+        self.assertLess(b1['time_min'], b3['time_min'])
+        self.assertLess(b3['time_min'], b5['time_min'])
+
+        self.assertEqual(b1['facades_covered'], 0)
+        self.assertEqual(b3['facades_covered'], 2)
+        self.assertEqual(b5['facades_covered'], 4)
 
     def test_stats_reasonable_values(self):
         """Stats must be within reasonable ranges for Z17."""
@@ -329,10 +451,95 @@ class TileStatsTest(TestCase):
                 self.assertGreater(stats['height_m'], 100)
                 self.assertLess(stats['height_m'], 320)
 
-                # Time: 3 missions, 5-30 min each
-                self.assertGreater(stats['total_time_min'], 15)
-                self.assertLess(stats['total_time_min'], 90)
+                # Time: 5 missions (1 nadir at 80% + 4 oblique at 70%)
+                # Reykjavik (smallest tile) ~29 min, equator ~92 min
+                self.assertGreater(stats['total_time_min'], 20)
+                self.assertLess(stats['total_time_min'], 120)
 
-                # Waypoints: reasonable count
-                self.assertGreater(stats['total_waypoints'], 50)
-                self.assertLess(stats['total_waypoints'], 1000)
+                # Waypoints: 5 missions with reduced oblique count
+                self.assertGreater(stats['total_waypoints'], 80)
+                self.assertLess(stats['total_waypoints'], 1500)
+
+    def test_oblique_mission_cheaper_than_nadir(self):
+        """
+        In the stats dict, oblique missions (with 70% overlap) should have
+        strictly fewer waypoints and less time than the nadir (80% overlap).
+        This is the stats-level mirror of test_oblique_uses_sparser_spacing.
+        """
+        stats = calculate_tile_stats(TILE_ZOOM, 62204, 50209)
+        nadir = stats['missions']['1_2D']
+        for oblique_key in ['2_3D-N', '3_3D-E', '4_3D-S', '5_3D-W']:
+            with self.subTest(mission=oblique_key):
+                obl = stats['missions'][oblique_key]
+                self.assertLess(obl['waypoints_count'], nadir['waypoints_count'],
+                    f"{oblique_key} must have fewer waypoints than 1_2D")
+                self.assertLess(obl['estimated_time_min'], nadir['estimated_time_min'],
+                    f"{oblique_key} must take less time than 1_2D")
+                self.assertEqual(obl['overlap_percent'], 70)
+        self.assertEqual(nadir['overlap_percent'], 80)
+
+
+# ── Direction classification tests ──────────────────────────────
+#
+# Covers classify_photo_direction() in geo/endpoints/opensky.py, which
+# maps gimbal (pitch, yaw) EXIF to a direction bucket used by the coverage
+# pills UI. Regression: nadir threshold -70°, oblique cardinals are ±45°
+# around each of 0/90/180/270.
+
+class DirectionClassificationTest(TestCase):
+    def test_nadir_pitch(self):
+        from geo.endpoints.opensky import classify_photo_direction
+        self.assertEqual(classify_photo_direction(-90, 0), 'nadir')
+        self.assertEqual(classify_photo_direction(-85, 180), 'nadir')
+        self.assertEqual(classify_photo_direction(-71, None), 'nadir')  # yaw ignored for nadir
+
+    def test_unknown_when_no_pitch(self):
+        from geo.endpoints.opensky import classify_photo_direction
+        self.assertEqual(classify_photo_direction(None, 0), 'unknown')
+        self.assertEqual(classify_photo_direction(None, None), 'unknown')
+
+    def test_unknown_oblique_without_yaw(self):
+        from geo.endpoints.opensky import classify_photo_direction
+        self.assertEqual(classify_photo_direction(-45, None), 'unknown')
+        self.assertEqual(classify_photo_direction(0, None), 'unknown')
+
+    def test_cardinal_buckets(self):
+        """Each cardinal ±44° should classify to that cardinal. Boundaries exclusive."""
+        from geo.endpoints.opensky import classify_photo_direction
+        # North: [315, 360) ∪ [0, 45)
+        for yaw in (0, 5, 44, 315, 350, 359):
+            self.assertEqual(classify_photo_direction(-45, yaw), 'n', f"yaw={yaw}")
+        # East: [45, 135)
+        for yaw in (45, 90, 134):
+            self.assertEqual(classify_photo_direction(-45, yaw), 'e', f"yaw={yaw}")
+        # South: [135, 225)
+        for yaw in (135, 180, 224):
+            self.assertEqual(classify_photo_direction(-45, yaw), 's', f"yaw={yaw}")
+        # West: [225, 315)
+        for yaw in (225, 270, 314):
+            self.assertEqual(classify_photo_direction(-45, yaw), 'w', f"yaw={yaw}")
+
+    def test_yaw_normalized_modulo(self):
+        """DJI yaw can be negative (-180..180) — normalized via mod 360."""
+        from geo.endpoints.opensky import classify_photo_direction
+        self.assertEqual(classify_photo_direction(-45, -90), 'w')   # -90 → 270
+        self.assertEqual(classify_photo_direction(-45, -180), 's')  # -180 → 180
+        self.assertEqual(classify_photo_direction(-45, 360), 'n')   # 360 → 0
+        self.assertEqual(classify_photo_direction(-45, 450), 'e')   # 450 → 90
+
+    def test_pitch_exactly_minus_70_is_oblique(self):
+        """Edge: pitch == -70 classified as oblique (nadir is strict < -70)."""
+        from geo.endpoints.opensky import classify_photo_direction
+        self.assertEqual(classify_photo_direction(-70, 0), 'n')
+        self.assertEqual(classify_photo_direction(-70.0001, 0), 'nadir')
+
+    def test_direction_keys_constant(self):
+        """All direction buckets listed in DIRECTION_KEYS, threshold positive."""
+        from geo.endpoints.opensky import DIRECTION_KEYS, DIRECTION_COVERAGE_THRESHOLD, empty_direction_counts
+        self.assertEqual(set(DIRECTION_KEYS), {'nadir', 'n', 'e', 's', 'w', 'unknown'})
+        self.assertGreater(DIRECTION_COVERAGE_THRESHOLD, 0)
+        # empty_direction_counts returns dict with all keys at 0
+        ec = empty_direction_counts()
+        self.assertEqual(sorted(ec.keys()), sorted(DIRECTION_KEYS))
+        for v in ec.values():
+            self.assertEqual(v, 0)

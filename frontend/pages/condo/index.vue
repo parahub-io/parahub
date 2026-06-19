@@ -33,7 +33,7 @@
       <NuxtLink
         v-for="condo in condos"
         :key="condo.id"
-        :to="localePath(`/condo/${condo.slug}/fractions`)"
+        :to="localePath(`/condo/${condo.slug}`)"
         class="block border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
       >
         <div class="flex items-start justify-between mb-2">

@@ -147,7 +147,7 @@ const loading = ref(false)
 const error = ref('')
 const currentPage = ref(1)
 const totalPages = ref(1)
-const selectedStatus = ref('active')
+const selectedStatus = useTabSync(['active', 'ended', 'all'])
 
 // Tab definitions for UiTabs
 const statusTabs = computed(() => [

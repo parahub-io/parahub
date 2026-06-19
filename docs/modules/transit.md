@@ -48,7 +48,7 @@ Public endpoints for third-party consumers:
 
 ### Driver Mode Integration
 
-Verified drivers (WoT 2+) broadcast GPS from the browser. Positions injected into the same Redis pipeline (`transit:geo`, `transit:vdata`, `transit:members`). Passengers see driver vehicles on the map alongside official GTFS-RT feeds. See [Features](../features.md#driver-mode).
+Verified drivers (WoT 3+) broadcast GPS from the browser. Positions injected into the same Redis pipeline (`transit:geo`, `transit:vdata`, `transit:members`). Passengers see driver vehicles on the map alongside official GTFS-RT feeds. See [Features](../features.md#driver-mode).
 
 ### Ticket Integration
 

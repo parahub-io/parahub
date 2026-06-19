@@ -10,8 +10,8 @@ Extends Django's `AbstractUser`. One account per person. Handles authentication 
 Username is auto-generated on signup (adjective-noun pattern, e.g., `daring-water`). OAuth users must choose their username before Matrix account creation (Matrix IDs are immutable).
 
 Account flags:
-- `is_test` -- test accounts used by E2E tests (e.g., alice, bob, charlie)
-- `is_bot` -- AI agent accounts (e.g., pixel, forge, scout, vera)
+- `is_test` -- test accounts used by E2E tests
+- `is_bot` -- automated (non-human) accounts
 - Both flags hidden from public profile/item/event listings for non-staff users
 
 ### Profiles
@@ -37,15 +37,22 @@ If a verified account is proven fake, **all verifiers who vouched for it are aut
 
 ### Trust Levels
 
+10 roles evaluated dynamically by combining authentication state, profile existence, profile type, WoT verification count, and association membership:
+
 | Level | Requirements | Key Permissions |
 |-------|-------------|-----------------|
-| Anonymous | None | Browse public content |
-| Registered | Account created | Create items (limited) |
-| Verified | 3+ WoT confirmations | Full marketplace access, voting |
-| Apoiante | Association supporter | Extended quotas |
-| Efetivo | Full association member | Governance participation |
-| Fundador | Founding member | Historical status |
-| Admin | Appointed | System administration |
+| Anonymous | No authentication | Browse public content |
+| Authenticated | Account created | Manage own account |
+| Has Profile | Created ≥1 Profile | Participate in social graph |
+| Personal Profile | `profile_type=PERSONAL` | Primary identity actions |
+| Pseudonymous Profile | `profile_type=PSEUDONYMOUS` | Privacy-preserving identity |
+| Verified (WoT) | ≥3 active verifications | Full marketplace, voting, create groups |
+| Associado Apoiante | Association basic member | Extended quotas |
+| Associado Efetivo | Association full member | Governance participation |
+| Associado Fundador | Founding member | Historical status |
+| Administrator | Superuser | System administration |
+
+One account can hold up to 7 profiles (different types). `is_verified_wot` is a denormalized BooleanField on `Profile`, auto-updated by `post_save`/`post_delete` signals on `Verification`. Association membership is modelled via `EstablishmentMembership` on the `parahub-associacao` establishment.
 
 ## PGP Cryptography
 

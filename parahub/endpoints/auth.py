@@ -340,6 +340,7 @@ def get_current_user(request):
                 "id": str(profile.id),
                 "local_name": profile.local_name,
                 "display_name": profile.display_name,
+                "bio": profile.bio or "",
                 "hna": profile.hna,
                 "reputation_score": float(profile.reputation_score),
                 "is_verified_wot": profile.is_verified_wot,
@@ -441,6 +442,7 @@ def check_session(request):
                 "id": str(profile.id),
                 "local_name": profile.local_name,
                 "display_name": profile.display_name,
+                "bio": profile.bio or "",
                 "hna": profile.hna,
                 "reputation_score": float(profile.reputation_score),
                 "is_verified_wot": profile.is_verified_wot,
@@ -843,6 +845,8 @@ def _is_username_valid(username: str) -> tuple[bool, str]:
         # Generic authority / impersonation
         'ceo', 'founder', 'owner', 'manager', 'director',
         'president', 'chairman',
+        # Founder identity (impersonation defense)
+        'andrey', 'norn', 'francisco', 'liliana',
         # Matrix / chat
         'matrix', 'synapse', 'element', 'cinny',
         # Finance / wallet

@@ -200,7 +200,9 @@
       "pollEnded": "La votación ha finalizado",
       "noPermission": "No tiene permiso para votar en esta votación",
       "loadingDelegationChains": "Error al cargar cadenas de delegación",
-      "loadingAuditLog": "Error al cargar registro de auditoría"
+      "loadingAuditLog": "Error al cargar registro de auditoría",
+      "pgpKeysRequired": "Se requieren claves PGP para votar. Tu perfil tiene una clave PGP registrada — restáurala en este dispositivo primero.",
+      "restoreKeys": "Restaurar claves"
     },
     "landing_title": "Democracia directa y líquida",
     "landing_meta": "Votación con democracia líquida, delegación transitiva y auditoría criptográfica. Gratis y open-source.",

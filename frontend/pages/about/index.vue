@@ -27,7 +27,7 @@
           <UiButton variant="secondary" size="sm" :to="localePath('/docs')" :icon="BookOpen">
             {{ $t('docs.title') }}
           </UiButton>
-          <UiButton variant="secondary" size="sm" :to="localePath('/about/support')" :icon="Headphones">
+          <UiButton v-if="authStore.user?.is_staff" variant="secondary" size="sm" :to="localePath('/about/support')" :icon="Headphones">
             {{ $t('support_voice.title') }}
           </UiButton>
           <UiButton variant="secondary" size="sm" tag="a" href="/parahub.apk" download :icon="Smartphone">
@@ -89,10 +89,37 @@
             <span class="text-neutral-500 dark:text-neutral-400 w-28 flex-shrink-0">{{ $t('about.cta.github') }}</span>
             <a href="https://github.com/parahub-io" class="text-link font-mono" target="_blank" rel="noopener">github.com/parahub-io</a>
           </div>
-          <div class="flex gap-3">
+          <div v-if="authStore.user?.is_staff" class="flex gap-3">
             <span class="text-neutral-500 dark:text-neutral-400 w-28 flex-shrink-0">{{ $t('about.contact.support') }}</span>
             <NuxtLink :to="localePath('/about/support')" class="text-link">{{ $t('support_voice.title') }}</NuxtLink>
           </div>
+        </div>
+      </section>
+
+      <!-- Platform Services -->
+      <section class="card p-6">
+        <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+          <Server class="w-5 h-5 text-neutral-400" />
+          {{ $t('about.services.title') }}
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <a
+            v-for="svc in platformServices"
+            :key="svc.url"
+            :href="svc.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center gap-3 p-3 rounded-lg border border-neutral-300 dark:border-neutral-600 hover:border-primary transition-colors group"
+          >
+            <component :is="svc.icon" class="w-5 h-5 text-neutral-400 group-hover:text-secondary shrink-0" />
+            <div class="min-w-0">
+              <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100 flex items-center gap-1">
+                {{ svc.name }}
+                <ExternalLink class="w-3 h-3 opacity-40" />
+              </div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400 truncate">{{ svc.desc }}</div>
+            </div>
+          </a>
         </div>
       </section>
 
@@ -129,7 +156,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
-import { BookOpen, Smartphone, Headphones, FileText, Mail, Scale, ChevronRight } from 'lucide-vue-next'
+import { BookOpen, Smartphone, Headphones, FileText, Mail, Scale, ChevronRight, Server, ExternalLink, Video, FolderGit, MessageCircle, Activity } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -146,6 +173,13 @@ useSeoMeta({
   ogTitle: computed(() => `${t('about.hero.subtitle')} — Parahub`),
   ogDescription: computed(() => t('about.meta.description')),
 })
+
+const platformServices = computed(() => [
+  { name: t('about.services.video'), url: 'https://video.parahub.io', icon: Video, desc: t('about.services.video_desc') },
+  { name: t('about.services.git'), url: 'https://git.parahub.io', icon: FolderGit, desc: t('about.services.git_desc') },
+  { name: t('about.services.chat'), url: 'https://parahub.io/element/', icon: MessageCircle, desc: t('about.services.chat_desc') },
+  { name: t('about.services.status'), url: 'https://status.parahub.io', icon: Activity, desc: t('about.services.status_desc') },
+])
 
 const config = useRuntimeConfig()
 const version = computed(() => config.public.appVersion)

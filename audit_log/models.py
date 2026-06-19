@@ -124,6 +124,54 @@ class PGPKeyPublication(models.Model):
         return f"PGP key {self.fingerprint[:8]} for {self.profile.id[:8]}"
 
 
+class GiteaCommentSnapshot(models.Model):
+    """
+    Immutable snapshot of a Gitea issue comment for non-repudiation.
+
+    When a comment is created/edited on any Gitea issue (CMS drafts, contracts,
+    etc.), a webhook fires and this model captures the full text. Even if the
+    author later deletes/edits the comment in Gitea, we retain the original.
+
+    A TimestampProof (GenericFK → this model) anchors each snapshot to Bitcoin
+    via the existing batch_ots_stamp timer (~10 min).
+    """
+
+    gitea_comment_id = models.BigIntegerField(db_index=True,
+        help_text="Gitea's internal comment ID")
+    gitea_repo = models.CharField(max_length=200,
+        help_text="Full repo path, e.g. cms-editorial/parahub-associacao")
+    gitea_issue_number = models.PositiveIntegerField()
+
+    # Author — link to Parahub profile if Gitea user maps via OIDC SSO
+    author_profile = models.ForeignKey(
+        'identity.Profile', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+    )
+    author_username = models.CharField(max_length=100,
+        help_text="Gitea username at time of comment")
+
+    text = models.TextField(help_text="Full comment body at this version")
+    version = models.PositiveIntegerField(default=1,
+        help_text="Increments on edit: v1=created, v2+=edited")
+    deleted_in_gitea = models.BooleanField(default=False,
+        help_text="True if comment was later deleted in Gitea")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['gitea_comment_id', 'version']),
+            models.Index(fields=['gitea_repo', 'gitea_issue_number']),
+        ]
+
+    def __str__(self):
+        return (
+            f"Comment {self.gitea_comment_id} v{self.version} "
+            f"on {self.gitea_repo}#{self.gitea_issue_number}"
+        )
+
+
 class ProofExport(models.Model):
     """Track user data exports for audit trail"""
 

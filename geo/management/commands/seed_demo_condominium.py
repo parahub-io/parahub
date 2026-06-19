@@ -10,7 +10,7 @@ and 6 months of quota payment history (paid/pending/overdue mix).
 """
 
 import hashlib
-from datetime import datetime, timezone as dt_tz
+from datetime import datetime, timedelta, timezone as dt_tz
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
@@ -20,6 +20,44 @@ from django.utils import timezone
 
 
 DEMO_MARKER = 'demo'
+
+# Past assemblies — (months_ago, title_pt, description_pt, options, target_yes_ratio)
+ASSEMBLY_HISTORY = [
+    (
+        6,
+        'Aprovação do orçamento anual 2025-2026',
+        'Proposta de orçamento anual para manutenção, limpeza, seguros e fundo de reserva conforme art. 40.º do DL 268/94. Discussão em assembleia ordinária.',
+        ['Aprovar', 'Rejeitar', 'Abstenção'],
+        0.85,
+    ),
+    (
+        3,
+        'Obras de manutenção da fachada e caleiras',
+        'Orçamento de reparação da fachada sul e substituição de caleiras (3 orçamentos anexos). Custo estimado: 4.200€ — distribuição por permilagem.',
+        ['Aprovar orçamento A', 'Aprovar orçamento B', 'Adiar decisão'],
+        0.60,
+    ),
+]
+
+# Active assembly (ongoing, ends in N days)
+ACTIVE_ASSEMBLY = (
+    14,
+    'Contrato de manutenção de elevadores 2026',
+    'Renovação anual do contrato de manutenção dos elevadores. Proposta da empresa Schindler vs. ThyssenKrupp (ver anexos). Decisão requer maioria simples (Lei 8/2022).',
+    ['Schindler (atual)', 'ThyssenKrupp', 'Abstenção'],
+    0.55,
+)
+
+# Recurring expense templates — (category_slug, month_offset_pattern, description_pt, amount_base, variance)
+# month_offset_pattern: 'monthly' | 'quarterly' | 'annual'
+EXPENSE_TEMPLATES = [
+    ('limpeza', 'monthly', 'Serviço de limpeza de áreas comuns (CleanPro, Lda.)', Decimal('180.00'), Decimal('20')),
+    ('manutencao', 'monthly', 'Manutenção geral — pequenas reparações', Decimal('90.00'), Decimal('60')),
+    ('outros', 'monthly', 'Electricidade áreas comuns (EDP)', Decimal('75.00'), Decimal('15')),
+    ('seguros', 'quarterly', 'Seguro multirrisco do edifício (Fidelidade)', Decimal('220.00'), Decimal('0')),
+    ('manutencao', 'quarterly', 'Manutenção de elevadores (Schindler)', Decimal('145.00'), Decimal('0')),
+    ('fundo-reserva', 'annual', 'Transferência anual para fundo comum de reserva (art. 4.º DL 268/94)', Decimal('350.00'), Decimal('0')),
+]
 
 CONDOS = [
     # ---- Building 1: Residential, Baixa Pombalina ----
@@ -109,7 +147,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         from identity.models import Profile
         from geo.models import (
-            Building, Establishment, EstablishmentMembership,
+            WorldObject, Establishment, EstablishmentMembership,
             CondominiumFraction, QuotaPayment,
         )
         from geo.services.condominium import CondominiumService
@@ -117,15 +155,25 @@ class Command(BaseCommand):
         instance_domain = 'parahub.io'
 
         if options['reset']:
+            from governance.models import PollContext
             qs = Establishment.objects.filter(
                 organization_type='CONDOMINIUM',
                 attributes__demo=True,
             )
+            est_ids = list(qs.values_list('id', flat=True))
             count = qs.count()
+            # PollContext.context_id is CharField (no FK cascade) — delete explicitly
+            poll_ctx_count = PollContext.objects.filter(
+                context_type='tszh', context_id__in=est_ids,
+            ).count()
+            PollContext.objects.filter(
+                context_type='tszh', context_id__in=est_ids,
+            ).delete()
             qs.delete()
             if count:
                 self.stdout.write(self.style.WARNING(
-                    f'Deleted {count} demo condominium(s)'))
+                    f'Deleted {count} demo condominium(s) '
+                    f'+ {poll_ctx_count} assembly poll context(s)'))
 
         # Find test users
         test_users = {}
@@ -145,6 +193,9 @@ class Command(BaseCommand):
         now = timezone.now()
         total_fractions = 0
         total_payments = 0
+        total_assemblies = 0
+        total_votes = 0
+        total_expenses = 0
 
         for condo_data in CONDOS:
             slug = condo_data['establishment']['slug']
@@ -154,9 +205,9 @@ class Command(BaseCommand):
                 continue
 
             with transaction.atomic():
-                # Building
+                # WorldObject (formerly Building)
                 bld = condo_data['building']
-                building, _ = Building.objects.get_or_create(
+                wo, _ = WorldObject.objects.get_or_create(
                     full_address=bld['full_address'],
                     defaults={k: v for k, v in bld.items()
                               if k != 'full_address'},
@@ -166,7 +217,7 @@ class Command(BaseCommand):
                 est_info = condo_data['establishment']
                 est = Establishment.objects.create(
                     owner=admin_profile,
-                    building=building,
+                    world_object=wo,
                     name=est_info['name'],
                     slug=est_info['slug'],
                     description=est_info['description'],
@@ -275,16 +326,191 @@ class Command(BaseCommand):
                         )
                         total_payments += 1
 
-                building.establishments_count = (
-                    building.establishments.filter(is_active=True).count())
-                building.save(update_fields=['establishments_count'])
+                # Assemblies (past ended + 1 active)
+                assemblies_made, votes_made = self._create_assemblies(
+                    est, fraction_objects, test_users, admin_profile, now)
+                total_assemblies += assemblies_made
+                total_votes += votes_made
+
+                # Expenses (6 months of realistic spending across categories)
+                expenses_made = self._create_expenses(est, months, now)
+                total_expenses += expenses_made
+
+                wo.establishments_count = (
+                    wo.establishments.filter(is_active=True).count())
+                wo.save(update_fields=['establishments_count'])
 
                 self.stdout.write(self.style.SUCCESS(
                     f'  Created: {est.name} '
                     f'({len(condo_data["fractions"])} fractions, '
-                    f'{cat_count} budget categories)'))
+                    f'{cat_count} budget cats, '
+                    f'{assemblies_made} assemblies/{votes_made} votes, '
+                    f'{expenses_made} expenses)'))
 
         self.stdout.write(self.style.SUCCESS(
-            f'\nTotal: {total_fractions} fractions, '
-            f'{total_payments} quota payments across '
-            f'{len(CONDOS)} condominiums'))
+            f'\nTotal across {len(CONDOS)} condominiums: '
+            f'{total_fractions} fractions, '
+            f'{total_payments} quota payments, '
+            f'{total_assemblies} assemblies ({total_votes} votes), '
+            f'{total_expenses} expenses'))
+
+    # ------------------------------------------------------------------
+    # Assembly seeding
+    # ------------------------------------------------------------------
+    def _create_assemblies(self, est, fraction_objects, test_users,
+                           admin_profile, now):
+        """Create 2 past (ended) + 1 active assembly poll with realistic votes."""
+        from governance.models import (
+            Poll, PollOption, PollContext, PollEligibleVoter, PollVote,
+        )
+        from geo.services.condominium import CondominiumService
+
+        context, _ = PollContext.objects.get_or_create(
+            context_type='tszh', context_id=est.id,
+            defaults={'created_by': admin_profile},
+        )
+
+        assemblies_made = 0
+        votes_made = 0
+
+        # Past assemblies — ended
+        for months_ago, title, desc, option_texts, yes_ratio in ASSEMBLY_HISTORY:
+            start = now - timedelta(days=months_ago * 30)
+            end = start + timedelta(days=15)
+            poll = Poll.objects.create(
+                context=context, title=title, description=desc,
+                created_by=admin_profile,
+                start_time=start, end_time=end,
+                use_weights=True, weight_source='ownership_shares',
+                quorum_type='custom', quorum_percent=Decimal('50'),
+                status='ended',
+            )
+            options = [
+                PollOption.objects.create(poll=poll, text=t, order=i)
+                for i, t in enumerate(option_texts)
+            ]
+            CondominiumService.setup_poll_voters(poll, est)
+            votes_made += self._cast_votes(
+                poll, fraction_objects, options, yes_ratio,
+                vote_day=start + timedelta(days=5),
+                seed=f'{est.slug}:{months_ago}',
+            )
+            assemblies_made += 1
+
+        # Active assembly
+        days_left, title, desc, option_texts, yes_ratio = ACTIVE_ASSEMBLY
+        start = now - timedelta(days=3)
+        end = now + timedelta(days=days_left)
+        poll = Poll.objects.create(
+            context=context, title=title, description=desc,
+            created_by=admin_profile,
+            start_time=start, end_time=end,
+            use_weights=True, weight_source='ownership_shares',
+            quorum_type='custom', quorum_percent=Decimal('50'),
+            status='active',
+        )
+        options = [
+            PollOption.objects.create(poll=poll, text=t, order=i)
+            for i, t in enumerate(option_texts)
+        ]
+        CondominiumService.setup_poll_voters(poll, est)
+        # Partial turnout on active poll
+        votes_made += self._cast_votes(
+            poll, fraction_objects, options, yes_ratio,
+            vote_day=start + timedelta(days=1),
+            seed=f'{est.slug}:active', participation=0.45,
+        )
+        assemblies_made += 1
+
+        return assemblies_made, votes_made
+
+    def _cast_votes(self, poll, fraction_objects, options, yes_ratio,
+                    vote_day, seed, participation=0.80):
+        """Cast deterministic demo votes. yes_ratio skews option 0; participation limits turnout."""
+        from governance.models import PollVote
+
+        voted = 0
+        seen_profiles = set()
+        for frac in fraction_objects:
+            if not frac.resident_id or not frac.is_owner:
+                continue
+            if frac.resident_id in seen_profiles:
+                continue
+            seen_profiles.add(frac.resident_id)
+
+            h = hashlib.md5(f'{seed}:{frac.resident_id}'.encode()).hexdigest()
+            turnout_roll = int(h[:4], 16) % 100
+            if turnout_roll >= int(participation * 100):
+                continue
+
+            choice_roll = int(h[4:8], 16) % 100
+            if choice_roll < int(yes_ratio * 100):
+                option = options[0]
+            elif choice_roll < int(yes_ratio * 100) + 20 and len(options) > 1:
+                option = options[1]
+            else:
+                option = options[-1]
+
+            PollVote.objects.create(
+                poll=poll, voter=frac.resident, option=option,
+                pgp_signature='',
+                signed_payload={
+                    'poll_id': poll.id, 'option_id': option.id,
+                    'timestamp': vote_day.isoformat(),
+                    'demo': True,
+                },
+                effective_weight=frac.permilagem,
+            )
+            voted += 1
+
+        return voted
+
+    # ------------------------------------------------------------------
+    # Expense seeding
+    # ------------------------------------------------------------------
+    def _create_expenses(self, est, months, now):
+        """Create 6 months of realistic demo expenses tied to budget categories."""
+        from treasury.models import BudgetCategory, Expense
+
+        categories = {c.slug: c for c in BudgetCategory.objects.filter(establishment=est)}
+        admin = est.owner
+        count = 0
+
+        for month_idx, month_str in enumerate(months):
+            y, m = [int(x) for x in month_str.split('-')]
+            for template_idx, (cat_slug, cadence, desc, base, variance) in enumerate(EXPENSE_TEMPLATES):
+                cat = categories.get(cat_slug)
+                if not cat:
+                    continue
+                # Apply cadence filter
+                if cadence == 'quarterly' and month_idx % 3 != 0:
+                    continue
+                if cadence == 'annual' and month_idx != 0:
+                    continue
+
+                h = hashlib.md5(f'{est.slug}:{month_str}:{template_idx}'.encode()).hexdigest()
+                delta = (int(h[:4], 16) % 2001 - 1000) / Decimal('1000')  # -1.0..+1.0
+                amount = (base + variance * delta).quantize(Decimal('0.01'))
+                if amount <= 0:
+                    amount = base
+
+                # Most expenses APPROVED; newest month mix DRAFT
+                is_latest = month_idx == len(months) - 1
+                status = Expense.Status.DRAFT if (is_latest and int(h[4:6], 16) % 3 == 0) \
+                    else Expense.Status.APPROVED
+
+                day = 5 + (int(h[6:8], 16) % 20)
+                # Clamp day to valid range for month
+                try:
+                    exp_date = datetime(y, m, day).date()
+                except ValueError:
+                    exp_date = datetime(y, m, 28).date()
+
+                Expense.objects.create(
+                    establishment=est, category=cat, created_by=admin,
+                    amount=amount, description=desc, date=exp_date,
+                    status=status, epoch_label=month_str,
+                )
+                count += 1
+
+        return count

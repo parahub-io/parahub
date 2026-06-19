@@ -15,11 +15,11 @@ const localePath = useLocalePath()
 
 const langNames: Record<string, string> = {
   en: 'English',
-  pt: 'Portugues',
-  es: 'Espanol',
-  fr: 'Francais',
+  pt: 'Português',
+  es: 'Español',
+  fr: 'Français',
   de: 'Deutsch',
-  ru: 'Russkiy',
+  ru: 'Русский',
 }
 
 const base = computed(() => props.linkBase || '/blog')

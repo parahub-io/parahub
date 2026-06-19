@@ -107,6 +107,16 @@
     </div>
   </section>
 
+  <!-- Mascot illustration (Para in a topic-relevant activity; decorative, copy carries meaning) -->
+  {% if mascot_image %}
+  <section class="pt-16 sm:pt-24">
+    <div class="max-w-4xl mx-auto px-6">
+      <img src="{{ mascot_image }}" alt="" aria-hidden="true" loading="lazy" decoding="async"
+           width="1200" height="670" class="w-full rounded-2xl shadow-lg">
+    </div>
+  </section>
+  {% endif %}
+
   <!-- Free forever -->
   <section class="py-16 sm:py-24 bg-primary-100">
     <div class="max-w-3xl mx-auto px-6 text-center">
@@ -119,21 +129,25 @@
   </section>
 
   <!-- Footer -->
-  <footer class="py-8 bg-neutral-900 text-neutral-400 text-center text-sm">
+  <footer class="py-8 bg-neutral-900 text-neutral-400 text-sm">
     {% if cross_links %}
-    <div class="flex flex-wrap justify-center gap-3 mb-4 max-w-3xl mx-auto px-6">
+    <!-- Ecosystem cross-links: de-emphasized secondary tier -->
+    <div class="flex flex-wrap justify-center gap-x-3 gap-y-1 mb-6 max-w-3xl mx-auto px-6 text-xs text-neutral-500">
       {% for link in cross_links %}
       <a href="{{ link.url }}" class="hover:text-primary transition-colors">{{ link.label }}</a>
       {% endfor %}
     </div>
-    <div class="border-t border-neutral-800 max-w-xs mx-auto mb-4"></div>
     {% endif %}
-    <div class="flex flex-wrap justify-center gap-4 mb-4">
-      {% for alt in alternates %}
-      <a href="{{ alt.path }}" class="hover:text-white transition-colors {% if alt.code == locale_code %}text-white font-bold{% endif %}">{{ alt.name }}</a>
-      {% endfor %}
+    <div class="border-t border-neutral-800 max-w-4xl mx-auto"></div>
+    <!-- Bottom bar: copyright left, language switcher right (stacks on mobile) -->
+    <div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 max-w-4xl mx-auto px-6 pt-6">
+      <p class="text-center sm:text-left">&copy; {{ year }} <a href="https://parahub.io" class="hover:text-white">Parahub</a> &mdash; {{ footer_tagline }}</p>
+      <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 flex-shrink-0">
+        {% for alt in alternates %}
+        <a href="{{ alt.path }}" class="hover:text-white transition-colors {% if alt.code == locale_code %}text-white font-bold{% endif %}">{{ alt.name }}</a>
+        {% endfor %}
+      </div>
     </div>
-    <p>&copy; {{ year }} <a href="https://parahub.io" class="hover:text-white">Parahub</a> &mdash; {{ footer_tagline }}</p>
   </footer>
 
 </body>

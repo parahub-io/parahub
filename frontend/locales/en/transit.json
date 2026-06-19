@@ -8,7 +8,16 @@
     "schedule": "Schedule",
     "no_departures": "No upcoming departures",
     "direction": "Direction",
+    "towards": "to {dest}",
+    "type_stop": "Stop",
+    "type_station": "Station",
+    "direction_outbound": "Outbound",
+    "direction_inbound": "Inbound",
+    "line_variants": "Route variants",
+    "not_running_today": "not running today",
+    "percursos_count": "{n} variants",
     "stops_count": "{count} stops",
+    "group_title": "Stops at this location",
     "show_on_map": "Show on map",
     "back": "Back",
     "departure_in": "in {min} min",
@@ -24,6 +33,7 @@
     "route": "Route",
     "departure": "Departure",
     "scheduled": "Scheduled",
+    "live_eta": "Live",
     "night_route": "Night",
     "next_departure": "Next departure",
     "provider": "Provider",
@@ -41,6 +51,7 @@
       "show_all": "All {n} cities",
       "hide": "Show less",
       "search_city": "Search city...",
+      "label": "City",
       "select": "Select city",
       "region_suffix": "(region)"
     },
@@ -101,7 +112,6 @@
     "landing_how_3": "See live vehicles on the map and check departure times",
     "landing_free_title": "Free forever",
     "landing_free_desc": "Public transit information is a right, not a privilege. Parahub doesn't charge, doesn't track, doesn't sell data.",
-
     "driver": {
       "title": "Driver Mode",
       "search_route": "Search route...",
@@ -121,6 +131,7 @@
       "confirm_end": "End your current shift?",
       "shift_ended": "Shift ended",
       "tts_label": "Stop announcements"
-    }
+    },
+    "timetable_no_service": "No service on this day"
   }
 }

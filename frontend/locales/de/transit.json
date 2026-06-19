@@ -8,7 +8,16 @@
     "schedule": "Fahrplan",
     "no_departures": "Keine nächsten Abfahrten",
     "direction": "Richtung",
+    "towards": "Richtung {dest}",
+    "type_stop": "Haltestelle",
+    "type_station": "Station",
+    "direction_outbound": "Hinfahrt",
+    "direction_inbound": "Rückfahrt",
+    "line_variants": "Linienvarianten",
+    "not_running_today": "fährt heute nicht",
+    "percursos_count": "{n} Varianten",
     "stops_count": "{count} Haltestellen",
+    "group_title": "Haltestellen an diesem Ort",
     "show_on_map": "Auf Karte anzeigen",
     "back": "Zurück",
     "departure_in": "in {min} Min",
@@ -24,6 +33,7 @@
     "route": "Linie",
     "departure": "Abfahrt",
     "scheduled": "Fahrplan",
+    "live_eta": "Echtzeit",
     "night_route": "Nacht",
     "next_departure": "Nächste Abfahrt",
     "provider": "Anbieter",
@@ -41,6 +51,7 @@
       "show_all": "Alle {n} Städte",
       "hide": "Weniger anzeigen",
       "search_city": "Stadt suchen...",
+      "label": "Stadt",
       "select": "Stadt auswählen",
       "region_suffix": "(Region)"
     },
@@ -101,7 +112,6 @@
     "landing_how_3": "Sehen Sie Fahrzeuge live auf der Karte und prüfen Sie Abfahrtszeiten",
     "landing_free_title": "Für immer kostenlos",
     "landing_free_desc": "Nahverkehrsinformation ist ein Recht, kein Privileg. Parahub berechnet nichts, trackt nicht, verkauft keine Daten.",
-
     "driver": {
       "title": "Fahrermodus",
       "search_route": "Linie suchen...",
@@ -121,6 +131,7 @@
       "confirm_end": "Aktuelle Schicht beenden?",
       "shift_ended": "Schicht beendet",
       "tts_label": "Haltestellenansagen"
-    }
+    },
+    "timetable_no_service": "Kein Betrieb an diesem Tag"
   }
 }

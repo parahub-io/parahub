@@ -339,7 +339,7 @@
                   <UiButton type="submit" :loading="updating" class="w-full">
                     {{ updating ? $t('market.edit_modal.saving') : $t('market.edit_modal.save') }}
                   </UiButton>
-                  <UiButton variant="outline" class="w-full" @click="editingItem = null">
+                  <UiButton type="button" variant="outline" class="w-full" @click="editingItem = null">
                     {{ $t('market.edit_modal.cancel') }}
                   </UiButton>
                 </div>
@@ -475,7 +475,7 @@ const { formatPricingOption } = usePricingFormat()
 // State
 const items = ref([])
 const loading = ref(false)
-const filterStatus = ref('all')
+const filterStatus = useTabSync(['all', 'active', 'inactive'])
 const statusTabs = computed(() => [
   { id: 'all', label: $t('market.my_items.filter_all') },
   { id: 'active', label: $t('market.my_items.filter_active') },

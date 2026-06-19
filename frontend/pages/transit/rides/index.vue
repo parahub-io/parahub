@@ -240,7 +240,7 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
-const activeTab = ref('passenger')
+const activeTab = useTabSync(['passenger', 'driver'])
 const rideTabs = computed(() => [
   { id: 'passenger', label: t('rides.tabs.find_ride') },
   { id: 'driver', label: t('rides.tabs.give_ride') },

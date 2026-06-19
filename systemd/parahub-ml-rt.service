@@ -1,0 +1,17 @@
+[Unit]
+Description=Parahub Metro de Lisboa live trains (arrivals-tier RT)
+After=network.target redis.service postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=norn
+WorkingDirectory=/opt/parahub
+Environment=DJANGO_SETTINGS_MODULE=parahub.settings
+ExecStart=/opt/parahub/venv/bin/python manage.py fetch_metro_lisboa_rt
+Restart=always
+RestartSec=5
+SyslogIdentifier=transit-rt-metro-lisboa
+
+[Install]
+WantedBy=multi-user.target

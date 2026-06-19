@@ -21,12 +21,37 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 
+# Map of preferred_language code -> human-readable language name injected into AI prompts.
+# NOTE: 'pt' MUST be pinned to European Portuguese — LLMs default to Brazilian Portuguese
+# (pt-BR dominates training data), but Parahub is a Portugal-focused platform.
+LANGUAGE_MAP = {
+    'ru': 'Russian (русский)',
+    'en': 'English',
+    'pt': 'European Portuguese (português de Portugal, NOT Brazilian português do Brasil)',
+    'es': 'Spanish (español)',
+    'fr': 'French (français)',
+    'de': 'German (deutsch)',
+    'it': 'Italian (italiano)',
+    'zh': 'Chinese (中文)',
+    'ja': 'Japanese (日本語)',
+    'ko': 'Korean (한국어)'
+}
+
+
 def build_category_list(categories: List[Dict[str, str]]) -> tuple[str, Dict[int, str]]:
     """
-    Build compact numbered category list for AI prompts
+    Build compact numbered category list for AI prompts.
+
+    Each entry uses the full ancestor path ("Parent > ... > Leaf"), not just the
+    leaf name. Many leaf names are generic ("Parts & Accessories", "Accessories",
+    "Equipment") and several are shared across unrelated branches; the bare name
+    leaves the model no way to tell a car part's bucket from a bicycle's, so it
+    grabs the most generic-sounding match (e.g. a Renault switch → "Bicycles and
+    Scooters > Parts & Accessories"). The path restores that context. Falls back
+    to the bare name if no path is present (stale cache).
 
     Returns:
-        - category_list: Compact string (e.g., "1:Electronics,2:Books,3:Toys")
+        - category_list: Compact string (e.g., "1:Goods > Electronics > Phones")
         - index_to_id: Mapping from index to ULID
     """
     index_to_id = {}
@@ -34,7 +59,7 @@ def build_category_list(categories: List[Dict[str, str]]) -> tuple[str, Dict[int
 
     for idx, cat in enumerate(categories, start=1):
         index_to_id[idx] = cat['id']
-        category_items.append(f"{idx}:{cat['name']}")
+        category_items.append(f"{idx}:{cat.get('path') or cat['name']}")
 
     category_list = ",".join(category_items)
     return category_list, index_to_id
@@ -133,19 +158,7 @@ class ClaudeVisionProvider(AIVisionProvider):
         image_b64 = base64.b64encode(image_data).decode('utf-8')
 
         # Language-specific instructions
-        language_map = {
-            'ru': 'Russian (русский)',
-            'en': 'English',
-            'pt': 'Portuguese (português)',
-            'es': 'Spanish (español)',
-            'fr': 'French (français)',
-            'de': 'German (deutsch)',
-            'it': 'Italian (italiano)',
-            'zh': 'Chinese (中文)',
-            'ja': 'Japanese (日本語)',
-            'ko': 'Korean (한국어)'
-        }
-        language_name = language_map.get(language, 'English')
+        language_name = LANGUAGE_MAP.get(language, 'English')
 
         prompt = f"""Analyze this product image and provide title, description, and price estimate in JSON format.
 
@@ -257,19 +270,7 @@ Example GOOD description:
         image_b64 = base64.b64encode(image_data).decode('utf-8')
 
         # Language-specific instructions
-        language_map = {
-            'ru': 'Russian (русский)',
-            'en': 'English',
-            'pt': 'Portuguese (português)',
-            'es': 'Spanish (español)',
-            'fr': 'French (français)',
-            'de': 'German (deutsch)',
-            'it': 'Italian (italiano)',
-            'zh': 'Chinese (中文)',
-            'ja': 'Japanese (日本語)',
-            'ko': 'Korean (한국어)'
-        }
-        language_name = language_map.get(language, 'English')
+        language_name = LANGUAGE_MAP.get(language, 'English')
 
         # Build compact category list (numbered)
         category_list, index_to_id = build_category_list(categories)
@@ -278,7 +279,7 @@ Example GOOD description:
 
 IMPORTANT: Generate the title and description in {language_name}. All text fields MUST be in {language_name}.
 
-Available categories ({len(categories)} total, format: number:name):
+Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
 {category_list}
 
 Respond with ONLY a valid JSON object:
@@ -384,19 +385,7 @@ class OpenAIVisionProvider(AIVisionProvider):
         image_b64 = base64.b64encode(image_data).decode('utf-8')
 
         # Language-specific instructions
-        language_map = {
-            'ru': 'Russian (русский)',
-            'en': 'English',
-            'pt': 'Portuguese (português)',
-            'es': 'Spanish (español)',
-            'fr': 'French (français)',
-            'de': 'German (deutsch)',
-            'it': 'Italian (italiano)',
-            'zh': 'Chinese (中文)',
-            'ja': 'Japanese (日本語)',
-            'ko': 'Korean (한국어)'
-        }
-        language_name = language_map.get(language, 'English')
+        language_name = LANGUAGE_MAP.get(language, 'English')
 
         prompt = f"""Analyze this product image and provide title, description, and price estimate in JSON format.
 
@@ -525,19 +514,7 @@ Example GOOD description:
         image_b64 = base64.b64encode(image_data).decode('utf-8')
 
         # Language-specific instructions
-        language_map = {
-            'ru': 'Russian (русский)',
-            'en': 'English',
-            'pt': 'Portuguese (português)',
-            'es': 'Spanish (español)',
-            'fr': 'French (français)',
-            'de': 'German (deutsch)',
-            'it': 'Italian (italiano)',
-            'zh': 'Chinese (中文)',
-            'ja': 'Japanese (日本語)',
-            'ko': 'Korean (한국어)'
-        }
-        language_name = language_map.get(language, 'English')
+        language_name = LANGUAGE_MAP.get(language, 'English')
 
         # Build compact category list (numbered)
         category_list, index_to_id = build_category_list(categories)
@@ -546,7 +523,7 @@ Example GOOD description:
 
 IMPORTANT: Generate the title and description in {language_name}. All text fields MUST be in {language_name}.
 
-Available categories ({len(categories)} total, format: number:name):
+Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
 {category_list}
 
 Respond with ONLY a valid JSON object:
@@ -664,19 +641,7 @@ class GeminiFlashVisionProvider(AIVisionProvider):
 
     def analyze_image(self, image_data: bytes, language: str = 'en') -> Dict[str, Any]:
         # Language-specific instructions
-        language_map = {
-            'ru': 'Russian (русский)',
-            'en': 'English',
-            'pt': 'Portuguese (português)',
-            'es': 'Spanish (español)',
-            'fr': 'French (français)',
-            'de': 'German (deutsch)',
-            'it': 'Italian (italiano)',
-            'zh': 'Chinese (中文)',
-            'ja': 'Japanese (日本語)',
-            'ko': 'Korean (한국어)'
-        }
-        language_name = language_map.get(language, 'English')
+        language_name = LANGUAGE_MAP.get(language, 'English')
 
         prompt = f"""Analyze this product image and provide title, description, and price estimate in JSON format.
 
@@ -807,19 +772,7 @@ Example GOOD description:
     def analyze_with_categories(self, image_data: bytes, categories: List[Dict[str, str]], language: str = 'en') -> Dict[str, Any]:
         """ONE REQUEST: analyze image AND select category"""
         # Language-specific instructions
-        language_map = {
-            'ru': 'Russian (русский)',
-            'en': 'English',
-            'pt': 'Portuguese (português)',
-            'es': 'Spanish (español)',
-            'fr': 'French (français)',
-            'de': 'German (deutsch)',
-            'it': 'Italian (italiano)',
-            'zh': 'Chinese (中文)',
-            'ja': 'Japanese (日本語)',
-            'ko': 'Korean (한국어)'
-        }
-        language_name = language_map.get(language, 'English')
+        language_name = LANGUAGE_MAP.get(language, 'English')
 
         # Build compact category list (numbered)
         category_list, index_to_id = build_category_list(categories)
@@ -828,7 +781,7 @@ Example GOOD description:
 
 IMPORTANT: Generate the title and description in {language_name}. All text fields MUST be in {language_name}.
 
-Available categories ({len(categories)} total, format: number:name):
+Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
 {category_list}
 
 Respond with ONLY a valid JSON object:
@@ -933,7 +886,7 @@ class HaikuCategorizationProvider(AICategorizationProvider):
 Item title: {title}
 Item description: {description}
 
-Available categories ({len(categories)} total, format: number:name):
+Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
 {category_list}
 
 Respond with ONLY a valid JSON object (no markdown, no explanations):
@@ -1012,7 +965,7 @@ class GPT5NanoCategorizationProvider(AICategorizationProvider):
 Item title: {title}
 Item description: {description}
 
-Available categories ({len(categories)} total, format: number:name):
+Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
 {category_list}
 
 Respond with ONLY a valid JSON object (no markdown, no explanations):
@@ -1089,7 +1042,7 @@ class GPT5MiniCategorizationProvider(AICategorizationProvider):
 Item title: {title}
 Item description: {description}
 
-Available categories ({len(categories)} total, format: number:name):
+Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
 {category_list}
 
 Respond with ONLY a valid JSON object (no markdown, no explanations):
@@ -1166,7 +1119,7 @@ class GeminiFlashCategorizationProvider(AICategorizationProvider):
 Item title: {title}
 Item description: {description}
 
-Available categories ({len(categories)} total, format: number:name):
+Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
 {category_list}
 
 Respond with ONLY a valid JSON object (no markdown, no explanations):
@@ -1608,13 +1561,31 @@ class AIVisionService:
 
     @staticmethod
     def _get_categories() -> List[Dict[str, str]]:
-        """Get ALL LEAF categories (no limit), cached for 1 hour"""
-        cache_key = 'ai_categorization_all_leaf_categories'
+        """Get ALL LEAF categories (no limit) with full ancestor path, cached for 1 hour.
+
+        Each leaf carries a 'path' field ("Parent > ... > Leaf") so the categorizer
+        prompt can disambiguate generic/shared leaf names (see build_category_list).
+        """
+        cache_key = 'ai_categorization_all_leaf_categories_v2'  # v2: added 'path'
         categories = cache.get(cache_key)
 
         if not categories:
             from taxonomy.models import Category
             from django.db.models import Count
+
+            # All nodes (incl. non-leaf ancestors) for path resolution
+            all_nodes = {
+                c['id']: c
+                for c in Category.objects.values('id', 'name', 'parent_id')
+            }
+
+            def build_path(cid):
+                parts = []
+                node = all_nodes.get(cid)
+                while node:
+                    parts.append(node['name'])
+                    node = all_nodes.get(node['parent_id'])
+                return " > ".join(reversed(parts))
 
             # Get ALL leaf categories (categories with no children)
             categories = list(
@@ -1624,6 +1595,9 @@ class AIVisionService:
                 .values('id', 'name', 'slug')
                 .order_by('name')  # Alphabetical for consistency
             )
+            for cat in categories:
+                cat['path'] = build_path(cat['id'])
+
             cache.set(cache_key, categories, 3600)  # 1 hour
 
         return categories

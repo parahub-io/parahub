@@ -154,6 +154,10 @@
           "title": "Contenido e Interacciones",
           "text": "El Usuario asume la responsabilidad total de todo el contenido que publica, transmite o recibe a través del Servicio, así como de todas sus interacciones con otros usuarios."
         },
+        "imagery": {
+          "title": "Licencia de imágenes aéreas (OpenSky)",
+          "text": "Las imágenes que subes a la capa aérea OpenSky —y las ortofotos, mallas 3D y teselas de mapa derivadas de ellas— se publican bajo la licencia Creative Commons Atribución-CompartirIgual 4.0 Internacional (CC BY-SA 4.0). Al subirlas, confirmas que eres el autor o posees los derechos necesarios, y concedes al Operador y a la red federada Parahub una licencia no exclusiva, irrevocable y mundial para alojar, procesar, publicar y redistribuir estas imágenes en esos términos. Sigues siendo el único responsable de cumplir la legislación de protección de datos aplicable (incluido el RGPD) y la normativa aérea/de drones (como la ANAC en Portugal), y no debes subir imágenes que infrinjan los derechos o la privacidad de otras personas."
+        },
         "compliance": {
           "title": "Cumplimiento Legal",
           "text": "El Usuario acepta utilizar el Servicio en estricto cumplimiento con las leyes aplicables de su jurisdicción y la jurisdicción de la ubicación del Operador."
@@ -1042,6 +1046,17 @@
       "total_sats": "sats donados",
       "total_donations": "donaciones",
       "supporters": "apoyadores"
+    },
+    "services": {
+      "title": "Servicios de la Plataforma",
+      "video": "Vídeo",
+      "video_desc": "Alojamiento y streaming de vídeo",
+      "git": "Proyectos",
+      "git_desc": "Repositorios de código y colaboración",
+      "chat": "Chat",
+      "chat_desc": "Mensajería cifrada vía Matrix",
+      "status": "Estado",
+      "status_desc": "Monitorización de disponibilidad"
     }
   }
 }

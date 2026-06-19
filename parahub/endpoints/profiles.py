@@ -3,7 +3,7 @@ Profile Management API endpoints for Parahub
 Implements Phase 2B: Profile Management APIs
 """
 
-from ninja import Router
+from ninja import Form, Router
 from ninja.pagination import paginate, PageNumberPagination
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
@@ -144,6 +144,7 @@ class ProfilePrivateResponse(ProfilePublicResponse):
             'account_id': obj.account.id,
             'hna': obj.hna,
             'display_name': obj.display_name,
+            'bio': obj.bio or '',
             'reputation_score': obj.reputation_score,
             'is_verified_wot': obj.is_verified_wot,
             'antispam_fee_sats': obj.antispam_fee_sats,
@@ -1777,7 +1778,7 @@ def delete_id_photo(request):
 
 @profile_router.post("/me/verification-photo/", response={200: dict, 400: dict}, auth=ProfileAuth())
 @ratelimit(group='profile:verification_photo', key=user_or_ip, rate='5/h', method='POST')
-def upload_verification_photo(request, image: UploadedFile, biometric_consent: bool = False):
+def upload_verification_photo(request, image: UploadedFile, biometric_consent: bool = Form(False)):
     """
     Upload verification photo for WoT face deduplication.
 
@@ -1792,7 +1793,7 @@ def upload_verification_photo(request, image: UploadedFile, biometric_consent: b
     from identity.models import ProfileVerificationPhoto
     from identity.services.face_dedup import (
         extract_embedding, serialize_embedding, check_duplicate,
-        is_significant_change, compute_photo_hash,
+        is_significant_change, compute_photo_hash, compute_face_fingerprint,
     )
     import sys
 
@@ -1801,18 +1802,22 @@ def upload_verification_photo(request, image: UploadedFile, biometric_consent: b
 
         # Only personal profiles can have verification photos
         if profile.profile_type != Profile.ProfileType.PERSONAL:
+            logger.warning(f"Verification photo 400 for profile {profile.id}: non-personal profile_type={profile.profile_type}")
             return 400, {"error": "Only personal profiles can upload verification photos"}
 
         # GDPR: explicit biometric consent required
         if not biometric_consent:
+            logger.warning(f"Verification photo 400 for profile {profile.id}: biometric_consent=false")
             return 400, {"error": "Biometric consent is required. Please check the consent checkbox to proceed."}
 
         # Validate file type
         if not image.content_type.startswith('image/'):
+            logger.warning(f"Verification photo 400 for profile {profile.id}: bad content_type={image.content_type}")
             return 400, {"error": "File must be an image"}
 
         # Validate file size (max 10MB)
         if image.size > 10 * 1024 * 1024:
+            logger.warning(f"Verification photo 400 for profile {profile.id}: oversize {image.size} bytes")
             return 400, {"error": "Image size must be less than 10MB"}
 
         # Process image with PIL
@@ -1832,13 +1837,15 @@ def upload_verification_photo(request, image: UploadedFile, biometric_consent: b
         image_bytes = output.getvalue()
         output.seek(0)
 
-        # Extract face embedding
+        # Extract face embedding + non-blocking quality warnings
         try:
-            embedding = extract_embedding(image_bytes)
+            embedding, quality_warnings = extract_embedding(image_bytes)
         except ValueError as e:
+            logger.warning(f"Verification photo 400 for profile {profile.id}: extract_embedding ValueError: {e}")
             return 400, {"error": str(e)}
 
         if embedding is None:
+            logger.warning(f"Verification photo 400 for profile {profile.id}: embedding is None")
             return 400, {"error": "Could not extract face features from photo"}
 
         embedding_bytes = serialize_embedding(embedding)
@@ -1905,6 +1912,8 @@ def upload_verification_photo(request, image: UploadedFile, biometric_consent: b
             "success": True,
             "face_detected": True,
             "reconfirmation_needed": reconfirmation_needed,
+            "quality_warnings": quality_warnings,
+            "face_fingerprint": compute_face_fingerprint(embedding),
         }
 
     except Exception as e:
@@ -1942,6 +1951,7 @@ def delete_verification_photo(request):
 def verification_photo_status(request):
     """Get current verification photo status."""
     from identity.models import ProfileVerificationPhoto
+    from identity.services.face_dedup import face_fingerprint_from_bytes
 
     try:
         profile = request.auth_profile
@@ -1953,6 +1963,7 @@ def verification_photo_status(request):
                 "reconfirmation_needed": vp.reconfirmation_needed,
                 "reconfirmation_count": vp.reconfirmation_count,
                 "uploaded_at": vp.uploaded_at.isoformat() if vp.uploaded_at else None,
+                "face_fingerprint": face_fingerprint_from_bytes(bytes(vp.face_embedding)) if vp.face_embedding else None,
             }
         except ProfileVerificationPhoto.DoesNotExist:
             return {"has_photo": False}
@@ -1996,19 +2007,22 @@ def _validate_id_photo_with_ai(image_bytes: bytes, profile) -> dict:
             "face_detected": False
         }
 
-    # Prepare prompt for ID photo validation
-    prompt = """Analyze this photo for ID document use. Check these requirements:
+    # Prepare prompt for ID photo validation.
+    # This photo goes on the Para-ID badge (a "this is me" portrait shown to humans),
+    # not into face embeddings — so we don't enforce passport-style composition.
+    # The WoT verification photo has its own pipeline with embedding-quality checks.
+    prompt = """Analyze this photo for use as a personal ID badge portrait. Check:
 1. Exactly one person visible (not zero, not multiple)
-2. Face is clearly visible and front-facing (not profile/side view)
-3. Eyes are clearly visible (no sunglasses, not closed)
-4. Face takes approximately 70-80% of frame height
-5. Background is neutral/simple (not cluttered)
-6. Good lighting (no heavy shadows on face)
+2. A face is visible and recognizable as the same person (not a back of the head, not heavily obscured)
+3. Eyes are visible (no opaque sunglasses, eyes open)
+4. Photo is in focus (not heavily blurred)
+
+Composition, framing, background, lighting style, accessories (hats, glasses, makeup), and mood are NOT issues — the user picks their own portrait style.
 
 Return ONLY valid JSON with no markdown formatting:
 {"valid": true/false, "confidence": 0.0-1.0, "issues": ["list of problems found"], "face_detected": true/false, "face_count": number}
 
-If photo is suitable for ID document, set valid=true and issues=[].
+If the photo meets the four checks above, set valid=true and issues=[].
 """
 
     # Call AI provider

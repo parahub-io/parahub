@@ -15,12 +15,14 @@ Client sends:
     { "type": "subscribe_vehicles", "bbox": [west, south, east, north] }
     { "type": "update_bbox", "bbox": [west, south, east, north] }
     { "type": "subscribe_route", "ds_id": "...", "route_source_id": "..." }
+    { "type": "subscribe_stop", "ds_id": "...", "stop_source_id": "..." }
     { "type": "unsubscribe" }
     { "type": "ping", "timestamp": 1234567890 }
 
 Server sends:
     { "type": "transit_update", "vehicles": [...] }
     { "type": "route_vehicles", "vehicles": [...], "stop_ids": [...], "etas": {0: {...}, 1: {...}} }
+    { "type": "stop_live", "at_stop": [...], "approaching": [...] }
     { "type": "pong", "timestamp": 1234567890 }
 """
 
@@ -28,12 +30,18 @@ import asyncio
 import orjson
 import logging
 import math
+import time
 
 import redis.asyncio as aioredis
 from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
 from django.conf import settings
 
 from .feed_pubsub import FeedPubSubManager
+from parahub.services.transit_eta import (
+    parse_rstops, segment_averages, segment_infos, build_index_map,
+    resolve_origin, cumulative_min_etas, zombie_keeps_eta,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +92,9 @@ class TransitConsumer(AsyncWebsocketConsumer):
         self._route_group: str | None = None
         self._route_ds_id: str | None = None
         self._route_source_id: str | None = None
+        self._stop_ds_id: str | None = None
+        self._stop_source_id: str | None = None
+        self._stop_route_dirs: set | None = None
         self._tick_subscribed = False
         self._feed = FeedPubSubManager.get()
         await self._feed.ensure_running()
@@ -122,6 +133,8 @@ class TransitConsumer(AsyncWebsocketConsumer):
             await self._handle_update_bbox(data)
         elif msg_type == 'subscribe_route':
             await self._handle_subscribe_route(data)
+        elif msg_type == 'subscribe_stop':
+            await self._handle_subscribe_stop(data)
         elif msg_type == 'unsubscribe':
             await self._handle_unsubscribe()
         elif msg_type == 'ping':
@@ -207,6 +220,9 @@ class TransitConsumer(AsyncWebsocketConsumer):
             self._route_group = None
         self._route_ds_id = None
         self._route_source_id = None
+        self._stop_ds_id = None
+        self._stop_source_id = None
+        self._stop_route_dirs = None
         await self.send(text_data=orjson.dumps({'type': 'unsubscribed'}).decode())
 
     async def _handle_subscribe_route(self, data):
@@ -233,6 +249,11 @@ class TransitConsumer(AsyncWebsocketConsumer):
         # Send initial data: vehicles + stop_ids from Redis
         vehicles = []
         stop_ids = set()
+        # Freshness cutoff: CM's /v2/vehicles retains a parked bus's last fix for
+        # hours, and the daemon keeps it in transit:vdata indefinitely. Without this
+        # the route page renders 12-29h-old ghosts as vehicle icons at the termini.
+        # Mirrors the HTTP get_route_live_vehicles / stop-schedule 180s cutoff.
+        cutoff = time.time() - 180
         members_key = f'transit:members:{ds_id}'
         member_ids = await self._redis.smembers(members_key)
         if member_ids:
@@ -242,7 +263,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
                     continue
                 try:
                     v = orjson.loads(raw)
-                    if v.get('r') == route_source_id:
+                    if v.get('r') == route_source_id and v.get('t', 0) >= cutoff:
                         vehicles.append(v)
                         if v.get('sid'):
                             stop_ids.add(v['sid'])
@@ -263,13 +284,19 @@ class TransitConsumer(AsyncWebsocketConsumer):
         """
         Compute per-stop ETA predictions for both directions of the subscribed route.
 
-        Returns: {0: {stop_source_id: eta_seconds, ...}, 1: {...}}
+        Returns: {"0": {stop_source_id: eta_seconds, ...}, "1": {...}}
 
         Algorithm:
         1. Load stop sequences for both directions (2 Redis GETs)
-        2. Batch-read segment travel times (1 pipeline per direction)
-        3. Single SCAN for all confirmed vehicles on this route
+        2. Batch-read segment travel times → seg_avg via shared estimator
+           (observed avg, else scheduled prior, else default)
+        3. SCAN confirmed/tentative vehicles; anchor each one's ETA origin to its
+           feed/displayed snapped stop (sid), not the STT idx (keeps the live
+           block contiguous with the on-map icon)
         4. Cumulative sum per vehicle → min ETA per stop
+
+        Segment estimation, origin resolution and the cumulative chain are shared
+        with the REST endpoints (parahub.services.transit_eta).
         """
         ds_id = self._route_ds_id
         route_src = self._route_source_id
@@ -283,25 +310,23 @@ class TransitConsumer(AsyncWebsocketConsumer):
             pipe.get(f'transit:rstops:{route_src}:1')
             raw0, raw1 = await pipe.execute()
 
-            dir_data = {}  # direction → source_ids list
-            dir_coords = {}  # direction → [(lat, lon), ...] for nearest-stop fallback
+            dir_data = {}     # direction → source_ids list
+            dir_coords = {}   # direction → [(lat, lon), ...] for nearest-stop fallback
+            dir_sched = {}    # direction → cumulative scheduled offsets
+            dir_idxmap = {}   # direction → {source_id: index}
             all_seg_keys = []  # flat list of all segment keys
             dir_seg_ranges = {}  # direction → (start_idx, count) in all_seg_keys
 
             for direction, raw in ((0, raw0), (1, raw1)):
-                if not raw:
+                parsed = parse_rstops(raw)
+                if not parsed:
                     continue
-                try:
-                    stops_list = orjson.loads(raw)
-                except (orjson.JSONDecodeError, TypeError):
-                    continue
-                if len(stops_list) < 2:
-                    continue
-
-                source_ids = [s[0] for s in stops_list]
+                source_ids, coords, sched = parsed
                 num_stops = len(source_ids)
                 dir_data[direction] = source_ids
-                dir_coords[direction] = [(s[1], s[2]) for s in stops_list]
+                dir_coords[direction] = coords
+                dir_sched[direction] = sched
+                dir_idxmap[direction] = build_index_map(source_ids)
 
                 start = len(all_seg_keys)
                 for i in range(num_stops - 1):
@@ -313,27 +338,20 @@ class TransitConsumer(AsyncWebsocketConsumer):
             if not dir_data:
                 return {}
 
-            # 2. Batch-read ALL segment travel times in one pipeline
+            # 2. Batch-read ALL segment travel times in one pipeline → seg_avg
             pipe = self._redis.pipeline(transaction=False)
             for sk in all_seg_keys:
                 pipe.lrange(sk, 0, -1)
             all_seg_results = await pipe.execute()
 
-            # Parse segment averages per direction
             dir_seg_avg = {}
             for direction, (start, count) in dir_seg_ranges.items():
-                seg_avg = []
-                for vals in all_seg_results[start:start + count]:
-                    if vals:
-                        avg = sum(float(v) for v in vals) / len(vals)
-                        seg_avg.append(avg)
-                    else:
-                        seg_avg.append(90.0)
-                dir_seg_avg[direction] = seg_avg
+                seg_obs = all_seg_results[start:start + count]
+                dir_seg_avg[direction] = segment_averages(seg_obs, dir_sched[direction])
 
-            # 3. SCAN for confirmed/tentative vehicles on this route (both directions)
-            vehicle_by_dir = {d: [] for d in dir_data}
-            useful_tracked_vids = set()  # vehicle IDs contributing non-terminal ETAs
+            # 3. SCAN confirmed/tentative vehicles on this route (both directions),
+            #    collect (vid, direction, stt_idx, move_ts).
+            tracked = []  # (vid, direction, stt_idx, move_ts)
             vprev_prefix = f'transit:vprev:{ds_id}:'
             cursor = 0
             while True:
@@ -347,39 +365,78 @@ class TransitConsumer(AsyncWebsocketConsumer):
                     states = await pipe.execute()
 
                     for key, state in zip(keys, states):
-                        if not state:
+                        if not state or state.get('r') != route_src:
                             continue
-                        if state.get('r') != route_src:
-                            continue
-                        vid = key[len(vprev_prefix):] if isinstance(key, str) else key.decode()[len(vprev_prefix):]
                         # Only use confirmed/tentative for ETA computation
                         if state.get('st') not in ('c', 't'):
                             continue
                         d = int(state.get('d', -1))
-                        if d in vehicle_by_dir:
-                            idx = int(state.get('idx', 0))
-                            vehicle_by_dir[d].append(idx)
-                            # Track vehicles at non-terminal positions (actually useful)
-                            num = len(dir_data[d])
-                            if idx < num - 1:
-                                useful_tracked_vids.add(vid)
+                        if d not in dir_data:
+                            continue
+                        vid = key[len(vprev_prefix):] if isinstance(key, str) else key.decode()[len(vprev_prefix):]
+                        tracked.append((vid, d, int(state.get('idx', 0)), float(state.get('mt') or 0)))
 
                 if cursor == 0:
                     break
 
+            # 3a. Fetch vdata for this route's tracked vehicles (bounded — not all
+            #     feed members): the displayed snapped stop (sid) anchors the ETA
+            #     origin, and the zombie flag (z) excludes parked vehicles. A
+            #     stopped bus's feed sid can go stale (operators report the next
+            #     trip's origin during layover), which would otherwise paint a
+            #     long bogus ETA chain. Exception — short dwell with a sid that
+            #     agrees with the STT idx (timing point): still a live arrival,
+            #     and a consistent sid can't paint a bogus chain (zombie_keeps_eta).
+            sid_by_vid = {}
+            zombie_vids = set()
+            if tracked:
+                fields = [f'{ds_id}:{vid}' for vid, _, _, _ in tracked]
+                vals = await self._redis.hmget('transit:vdata', *fields)
+                for (vid, _, _, _), raw in zip(tracked, vals):
+                    if not raw:
+                        continue
+                    try:
+                        vv = orjson.loads(raw)
+                    except (orjson.JSONDecodeError, TypeError):
+                        continue
+                    if vv.get('z'):
+                        zombie_vids.add(vid)
+                    if vv.get('sid'):
+                        sid_by_vid[vid] = vv['sid']
+
+            vehicle_by_dir = {d: [] for d in dir_data}
+            useful_tracked_vids = set()  # vehicle IDs contributing non-terminal ETAs
+            now_ts = time.time()
+            for vid, d, stt_idx, move_ts in tracked:
+                sid = sid_by_vid.get(vid)
+                # Hard feed evidence overrides an unconfirmed STT direction: a vehicle
+                # whose snapped stop is a platform of the OPPOSITE direction (a shared
+                # terminus mid-turnaround) must not paint a forward ETA chain on this
+                # direction. Otherwise resolve_origin falls back to the geometric
+                # stt_idx and fabricates phantom ETAs at the far end — yellow times
+                # with no vehicle icon (the bus is at the other direction's platform).
+                if sid and d in (0, 1):
+                    other = 1 - d
+                    if sid not in dir_idxmap.get(d, {}) and sid in dir_idxmap.get(other, {}):
+                        continue
+                if vid in zombie_vids and not zombie_keeps_eta(
+                    now_ts, move_ts, sid, stt_idx, dir_idxmap[d],
+                ):
+                    continue
+                origin = resolve_origin(sid, stt_idx, dir_idxmap[d])
+                vehicle_by_dir[d].append(origin)
+                if origin < len(dir_data[d]) - 1:
+                    useful_tracked_vids.add(vid)
+
             # 3b. Fallback: for directions without useful tracked vehicles,
-            #     use GTFS-RT vdata + nearest stop by coordinates.
-            #     Only skip vehicles that are already contributing useful (non-terminal)
-            #     ETAs. Terminal-positioned or untracked vehicles get re-snapped.
-            directions_missing = []
-            for d in dir_data:
-                indices = vehicle_by_dir.get(d, [])
-                num = len(dir_data[d])
-                if not any(idx < num - 1 for idx in indices):
-                    directions_missing.append(d)
+            #     use GTFS-RT vdata (sid index if present, else nearest stop by
+            #     coords). Only for vehicles not already contributing useful ETAs.
+            directions_missing = [
+                d for d in dir_data
+                if not any(idx < len(dir_data[d]) - 1 for idx in vehicle_by_dir.get(d, []))
+            ]
             if directions_missing:
-                import time as _time
-                now_ts = _time.time()
+                now_ts = time.time()
                 members_key = f'transit:members:{ds_id}'
                 member_ids = await self._redis.smembers(members_key)
                 if member_ids:
@@ -411,41 +468,30 @@ class TransitConsumer(AsyncWebsocketConsumer):
                         v_dir = int(v_dir)
                         if v_dir not in directions_missing:
                             continue
-                        vlat, vlon = v.get('lat'), v.get('lon')
-                        if vlat is None or vlon is None:
-                            continue
-                        # Find nearest stop by coordinates
-                        coords = dir_coords[v_dir]
-                        best_idx = 0
-                        best_dist = float('inf')
-                        for i, (slat, slon) in enumerate(coords):
-                            d2 = (vlat - slat) ** 2 + (vlon - slon) ** 2
-                            if d2 < best_dist:
-                                best_dist = d2
-                                best_idx = i
-                        vehicle_by_dir[v_dir].append(best_idx)
+                        sid = v.get('sid')
+                        origin = dir_idxmap[v_dir].get(sid) if sid else None
+                        if origin is None:
+                            vlat, vlon = v.get('lat'), v.get('lon')
+                            if vlat is None or vlon is None:
+                                continue
+                            # Find nearest stop by coordinates
+                            best_idx = 0
+                            best_dist = float('inf')
+                            for i, (slat, slon) in enumerate(dir_coords[v_dir]):
+                                d2 = (vlat - slat) ** 2 + (vlon - slon) ** 2
+                                if d2 < best_dist:
+                                    best_dist = d2
+                                    best_idx = i
+                            origin = best_idx
+                        vehicle_by_dir[v_dir].append(origin)
 
             # 4. Compute cumulative ETAs per direction
             result = {}
             for direction, source_ids in dir_data.items():
-                indices = vehicle_by_dir.get(direction, [])
-                if not indices:
+                origins = vehicle_by_dir.get(direction, [])
+                if not origins:
                     continue
-
-                num_stops = len(source_ids)
-                seg_avg = dir_seg_avg[direction]
-                etas = {}
-
-                for v_idx in indices:
-                    if v_idx >= num_stops - 1:
-                        continue
-                    cumulative = 0.0
-                    for j in range(v_idx, num_stops - 1):
-                        cumulative += seg_avg[j]
-                        stop_src = source_ids[j + 1]
-                        if stop_src not in etas or cumulative < etas[stop_src]:
-                            etas[stop_src] = int(cumulative)
-
+                etas = cumulative_min_etas(source_ids, dir_seg_avg[direction], origins)
                 if etas:
                     result[str(direction)] = etas
 
@@ -485,13 +531,20 @@ class TransitConsumer(AsyncWebsocketConsumer):
             logger.debug(f'HMGET failed: {e}')
             return
 
+        # Freshness cutoff: same 180s convention as the route-page WS legs and
+        # HTTP reads. Stale fixes (CM retains parked buses for hours) stay in
+        # Redis (transit:geo/vdata) for diagnostics — a future transport debug
+        # mode may expose them — but are never displayed on the map.
+        cutoff = time.time() - 180
         vehicles = []
         for raw in raw_values:
             if raw:
                 try:
-                    vehicles.append(orjson.loads(raw))
+                    v = orjson.loads(raw)
                 except (orjson.JSONDecodeError, TypeError):
-                    pass
+                    continue
+                if v.get('t', 0) >= cutoff:
+                    vehicles.append(v)
 
         await self.send(text_data=orjson.dumps({
             'type': 'transit_update', 'vehicles': vehicles,
@@ -499,9 +552,11 @@ class TransitConsumer(AsyncWebsocketConsumer):
 
     # Native Redis pub/sub callbacks
     async def _on_tick(self, channel: str, data):
-        """Daemon tick — do GEOSEARCH and push vehicles."""
+        """Daemon tick — push bbox vehicles and/or live stop arrivals."""
         if self._geo_params:
             await self._send_geosearch_vehicles()
+        if self._stop_source_id:
+            await self._send_stop_live()
 
     async def _on_route_update(self, channel: str, data):
         """Route vehicles + stop IDs + ETAs — forward to WS client."""
@@ -524,3 +579,216 @@ class TransitConsumer(AsyncWebsocketConsumer):
             'stop_ids': stop_ids,
             'etas': etas,
         }).decode())
+
+    # ===== Stop subscription =====
+
+    async def _handle_subscribe_stop(self, data):
+        """Subscribe to live vehicles AT + APPROACHING a specific stop.
+
+        Mirrors subscribe_route: one DB query on subscribe to resolve the routes
+        serving this stop, then pure-Redis pushes on each daemon tick. The stop
+        page overlays the approaching ETAs onto its static schedule board (live
+        yellow vs scheduled grey) and pulses real arrivals (at_stop)."""
+        ds_id = data.get('ds_id', '')
+        stop_source_id = data.get('stop_source_id', '')
+        if not ds_id or not stop_source_id:
+            await self.send(text_data=orjson.dumps({
+                'type': 'error', 'message': 'ds_id and stop_source_id required',
+            }).decode())
+            return
+
+        self._stop_ds_id = ds_id
+        self._stop_source_id = stop_source_id
+        self._stop_route_dirs = await self._load_stop_route_dirs(ds_id, stop_source_id)
+
+        if not self._tick_subscribed:
+            await self._feed.subscribe('transit:tick', self._on_tick)
+            self._tick_subscribed = True
+
+        await self._send_stop_live()
+
+    @database_sync_to_async
+    def _load_stop_route_dirs(self, ds_id, stop_source_id):
+        """{(route_source_id, direction_id)} serving this stop — resolved once on
+        subscribe so per-tick pushes stay pure-Redis (no DB)."""
+        from geo.models import Stop, RouteStop
+        stop = Stop.objects.filter(
+            source_id=stop_source_id, agency__data_source_id=ds_id
+        ).first()
+        if not stop:
+            return set()
+        rd = RouteStop.objects.filter(stop=stop).values_list(
+            'route__source_id', 'direction_id'
+        )
+        return {(r, d if d is not None else 0) for r, d in rd}
+
+    async def _send_stop_live(self):
+        """Push vehicles at the stop + approaching ETAs (recomputed each tick)."""
+        ds_id = self._stop_ds_id
+        stop_src = self._stop_source_id
+        if not ds_id or not stop_src:
+            return
+
+        # Vehicles currently AT this stop — displayable set (members + vdata, 180s
+        # cutoff), same source the route page uses for its on-list icon.
+        at_stop = []
+        cutoff = time.time() - 180
+        member_ids = await self._redis.smembers(f'transit:members:{ds_id}')
+        if member_ids:
+            raw_values = await self._redis.hmget('transit:vdata', *member_ids)
+            for raw in raw_values:
+                if not raw:
+                    continue
+                try:
+                    v = orjson.loads(raw)
+                except (orjson.JSONDecodeError, TypeError):
+                    continue
+                if v.get('sid') == stop_src and v.get('t', 0) >= cutoff:
+                    at_stop.append({
+                        'vehicle_id': v.get('v', ''),
+                        'route_short_name': v.get('rn', ''),
+                        'route_color': v.get('rc', ''),
+                        'headsign': v.get('hs', ''),
+                        'direction': v.get('d'),
+                        'trip_id': v.get('tid', ''),
+                    })
+
+        approaching = await self._compute_stop_approaching()
+
+        await self.send(text_data=orjson.dumps({
+            'type': 'stop_live',
+            'at_stop': at_stop,
+            'approaching': approaching,
+        }).decode())
+
+    async def _compute_stop_approaching(self) -> list:
+        """Confirmed vehicles approaching this stop with chained-segment ETAs.
+
+        Async-Redis mirror of the REST get_stop_eta (same transit_eta helpers);
+        the serving (route, dir) set is resolved once on subscribe."""
+        ds_id = self._stop_ds_id
+        stop_src = self._stop_source_id
+        route_dirs = self._stop_route_dirs
+        if not ds_id or not stop_src or not route_dirs:
+            return []
+
+        try:
+            # 1. Load stop sequences for serving (route, dir) pairs incl. this stop
+            rd_list = list(route_dirs)
+            pipe = self._redis.pipeline(transaction=False)
+            for route_src, dir_id in rd_list:
+                pipe.get(f'transit:rstops:{route_src}:{dir_id}')
+            seq_results = await pipe.execute()
+
+            route_seqs = {}      # (route_src, dir) → source_ids
+            route_idxmap = {}
+            route_sched = {}
+            target_idx = {}
+            for (route_src, dir_id), raw in zip(rd_list, seq_results):
+                parsed = parse_rstops(raw)
+                if not parsed:
+                    continue
+                source_ids, _coords, sched = parsed
+                if stop_src not in source_ids:
+                    continue
+                key = (route_src, dir_id)
+                route_seqs[key] = source_ids
+                route_idxmap[key] = build_index_map(source_ids)
+                route_sched[key] = sched
+                target_idx[key] = source_ids.index(stop_src)
+
+            if not route_seqs:
+                return []
+
+            # 2. Per-route segment model (observed avg / scheduled prior / default),
+            #    memoized so each route's segments are read once.
+            seg_cache = {}
+
+            async def seg_infos_for(route_key):
+                if route_key not in seg_cache:
+                    ordered = route_seqs[route_key]
+                    keys = [
+                        f'transit:stt:{ds_id}:{ordered[i]}:{ordered[i + 1]}'
+                        for i in range(len(ordered) - 1)
+                    ]
+                    p = self._redis.pipeline(transaction=False)
+                    for sk in keys:
+                        p.lrange(sk, 0, -1)
+                    seg_cache[route_key] = segment_infos(await p.execute(), route_sched[route_key])
+                return seg_cache[route_key]
+
+            # 3. SCAN confirmed vehicles on serving routes → chain origin→stop
+            results = []
+            vprev_prefix = f'transit:vprev:{ds_id}:'
+            now_ts = time.time()
+            cursor = 0
+            while True:
+                cursor, keys = await self._redis.scan(
+                    cursor, match=f'{vprev_prefix}*', count=500
+                )
+                if keys:
+                    pipe = self._redis.pipeline(transaction=False)
+                    for k in keys:
+                        pipe.hgetall(k)
+                    states = await pipe.execute()
+
+                    cands = []  # (vid, route_key, v_idx, move_ts)
+                    for k, state in zip(keys, states):
+                        if not state or state.get('st') != 'c':
+                            continue
+                        route_key = (state.get('r', ''), int(state.get('d', -1)))
+                        if route_key not in target_idx:
+                            continue
+                        vid = k[len(vprev_prefix):] if isinstance(k, str) else k.decode()[len(vprev_prefix):]
+                        cands.append((vid, route_key, int(state.get('idx', 0)), float(state.get('mt') or 0)))
+
+                    if cands:
+                        fields = [f'{ds_id}:{vid}' for vid, _, _, _ in cands]
+                        vals = await self._redis.hmget('transit:vdata', *fields)
+                        for (vid, route_key, v_idx, move_ts), raw in zip(cands, vals):
+                            vdata = {}
+                            if raw:
+                                try:
+                                    vdata = orjson.loads(raw)
+                                except (orjson.JSONDecodeError, TypeError):
+                                    vdata = {}
+                            idxmap = route_idxmap[route_key]
+                            if vdata.get('z') and not zombie_keeps_eta(
+                                now_ts, move_ts, vdata.get('sid'), v_idx, idxmap,
+                            ):
+                                continue
+                            origin = resolve_origin(vdata.get('sid'), v_idx, idxmap)
+                            tgt = target_idx[route_key]
+                            if origin >= tgt:
+                                continue
+                            stops_away = tgt - origin
+                            if stops_away > 15:
+                                continue
+                            chain = (await seg_infos_for(route_key))[origin:tgt]
+                            if not chain:
+                                continue
+                            eta_seconds = sum(s['avg'] for s in chain)
+                            if eta_seconds <= 0:
+                                continue
+                            results.append({
+                                'vehicle_id': vid,
+                                'route': route_key[0],
+                                'route_name': vdata.get('rn', ''),
+                                'route_color': vdata.get('rc') or '3b82f6',
+                                'headsign': vdata.get('hs', ''),
+                                'direction': route_key[1],
+                                'trip_id': vdata.get('tid', ''),
+                                'eta_seconds': int(eta_seconds),
+                                'eta_minutes': round(eta_seconds / 60, 1),
+                                'stops_away': stops_away,
+                            })
+
+                if cursor == 0:
+                    break
+
+            results.sort(key=lambda x: x['eta_seconds'])
+            return results[:20]
+
+        except Exception as e:
+            logger.debug(f'Stop approaching computation failed: {e}')
+            return []

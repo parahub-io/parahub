@@ -164,7 +164,7 @@
       "language_updated": "Язык обновлён"
     },
     "association_member": "Член Ассоциации",
-    "association_member_title": "Член PARAHUB - ASSOCIAÇÃO",
+    "association_member_title": "Член Parahub - Associação",
     "member_badge": "Член",
     "members_count": "членов",
     "association_join_intro": "Вы вступаете в португальскую некоммерческую ассоциацию, которая развивает открытую децентрализованную инфраструктуру Parahub.",
@@ -189,7 +189,7 @@
     "leave_organization_error": "Ошибка при выходе из организации. Попробуйте еще раз.",
     "terms_accept_required": "Вы должны принять устав ассоциации для вступления",
     "terms_acceptance_text": "Я прочитал(а) и согласен(а) с уставом ассоциации и обязуюсь соблюдать его положения, способствовать достижению целей ассоциации и не совершать действий, наносящих ущерб репутации или имуществу ассоциации.",
-    "join_association_success": "Поздравляем! Вы стали членом PARAHUB - ASSOCIAÇÃO 🎉",
+    "join_association_success": "Поздравляем! Вы стали членом Parahub - Associação 🎉",
     "join_association_error": "Ошибка при вступлении в ассоциацию. Попробуйте еще раз.",
     "not_member_of_organizations": "Вы еще не состоите ни в одной организации",
     "show_qr": "Показать QR-код",
@@ -224,7 +224,7 @@
     "actions": {
       "generate_pgp_keys": "Сгенерировать PGP ключи",
       "generate_pgp_keys_desc": "Необходимо для подписания сделок и верификаций",
-      "join_association": "Вступить в PARAHUB - ASSOCIAÇÃO",
+      "join_association": "Вступить в Parahub - Associação",
       "join_association_desc": "Получите доступ к сообществу и дополнительным возможностям",
       "complete_questionnaire": "Заполнить психометрическую анкету",
       "complete_questionnaire_desc": "вопросов осталось",

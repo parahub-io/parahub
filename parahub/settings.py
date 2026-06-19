@@ -453,6 +453,9 @@ AUDIT_LOG_GIT_PATH = BASE_DIR / 'audit-log'
 AUDIT_LOG_PUBLIC_GIT_REMOTE = env('AUDIT_LOG_PUBLIC_GIT_REMOTE', default='')  # Optional: push to Gitea
 OPENTIMESTAMPS_ENABLED = env('OPENTIMESTAMPS_ENABLED', default=True, cast=bool)
 
+# CMS Git Mirror
+CMS_GIT_ROOT = BASE_DIR / 'cms-repos'
+
 # Federation Settings
 FEDERATION_ENABLED = env('FEDERATION_ENABLED', default=False, cast=bool)
 FEDERATION_DOMAIN = env('FEDERATION_DOMAIN', default='parahub.io')

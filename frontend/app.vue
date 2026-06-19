@@ -1,8 +1,10 @@
 <template>
   <div class="min-h-screen bg-neutral-50 dark:bg-neutral-900">
     <NuxtLayout>
-      <!-- Use NuxtPage with pageKey for proper KeepAlive support -->
-      <!-- KeepAlive is controlled by definePageMeta({ keepalive: true }) in pages -->
+      <!-- This prop OVERRIDES definePageMeta keepalive (Nuxt: props.keepalive ?? route.meta.keepalive),
+           so ALL pages are KeepAlive-cached (LRU max 10). Per-page keepalive:true/false in definePageMeta
+           is a no-op. Stateful pages (forms, listeners, map markers) must clean up / re-sync in
+           onActivated/onDeactivated — onMounted/onUnmounted do not fire on cached navigation. -->
       <NuxtPage :keepalive="{ max: 10 }" />
     </NuxtLayout>
 

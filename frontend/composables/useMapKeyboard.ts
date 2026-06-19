@@ -154,6 +154,9 @@ export function useMapKeyboard(opts: KeyboardOptions) {
   }
 
   function attach() {
+    // Idempotent — detach first to prevent double-registration
+    if (keydownHandler) detach()
+
     keydownHandler = (e: KeyboardEvent) => {
       const map = opts.getMap()
       if (!map || !opts.isActive.value) return

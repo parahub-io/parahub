@@ -1,5 +1,5 @@
 """
-Management command to create the official PARAHUB - ASSOCIAÇÃO establishment.
+Management command to create the official Parahub - Associação establishment.
 
 This creates the legal entity representing the Portuguese association
 with proper configuration for statute acceptance.
@@ -19,7 +19,7 @@ ESTATUTOS_PATH = Path(__file__).resolve().parents[3] / 'docs' / 'estatutos.md'
 
 
 class Command(BaseCommand):
-    help = 'Create PARAHUB - ASSOCIAÇÃO establishment with proper configuration'
+    help = 'Create Parahub - Associação establishment with proper configuration'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -98,7 +98,7 @@ class Command(BaseCommand):
 
                 est = Establishment.objects.create(
                     owner=owner_profile,
-                    name='PARAHUB - ASSOCIAÇÃO',
+                    name='Parahub - Associação',
                     slug='parahub-associacao',
                     description=(
                         'Associação sem fins lucrativos para o desenvolvimento, apoio, '

@@ -92,8 +92,6 @@ Two routing conventions:
 
 ## WebSocket Architecture
 
-Nine WebSocket endpoints:
-
 | Endpoint | Auth | Purpose |
 |----------|------|---------|
 | `/ws/v1/realtime/` | Required | Unified multiplexed consumer: ULID subscriptions, room-based updates (polls, treasury), personal notifications, global broadcasts |
@@ -103,8 +101,8 @@ Nine WebSocket endpoints:
 | `/ws/v1/driver/` | Required | Driver mode: bidirectional position/direction/stop announcements |
 | `/ws/v1/trackers/` | Required | IoT tracker positions (staff=all, user=own devices) |
 | `/ws/v1/federation/` | Required | Inter-node federation protocol |
-| `/ws/v1/agents/voice/<name>/` | Staff | AI agent voice chat |
-| `/ws/v1/support/voice/` | Staff | Support voice interface |
+| `/ws/v1/parasos/{group_id}/` | Member | SOS alerts and responder updates |
+| `/ws/v1/support/voice/` | None | Anonymous support voice pipeline |
 
 **Native Redis pub/sub** for all WebSocket messaging (Django Channels' `channels_redis` removed). `FeedPubSubManager` singleton manages subscribe/publish with two Redis connections per worker.
 
@@ -115,8 +113,8 @@ Channel naming convention:
 - `transit:tick` / `transit_route:{id}` -- transit data
 - `tracker:tick` -- IoT tracker positions
 - `map_tile:14:{x}_{y}` -- map presence by tile
-- `agent_log:{agent_name}` -- Yellow Gate agent log streaming (staff only)
 - `feed:system` -- deploy/version broadcasts
+- `parasos:{group_id}` -- SOS alerts and responder updates
 
 ## CQRS Pattern
 
@@ -146,11 +144,11 @@ Example -- tracker pipeline (same CQRS):
 | App | Models | Purpose |
 |-----|--------|---------|
 | `identity` | Account, Profile, Partner, Verification, Contract, ContractReview, ArbiterProfile, ArbitrationVerdict, SocialRecovery, PsychProfile, PGPKeyHistory, ProfileNote, ProfileVerificationPhoto | Identity, trust, contracts, arbitration |
-| `market` | Item, ItemImage, Video | Marketplace listings |
+| `market` | Item | Marketplace listings (photos/videos via core.ObjectPhoto/ObjectVideo) |
 | `barter` | Exchange, ExchangeSwap, ExchangeApproval | Multi-party barter |
 | `debts` | Debt, DebtRepayment | P2P debt tracking |
 | `taxonomy` | Category, Tag | Hierarchical categories (850 items, 17 roots, domain filter) |
-| `geo` | Building, Establishment, Event, EventParticipant, Place, Stop, Route, Trip, RouteStop, StopTime, CalendarDate, Agency, TransitDataSource, VehiclePositionHistory, DriverShift, OpenSkyMission, OpenSkyTileLayer, CondominiumFraction, QuotaPayment, EstablishmentPhoto, EstablishmentMembership, EstablishmentReview | Geography, directory, transit, events, aerial imagery, condominium |
+| `geo` | WorldObject, Establishment, Event, EventParticipant, Place, Stop, Route, Trip, RouteStop, StopTime, CalendarDate, Agency, TransitDataSource, VehiclePositionHistory, DriverShift, OpenSkyMission, OpenSkyTileLayer, CondominiumFraction, QuotaPayment, EstablishmentMembership, EstablishmentReview | Geography, directory, transit, events, aerial imagery, condominium (photos via core.ObjectPhoto) |
 | `governance` | Poll, PollContext, PollOption, PollEligibleVoter, PollVote, PollVoteDelegation, PollAuditLog | Liquid democracy |
 | `logistics` | Shipment, ShipmentEvent, CarrierOffer, RideRequest, RideBooking, RideReview | P-Hub shipments and carpool |
 | `ads` | AdsProfile, AdsInterest, AdsSkill, AdsProfileSkill, AdsChildrenAge, AdCampaign, AdView | P2P advertising |
@@ -158,7 +156,7 @@ Example -- tracker pipeline (same CQRS):
 | `treasury` | BudgetCategory, BudgetAllocation, BudgetEpoch, Expense, TreasuryAuditLog | Participatory budgets |
 | `iot` | IoTDevice, TrackerHistory, TrackerLocation, TraccarUser, MeshSubscription, VehicleAssignment, Property, HAHome, HAEntity | GPS trackers, mesh nodes, dispatch, property, Home Assistant |
 | `tickets` | TicketType, Ticket | Unified ticketing (events + transit) |
-| `agents` | Agent, AgentSession | AI agent automation |
+| `cms` | Post, Site, SitePage | Blog posts and mini-sites |
 | `notifications` | PushSubscription, FCMDevice | Web Push, Firebase Cloud Messaging |
 | `finance` | Payment, Donation | Payment tracking |
 | `parasos` | SafetyGroup, SafetyGroupMember, SOSAlert, SOSResponse, InactivityWatch, GroupInvite | Emergency mutual aid |

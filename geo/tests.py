@@ -3,7 +3,7 @@ Tests for geo endpoints: establishments, membership, reviews, search,
 buildings, treasurer/auditor management, events.
 
 Tests invariants that must never break:
-- WoT 2+ requirement for creating establishments, buildings, reviews, events
+- WoT 3+ requirement for creating establishments, buildings, reviews, events
 - Owner-only update/delete of establishments
 - Membership join/leave lifecycle
 - Review uniqueness (one per author per establishment)
@@ -87,7 +87,7 @@ def _make_anon_request(factory, method='get', path='/fake/'):
     return request
 
 
-def _add_verifications(profile, count=2):
+def _add_verifications(profile, count=3):
     """Add WoT verifications to a profile."""
     instance = profile.instance
     verifiers = []
@@ -145,10 +145,10 @@ class BuildingCreateTest(TestCase):
         self.factory = RequestFactory()
 
     def test_create_building_wot_verified(self):
-        """User with WoT 2+ can create a building."""
+        """User with WoT 3+ can create a building."""
         from geo.endpoints.buildings import create_building, BuildingInput, LocationInput
 
-        _add_verifications(self.profile, 2)
+        _add_verifications(self.profile, 3)
         payload = BuildingInput(
             osm_way_id=12345,
             location=LocationInput(latitude=38.71, longitude=-9.13),
@@ -165,10 +165,10 @@ class BuildingCreateTest(TestCase):
         self.assertEqual(WorldObject.objects.count(), 1)
 
     def test_create_building_wot_insufficient_denied(self):
-        """User with <2 verifications is denied."""
+        """User with <3 verifications is denied."""
         from geo.endpoints.buildings import create_building, BuildingInput, LocationInput
 
-        _add_verifications(self.profile, 1)
+        _add_verifications(self.profile, 2)
         payload = BuildingInput(
             osm_way_id=99999,
             location=LocationInput(latitude=38.71, longitude=-9.13),
@@ -203,7 +203,7 @@ class BuildingCreateTest(TestCase):
         """Building with same osm_way_id returns existing building."""
         from geo.endpoints.buildings import create_building, BuildingInput, LocationInput
 
-        _add_verifications(self.profile, 2)
+        _add_verifications(self.profile, 3)
         payload = BuildingInput(
             osm_way_id=77777,
             location=LocationInput(latitude=38.71, longitude=-9.13),
@@ -262,10 +262,10 @@ class EstablishmentCreateTest(TestCase):
         self.factory = RequestFactory()
 
     def test_create_establishment_wot_verified(self):
-        """User with WoT 2+ can create an establishment."""
+        """User with WoT 3+ can create an establishment."""
         from geo.endpoints.buildings import create_establishment, EstablishmentInput
 
-        _add_verifications(self.profile, 2)
+        _add_verifications(self.profile, 3)
         payload = EstablishmentInput(name='My Café', slug='my-cafe')
         request = _make_auth_request(self.factory, self.account, self.profile, 'post')
         response = create_establishment(request, payload)
@@ -276,10 +276,10 @@ class EstablishmentCreateTest(TestCase):
         self.assertEqual(Establishment.objects.count(), 1)
 
     def test_create_establishment_wot_insufficient_denied(self):
-        """User with <2 verifications is denied."""
+        """User with <3 verifications is denied."""
         from geo.endpoints.buildings import create_establishment, EstablishmentInput
 
-        _add_verifications(self.profile, 1)
+        _add_verifications(self.profile, 2)
         payload = EstablishmentInput(name='Blocked Café')
         request = _make_auth_request(self.factory, self.account, self.profile, 'post')
         with self.assertRaises(HttpError) as ctx:
@@ -302,7 +302,7 @@ class EstablishmentCreateTest(TestCase):
         """Creating in a building increments establishments_count."""
         from geo.endpoints.buildings import create_establishment, EstablishmentInput
 
-        _add_verifications(self.profile, 2)
+        _add_verifications(self.profile, 3)
         building = _create_building()
         self.assertEqual(building.establishments_count, 0)
 
@@ -317,7 +317,7 @@ class EstablishmentCreateTest(TestCase):
         """Establishment can have a direct location (no building)."""
         from geo.endpoints.buildings import create_establishment, EstablishmentInput, LocationInput
 
-        _add_verifications(self.profile, 2)
+        _add_verifications(self.profile, 3)
         payload = EstablishmentInput(
             name='Outdoor Kiosk',
             location=LocationInput(latitude=38.72, longitude=-9.14),
@@ -888,10 +888,10 @@ class ReviewCreateTest(TestCase):
         self.factory = RequestFactory()
 
     def test_create_review_wot_verified(self):
-        """User with WoT 2+ can create a review."""
+        """User with WoT 3+ can create a review."""
         from geo.endpoints.buildings import create_establishment_review, ReviewInput
 
-        _add_verifications(self.reviewer, 2)
+        _add_verifications(self.reviewer, 3)
         payload = ReviewInput(rating=4, text='Great coffee!')
         request = _make_auth_request(self.factory, self.reviewer_acc, self.reviewer, 'post')
         status, response = create_establishment_review(request, self.establishment.id, payload)
@@ -899,13 +899,13 @@ class ReviewCreateTest(TestCase):
         self.assertEqual(status, 201)
         self.assertEqual(response.rating, 4)
         self.assertEqual(response.text, 'Great coffee!')
-        self.assertEqual(response.wot_count_snapshot, 2)
+        self.assertEqual(response.wot_count_snapshot, 3)
 
     def test_create_review_wot_insufficient_denied(self):
-        """User with <2 verifications is denied."""
+        """User with <3 verifications is denied."""
         from geo.endpoints.buildings import create_establishment_review, ReviewInput
 
-        _add_verifications(self.reviewer, 1)
+        _add_verifications(self.reviewer, 2)
         payload = ReviewInput(rating=5)
         request = _make_auth_request(self.factory, self.reviewer_acc, self.reviewer, 'post')
         with self.assertRaises(HttpError) as ctx:
@@ -928,7 +928,7 @@ class ReviewCreateTest(TestCase):
         """One review per author per establishment."""
         from geo.endpoints.buildings import create_establishment_review, ReviewInput
 
-        _add_verifications(self.reviewer, 2)
+        _add_verifications(self.reviewer, 3)
         EstablishmentReview.objects.create(
             establishment=self.establishment,
             author=self.reviewer,
@@ -1695,7 +1695,7 @@ class EventCreateTest(TestCase):
         self.instance = _create_instance()
         self.account = _create_account(self.instance, 'alice')
         self.profile = _create_profile(self.account, self.instance)
-        _add_verifications(self.profile, count=2)
+        _add_verifications(self.profile, count=3)
 
     @patch('geo.endpoints.events._create_event_matrix_room', return_value=None)
     def test_create_offline_event(self, mock_matrix):
@@ -1806,8 +1806,8 @@ class EventCreateTest(TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertIn('End time', str(ctx.exception))
 
-    def test_create_requires_wot2(self):
-        """Users with <2 WoT verifications cannot create events."""
+    def test_create_requires_wot3(self):
+        """Users with <3 WoT verifications cannot create events."""
         from geo.endpoints.events import create_event, EventInput
         from django.utils import timezone as tz
 
@@ -2196,7 +2196,7 @@ class EventUpdateTest(TestCase):
         self.instance = _create_instance()
         self.alice_acc = _create_account(self.instance, 'alice')
         self.alice = _create_profile(self.alice_acc, self.instance)
-        _add_verifications(self.alice, count=2)
+        _add_verifications(self.alice, count=3)
         self.event = _create_event(self.alice)
 
     def test_update_by_organizer(self):
@@ -2602,7 +2602,7 @@ class EventLifecycleTest(TestCase):
         self.instance = _create_instance()
         self.alice_acc = _create_account(self.instance, 'alice')
         self.alice = _create_profile(self.alice_acc, self.instance)
-        _add_verifications(self.alice, count=2)
+        _add_verifications(self.alice, count=3)
         self.bob_acc = _create_account(self.instance, 'bob')
         self.bob = _create_profile(self.bob_acc, self.instance, 'bob')
 

@@ -96,6 +96,27 @@ export function useMapSunStudy() {
 
   const isNight = computed(() => sunPosition.value.altitudeDeg < 0)
 
+  /**
+   * Clear-sky UV index (NOAA-style approximation).
+   * Formula: 12.5 × cos(zenith)^2.5, where cos(zenith) = sin(altitude).
+   * Sea level, no cloud/ozone correction. Worst-case for planning shade/awnings.
+   */
+  const uvIndex = computed(() => {
+    const alt = sunPosition.value.altitudeDeg
+    if (alt <= 0) return 0
+    const mu = Math.sin(alt * Math.PI / 180)
+    return Math.round(12.5 * Math.pow(mu, 2.5) * 10) / 10
+  })
+
+  const uvCategory = computed(() => {
+    const v = uvIndex.value
+    if (v < 3) return { tier: 'low', color: '#22c55e' }
+    if (v < 6) return { tier: 'moderate', color: '#eab308' }
+    if (v < 8) return { tier: 'high', color: '#f97316' }
+    if (v < 11) return { tier: 'very_high', color: '#ef4444' }
+    return { tier: 'extreme', color: '#a855f7' }
+  })
+
   // ======== Helpers ========
 
   function _todayISO(): string {
@@ -552,6 +573,21 @@ export function useMapSunStudy() {
     }
   })
 
+  /** Pause timers when map is deactivated (keepalive). Does NOT clear visualization. */
+  function pauseSunStudy() {
+    _stopRealtimeClock()
+    if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null }
+    if (_pendingLightTimer) { clearTimeout(_pendingLightTimer); _pendingLightTimer = null }
+    if (_pendingSourceTimer) { clearTimeout(_pendingSourceTimer); _pendingSourceTimer = null }
+  }
+
+  /** Resume timers when map is re-activated (keepalive). */
+  function resumeSunStudy() {
+    if (!sunStudyActive.value) return
+    if (realtimeMode.value) _startRealtimeClock()
+    updateVisualization()
+  }
+
   return {
     sunStudyActive,
     sunTimeMinutes,
@@ -562,10 +598,14 @@ export function useMapSunStudy() {
     formattedTime,
     isGoldenHour,
     isNight,
+    uvIndex,
+    uvCategory,
     setupLayers,
     startSunStudy,
     stopSunStudy,
     toggleSunStudy,
     updateVisualization,
+    pauseSunStudy,
+    resumeSunStudy,
   }
 }

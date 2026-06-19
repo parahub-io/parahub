@@ -154,6 +154,10 @@
           "title": "Content and Interactions",
           "text": "The User bears full responsibility for all content they publish, transmit, or receive through the Service, as well as for all their interactions with other users."
         },
+        "imagery": {
+          "title": "Aerial Imagery License (OpenSky)",
+          "text": "Imagery you upload to the OpenSky aerial layer — and the orthophotos, 3D meshes and map tiles derived from it — is published under the Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0) license. By uploading, you confirm that you are the author or hold the necessary rights, and you grant the Operator and the federated Parahub network a non-exclusive, irrevocable, worldwide license to host, process, publish and redistribute this imagery under those terms. You remain solely responsible for complying with applicable privacy laws (including the GDPR) and aerial/drone regulations (such as ANAC in Portugal), and you must not upload imagery that infringes the rights or privacy of others."
+        },
         "compliance": {
           "title": "Legal Compliance",
           "text": "The User agrees to use the Service in strict accordance with applicable laws of their jurisdiction and the jurisdiction of the Operator's location."
@@ -1042,6 +1046,17 @@
       "total_sats": "sats donated",
       "total_donations": "donations",
       "supporters": "supporters"
+    },
+    "services": {
+      "title": "Platform Services",
+      "video": "Video",
+      "video_desc": "Video hosting and streaming",
+      "git": "Projects",
+      "git_desc": "Code repositories and collaboration",
+      "chat": "Chat",
+      "chat_desc": "Encrypted messaging via Matrix",
+      "status": "Status",
+      "status_desc": "Platform uptime monitoring"
     }
   }
 }

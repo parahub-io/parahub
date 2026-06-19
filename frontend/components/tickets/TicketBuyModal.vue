@@ -16,7 +16,15 @@
               {{ ticketType.description }}
             </div>
             <div class="mt-2 text-lg font-bold text-secondary dark:text-secondary-400">
-              {{ $t('tickets.price', { sats: ticketType.price_sats.toLocaleString() }) }}
+              <template v-if="ticketType.price_eur != null">
+                {{ $t('tickets.price_eur', { eur: formatEur(ticketType.price_eur) }) }}
+                <span v-if="ticketType.price_sats != null" class="text-sm font-normal text-neutral-400">
+                  {{ $t('tickets.approx_sats', { sats: ticketType.price_sats.toLocaleString() }) }}
+                </span>
+              </template>
+              <template v-else-if="ticketType.price_sats != null">
+                {{ $t('tickets.price', { sats: ticketType.price_sats.toLocaleString() }) }}
+              </template>
             </div>
           </div>
 
@@ -47,7 +55,15 @@
               @click="pay"
             >
               <Zap class="w-4 h-4 mr-1.5" />
-              {{ $t('tickets.pay_lightning', { sats: ticketType.price_sats.toLocaleString() }) }}
+              <template v-if="ticketType.price_eur != null">
+                {{ $t('tickets.pay_lightning_eur', {
+                  eur: formatEur(ticketType.price_eur),
+                  sats: (ticketType.price_sats ?? 0).toLocaleString(),
+                }) }}
+              </template>
+              <template v-else>
+                {{ $t('tickets.pay_lightning', { sats: (ticketType.price_sats ?? 0).toLocaleString() }) }}
+              </template>
             </UiButton>
           </div>
 
@@ -117,7 +133,8 @@ interface TicketType {
   id: string
   name: string
   description: string
-  price_sats: number
+  price_sats: number | null
+  price_eur?: number | null
   operator_name: string
   operator_ln_address: string
   operator_spark_address: string
@@ -193,10 +210,14 @@ async function pay() {
       body: { ticket_type_id: props.ticketType.id },
     })
 
-    // 2. Pay via Lightning
+    // 2. Pay via Lightning — the amount locked at purchase time (server quote
+    // for EUR-priced types), NOT the listing price
     stepLabel.value = t('tickets.paying_lightning')
     const address = props.ticketType.operator_spark_address || props.ticketType.operator_ln_address
     if (!address) throw new Error(t('tickets.error_no_ln_address'))
+
+    const amountSats: number = ticket.amount_due_sats ?? props.ticketType.price_sats
+    if (!amountSats) throw new Error(t('tickets.error_purchase'))
 
     let paymentHash = ''
     let preimage = ''
@@ -205,15 +226,14 @@ async function pay() {
 
     if (parsed.type === 'sparkAddress') {
       // Spark address: prepareSend + executeSend
-      const amount = BigInt(props.ticketType.price_sats)
-      const prep = await prepareSend(address, amount)
+      const prep = await prepareSend(address, BigInt(amountSats))
       const payment = await executeSend(prep)
       paymentHash = payment.details?.htlcDetails?.paymentHash || payment.id || ''
       preimage = payment.details?.htlcDetails?.preimage || ''
     } else if (parsed.type === 'lnurlPay' || parsed.type === 'lightningAddress') {
       // LN address: prepareLnurlPay + executeLnurlPay
       const payReq = parsed.type === 'lnurlPay' ? parsed : (parsed as any).payRequest
-      const prep = await prepareLnurlPay(props.ticketType.price_sats, payReq)
+      const prep = await prepareLnurlPay(amountSats, payReq)
       const payment = await executeLnurlPay(prep)
       paymentHash = payment.details?.htlcDetails?.paymentHash || payment.id || ''
       preimage = payment.details?.htlcDetails?.preimage || ''
@@ -285,6 +305,10 @@ function goToWallet() {
 function retry() {
   step.value = 'ready'
   errorMsg.value = ''
+}
+
+function formatEur(v: number) {
+  return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 </script>
 

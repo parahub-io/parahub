@@ -64,7 +64,7 @@
       "verify_pickup": "Abholung bestätigen",
       "enter_pickup_code": "Abholcode eingeben",
       "invalid_code": "Ungültiger Abholcode",
-      "wot_required": "WoT 2+ Verifizierung erforderlich, um den Hub-Modus zu aktivieren",
+      "wot_required": "WoT 3+ Verifizierung erforderlich, um den Hub-Modus zu aktivieren",
       "info_title": "P-Hub Punkt",
       "send_here": "Hierher senden",
       "days": "Tage",

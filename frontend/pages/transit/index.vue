@@ -30,11 +30,13 @@
     <div v-if="countries.length" class="mb-4">
       <button
         @click="citySelectorOpen = !citySelectorOpen"
-        class="flex items-center gap-2 w-full text-left text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+        :aria-expanded="citySelectorOpen"
+        class="flex items-center gap-2 w-full px-3 py-2.5 mb-2 text-left text-sm bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:border-neutral-400 dark:hover:border-neutral-500 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors"
       >
-        <MapPin class="w-4 h-4 flex-shrink-0" />
-        <span class="truncate">{{ selectedCityName || $t('transit.cities.select') }}</span>
-        <ChevronDown class="w-4 h-4 ml-auto flex-shrink-0 transition-transform" :class="citySelectorOpen ? 'rotate-180' : ''" />
+        <MapPin class="w-4 h-4 flex-shrink-0 text-neutral-400" />
+        <span class="flex-shrink-0 text-neutral-500 dark:text-neutral-400">{{ $t('transit.cities.label') }}</span>
+        <span class="truncate font-medium text-neutral-900 dark:text-neutral-100">{{ selectedCityName || $t('transit.cities.select') }}</span>
+        <ChevronDown class="w-4 h-4 ml-auto flex-shrink-0 text-neutral-400 transition-transform" :class="citySelectorOpen ? 'rotate-180' : ''" />
       </button>
 
       <template v-if="citySelectorOpen">
@@ -151,7 +153,11 @@
         >
           <img src="/img/bus-stop.png" alt="" class="w-8 h-8 flex-shrink-0" />
           <div class="flex-1 min-w-0">
-            <div class="font-medium text-neutral-900 dark:text-neutral-100">{{ s.name }}</div>
+            <div class="font-medium text-neutral-900 dark:text-neutral-100">
+              {{ s.name }}
+              <span v-if="s.member_count > 1" class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">{{ $t('transit.stops_count', { count: s.member_count }) }}</span>
+            </div>
+            <div v-if="s.directions?.length" class="text-xs text-secondary-600 dark:text-secondary-400 truncate mt-0.5">{{ $t('transit.towards', { dest: s.directions.join(' · ') }) }}</div>
             <div v-if="s.routes?.length" class="flex flex-wrap gap-1 mt-1">
               <span v-for="r in s.routes" :key="r.short_name" class="px-1.5 py-0.5 text-xs rounded font-medium" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
             </div>
@@ -166,6 +172,7 @@
           <img :src="routeTypeIcon(r.route_type)" :alt="routeTypeFallback(r.route_type)" class="w-8 h-8 flex-shrink-0" />
           <div class="flex-1 min-w-0">
             <span class="inline-block px-2 py-0.5 rounded font-bold text-sm" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
+            <span v-if="r.variant_count > 1" class="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">{{ $t('transit.percursos_count', { n: r.variant_count }) }}</span>
             <div class="text-sm text-neutral-600 dark:text-neutral-400 truncate mt-0.5">{{ r.long_name }}</div>
           </div>
         </button>
@@ -178,20 +185,37 @@
         {{ $t('transit.no_results') }}
       </div>
       <div v-else class="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
-        <button
-          v-for="f in nearbyStops"
-          :key="f.properties.id"
-          @click="openStop(f.properties)"
-          class="w-full text-left p-3 hover:bg-primary/15 dark:hover:bg-primary/10 transition-colors flex items-center gap-3"
-        >
-          <img src="/img/bus-stop.png" alt="" class="w-8 h-8 flex-shrink-0" />
-          <div class="flex-1 min-w-0">
-            <div class="font-medium text-neutral-900 dark:text-neutral-100">{{ f.properties.name }}</div>
-            <div v-if="f.properties.routes?.length" class="flex flex-wrap gap-1 mt-1">
-              <span v-for="r in f.properties.routes" :key="r.short_name" class="px-1.5 py-0.5 text-xs rounded font-medium" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
+        <template v-for="f in nearbyStops" :key="f.properties.id">
+          <button
+            @click="f.properties.kind === 'virtual' ? toggleGroup(f.properties.id) : openStop(f.properties)"
+            class="w-full text-left p-3 hover:bg-primary/15 dark:hover:bg-primary/10 transition-colors flex items-center gap-3"
+          >
+            <img src="/img/bus-stop.png" alt="" class="w-8 h-8 flex-shrink-0" />
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-neutral-900 dark:text-neutral-100">
+                {{ f.properties.name }}
+                <span v-if="f.properties.kind === 'virtual'" class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">{{ $t('transit.stops_count', { count: f.properties.member_count }) }}</span>
+              </div>
+              <div v-if="f.properties.routes?.length" class="flex flex-wrap gap-1 mt-1">
+                <span v-for="r in f.properties.routes" :key="r.short_name" class="px-1.5 py-0.5 text-xs rounded font-medium" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
+              </div>
             </div>
-          </div>
-        </button>
+            <ChevronDown v-if="f.properties.kind === 'virtual'" class="w-4 h-4 flex-shrink-0 text-neutral-400 transition-transform" :class="expandedGroups.has(f.properties.id) ? 'rotate-180' : ''" />
+          </button>
+          <template v-if="f.properties.kind === 'virtual' && expandedGroups.has(f.properties.id)">
+            <button
+              v-for="m in f.properties.stops"
+              :key="m.id"
+              @click="openStop(m)"
+              class="w-full text-left py-2 pr-3 pl-14 hover:bg-primary/15 dark:hover:bg-primary/10 transition-colors bg-neutral-50 dark:bg-neutral-800/50"
+            >
+              <div class="text-sm text-neutral-700 dark:text-neutral-300">{{ m.name }}</div>
+              <div v-if="m.routes?.length" class="flex flex-wrap gap-1 mt-1">
+                <span v-for="r in m.routes" :key="r.short_name" class="px-1.5 py-0.5 text-xs rounded font-medium" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
+              </div>
+            </button>
+          </template>
+        </template>
       </div>
     </template>
 
@@ -393,6 +417,13 @@ const visibleSmallCities = computed(() => {
 const searchQuery = ref('')
 const searchResults = ref<any>(null)
 const nearbyStops = ref<any>(null)
+const expandedGroups = ref<Set<string>>(new Set())
+
+function toggleGroup(id: string) {
+  const next = new Set(expandedGroups.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  expandedGroups.value = next
+}
 const discover = ref<any>(null)
 const gpsError = ref('')
 
@@ -409,14 +440,19 @@ const discoverMixed = computed(() => {
   return [...stops, ...routes].sort((a, b) => a._sortName.localeCompare(b._sortName))
 })
 
+// Biggest place by stop count — used for the default-city landing. For a metro split into a
+// city + region polygon (Lisboa, Praha) the region wins by stop count, which is intended: the
+// landing favours broad metro-area coverage (the region includes suburban feeders) over the
+// narrower city centre. Both stay selectable in the list.
+function biggestPlace(list: any[]): string {
+  if (!list.length) return ''
+  return [...list].sort((a: any, b: any) => b.stops_count - a.stops_count)[0].slug
+}
+
 // Pick best default city when no saved preference exists
 function pickDefaultCity(allCities: any[]): string {
-  const biggestInCountry = (code: string) => {
-    const match = allCities
-      .filter((c: any) => c.country_code === code)
-      .sort((a: any, b: any) => b.stops_count - a.stops_count)
-    return match.length ? match[0].slug : ''
-  }
+  const biggestInCountry = (code: string) =>
+    biggestPlace(allCities.filter((c: any) => c.country_code === code))
 
   // 1. User's profile country
   const profileCountry = authStore.profile?.country_code
@@ -452,8 +488,8 @@ function pickDefaultCity(allCities: any[]): string {
   const ptCity = biggestInCountry('PT')
   if (ptCity) return ptCity
 
-  // 5. Last resort: biggest city globally
-  return [...allCities].sort((a: any, b: any) => b.stops_count - a.stops_count)[0].slug
+  // 5. Last resort: biggest place globally
+  return biggestPlace(allCities)
 }
 
 // City persistence (localStorage, migrates from old cookie)
@@ -485,10 +521,8 @@ function selectCountry(code: string) {
   // Auto-select first city of this country if current city is from different country
   const currentCityObj = cities.value.find((c: any) => c.slug === selectedCity.value)
   if (!currentCityObj || currentCityObj.country_code !== code) {
-    const topCity = cities.value
-      .filter((c: any) => c.country_code === code)
-      .sort((a: any, b: any) => b.stops_count - a.stops_count)[0]
-    if (topCity) selectCity(topCity.slug)
+    const slug = biggestPlace(cities.value.filter((c: any) => c.country_code === code))
+    if (slug) selectCity(slug)
   }
 }
 
@@ -546,7 +580,7 @@ async function findNearest() {
   navigator.geolocation.getCurrentPosition(
     async (pos) => {
       try {
-        const data = await $fetch<any>(`/api/v1/geo/transit/stops/nearby/?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&r=1000`)
+        const data = await $fetch<any>(`/api/v1/geo/transit/stops/nearby/?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&r=1000&group=1`)
         nearbyStops.value = data.features || []
       } catch (e) {
         console.error('Nearby failed:', e)

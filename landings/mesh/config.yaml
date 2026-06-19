@@ -1,0 +1,15 @@
+subdomain: mesh
+default_locale: pt
+i18n_namespace: mesh
+cta_path: /mesh
+from_param: mesh
+problems_count: 3
+features_count: 6
+steps_count: 3
+feature_icons:
+  - package
+  - link-2
+  - shield
+  - zap
+  - landmark
+  - map-pin

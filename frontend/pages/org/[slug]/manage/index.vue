@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {
-  Newspaper, Pencil, Trash2, Plus, Pin, ArrowLeft,
+  Newspaper, Pencil, Trash2, Plus, ArrowLeft,
   Palette, Globe, Video, ExternalLink,
-  ListOrdered, CheckCircle2, Clock, Send
+  Send, Check, Undo2, Star, AlertCircle,
+  ChevronUp, ChevronDown, LayoutGrid
 } from 'lucide-vue-next'
 import { useToastStore } from '~/stores/toast'
 
@@ -15,6 +16,12 @@ const authStore = useAuthStore()
 const toast = useToastStore()
 
 const estSlug = computed(() => String(route.params.slug))
+
+// Required languages for "Approve" gate. Hardcoded to parahub-associacao for now;
+// TODO: move to Site.required_blog_languages when other orgs adopt this workflow.
+const REQUIRED_LANGS = computed<string[]>(() =>
+  estSlug.value === 'parahub-associacao' ? ['pt', 'en', 'ru'] : []
+)
 
 // Access control: check user has management rights for this establishment
 const accessDenied = ref(false)
@@ -35,10 +42,9 @@ async function checkAccess() {
 }
 
 // Tabs
-const activeTab = ref('posts')
+const activeTab = useTabSync(['posts', 'pages', 'settings'])
 const tabs = computed(() => [
   { id: 'posts', label: t('cms.manage.posts') },
-  { id: 'queue', label: t('cms.manage.queue') },
   { id: 'pages', label: t('cms.manage.pages') },
   { id: 'settings', label: t('cms.manage.settings') },
 ])
@@ -48,36 +54,21 @@ const loading = ref(true)
 const posts = ref<any[]>([])
 const estName = ref('')
 const estId = ref('')
-const deleteTarget = ref<any>(null)
+const deleteTargetGroup = ref<any>(null)
 const deleting = ref(false)
+const busyTopicKey = ref('')  // topic key currently running an approve/unapprove/publish action
+const showPublished = ref(false)  // collapse published section by default
 
 async function fetchPosts() {
   loading.value = true
   try {
     await authStore.ensureToken()
-    const drafts = await $fetch<{ items: any[] }>('/api/v1/cms/posts/', {
-      params: { establishment_slug: estSlug.value, status: 'draft', page_size: 100 },
+    const res = await $fetch<{ items: any[] }>('/api/v1/cms/posts/', {
+      params: { establishment_slug: estSlug.value, status: 'all', page_size: 200 },
       credentials: 'include',
       headers: { Authorization: `Bearer ${authStore.token}` },
     })
-    const published = await $fetch<{ items: any[] }>('/api/v1/cms/posts/', {
-      params: { establishment_slug: estSlug.value, page_size: 100 },
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-    const archived = await $fetch<{ items: any[] }>('/api/v1/cms/posts/', {
-      params: { establishment_slug: estSlug.value, status: 'archived', page_size: 100 },
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-
-    const all = [...drafts.items, ...published.items, ...archived.items]
-    const seen = new Set<string>()
-    posts.value = all.filter(p => {
-      if (seen.has(p.id)) return false
-      seen.add(p.id)
-      return true
-    })
+    posts.value = res.items
 
     if (posts.value.length > 0) {
       estName.value = posts.value[0].establishment_name || estSlug.value
@@ -90,313 +81,152 @@ async function fetchPosts() {
   }
 }
 
-async function deletePost() {
-  if (!deleteTarget.value) return
+async function deleteTopic() {
+  const group = deleteTargetGroup.value
+  if (!group) return
   deleting.value = true
   try {
     await authStore.ensureToken()
-    await $fetch(`/api/v1/cms/posts/${deleteTarget.value.id}/`, {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-    posts.value = posts.value.filter(p => p.id !== deleteTarget.value.id)
-    toast.success(t('cms.postDeleted'))
-  } catch {
-    toast.error('Failed to delete post')
-  } finally {
-    deleting.value = false
-    deleteTarget.value = null
-  }
-}
-
-// ── Queue ──
-const queuePosts = ref<any[]>([])
-const queueLoading = ref(false)
-const publishingId = ref('')
-
-// 2x/week: Mon + Thu, starting from a configured date
-const QUEUE_START = new Date('2026-04-14') // first Monday
-function suggestedDate(order: number): string {
-  const week = Math.floor((order - 1) / 2)
-  const isSecond = (order - 1) % 2 === 1
-  const d = new Date(QUEUE_START)
-  d.setDate(d.getDate() + week * 7 + (isSecond ? 3 : 0))
-  return d.toLocaleDateString(locale.value, { day: 'numeric', month: 'short' })
-}
-
-interface QueueGroup {
-  order: number
-  posts: any[]
-  allPublished: boolean
-}
-
-const queueGroups = computed<QueueGroup[]>(() => {
-  const map = new Map<number, any[]>()
-  for (const p of queuePosts.value) {
-    if (p.publish_order == null) continue
-    if (!map.has(p.publish_order)) map.set(p.publish_order, [])
-    map.get(p.publish_order)!.push(p)
-  }
-  return Array.from(map.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([order, posts]) => ({
-      order,
-      posts: posts.sort((a: any, b: any) => a.language.localeCompare(b.language)),
-      allPublished: posts.every((p: any) => p.status === 'published'),
-    }))
-})
-
-const nextUnpublished = computed(() => {
-  const g = queueGroups.value.find(g => !g.allPublished)
-  return g?.order ?? null
-})
-
-async function fetchQueue() {
-  if (!estId.value) return
-  queueLoading.value = true
-  try {
-    await authStore.ensureToken()
-    const res = await $fetch<{ items: any[] }>('/api/v1/cms/posts/', {
-      params: { establishment_id: estId.value, status: 'draft', page_size: 200 },
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-    const pub = await $fetch<{ items: any[] }>('/api/v1/cms/posts/', {
-      params: { establishment_id: estId.value, page_size: 200 },
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-    // Merge, dedup, keep only those with publish_order
-    const all = [...res.items, ...pub.items]
-    const seen = new Set<string>()
-    queuePosts.value = all.filter(p => {
-      if (!p.publish_order || seen.has(p.id)) return false
-      seen.add(p.id)
-      return true
-    })
-  } catch { /* ignore */ }
-  queueLoading.value = false
-}
-
-async function publishTopic(order: number) {
-  const group = queueGroups.value.find(g => g.order === order)
-  if (!group) return
-  const drafts = group.posts.filter((p: any) => p.status !== 'published')
-  if (!drafts.length) return
-
-  publishingId.value = String(order)
-  try {
-    await authStore.ensureToken()
-    for (const post of drafts) {
-      await $fetch(`/api/v1/cms/posts/${post.id}/`, {
-        method: 'PATCH',
-        body: { status: 'published' },
+    // Delete every language version of the topic via existing per-post endpoint.
+    // No batch-delete endpoint: the per-post DELETE already handles ObjectFile,
+    // ObjectPhoto and ObjectComment cleanup correctly, so looping is safer than
+    // reimplementing that logic on the server.
+    for (const p of group.posts) {
+      await $fetch(`/api/v1/cms/posts/${p.id}/`, {
+        method: 'DELETE',
         credentials: 'include',
         headers: { Authorization: `Bearer ${authStore.token}` },
       })
     }
-    toast.success(t('cms.postPublished'))
-    await fetchQueue()
-    await fetchPosts()
-  } catch (e: any) {
-    toast.error(e.data?.message || 'Failed to publish')
-  }
-  publishingId.value = ''
-}
-
-// ── Pages ──
-const sitePages = ref<any[]>([])
-const pagesLoading = ref(false)
-const editingPage = ref<any>(null)
-const pageForm = reactive({ title: '', slug: '', content: '', order: 0, show_in_nav: true, is_published: true })
-const pageSaving = ref(false)
-const deletePageTarget = ref<any>(null)
-const deletingPage = ref(false)
-
-async function fetchPages() {
-  if (!estId.value) return
-  pagesLoading.value = true
-  try {
-    await authStore.ensureToken()
-    sitePages.value = await $fetch<any[]>(`/api/v1/cms/sites/by-establishment/${estId.value}/pages/`, {
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-  } catch { /* ignore */ }
-  pagesLoading.value = false
-}
-
-function startEditPage(page?: any) {
-  if (page) {
-    editingPage.value = page
-    pageForm.title = page.title
-    pageForm.slug = page.slug
-    pageForm.content = page.content
-    pageForm.order = page.order
-    pageForm.show_in_nav = page.show_in_nav
-    pageForm.is_published = page.is_published
-  } else {
-    editingPage.value = { id: null }
-    pageForm.title = ''
-    pageForm.slug = ''
-    pageForm.content = ''
-    pageForm.order = sitePages.value.length
-    pageForm.show_in_nav = true
-    pageForm.is_published = true
+    const deletedIds = new Set(group.posts.map((p: any) => p.id))
+    posts.value = posts.value.filter(p => !deletedIds.has(p.id))
+    toast.success(t('cms.postDeleted'))
+  } catch {
+    toast.error('Failed to delete')
+  } finally {
+    deleting.value = false
+    deleteTargetGroup.value = null
   }
 }
 
-async function savePage() {
-  if (!estId.value || !pageForm.title.trim()) return
-  pageSaving.value = true
-  try {
-    await authStore.ensureToken()
-    const headers = { Authorization: `Bearer ${authStore.token}` }
+// ── Topic grouping ──
+// A topic = original post (translation_of_id null) + all its translations.
+// Posts without translation_of_id are their own topic root.
+// Posts with translation_of_id are attached to the root with that id.
 
-    if (editingPage.value?.id) {
-      await $fetch(`/api/v1/cms/sites/by-establishment/${estId.value}/pages/${editingPage.value.id}/`, {
-        method: 'PATCH', body: { ...pageForm }, credentials: 'include', headers,
-      })
-    } else {
-      await $fetch(`/api/v1/cms/sites/by-establishment/${estId.value}/pages/`, {
-        method: 'POST', body: { ...pageForm }, credentials: 'include', headers,
-      })
-    }
-    toast.success(t('cms.manage.pageSaved'))
-    editingPage.value = null
-    await fetchPages()
-  } catch (e: any) {
-    toast.error(e.data?.message || 'Failed to save page')
+interface TopicGroup {
+  key: string            // root post id
+  order: number | null   // publish_order of the root (or any member — they share)
+  displayTitle: string   // title shown in the row — user's UI locale if available, else root
+  displayPostId: string  // id of the displayed translation — edit target for title click
+  posts: any[]           // all language versions, root first then alphabetical
+  missingLangs: string[] // languages missing to fulfill REQUIRED_LANGS
+  allApproved: boolean
+  anyApproved: boolean
+  allPublished: boolean
+  anyPublished: boolean
+}
+
+const topicGroups = computed<TopicGroup[]>(() => {
+  const byRoot = new Map<string, any[]>()
+  for (const p of posts.value) {
+    // Skip archived posts — they shouldn't leak into Drafts
+    if (p.status === 'archived') continue
+    const rootKey = p.translation_of_id || p.id
+    if (!byRoot.has(rootKey)) byRoot.set(rootKey, [])
+    byRoot.get(rootKey)!.push(p)
   }
-  pageSaving.value = false
-}
 
-async function deletePage() {
-  if (!deletePageTarget.value || !estId.value) return
-  deletingPage.value = true
-  try {
-    await authStore.ensureToken()
-    await $fetch(`/api/v1/cms/sites/by-establishment/${estId.value}/pages/${deletePageTarget.value.id}/`, {
-      method: 'DELETE', credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
+  const groups: TopicGroup[] = []
+  for (const [rootKey, group] of byRoot.entries()) {
+    // Sort: root post (primary) first, then others alphabetically by language.
+    // For parahub-associacao this puts PT first since PT is always the root.
+    const sorted = [...group].sort((a, b) => {
+      if (a.id === rootKey) return -1
+      if (b.id === rootKey) return 1
+      return a.language.localeCompare(b.language)
     })
-    sitePages.value = sitePages.value.filter(p => p.id !== deletePageTarget.value.id)
-    toast.success(t('cms.manage.pageDeleted'))
-  } catch { toast.error('Failed to delete page') }
-  deletingPage.value = false
-  deletePageTarget.value = null
-}
+    const rootPost = sorted[0]  // always the root after the sort above
+    // Show the user's UI locale (which is auto-synced from Profile.preferred_language
+    // by plugins/i18n-backend-sync.client.ts) if a translation in that language exists,
+    // so editors see "their" title and click-to-edit lands on their language version.
+    // Falls back to the root (PT for parahub-associacao) when their language is missing.
+    const displayPost = sorted.find(p => p.language === locale.value) || rootPost
+    const order = sorted.find(p => p.publish_order != null)?.publish_order ?? null
+    const langsPresent = new Set(sorted.map(p => p.language))
+    const missingLangs = REQUIRED_LANGS.value.filter(l => !langsPresent.has(l))
 
-// ── Site Settings ──
-const siteData = ref<any>(null)
-const siteForm = reactive({ accent_color: '#F5C518', hero_text: '', hero_image_id: '' })
-const siteSaving = ref(false)
-
-async function fetchSite() {
-  if (!estId.value) return
-  try {
-    await authStore.ensureToken()
-    siteData.value = await $fetch<any>(`/api/v1/cms/sites/by-establishment/${estId.value}/`, {
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
+    groups.push({
+      key: rootKey,
+      order,
+      displayTitle: displayPost.title,
+      displayPostId: displayPost.id,
+      posts: sorted,
+      missingLangs,
+      allApproved: sorted.every(p => !!p.approved_at),
+      anyApproved: sorted.some(p => !!p.approved_at),
+      allPublished: sorted.every(p => p.status === 'published'),
+      anyPublished: sorted.some(p => p.status === 'published'),
     })
-    siteForm.accent_color = siteData.value.accent_color
-    siteForm.hero_text = siteData.value.hero_text
-    siteForm.hero_image_id = siteData.value.hero_image_id
-  } catch { /* ignore */ }
-}
-
-async function saveSite() {
-  if (!estId.value) return
-  siteSaving.value = true
-  try {
-    await authStore.ensureToken()
-    await $fetch(`/api/v1/cms/sites/by-establishment/${estId.value}/`, {
-      method: 'PATCH',
-      body: { ...siteForm },
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-    toast.success(t('common.saved'))
-  } catch (e: any) {
-    toast.error(e.data?.message || 'Failed to save settings')
   }
-  siteSaving.value = false
+
+  // Sort by publish_order ASC (nulls last), then by first post title
+  groups.sort((a, b) => {
+    if (a.order == null && b.order == null) return a.displayTitle.localeCompare(b.displayTitle)
+    if (a.order == null) return 1
+    if (b.order == null) return -1
+    return a.order - b.order
+  })
+  return groups
+})
+
+const draftGroups = computed(() =>
+  topicGroups.value.filter(g => !g.anyApproved && !g.anyPublished)
+)
+const readyGroups = computed(() =>
+  topicGroups.value.filter(g => g.anyApproved && !g.anyPublished)
+)
+const publishedGroups = computed(() =>
+  topicGroups.value.filter(g => g.anyPublished)
+)
+
+// The top of `readyGroups` is the recommended next — highlighted but not enforced.
+const nextRecommendedKey = computed(() => readyGroups.value[0]?.key ?? null)
+
+function canApprove(group: TopicGroup): boolean {
+  return group.missingLangs.length === 0 && !group.anyApproved && !group.anyPublished
 }
 
-// ── Custom Domain ──
-const domainForm = reactive({ domain: '' })
-const domainSaving = ref(false)
-const domainVerifying = ref(false)
-const domainMessage = ref('')
-
-watch(() => siteData.value?.custom_domain, (v) => {
-  if (v) domainForm.domain = v
-}, { immediate: true })
-
-async function setDomain() {
-  if (!estId.value) return
-  domainSaving.value = true
-  domainMessage.value = ''
+async function batchAction(group: TopicGroup, endpoint: 'batch-approve' | 'batch-unapprove' | 'batch-publish') {
+  busyTopicKey.value = group.key
   try {
     await authStore.ensureToken()
-    const res = await $fetch<any>(`/api/v1/cms/sites/by-establishment/${estId.value}/domain/`, {
+    const updated = await $fetch<any[]>(`/api/v1/cms/posts/${endpoint}/`, {
       method: 'POST',
-      body: { domain: domainForm.domain.trim() },
+      body: { post_ids: group.posts.map(p => p.id) },
       credentials: 'include',
       headers: { Authorization: `Bearer ${authStore.token}` },
     })
-    domainMessage.value = res.message
-    await fetchSite()
+    // Merge updated posts back into local state
+    const byId = new Map(updated.map(p => [p.id, p]))
+    posts.value = posts.value.map(p => byId.get(p.id) || p)
+    if (endpoint === 'batch-approve') toast.success(t('cms.manage.topicApproved'))
+    else if (endpoint === 'batch-unapprove') toast.success(t('cms.manage.topicUnapproved'))
+    else if (endpoint === 'batch-publish') toast.success(t('cms.manage.topicPublished'))
   } catch (e: any) {
-    toast.error(e.data?.message || 'Failed to set domain')
+    toast.error(e.data?.detail || e.data?.message || 'Action failed')
+  } finally {
+    busyTopicKey.value = ''
   }
-  domainSaving.value = false
 }
 
-async function verifyDomain() {
-  if (!estId.value) return
-  domainVerifying.value = true
-  domainMessage.value = ''
-  try {
-    await authStore.ensureToken()
-    const res = await $fetch<any>(`/api/v1/cms/sites/by-establishment/${estId.value}/domain/verify/`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-    domainMessage.value = res.message
-    await fetchSite()
-    // Poll for SSL readiness if verified but not yet SSL-ready
-    if (siteData.value?.custom_domain_verified && !siteData.value?.custom_domain_ssl_ready) {
-      pollSslStatus()
-    }
-  } catch (e: any) {
-    toast.error(e.data?.message || 'Verification failed')
-  }
-  domainVerifying.value = false
-}
+function approveTopic(group: TopicGroup) { return batchAction(group, 'batch-approve') }
+function unapproveTopic(group: TopicGroup) { return batchAction(group, 'batch-unapprove') }
+function publishTopic(group: TopicGroup) { return batchAction(group, 'batch-publish') }
 
-let sslPollTimer: ReturnType<typeof setInterval> | null = null
-function pollSslStatus() {
-  if (sslPollTimer) return
-  sslPollTimer = setInterval(async () => {
-    await fetchSite()
-    if (siteData.value?.custom_domain_ssl_ready) {
-      clearInterval(sslPollTimer!)
-      sslPollTimer = null
-      domainMessage.value = 'SSL certificate ready — your domain is live!'
-      toast.success('Custom domain is live!')
-    }
-  }, 5000)
-}
-onUnmounted(() => { if (sslPollTimer) clearInterval(sslPollTimer) })
-
-async function removeDomain() {
-  domainForm.domain = ''
-  await setDomain()
-}
+// ── Shared (Pages, Site, Nav Sections, Domain) ──
+const apiPrefix = computed(() => estId.value ? `by-establishment/${estId.value}` : '')
+const site = useSiteManage(apiPrefix)
 
 // ── Init ──
 onMounted(async () => {
@@ -417,16 +247,20 @@ onMounted(async () => {
     }
   } catch { /* ignore */ }
 
-  await Promise.all([fetchPosts(), fetchQueue(), fetchPages(), fetchSite()])
+  await Promise.all([fetchPosts(), site.fetchPages(), site.fetchSite()])
 })
 
-useHead({ title: computed(() => `${t('cms.manage.title')} — ${estName.value || estSlug.value}`) })
-
-function statusBadge(status: string) {
-  if (status === 'published') return { variant: 'success' as const, label: t('cms.published') }
-  if (status === 'archived') return { variant: 'default' as const, label: t('cms.archived') }
-  return { variant: 'warning' as const, label: t('cms.draft') }
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'now'
+  if (mins < 60) return `${mins}m`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h`
+  return `${Math.floor(hours / 24)}d`
 }
+
+useHead({ title: computed(() => `${t('cms.manage.title')} — ${estName.value || estSlug.value}`) })
 </script>
 
 <template>
@@ -461,7 +295,7 @@ function statusBadge(status: string) {
 
       <UiTabs v-model="activeTab" :tabs="tabs" class="mb-6" />
 
-      <!-- ═══ POSTS TAB ═══ -->
+      <!-- ═══ POSTS TAB — lifecycle sections ═══ -->
       <div v-if="activeTab === 'posts'">
         <div class="flex justify-between items-center mb-4">
           <span />
@@ -480,183 +314,170 @@ function statusBadge(status: string) {
           <p class="text-neutral-500 dark:text-neutral-400">{{ t('cms.noPostsDesc') }}</p>
         </div>
 
-        <div v-else class="border rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
-          <div
-            v-for="post in posts"
-            :key="post.id"
-            class="flex items-center gap-4 p-4 bg-white dark:bg-neutral-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
-          >
-            <UiBadge :variant="statusBadge(post.status).variant" type="soft" size="sm" class="shrink-0">
-              {{ statusBadge(post.status).label }}
-            </UiBadge>
-            <Pin v-if="post.is_pinned" class="w-4 h-4 text-yellow-500 shrink-0" />
-            <div class="flex-1 min-w-0">
-              <NuxtLink :to="localePath(`/org/${estSlug}/blog/${post.slug}`)" class="text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:text-secondary truncate block">
-                {{ post.title }}
-              </NuxtLink>
-              <div class="text-xs text-neutral-500 mt-0.5">
-                {{ post.author_display_name || post.author_hna }}
-                <span v-if="post.published_at"> &middot; {{ new Date(post.published_at).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) }}</span>
+        <template v-else>
+          <!-- DRAFTS SECTION -->
+          <section class="mb-8">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+              {{ t('cms.manage.drafts') }} <span class="text-neutral-400">({{ draftGroups.length }})</span>
+            </h2>
+            <div v-if="draftGroups.length === 0" class="text-sm text-neutral-400 italic py-4">
+              {{ t('cms.manage.sectionEmpty') }}
+            </div>
+            <div v-else class="border rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
+              <BlogTopicRow
+                v-for="group in draftGroups"
+                :key="group.key"
+                :group="group"
+                :est-slug="estSlug"
+                :busy="busyTopicKey === group.key"
+                :can-approve="canApprove(group)"
+                :locale="locale"
+                :t="t"
+                :local-path="localePath"
+                @approve="approveTopic"
+                @delete="(g) => deleteTargetGroup = g"
+              />
+            </div>
+          </section>
+
+          <!-- READY SECTION -->
+          <section class="mb-8">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+              {{ t('cms.manage.ready') }} <span class="text-neutral-400">({{ readyGroups.length }})</span>
+            </h2>
+            <div v-if="readyGroups.length === 0" class="text-sm text-neutral-400 italic py-4">
+              {{ t('cms.manage.sectionEmpty') }}
+            </div>
+            <div v-else class="border rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
+              <BlogTopicRow
+                v-for="group in readyGroups"
+                :key="group.key"
+                :group="group"
+                :est-slug="estSlug"
+                :busy="busyTopicKey === group.key"
+                :section="'ready'"
+                :is-next-recommended="group.key === nextRecommendedKey"
+                :locale="locale"
+                :t="t"
+                :local-path="localePath"
+                @unapprove="unapproveTopic"
+                @publish="publishTopic"
+                @delete="(g) => deleteTargetGroup = g"
+              />
+            </div>
+          </section>
+
+          <!-- PUBLISHED SECTION (collapsible) -->
+          <section>
+            <button
+              class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3 hover:text-secondary"
+              @click="showPublished = !showPublished"
+            >
+              <ChevronDown v-if="showPublished" class="w-4 h-4" />
+              <ChevronUp v-else class="w-4 h-4" />
+              {{ t('cms.manage.publishedSection') }} <span class="text-neutral-400">({{ publishedGroups.length }})</span>
+            </button>
+            <div v-if="showPublished">
+              <div v-if="publishedGroups.length === 0" class="text-sm text-neutral-400 italic py-4">
+                {{ t('cms.manage.sectionEmpty') }}
+              </div>
+              <div v-else class="border rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
+                <BlogTopicRow
+                  v-for="group in publishedGroups"
+                  :key="group.key"
+                  :group="group"
+                  :est-slug="estSlug"
+                  :busy="busyTopicKey === group.key"
+                  :section="'published'"
+                  :locale="locale"
+                  :t="t"
+                  :local-path="localePath"
+                  @delete="(g) => deleteTargetGroup = g"
+                />
               </div>
             </div>
-            <div class="flex items-center gap-1 shrink-0">
-              <NuxtLink :to="localePath(`/blog/create?edit=${post.id}`)" class="p-2 rounded text-neutral-500 hover:text-secondary hover:bg-neutral-100 dark:hover:bg-neutral-700">
-                <Pencil class="w-4 h-4" />
-              </NuxtLink>
-              <button @click="deleteTarget = post" class="p-2 rounded text-neutral-500 hover:text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-700">
-                <Trash2 class="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
+          </section>
+        </template>
 
         <UiConfirmModal
-          v-if="deleteTarget"
+          v-if="deleteTargetGroup"
           :model-value="true"
-          :title="t('cms.deletePost')"
-          :message="t('cms.deletePostConfirm')"
+          :title="t('cms.deleteTopic')"
+          :message="t('cms.deleteTopicConfirm')"
           :icon="Trash2"
           variant="error"
-          :confirm-label="t('cms.deletePost')"
+          :confirm-label="t('cms.deleteTopic')"
           :loading="deleting"
-          @confirm="deletePost"
-          @update:model-value="deleteTarget = null"
+          @confirm="deleteTopic"
+          @update:model-value="deleteTargetGroup = null"
         />
-      </div>
-
-      <!-- ═══ QUEUE TAB ═══ -->
-      <div v-else-if="activeTab === 'queue'">
-        <div v-if="queueLoading" class="flex justify-center py-12">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" />
-        </div>
-
-        <div v-else-if="queueGroups.length === 0" class="text-center py-12">
-          <ListOrdered class="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
-          <p class="text-neutral-500 dark:text-neutral-400">{{ t('cms.noPosts') }}</p>
-        </div>
-
-        <div v-else class="space-y-2">
-          <div
-            v-for="group in queueGroups"
-            :key="group.order"
-            class="border rounded-lg p-4 flex items-center gap-4"
-            :class="[
-              group.allPublished
-                ? 'border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10'
-                : group.order === nextUnpublished
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                  : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800'
-            ]"
-          >
-            <!-- Order number -->
-            <span
-              class="text-lg font-bold w-8 text-center shrink-0"
-              :class="group.allPublished ? 'text-green-500' : 'text-neutral-400'"
-            >
-              {{ group.order }}
-            </span>
-
-            <!-- Posts -->
-            <div class="flex-1 min-w-0 space-y-1">
-              <div v-for="post in group.posts" :key="post.id" class="flex items-center gap-2">
-                <UiBadge :variant="post.language === 'pt' ? 'info' : 'default'" type="soft" size="sm">
-                  {{ post.language.toUpperCase() }}
-                </UiBadge>
-                <NuxtLink
-                  :to="localePath(`/blog/create?edit=${post.id}`)"
-                  class="text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:text-secondary truncate"
-                >
-                  {{ post.title }}
-                </NuxtLink>
-              </div>
-            </div>
-
-            <!-- Suggested date -->
-            <div class="text-xs text-neutral-500 shrink-0 hidden sm:flex items-center gap-1">
-              <Clock class="w-3 h-3" />
-              {{ suggestedDate(group.order) }}
-            </div>
-
-            <!-- Action -->
-            <div class="shrink-0">
-              <CheckCircle2 v-if="group.allPublished" class="w-5 h-5 text-green-500" />
-              <UiButton
-                v-else
-                variant="primary"
-                size="sm"
-                :icon="Send"
-                :loading="publishingId === String(group.order)"
-                :disabled="group.order !== nextUnpublished"
-                @click="publishTopic(group.order)"
-              >
-                {{ t('cms.manage.publishTopic') }}
-              </UiButton>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- ═══ PAGES TAB ═══ -->
       <div v-else-if="activeTab === 'pages'">
         <div class="flex justify-between items-center mb-4">
           <span />
-          <UiButton variant="primary" size="sm" :icon="Plus" @click="startEditPage()">
+          <UiButton variant="primary" size="sm" :icon="Plus" @click="site.startEditPage()">
             {{ t('cms.manage.newPage') }}
           </UiButton>
         </div>
 
         <!-- Page editor inline -->
-        <div v-if="editingPage" class="card p-4 mb-6 space-y-4">
+        <div v-if="site.editingPage.value" class="card p-4 mb-6 space-y-4">
           <h3 class="font-semibold text-neutral-900 dark:text-neutral-100">
-            {{ editingPage.id ? t('cms.manage.editPage') : t('cms.manage.createPage') }}
+            {{ site.editingPage.value.id ? t('cms.manage.editPage') : t('cms.manage.createPage') }}
           </h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.title') }}</label>
-              <input v-model="pageForm.title" type="text" class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent" />
+              <input v-model="site.pageForm.title" type="text" class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent" />
             </div>
             <div>
               <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Slug</label>
-              <input v-model="pageForm.slug" type="text" class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="auto-generated" />
+              <input v-model="site.pageForm.slug" type="text" class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="auto-generated" />
             </div>
           </div>
           <div>
             <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.content') }}</label>
-            <BlogEditor v-model="pageForm.content" :post-id="editingPage?.id || ''" />
+            <BlogEditor v-model="site.pageForm.content" :post-id="site.editingPage.value?.id || ''" />
           </div>
           <div class="flex flex-wrap gap-4">
             <label class="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
-              <input type="checkbox" v-model="pageForm.show_in_nav" class="rounded" />
+              <input type="checkbox" v-model="site.pageForm.show_in_nav" class="rounded" />
               {{ t('cms.manage.showInNav') }}
             </label>
             <label class="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
-              <input type="checkbox" v-model="pageForm.is_published" class="rounded" />
+              <input type="checkbox" v-model="site.pageForm.is_published" class="rounded" />
               {{ t('cms.published') }}
+            </label>
+            <label class="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+              <input type="checkbox" v-model="site.pageForm.is_homepage" class="rounded" />
+              {{ t('cms.manage.isHomepage') }}
             </label>
             <div class="flex items-center gap-2">
               <label class="text-sm text-neutral-700 dark:text-neutral-300">{{ t('cms.manage.order') }}:</label>
-              <input v-model.number="pageForm.order" type="number" min="0" class="w-20 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 py-1 text-sm" />
+              <input v-model.number="site.pageForm.order" type="number" min="0" class="w-20 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 py-1 text-sm" />
             </div>
           </div>
           <div class="flex gap-2">
-            <UiButton variant="primary" :loading="pageSaving" @click="savePage">{{ t('common.save') }}</UiButton>
-            <UiButton variant="ghost" @click="editingPage = null">{{ t('common.cancel') }}</UiButton>
+            <UiButton variant="primary" :loading="site.pageSaving.value" @click="site.savePage">{{ t('common.save') }}</UiButton>
+            <UiButton variant="ghost" @click="site.editingPage.value = null">{{ t('common.cancel') }}</UiButton>
           </div>
         </div>
 
-        <div v-if="pagesLoading" class="flex justify-center py-8">
+        <div v-if="site.pagesLoading.value" class="flex justify-center py-8">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900" />
         </div>
 
-        <div v-else-if="sitePages.length === 0 && !editingPage" class="text-center py-12">
-          <img src="/images/para/focused.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+        <div v-else-if="site.sitePages.value.length === 0 && !site.editingPage.value" class="text-center py-12">
+          <img src="/images/para/welcome.png" alt="" aria-hidden="true" class="mx-auto h-32 w-auto mb-4" />
           <h3 class="text-lg font-semibold text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.manage.noPagesYet') }}</h3>
           <p class="text-neutral-500 dark:text-neutral-400">{{ t('cms.manage.noPagesDesc') }}</p>
         </div>
 
         <div v-else class="border rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
           <div
-            v-for="page in sitePages"
+            v-for="page in site.sitePages.value"
             :key="page.id"
             class="flex items-center gap-4 p-4 bg-white dark:bg-neutral-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
           >
@@ -665,13 +486,15 @@ function statusBadge(status: string) {
               <span class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ page.title }}</span>
               <span class="text-xs text-neutral-500 ml-2">/{{ page.slug }}</span>
             </div>
+            <UiBadge v-if="page.is_homepage" variant="success" type="soft" size="sm">{{ t('cms.manage.homepage') }}</UiBadge>
             <UiBadge v-if="page.show_in_nav" variant="info" type="soft" size="sm">nav</UiBadge>
             <UiBadge v-if="!page.is_published" variant="default" type="soft" size="sm">{{ t('cms.draft') }}</UiBadge>
+            <span v-if="page.updated_at" class="text-xs text-neutral-400 shrink-0" :title="t('cms.manage.lastUpdated')">{{ timeAgo(page.updated_at) }}</span>
             <div class="flex items-center gap-1 shrink-0">
-              <button @click="startEditPage(page)" class="p-2 rounded text-neutral-500 hover:text-secondary hover:bg-neutral-100 dark:hover:bg-neutral-700">
+              <button @click="site.startEditPage(page)" class="p-2 rounded text-neutral-500 hover:text-secondary hover:bg-neutral-100 dark:hover:bg-neutral-700">
                 <Pencil class="w-4 h-4" />
               </button>
-              <button @click="deletePageTarget = page" class="p-2 rounded text-neutral-500 hover:text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-700">
+              <button @click="site.deletePageTarget.value = page" class="p-2 rounded text-neutral-500 hover:text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-700">
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
@@ -679,16 +502,16 @@ function statusBadge(status: string) {
         </div>
 
         <UiConfirmModal
-          v-if="deletePageTarget"
+          v-if="site.deletePageTarget.value"
           :model-value="true"
           :title="t('cms.manage.deletePage')"
           :message="t('cms.manage.deletePageConfirm')"
           :icon="Trash2"
           variant="error"
           :confirm-label="t('cms.manage.deletePage')"
-          :loading="deletingPage"
-          @confirm="deletePage"
-          @update:model-value="deletePageTarget = null"
+          :loading="site.deletingPage.value"
+          @confirm="site.deletePage"
+          @update:model-value="site.deletePageTarget.value = null"
         />
       </div>
 
@@ -704,8 +527,8 @@ function statusBadge(status: string) {
           <div>
             <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.site.accentColor') }}</label>
             <div class="flex items-center gap-3">
-              <input v-model="siteForm.accent_color" type="color" class="w-10 h-10 rounded border border-neutral-300 dark:border-neutral-600 cursor-pointer" />
-              <input v-model="siteForm.accent_color" type="text" maxlength="7" class="w-28 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm font-mono" />
+              <input v-model="site.siteForm.accent_color" type="color" class="w-10 h-10 rounded border border-neutral-300 dark:border-neutral-600 cursor-pointer" />
+              <input v-model="site.siteForm.accent_color" type="text" maxlength="7" class="w-28 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm font-mono" />
             </div>
           </div>
 
@@ -713,7 +536,7 @@ function statusBadge(status: string) {
           <div>
             <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.site.heroText') }}</label>
             <textarea
-              v-model="siteForm.hero_text"
+              v-model="site.siteForm.hero_text"
               rows="3"
               class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
               placeholder="Welcome to our community..."
@@ -725,7 +548,71 @@ function statusBadge(status: string) {
             {{ t('cms.site.subdomain') }}: <a :href="`https://${estSlug}.org.parahub.io`" target="_blank" rel="noopener" class="text-link"><code class="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-xs">{{ estSlug }}.org.parahub.io</code></a>
           </div>
 
-          <UiButton variant="primary" :loading="siteSaving" @click="saveSite">
+          <UiButton variant="primary" :loading="site.siteSaving.value" @click="site.saveSite">
+            {{ t('common.save') }}
+          </UiButton>
+        </div>
+
+        <!-- Nav Sections -->
+        <div class="card p-4 space-y-4">
+          <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+            <LayoutGrid class="w-5 h-5" />
+            {{ t('cms.site.navSections') }}
+          </h3>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">
+            {{ t('cms.site.navSectionsDesc') }}
+          </p>
+
+          <!-- Enabled sections (ordered) -->
+          <div v-if="site.sortedSections.value.length" class="space-y-1">
+            <div
+              v-for="(section, idx) in site.sortedSections.value"
+              :key="section.type"
+              class="flex items-center gap-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2"
+            >
+              <span class="text-xs text-neutral-400 w-5 text-center shrink-0">{{ idx + 1 }}</span>
+              <span class="flex-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                {{ t(site.SECTION_LABEL_KEY[section.type as keyof typeof site.SECTION_LABEL_KEY]) }}
+              </span>
+              <button
+                :disabled="idx === 0"
+                :title="t('cms.site.moveUp')"
+                class="p-1 rounded text-neutral-400 hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+                @click="site.moveSection(section.type as any, -1)"
+              >
+                <ChevronUp class="w-4 h-4" />
+              </button>
+              <button
+                :disabled="idx === site.sortedSections.value.length - 1"
+                :title="t('cms.site.moveDown')"
+                class="p-1 rounded text-neutral-400 hover:text-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+                @click="site.moveSection(section.type as any, 1)"
+              >
+                <ChevronDown class="w-4 h-4" />
+              </button>
+              <button
+                class="p-1 rounded text-neutral-400 hover:text-red-500"
+                @click="site.toggleSection(section.type as any)"
+              >
+                <Trash2 class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Disabled sections (available to add) -->
+          <div v-if="site.disabledSections.value.length" class="flex flex-wrap gap-2">
+            <button
+              v-for="type in site.disabledSections.value"
+              :key="type"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-dashed border-neutral-300 dark:border-neutral-600 text-neutral-500 hover:border-secondary hover:text-secondary transition-colors"
+              @click="site.toggleSection(type)"
+            >
+              <Plus class="w-3.5 h-3.5" />
+              {{ t(site.SECTION_LABEL_KEY[type]) }}
+            </button>
+          </div>
+
+          <UiButton variant="primary" :loading="site.siteSaving.value" @click="site.saveSite">
             {{ t('common.save') }}
           </UiButton>
         </div>
@@ -755,37 +642,37 @@ function statusBadge(status: string) {
             <div class="flex-1">
               <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.site.domain') }}</label>
               <input
-                v-model="domainForm.domain"
+                v-model="site.domainForm.domain"
                 type="text"
                 placeholder="my-org.pt"
                 class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
-            <UiButton variant="outline" size="sm" :loading="domainSaving" @click="setDomain" class="shrink-0">
-              {{ siteData?.custom_domain ? t('cms.site.updateDomain') : t('cms.site.setDomain') }}
+            <UiButton variant="outline" size="sm" :loading="site.domainSaving.value" @click="site.setDomain" class="shrink-0">
+              {{ site.siteData.value?.custom_domain ? t('cms.site.updateDomain') : t('cms.site.setDomain') }}
             </UiButton>
           </div>
 
           <!-- Status -->
-          <div v-if="siteData?.custom_domain" class="space-y-2">
+          <div v-if="site.siteData.value?.custom_domain" class="space-y-2">
             <div class="flex items-center gap-2 text-sm">
-              <span class="text-neutral-700 dark:text-neutral-300">{{ siteData.custom_domain }}</span>
-              <UiBadge v-if="siteData.custom_domain_verified && siteData.custom_domain_ssl_ready" variant="success" type="soft" size="sm">{{ t('cms.site.domainLive') }}</UiBadge>
-              <UiBadge v-else-if="siteData.custom_domain_verified" variant="warning" type="soft" size="sm">{{ t('cms.site.sslPending') }}</UiBadge>
+              <span class="text-neutral-700 dark:text-neutral-300">{{ site.siteData.value.custom_domain }}</span>
+              <UiBadge v-if="site.siteData.value.custom_domain_verified && site.siteData.value.custom_domain_ssl_ready" variant="success" type="soft" size="sm">{{ t('cms.site.domainLive') }}</UiBadge>
+              <UiBadge v-else-if="site.siteData.value.custom_domain_verified" variant="warning" type="soft" size="sm">{{ t('cms.site.sslPending') }}</UiBadge>
               <UiBadge v-else variant="default" type="soft" size="sm">{{ t('cms.site.notVerified') }}</UiBadge>
             </div>
 
             <div class="flex gap-2">
-              <UiButton v-if="!siteData.custom_domain_verified" variant="primary" size="sm" :loading="domainVerifying" @click="verifyDomain">
+              <UiButton v-if="!site.siteData.value.custom_domain_verified" variant="primary" size="sm" :loading="site.domainVerifying.value" @click="site.verifyDomain">
                 {{ t('cms.site.verifyCname') }}
               </UiButton>
-              <UiButton variant="ghost" size="sm" @click="removeDomain">
+              <UiButton variant="ghost" size="sm" @click="site.removeDomain">
                 {{ t('cms.site.removeDomain') }}
               </UiButton>
             </div>
 
-            <p v-if="domainMessage" class="text-sm" :class="siteData.custom_domain_verified ? 'text-green-600 dark:text-green-400' : 'text-neutral-500'">
-              {{ domainMessage }}
+            <p v-if="site.domainMessage.value" class="text-sm" :class="site.siteData.value.custom_domain_verified ? 'text-green-600 dark:text-green-400' : 'text-neutral-500'">
+              {{ site.domainMessage.value }}
             </p>
           </div>
         </div>

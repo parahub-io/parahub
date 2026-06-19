@@ -35,6 +35,14 @@
             <template v-else-if="saveStatus === 'error'">
               <AlertCircle class="w-3.5 h-3.5 text-red-500" />
               <span class="text-red-500 dark:text-red-400">{{ saveError }}</span>
+              <NuxtLink
+                v-if="saveNeedsKeys"
+                :to="localePath('/seed-restore')"
+                class="ml-1 inline-flex items-center gap-1 text-warning-700 dark:text-warning-300 hover:underline"
+              >
+                <KeyRound class="w-3.5 h-3.5" />
+                {{ $t('governance.errors.restoreKeys') }}
+              </NuxtLink>
             </template>
           </div>
           <!-- Participation badge -->
@@ -301,7 +309,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import {
   Landmark, BarChart3, Check, AlertCircle, History,
   ChevronDown, FileText, Settings, Users, Rocket,
-  Megaphone, HeartHandshake, Shield, ArrowLeft
+  Megaphone, HeartHandshake, Shield, ArrowLeft, KeyRound
 } from 'lucide-vue-next'
 import { useTreasuryWebSocket } from '~/composables/useTreasuryWebSocket'
 import { usePGP } from '~/composables/usePGP'
@@ -321,6 +329,7 @@ const loadingAudit = ref(false)
 const saving = ref(false)
 const saveStatus = ref<'saved' | 'saving' | 'error' | null>(null)
 const saveError = ref('')
+const saveNeedsKeys = ref(false)
 const establishmentName = ref('')
 const establishmentId = ref('')
 
@@ -563,6 +572,17 @@ async function saveAllocation() {
   saving.value = true
   saveStatus.value = 'saving'
   saveError.value = ''
+  saveNeedsKeys.value = false
+
+  await loadKeys()
+  if (!hasKeys.value) {
+    saveNeedsKeys.value = true
+    saveStatus.value = 'error'
+    saveError.value = t('treasury.error_signature_required')
+    saving.value = false
+    return
+  }
+
   try {
     await authStore.ensureToken()
 
@@ -595,6 +615,7 @@ async function saveAllocation() {
     // Extract meaningful error from backend response
     const msg = e?.data?.detail || e?.data?.message || ''
     if (msg.includes('Signature required') || msg.includes('PGP')) {
+      saveNeedsKeys.value = true
       saveError.value = t('treasury.error_signature_required')
     } else {
       saveError.value = t('treasury.error_save_failed')

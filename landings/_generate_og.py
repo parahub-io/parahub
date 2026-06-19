@@ -27,6 +27,7 @@ LANDINGS = [
     ("directorio",  "Directório comunitário",      4),
     ("energy",      "Energia solar P2P",           5),
     ("eventos",     "Eventos comunitários",        6),
+    ("mesh",        "WiFi comunitário",           10),
     ("sos",         "ParaSOS",                     7),
     ("transporte",  "Transportes em tempo real",   8),
     ("troca",       "Troca directa",               9),

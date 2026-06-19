@@ -11,17 +11,89 @@ import json
 import logging
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum, Count
+from django.utils import timezone
 from datetime import datetime
 
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 import math
+import re
 
 logger = logging.getLogger(__name__)
 
 # 1 mission = 1 tile: max allowed distance from tile center to any photo GPS
 # ~215m (Z17 half-diagonal) + 37m (buffer) + 68m (GPS error margin) = 320m
 MAX_PHOTO_DISTANCE_FROM_TILE_M = 320
+
+# Direction coverage: threshold for a direction to be considered "covered" in UI
+# (green pill). Below threshold but > 0 = amber ("partial"). 0 = gray outline.
+DIRECTION_COVERAGE_THRESHOLD = 50
+
+# Direction keys used in OpenSkyMission.direction_counts JSON field.
+DIRECTION_KEYS = ('nadir', 'n', 'e', 's', 'w', 'unknown')
+
+
+def extract_gimbal_pitch(image_path):
+    """Extract gimbal pitch from DJI XMP metadata. Returns degrees or None."""
+    try:
+        with open(image_path, 'rb') as f:
+            header = f.read(65536)
+        match = re.search(rb'(?:drone-dji|drone):GimbalPitchDegree="([^"]+)"', header)
+        if match:
+            return float(match.group(1))
+    except Exception:
+        pass
+    return None
+
+
+def extract_gimbal_yaw(image_path):
+    """Extract gimbal yaw from DJI XMP metadata. Returns degrees or None.
+
+    DJI reports yaw as 0-360 (north=0, east=90) or -180..180 depending on firmware;
+    classify_photo_direction() normalizes via modulo.
+    """
+    try:
+        with open(image_path, 'rb') as f:
+            header = f.read(65536)
+        match = re.search(rb'(?:drone-dji|drone):GimbalYawDegree="([^"]+)"', header)
+        if match:
+            return float(match.group(1))
+    except Exception:
+        pass
+    return None
+
+
+def classify_photo_direction(pitch, yaw):
+    """
+    Classify a photo by camera direction based on gimbal pitch + yaw.
+
+    Returns one of: 'nadir', 'n', 'e', 's', 'w', 'unknown'
+
+    - nadir: pitch < -70 (straight down, orthophoto source)
+    - n/e/s/w: pitch >= -70 (oblique) + yaw bucket (cardinal ±45)
+    - unknown: pitch missing, or oblique with yaw missing (legacy EXIF)
+    """
+    if pitch is None:
+        return 'unknown'
+    if pitch < -70:
+        return 'nadir'
+    if yaw is None:
+        return 'unknown'
+    # Normalize yaw to [0, 360)
+    y = yaw % 360
+    if y >= 315 or y < 45:
+        return 'n'
+    if y < 135:
+        return 'e'
+    if y < 225:
+        return 's'
+    return 'w'
+
+
+def empty_direction_counts() -> dict:
+    """Zero-initialized direction counts dict."""
+    return {k: 0 for k in DIRECTION_KEYS}
+
 
 router = Router(tags=["Geo / OpenSky"])
 
@@ -37,9 +109,13 @@ class OpenSkyMissionResponse(BaseModel):
     pilot_id: Optional[str]
     pilot_name: Optional[str]
     area: Optional[Dict[str, Any]]  # GeoJSON polygon
+    area_m2: Optional[float] = None
     center_lat: Optional[float]
     center_lng: Optional[float]
+    place_label: str = ""
+    place_region: str = ""
     source_photos_count: int
+    direction_counts: Dict[str, int] = {}
     tiles_count: int
     tiles_size_mb: float
     min_zoom: int
@@ -59,6 +135,7 @@ class OpenSkyMissionResponse(BaseModel):
     tile_z: Optional[int] = None
     tile_x: Optional[int] = None
     tile_y: Optional[int] = None
+    license: str = "CC-BY-SA-4.0"
 
 
 class OpenSkyMissionListItem(BaseModel):
@@ -71,9 +148,14 @@ class OpenSkyMissionListItem(BaseModel):
     pilot_name: Optional[str]
     center_lat: Optional[float]
     center_lng: Optional[float]
+    place_label: str = ""
+    place_region: str = ""
+    area_m2: Optional[float] = None
     source_photos_count: int
+    direction_counts: Dict[str, int] = {}
     tiles_count: int
     uploaded_at: datetime
+    captured_at: Optional[datetime] = None
     published_at: Optional[datetime]
     processing_started_at: Optional[datetime] = None
     processing_step: str = ""
@@ -81,6 +163,7 @@ class OpenSkyMissionListItem(BaseModel):
     tile_z: Optional[int] = None
     tile_x: Optional[int] = None
     tile_y: Optional[int] = None
+    license: str = "CC-BY-SA-4.0"
 
 
 class OpenSkyStatsResponse(BaseModel):
@@ -98,8 +181,33 @@ class OpenSkyStatsResponse(BaseModel):
 
 # ===== Helpers =====
 
+def _mission_area_m2(mission) -> Optional[float]:
+    """Geodesic area of the mission footprint polygon, in square metres."""
+    if not mission.area:
+        return None
+    try:
+        ring = mission.area.coords[0]  # exterior ring: ((lon, lat), ...)
+    except (IndexError, TypeError):
+        return None
+    if not ring or len(ring) < 4:
+        return None
+    R = 6378137.0  # WGS84 mean radius
+    total = 0.0
+    for i in range(len(ring) - 1):
+        lon1, lat1 = ring[i][0], ring[i][1]
+        lon2, lat2 = ring[i + 1][0], ring[i + 1][1]
+        total += math.radians(lon2 - lon1) * (2 + math.sin(math.radians(lat1)) + math.sin(math.radians(lat2)))
+    return abs(total * R * R / 2.0)
+
+
 def _format_opensky_mission(mission, detailed: bool = False) -> dict:
     """Format OpenSkyMission model to response dict"""
+    # Ensure direction_counts always has all keys (frontend iterates them).
+    dc = empty_direction_counts()
+    for k, v in (mission.direction_counts or {}).items():
+        if k in dc:
+            dc[k] = int(v)
+
     data = {
         'id': mission.id,
         'object_type': 'opensky_mission',
@@ -109,20 +217,26 @@ def _format_opensky_mission(mission, detailed: bool = False) -> dict:
         'pilot_name': mission.pilot.display_name if mission.pilot else None,
         'center_lat': mission.center_lat,
         'center_lng': mission.center_lng,
+        # Place name resolved once at publish (reverse-geo); card reads these directly
+        'place_label': mission.place_label,
+        'place_region': mission.place_region,
+        # Surveyed ground area in m² (cards show ha/km²); polygon itself only in detail
+        'area_m2': _mission_area_m2(mission),
         'source_photos_count': mission.source_photos_count,
+        'direction_counts': dc,
         'tiles_count': mission.tiles_count,
         'uploaded_at': mission.uploaded_at,
+        'captured_at': mission.captured_at,
         'published_at': mission.published_at,
         'processing_started_at': mission.processing_started_at,
         'processing_step': mission.processing_step or '',
         'mesh_status': mission.mesh_status,
         'satellite_align': mission.satellite_align,
+        'license': mission.license,
     }
 
     if detailed:
-        data['area'] = None
-        if mission.area:
-            data['area'] = json.loads(mission.area.geojson)
+        data['area'] = json.loads(mission.area.geojson) if mission.area else None
         data['tiles_size_mb'] = mission.tiles_size_mb
         data['min_zoom'] = mission.min_zoom
         data['max_zoom'] = mission.max_zoom
@@ -248,51 +362,127 @@ def preview_opensky_mission(
     return calculate_tile_stats(tile_z, tile_x, tile_y)
 
 
+@router.get("/opensky/reachability/", auth=ProfileAuth())
+@ratelimit(group='opensky:reach', key=user_or_ip, rate='30/m')
+def opensky_reachability(
+    request,
+    lat: float,
+    lng: float,
+    agl: float = 100,
+    margin: float = 30,
+    radius_m: float = 2000,
+    rc_height: float = 2,
+):
+    """Drone reachability from a launch point: classify Z17 tiles by
+    range + terrain ceiling + RC line-of-sight. SRTM via Valhalla /height.
+    Planning aid only — NOT collision-avoidance (see geo/drone_reach.py)."""
+    from geo.drone_reach import compute_reachability
+
+    if not (-90 <= lat <= 90):
+        raise HttpError(400, "Latitude must be between -90 and 90")
+    if not (-180 <= lng <= 180):
+        raise HttpError(400, "Longitude must be between -180 and 180")
+
+    try:
+        return compute_reachability(lat, lng, agl=agl, margin=margin,
+                                    radius_m=radius_m, rc_height=rc_height)
+    except ValueError as e:
+        raise HttpError(400, str(e))
+    except RuntimeError as e:
+        raise HttpError(503, str(e))
+
+
+# Whole national dataset is small (~hundreds of zones); cap defensively anyway.
+DRONE_ZONES_MAX = 1000
+
+
+@router.get("/opensky/drone-zones/", auth=ProfileAuth())
+@ratelimit(group='opensky:zones', key=user_or_ip, rate='60/m')
+def opensky_drone_zones(
+    request,
+    min_lng: float,
+    min_lat: float,
+    max_lng: float,
+    max_lat: float,
+):
+    """UAS geographical zones (ED-269) intersecting a bbox, as GeoJSON for the
+    map overlay. Source: national authority import (e.g. ANAC PT). Returns both
+    prohibited and advisory (authorisation/conditional) zones; informational
+    NO_RESTRICTION zones are omitted. Planning aid — NOTAM / temporary
+    restrictions are NOT included."""
+    from django.contrib.gis.geos import Polygon as GEOSPolygon
+    from geo.models import DroneZone
+
+    if not (-180 <= min_lng <= max_lng <= 180) or not (-90 <= min_lat <= max_lat <= 90):
+        raise HttpError(400, "Invalid bbox (need min_lng<=max_lng, min_lat<=max_lat, in range)")
+
+    bbox = GEOSPolygon.from_bbox((min_lng, min_lat, max_lng, max_lat))
+    bbox.srid = 4326
+
+    qs = (
+        DroneZone.objects
+        .filter(geometry__intersects=bbox)
+        .exclude(restriction=DroneZone.Restriction.NO_RESTRICTION)
+        .order_by('restriction')[:DRONE_ZONES_MAX]
+    )
+
+    features = []
+    for z in qs:
+        features.append({
+            "type": "Feature",
+            "geometry": json.loads(z.geometry.geojson),
+            "properties": {
+                "id": z.zone_identifier,
+                "name": z.name,
+                "restriction": z.restriction,
+                "reason": z.reason,
+                "lower_m": z.lower_limit_m,
+                "upper_m": z.upper_limit_m,
+                "lower_ref": z.lower_ref,
+                "upper_ref": z.upper_ref,
+                "message": z.message,
+                "color": (z.attributes or {}).get("color"),
+            },
+        })
+
+    return {"type": "FeatureCollection", "features": features, "count": len(features)}
+
+
 @router.post("/opensky/upload/", auth=ProfileAuth(), response={201: OpenSkyMissionResponse, 400: dict})
 @ratelimit(group='opensky:upload', key=user_or_ip, rate='10/m', method='POST')
-def upload_opensky_mission(request, name: Form[str] = "", mission_id: Form[str] = "", multi_file: Form[bool] = False, satellite_align: Form[bool] = False):
+def upload_opensky_mission(request, name: Form[str] = "", mission_id: Form[str] = "", multi_file: Form[bool] = False, license_consent: Form[bool] = False):
     """
-    Upload drone photos for processing.
+    Upload drone photos (JPG only) for processing.
 
-    Accepts:
-    - Single ZIP archive (field: 'file')
-    - Multiple JPG files (field: 'files' - up to 100 per request)
-
-    Max total size per request: 2GB
-
-    Multi-file upload (for better ODM stitching):
+    Multi-file upload:
     - First batch: omit mission_id, set multi_file=true → creates mission with UPLOADING status
     - Subsequent batches: pass mission_id from first upload → appends to same mission
     - After last batch: call POST /opensky/missions/{id}/finalize/ → sets QUEUED
+
+    Licensing: uploaded imagery (and derived ortho/mesh/tiles) is published under
+    CC BY-SA 4.0. Creating a new mission requires license_consent=true; appends to an
+    existing mission inherit the consent given at creation.
     """
     from geo.models import OpenSkyMission
-    import zipfile
     import os
-    import tempfile
     import shutil
     from PIL import Image
     from PIL.ExifTags import TAGS, GPSTAGS
 
-    # Get uploaded files - support both 'file' (single/ZIP) and 'files' (multiple JPG)
+    # Get uploaded JPG files
     uploaded_files = request.FILES.getlist('files')
-    if not uploaded_files and 'file' in request.FILES:
-        uploaded_files = [request.FILES['file']]
-
     if not uploaded_files:
-        raise HttpError(400, "No files uploaded. Use 'file' (ZIP) or 'files' (JPG) field.")
+        raise HttpError(400, "No files uploaded. Use 'files' field with JPG photos.")
 
-    # Validate total size (2GB max per request)
-    max_size_bytes = 2 * 1024 * 1024 * 1024
-    total_size = sum(f.size for f in uploaded_files)
-    if total_size > max_size_bytes:
-        raise HttpError(400, f"Total size {total_size / 1024 / 1024:.0f}MB exceeds 2GB limit.")
+    # Validate all are JPG
+    for f in uploaded_files:
+        if not f.name.lower().endswith(('.jpg', '.jpeg')):
+            raise HttpError(400, f"{f.name}: Only JPG/JPEG files are accepted.")
 
-    # Determine upload type: ZIP or direct JPG
-    is_zip_upload = len(uploaded_files) == 1 and uploaded_files[0].name.lower().endswith('.zip')
-    is_jpg_upload = all(f.name.lower().endswith(('.jpg', '.jpeg')) for f in uploaded_files)
-
-    if not is_zip_upload and not is_jpg_upload:
-        raise HttpError(400, "Upload either a single ZIP or multiple JPG/JPEG files.")
+    # Validate total size (frontend batches at 50 files / 500MB, allow margin)
+    total_size_bytes = sum(f.size for f in uploaded_files)
+    if total_size_bytes > 700 * 1024 * 1024:
+        raise HttpError(400, f"Batch too large ({total_size_bytes // (1024*1024)}MB). Max 50 files / 500MB per batch.")
 
     # Multi-file upload: append to existing mission
     if mission_id:
@@ -314,6 +504,10 @@ def upload_opensky_mission(request, name: Form[str] = "", mission_id: Form[str] 
             mission.status = OpenSkyMission.Status.UPLOADING
             mission.save(update_fields=['status'])
     else:
+        # New mission: pilot must accept the imagery license (CC BY-SA 4.0).
+        if not license_consent:
+            raise HttpError(400, "Imagery license consent required: imagery is published under CC BY-SA 4.0.")
+
         # Create new mission
         # Use UPLOADING status for multi-file, QUEUED for single file
         initial_status = OpenSkyMission.Status.UPLOADING if multi_file else OpenSkyMission.Status.QUEUED
@@ -321,7 +515,7 @@ def upload_opensky_mission(request, name: Form[str] = "", mission_id: Form[str] 
             pilot=request.auth,
             name=name,
             status=initial_status,
-            satellite_align=satellite_align,
+            license_consent_at=timezone.now(),
         )
 
     # Create directory structure
@@ -357,63 +551,61 @@ def upload_opensky_mission(request, name: Form[str] = "", mission_id: Form[str] 
             logger.debug(f"Could not extract EXIF from {image_path}: {e}")
         return None, None
 
+    def extract_capture_date(image_path):
+        """Extract DateTimeOriginal from EXIF. Returns datetime or None."""
+        try:
+            img = Image.open(image_path)
+            exif_data = img._getexif()
+            if exif_data:
+                for tag_id, value in exif_data.items():
+                    tag = TAGS.get(tag_id, tag_id)
+                    if tag == 'DateTimeOriginal':
+                        from datetime import datetime as _dt
+                        return _dt.strptime(value, '%Y:%m:%d %H:%M:%S')
+            img.close()
+        except Exception:
+            pass
+        return None
+
     try:
         photos_count = 0
         total_size = 0
-        gps_coords = []  # All extracted GPS points for spread validation
+        gps_coords = []
+        capture_dates = []
+        # Per-batch direction counts (merged into mission.direction_counts after loop)
+        batch_direction_counts = empty_direction_counts()
 
-        if is_zip_upload:
-            # ZIP upload - extract contents
-            uploaded_file = uploaded_files[0]
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_zip = os.path.join(temp_dir, 'upload.zip')
-                with open(temp_zip, 'wb') as f:
-                    for chunk in uploaded_file.chunks():
-                        f.write(chunk)
+        for uploaded_file in uploaded_files:
+            filename = uploaded_file.name
+            target_path = os.path.join(images_dir, filename)
+            counter = 1
+            while os.path.exists(target_path):
+                name, ext = os.path.splitext(filename)
+                target_path = os.path.join(images_dir, f"{name}_{counter}{ext}")
+                counter += 1
 
-                if not zipfile.is_zipfile(temp_zip):
-                    raise HttpError(400, "Invalid ZIP file.")
+            with open(target_path, 'wb') as f:
+                for chunk in uploaded_file.chunks():
+                    f.write(chunk)
 
-                with zipfile.ZipFile(temp_zip, 'r') as zf:
-                    for file_info in zf.infolist():
-                        if file_info.is_dir() or file_info.filename.startswith('__MACOSX'):
-                            continue
-                        filename = os.path.basename(file_info.filename)
-                        if not filename.lower().endswith(('.jpg', '.jpeg')):
-                            continue
+            photos_count += 1
+            total_size += uploaded_file.size
 
-                        target_path = os.path.join(images_dir, filename)
-                        with zf.open(file_info) as src, open(target_path, 'wb') as dst:
-                            shutil.copyfileobj(src, dst)
+            lat, lng = extract_gps(target_path)
+            if lat is not None:
+                gps_coords.append((lat, lng))
 
-                        photos_count += 1
-                        total_size += file_info.file_size
+            # Sample capture date from first few photos only (EXIF read is slow)
+            if len(capture_dates) < 3:
+                cdate = extract_capture_date(target_path)
+                if cdate:
+                    capture_dates.append(cdate)
 
-                        lat, lng = extract_gps(target_path)
-                        if lat is not None:
-                            gps_coords.append((lat, lng))
-        else:
-            # Direct JPG upload - save files directly (no ZIP overhead)
-            for uploaded_file in uploaded_files:
-                filename = uploaded_file.name
-                # Ensure unique filename to avoid overwriting
-                target_path = os.path.join(images_dir, filename)
-                counter = 1
-                while os.path.exists(target_path):
-                    name, ext = os.path.splitext(filename)
-                    target_path = os.path.join(images_dir, f"{name}_{counter}{ext}")
-                    counter += 1
-
-                with open(target_path, 'wb') as f:
-                    for chunk in uploaded_file.chunks():
-                        f.write(chunk)
-
-                photos_count += 1
-                total_size += uploaded_file.size
-
-                lat, lng = extract_gps(target_path)
-                if lat is not None:
-                    gps_coords.append((lat, lng))
+            # Classify photo direction from gimbal pitch + yaw
+            pitch = extract_gimbal_pitch(target_path)
+            yaw = extract_gimbal_yaw(target_path)
+            direction = classify_photo_direction(pitch, yaw)
+            batch_direction_counts[direction] += 1
 
         if photos_count == 0:
             if not mission_id and mission.source_photos_count == 0:
@@ -460,12 +652,35 @@ def upload_opensky_mission(request, name: Form[str] = "", mission_id: Form[str] 
             from geo.mission_generator import latlng_to_tile, TILE_ZOOM
             mission.tile_z = TILE_ZOOM
             mission.tile_x, mission.tile_y = latlng_to_tile(mission.center_lat, mission.center_lng, TILE_ZOOM)
+            # Auto-generate name from tile coords (e.g. "62484x48643").
+            # Regenerate if the current name looks like an auto-pattern — the
+            # weighted-center recalculation across multi-file batches can shift
+            # tile_x/tile_y by ±1, and we want the name to track the tile.
+            # User-provided names (anything not matching the pattern) are kept.
+            if not mission.name or re.fullmatch(r'\d+x\d+', mission.name):
+                mission.name = f"{mission.tile_x}x{mission.tile_y}"
+
+        # Set captured_at from earliest EXIF date (first upload batch only)
+        if capture_dates and not mission.captured_at:
+            from django.utils.timezone import make_aware
+            earliest = min(capture_dates)
+            mission.captured_at = make_aware(earliest) if earliest.tzinfo is None else earliest
+
+        # Nadir-presence check happens at finalize (see finalize_opensky_mission),
+        # not per-batch — multi-batch uploads may have nadir photos in any batch
+        # depending on file order (often last, if shot in a separate flight).
+
+        # Merge per-batch counts into mission.direction_counts (additive across batches)
+        existing = mission.direction_counts or {}
+        merged = empty_direction_counts()
+        for k in DIRECTION_KEYS:
+            merged[k] = int(existing.get(k, 0)) + batch_direction_counts[k]
+        mission.direction_counts = merged
 
         mission.save()
 
         action = "appended to" if mission_id else "created by"
-        upload_type = "ZIP" if is_zip_upload else f"{len(uploaded_files)} JPG"
-        logger.info(f"OpenSky mission {mission.id} {action} {request.auth.id}: {photos_count} photos via {upload_type} (+{round(total_size / (1024 * 1024), 2)}MB), total: {mission.source_photos_count} photos")
+        logger.info(f"OpenSky mission {mission.id} {action} {request.auth.id}: {photos_count} photos ({len(uploaded_files)} files, +{round(total_size / (1024 * 1024), 2)}MB), total: {mission.source_photos_count} photos")
 
         return 201, _format_opensky_mission(mission, detailed=True)
 
@@ -506,6 +721,19 @@ def finalize_opensky_mission(request, mission_id: str):
     if mission.source_photos_count == 0:
         raise HttpError(400, "Mission has no photos. Upload at least one ZIP first.")
 
+    # Fool-proofing: reject oblique-only missions (no nadir base).
+    # ODM needs nadir photos as the geometric anchor; oblique-only inputs typically
+    # fail reconstruction or produce garbage. Mission is preserved so the user can
+    # append nadir photos and re-finalize.
+    counts = mission.direction_counts or {}
+    classified = sum(int(counts.get(k, 0)) for k in ('nadir', 'n', 'e', 's', 'w'))
+    if classified > 0 and int(counts.get('nadir', 0)) == 0:
+        raise HttpError(400,
+            "This mission has only oblique (angled) photos. "
+            "Upload nadir (straight-down) photos and try again — "
+            "ODM needs them as the geometric anchor."
+        )
+
     # Set to QUEUED for processing
     mission.status = OpenSkyMission.Status.QUEUED
     mission.save(update_fields=['status'])
@@ -534,7 +762,8 @@ def list_opensky_missions(
     """
     from geo.models import OpenSkyMission
 
-    qs = OpenSkyMission.objects.select_related('pilot')
+    # Consolidations are synthetic super-tile rows, not flights — never list them.
+    qs = OpenSkyMission.objects.select_related('pilot').filter(is_consolidation=False)
 
     # Default to PUBLISHED only for public view
     if status:
@@ -603,6 +832,12 @@ def delete_opensky_mission(request, mission_id: str):
     # Don't allow deleting missions currently being processed
     if mission.status == OpenSkyMission.Status.PROCESSING:
         raise HttpError(400, "Cannot delete mission while processing")
+
+    # Block deleting a mission that is a member of a consolidation — its photos
+    # are still needed to re-consolidate, and its tiles back the super-tile's
+    # union edges. Delete the consolidation first (which frees its members).
+    if mission.superseded_by_id:
+        raise HttpError(400, "Mission is part of a consolidation; delete the consolidation first")
 
     # Rebuild affected tiles in latest/ on skystore BEFORE deleting files
     try:
@@ -766,13 +1001,18 @@ def opensky_stats(request):
     """
     from geo.models import OpenSkyMission
 
+    # Exclude consolidations everywhere — they are synthetic super-tiles that
+    # overlap their member flights; counting them would double-count missions,
+    # tiles, and coverage. Real flown coverage = the member/normal missions.
+    flights = OpenSkyMission.objects.filter(is_consolidation=False)
+
     # Count missions by status
     status_counts = dict(
-        OpenSkyMission.objects.values('status').annotate(count=Count('id')).values_list('status', 'count')
+        flights.values('status').annotate(count=Count('id')).values_list('status', 'count')
     )
 
     # Aggregate stats for published missions
-    published_stats = OpenSkyMission.objects.filter(
+    published_stats = flights.filter(
         status=OpenSkyMission.Status.PUBLISHED
     ).aggregate(
         total_tiles=Sum('tiles_count'),
@@ -855,10 +1095,14 @@ def get_opensky_published_bounds(request):
     """
     from geo.models import OpenSkyMission
 
-    # For missions with area polygon, calculate bounds
+    # For missions with area polygon, calculate bounds.
+    # Exclude missions superseded by a consolidation — their seamless super-tile
+    # (itself a PUBLISHED is_consolidation row, superseded_by=NULL) carries the
+    # bounds instead, so the map renders the joint ortho over the members.
     result = []
     for m in OpenSkyMission.objects.filter(
-        status=OpenSkyMission.Status.PUBLISHED
+        status=OpenSkyMission.Status.PUBLISHED,
+        superseded_by__isnull=True,
     ).only('id', 'min_zoom', 'max_zoom', 'area', 'center_lat', 'center_lng'):
         bounds = None
         if m.area:

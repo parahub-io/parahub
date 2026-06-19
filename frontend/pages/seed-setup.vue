@@ -3,9 +3,7 @@
     <div class="max-w-lg mx-auto">
       <!-- Header -->
       <div class="text-center mb-8">
-        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/20 flex items-center justify-center">
-          <Shield class="w-8 h-8 text-primary" />
-        </div>
+        <img src="/images/para/pointing.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
         <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
           {{ $t('seed.title') }}
         </h1>
@@ -157,7 +155,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Shield, AlertTriangle, Copy } from 'lucide-vue-next'
+import { Copy } from 'lucide-vue-next'
 import { useSeed } from '~/composables/useSeed'
 import { usePGP } from '~/composables/usePGP'
 import { useAuthStore } from '~/stores/auth'

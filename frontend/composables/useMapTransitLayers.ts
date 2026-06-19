@@ -10,11 +10,22 @@ import { attachHoverHex } from '~/composables/useMapHighlight'
 export function useMapTransitLayers() {
   const mapStore = useMapStore()
   const { resolveColor } = useTransitHelpers()
+  const colorMode = useColorMode()
 
   const transitEnabled = useLocalPref('transit_enabled', false)
   const transitExpanded = ref(false)
   const activeRouteFilter = ref<string | null>(null)  // route_source_id for single-route mode
+  // Last drawn single-route overlay — kept so the overlay can be redrawn after a
+  // style change (setStyle wipes it) without re-fetching or re-fitting the camera.
+  let lastRouteDetail: any = null
+  let lastRouteCity: string | null = null
+  let lastRouteSlug: string | null = null
   let transitDataLoaded = false
+  let lastStopsBbox: string | null = null  // last fetched stops-geojson bbox (cache-grid aligned)
+
+  // Stored handler refs for cleanup on re-init (prevents accumulation on style change)
+  let _moveendHandler: (() => void) | null = null
+  let _imageMissingHandler: ((e: any) => void) | null = null
 
   // Vehicle click callback — set by MapView to dispatch to panel
   let onVehicleClick: ((vehicle: any) => void) | null = null
@@ -35,8 +46,14 @@ export function useMapTransitLayers() {
 
   // ======== Static layers (stops) ========
 
+  // Zoom policy: below STOP_DETAIL_ZOOM one virtual pin per stop group (plus
+  // ungrouped physical stops); above it the real poles — street navigation
+  // needs the road side. See PK/transit-system.md § Virtual stops.
+  const STOP_DETAIL_ZOOM = 17
+
   function addTransitStopLayers(map: any) {
-    for (const id of ['transit-stops-circle', 'transit-stops-label']) {
+    for (const id of ['transit-stops-circle', 'transit-stops-label',
+                      'transit-stops-virtual-circle', 'transit-stops-virtual-label']) {
       if (map.getLayer(id)) map.removeLayer(id)
     }
     if (map.getSource('transit-stops')) map.removeSource('transit-stops')
@@ -45,39 +62,74 @@ export function useMapTransitLayers() {
     map.addSource('transit-stops', { type: 'geojson', data: empty })
 
     const vis = transitEnabled.value ? 'visible' : 'none'
+    // Virtual stops + physical stops that belong to no group
+    const collapsedFilter = ['any',
+      ['==', ['get', 'kind'], 'virtual'],
+      ['!', ['has', 'group_id']],
+    ]
+    // Real poles/platforms only (the virtual features drop out)
+    const physicalFilter = ['!=', ['get', 'kind'], 'virtual']
+
+    const circlePaint = {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 1.5, 14, 4, 18, 7],
+      'circle-color': '#3b82f6',
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 10, 0, 14, 1, 18, 2],
+    }
+    const labelLayout = {
+      'text-field': ['get', 'name'],
+      'text-size': 10,
+      'text-offset': [0, 1.2],
+      'text-anchor': 'top',
+      'text-optional': true,
+      visibility: vis,
+    }
+    const labelPaint = {
+      'text-color': '#1e40af',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.5,
+    }
+
+    map.addLayer({
+      id: 'transit-stops-virtual-circle',
+      type: 'circle',
+      source: 'transit-stops',
+      filter: collapsedFilter,
+      paint: circlePaint,
+      layout: { visibility: vis },
+      minzoom: 12,
+      maxzoom: STOP_DETAIL_ZOOM,
+    })
+
+    map.addLayer({
+      id: 'transit-stops-virtual-label',
+      type: 'symbol',
+      source: 'transit-stops',
+      filter: collapsedFilter,
+      layout: labelLayout,
+      paint: labelPaint,
+      minzoom: 15,
+      maxzoom: STOP_DETAIL_ZOOM,
+    })
 
     map.addLayer({
       id: 'transit-stops-circle',
       type: 'circle',
       source: 'transit-stops',
-      paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 1.5, 14, 4, 18, 7],
-        'circle-color': '#3b82f6',
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 10, 0, 14, 1, 18, 2],
-      },
+      filter: physicalFilter,
+      paint: circlePaint,
       layout: { visibility: vis },
-      minzoom: 12,
+      minzoom: STOP_DETAIL_ZOOM,
     })
 
     map.addLayer({
       id: 'transit-stops-label',
       type: 'symbol',
       source: 'transit-stops',
-      layout: {
-        'text-field': ['get', 'name'],
-        'text-size': 10,
-        'text-offset': [0, 1.2],
-        'text-anchor': 'top',
-        'text-optional': true,
-        visibility: vis,
-      },
-      paint: {
-        'text-color': '#1e40af',
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 1.5,
-      },
-      minzoom: 15,
+      filter: physicalFilter,
+      layout: labelLayout,
+      paint: labelPaint,
+      minzoom: STOP_DETAIL_ZOOM,
     })
 
     if (transitEnabled.value) {
@@ -85,12 +137,25 @@ export function useMapTransitLayers() {
     }
   }
 
+  /** Viewport bbox padded outward to the backend's 2-decimal cache grid —
+   * stable cache keys, no edge stops lost to rounding. */
+  function stopsBboxParam(map: any): string | null {
+    const zoom = map.getZoom?.()
+    if (zoom != null && zoom < 10) return null  // stop layers invisible below 12 — skip churn
+    const b = map.getBounds()
+    const f = (v: number, up: boolean) => ((up ? Math.ceil : Math.floor)(v * 100) / 100).toFixed(2)
+    return `${f(b.getWest(), false)},${f(b.getSouth(), false)},${f(b.getEast(), true)},${f(b.getNorth(), true)}`
+  }
+
   async function loadTransitData(map: any) {
-    if (transitDataLoaded) return
+    const bbox = stopsBboxParam(map)
+    if (bbox === lastStopsBbox && transitDataLoaded) return
     transitDataLoaded = true
+    lastStopsBbox = bbox
 
     try {
-      const stopsData = await $fetch<any>('/api/v1/geo/transit/stops/geojson/')
+      const stopsData = await $fetch<any>('/api/v1/geo/transit/stops/geojson/',
+        bbox ? { params: { bbox } } : undefined)
       if (map.getSource('transit-stops')) {
         ;(map.getSource('transit-stops') as any).setData(stopsData)
       }
@@ -101,24 +166,36 @@ export function useMapTransitLayers() {
 
   // ======== Route overlay ========
 
-  async function showRouteOnMap(map: any, routeCity: string, routeSlug: string) {
+  async function showRouteOnMap(map: any, routeCity: string, routeSlug: string, opts: { fitBounds?: boolean } = {}) {
+    const { fitBounds = true } = opts
     try {
       let routeDetail = (window as any)._transitRouteData
       if (routeDetail?.slug === routeSlug) {
         delete (window as any)._transitRouteData
+      } else if (lastRouteDetail && lastRouteCity === routeCity && lastRouteSlug === routeSlug) {
+        routeDetail = lastRouteDetail  // redraw (e.g. after style change) — no refetch
       } else {
         routeDetail = await $fetch<any>(`/api/v1/geo/transit/routes/${routeCity}/${routeSlug}/`)
       }
+      lastRouteDetail = routeDetail
+      lastRouteCity = routeCity
+      lastRouteSlug = routeSlug
 
       // Filter vehicles to this route only
       activeRouteFilter.value = routeDetail.source_id || null
+      applyVehicleIconZoomRange(map)  // show icons at the route-fit zoom (often <13)
 
-      for (const id of ['transit-route-line', 'transit-route-stops']) {
+      for (const id of ['transit-route-line', 'transit-route-line-casing', 'transit-route-stops']) {
         if (map.getLayer(id)) map.removeLayer(id)
       }
       for (const id of ['transit-route-geom', 'transit-route-stops-src']) {
         if (map.getSource(id)) map.removeSource(id)
       }
+
+      // Casing/outline color contrasting with the basemap (dark on light theme,
+      // light on dark) so colorless feeds (default bus yellow) stay visible —
+      // for both the route line and the stop dots. See mini-map note in [slug].vue.
+      const lineCasing = colorMode.value === 'dark' ? '#f1f5f9' : '#1e293b'
 
       if (routeDetail.geometry) {
         map.addSource('transit-route-geom', {
@@ -127,10 +204,17 @@ export function useMapTransitLayers() {
         })
         const color = `#${resolveColor(routeDetail)}`
         map.addLayer({
+          id: 'transit-route-line-casing',
+          type: 'line',
+          source: 'transit-route-geom',
+          paint: { 'line-color': lineCasing, 'line-width': 7, 'line-opacity': 0.9 },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+        })
+        map.addLayer({
           id: 'transit-route-line',
           type: 'line',
           source: 'transit-route-geom',
-          paint: { 'line-color': color, 'line-width': 4, 'line-opacity': 0.85 },
+          paint: { 'line-color': color, 'line-width': 4, 'line-opacity': 1 },
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
       }
@@ -153,7 +237,7 @@ export function useMapTransitLayers() {
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 6, 18, 9],
             'circle-color': color,
-            'circle-stroke-color': '#ffffff',
+            'circle-stroke-color': lineCasing,
             'circle-stroke-width': 2,
           },
         })
@@ -171,16 +255,29 @@ export function useMapTransitLayers() {
           },
           [[Infinity, Infinity], [-Infinity, -Infinity]]
         )
-        map.fitBounds(bounds, { padding: 60, duration: 0 })
+        if (fitBounds) map.fitBounds(bounds, { padding: 60, duration: 0 })
       }
     } catch (e) {
       console.warn('Failed to show transit route on map:', e)
     }
   }
 
+  // Re-add the single-route overlay after a style change wiped it, reusing the
+  // cached detail (no refetch) and leaving the camera where the user left it.
+  // No-op when no route overlay is active.
+  function redrawActiveRoute(map: any) {
+    if (lastRouteDetail && lastRouteCity && lastRouteSlug) {
+      showRouteOnMap(map, lastRouteCity, lastRouteSlug, { fitBounds: false })
+    }
+  }
+
   function removeRouteOverlay(map: any) {
     activeRouteFilter.value = null
-    for (const id of ['transit-route-line', 'transit-route-stops']) {
+    lastRouteDetail = null
+    lastRouteCity = null
+    lastRouteSlug = null
+    applyVehicleIconZoomRange(map)  // restore global z13 icon threshold
+    for (const id of ['transit-route-line', 'transit-route-line-casing', 'transit-route-stops']) {
       if (map.getLayer(id)) map.removeLayer(id)
     }
     for (const id of ['transit-route-geom', 'transit-route-stops-src']) {
@@ -239,9 +336,63 @@ export function useMapTransitLayers() {
     ])
   }
 
+  /** Direction chevron — two sides of the brand flat-top hexagon (same corner
+   * geometry as the lock-on marker: 120° apex, arms at 30°). The vehicle icon
+   * stays upright; this chevron alone rotates by bearing. 2x raster, logical 48x20. */
+  function ensureHeadingChevron(map: any) {
+    if (map.hasImage('transit-heading')) return
+    const W = 96, H = 40
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')!
+    ctx.strokeStyle = '#f4c110'
+    ctx.lineWidth = 8
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    ctx.moveTo(6, 30)
+    ctx.lineTo(48, 6)
+    ctx.lineTo(90, 30)
+    ctx.stroke()
+    const data = ctx.getImageData(0, 0, W, H)
+    map.addImage('transit-heading', { width: W, height: H, data: new Uint8Array(data.data.buffer) }, { pixelRatio: 2 })
+  }
+
+  /** Route-color bar under the icon — generated lazily per color (2x raster, logical 44x6). */
+  function makeRouteBarImage(map: any, imageId: string, color: string) {
+    if (map.hasImage(imageId)) return
+    const W = 88, H = 12
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')!
+    if (/^[0-9a-fA-F]{6}$/.test(color)) {
+      ctx.fillStyle = `#${color}`
+      ctx.fillRect(0, 0, W, H)
+    }
+    // Malformed feed color → transparent image (still registered, stops styleimagemissing refiring)
+    const data = ctx.getImageData(0, 0, W, H)
+    map.addImage(imageId, { width: W, height: H, data: new Uint8Array(data.data.buffer) }, { pixelRatio: 2 })
+  }
+
+  // Single-route focus shows only a handful of vehicles, so transit icons render
+  // at every zoom (matches the route-page mini-map). The global view keeps a z13
+  // threshold so hundreds of icons don't clutter / thrash at low zoom.
+  const VEHICLE_ICON_MIN_ZOOM = 13
+  const VEHICLE_SYMBOL_LAYERS = ['transit-vehicles-icon', 'transit-vehicles-heading', 'transit-vehicles-bar']
+  function applyVehicleIconZoomRange(map: any) {
+    if (!map) return
+    const minzoom = activeRouteFilter.value ? 0 : VEHICLE_ICON_MIN_ZOOM
+    for (const id of VEHICLE_SYMBOL_LAYERS) {
+      if (map.getLayer(id)) map.setLayerZoomRange(id, minzoom, 24)
+    }
+  }
+
   function addTransitVehicleLayers(map: any) {
-    if (map.getLayer('transit-vehicles-icon')) map.removeLayer('transit-vehicles-icon')
-    if (map.getLayer('transit-vehicles-circle')) map.removeLayer('transit-vehicles-circle')
+    for (const id of [...VEHICLE_SYMBOL_LAYERS, 'transit-vehicles-circle']) {
+      if (map.getLayer(id)) map.removeLayer(id)
+    }
     if (map.getSource('transit-vehicles')) map.removeSource('transit-vehicles')
 
     const empty = { type: 'FeatureCollection', features: [] }
@@ -264,6 +415,62 @@ export function useMapTransitLayers() {
       layout: { visibility: vis },
       minzoom: 10,
       maxzoom: 13,
+    })
+
+    // Lazy per-color bar images (route colors arrive with WS data, unbounded set)
+    if (_imageMissingHandler) map.off('styleimagemissing', _imageMissingHandler)
+    _imageMissingHandler = (e: any) => {
+      if (!e.id.startsWith('transit-bar-')) return
+      makeRouteBarImage(map, e.id, e.id.slice('transit-bar-'.length))
+    }
+    map.on('styleimagemissing', _imageMissingHandler)
+
+    const symbolSize = ['interpolate', ['linear'], ['zoom'], 13, 0.45, 16, 0.65, 18, 0.85]
+
+    // Direction chevron above the icon — icon-offset rotates together with
+    // icon-rotate, so the chevron orbits the vehicle point and points along
+    // the bearing. Hidden for stationary (zombie) vehicles.
+    ensureHeadingChevron(map)
+    map.addLayer({
+      id: 'transit-vehicles-heading',
+      type: 'symbol',
+      source: 'transit-vehicles',
+      // Skip stationary (zombie) vehicles AND any without a real GTFS-RT heading —
+      // otherwise a missing bearing renders as a spurious north-pointing chevron.
+      filter: ['all', ['!=', ['get', 'zombie'], 1], ['==', ['get', 'has_bearing'], 1]],
+      layout: {
+        'icon-image': 'transit-heading',
+        'icon-size': symbolSize,
+        'icon-rotate': ['get', 'bearing'],
+        'icon-rotation-alignment': 'map',
+        'icon-offset': [0, -34],
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        visibility: vis,
+      },
+      minzoom: 13,
+    })
+
+    // Route-color bar under the icon (route identity) — only when the feed
+    // actually defines route_color; no outline, pure color block.
+    map.addLayer({
+      id: 'transit-vehicles-bar',
+      type: 'symbol',
+      source: 'transit-vehicles',
+      filter: ['==', ['get', 'route_color_set'], 1],
+      layout: {
+        'icon-image': ['concat', 'transit-bar-', ['get', 'route_color']],
+        'icon-size': symbolSize,
+        'icon-rotation-alignment': 'viewport',
+        'icon-offset': [0, 32],
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        visibility: vis,
+      },
+      paint: {
+        'icon-opacity': ['case', ['==', ['get', 'zombie'], 1], 0.6, 1],
+      },
+      minzoom: 13,
     })
 
     // Vehicle type icons at higher zoom
@@ -301,9 +508,9 @@ export function useMapTransitLayers() {
         source: 'transit-vehicles',
         layout: {
           'icon-image': iconWithZombie,
-          'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.45, 16, 0.65, 18, 0.85],
-          'icon-rotate': ['get', 'bearing'],
-          'icon-rotation-alignment': 'map',
+          'icon-size': symbolSize,
+          // Always upright — travel direction is shown by the heading chevron layer
+          'icon-rotation-alignment': 'viewport',
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           visibility: vis,
@@ -313,6 +520,8 @@ export function useMapTransitLayers() {
         },
         minzoom: 13,
       })
+      // Respect an already-active route focus (icons load async after setup)
+      applyVehicleIconZoomRange(map)
     })
 
     // Click handler → dispatch to panel callback (no popup)
@@ -328,6 +537,8 @@ export function useMapTransitLayers() {
     }
     map.on('click', 'transit-vehicles-circle', vehicleClickHandler)
     map.on('click', 'transit-vehicles-icon', vehicleClickHandler)
+    map.on('click', 'transit-vehicles-heading', vehicleClickHandler)
+    map.on('click', 'transit-vehicles-bar', vehicleClickHandler)
 
     attachHoverHex(map, 'transit-vehicles-circle', 1.9)
     attachHoverHex(map, 'transit-vehicles-icon', 1.9)
@@ -339,12 +550,15 @@ export function useMapTransitLayers() {
       subscribeTransitBbox([bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()])
     }
 
-    // Update bbox on map pan/zoom
-    map.on('moveend', () => {
+    // Update bbox on map pan/zoom (named ref so we can remove on re-init)
+    if (_moveendHandler) map.off('moveend', _moveendHandler)
+    _moveendHandler = () => {
       if (!transitEnabled.value) return
       const b = map.getBounds()
       updateTransitBbox([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
-    })
+      loadTransitData(map)  // refetch stops when the cache-grid bbox changed (no-op otherwise)
+    }
+    map.on('moveend', _moveendHandler)
   }
 
   // ======== Combined setup ========
@@ -366,10 +580,11 @@ export function useMapTransitLayers() {
     const map = mapStore.mapInstance
     if (!map) return
     const vis = transitEnabled.value ? 'visible' : 'none'
-    if (map.getLayer('transit-stops-circle')) map.setLayoutProperty('transit-stops-circle', 'visibility', vis)
-    if (map.getLayer('transit-stops-label')) map.setLayoutProperty('transit-stops-label', 'visibility', vis)
-    if (map.getLayer('transit-vehicles-circle')) map.setLayoutProperty('transit-vehicles-circle', 'visibility', vis)
-    if (map.getLayer('transit-vehicles-icon')) map.setLayoutProperty('transit-vehicles-icon', 'visibility', vis)
+    for (const id of ['transit-stops-circle', 'transit-stops-label',
+                      'transit-stops-virtual-circle', 'transit-stops-virtual-label',
+                      'transit-vehicles-circle', ...VEHICLE_SYMBOL_LAYERS]) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis)
+    }
 
     if (transitEnabled.value && !transitDataLoaded) {
       const map2 = mapStore.mapInstance
@@ -390,6 +605,7 @@ export function useMapTransitLayers() {
 
   function resetDataLoaded() {
     transitDataLoaded = false
+    lastStopsBbox = null
   }
 
   /** Sync vehicle data from WS to map source via plain callback (bypasses Vue watch). */
@@ -420,7 +636,9 @@ export function useMapTransitLayers() {
 
   /** Enable transit layers visibility (for pending transit marker). */
   function enableLayerVisibility(map: any) {
-    for (const id of ['transit-stops-circle', 'transit-stops-label', 'transit-vehicles-circle', 'transit-vehicles-icon']) {
+    for (const id of ['transit-stops-circle', 'transit-stops-label',
+                      'transit-stops-virtual-circle', 'transit-stops-virtual-label',
+                      'transit-vehicles-circle', ...VEHICLE_SYMBOL_LAYERS]) {
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible')
     }
     loadTransitData(map)
@@ -433,6 +651,7 @@ export function useMapTransitLayers() {
     setupLayers,
     toggleLayer,
     showRouteOnMap,
+    redrawActiveRoute,
     removeRouteOverlay,
     resetDataLoaded,
     connectWs: connectTransitWs,

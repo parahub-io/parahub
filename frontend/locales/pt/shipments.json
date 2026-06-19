@@ -64,7 +64,7 @@
       "verify_pickup": "Verificar Levantamento",
       "enter_pickup_code": "Introduza o código de levantamento",
       "invalid_code": "Código de levantamento inválido",
-      "wot_required": "Verificação WoT 2+ necessária para ativar modo hub",
+      "wot_required": "Verificação WoT 3+ necessária para ativar modo hub",
       "info_title": "Ponto P-Hub",
       "send_here": "Enviar para Aqui",
       "days": "dias",

@@ -10,7 +10,7 @@ Everything listed here is implemented and running in production at [parahub.io](
 One account, up to 7 profiles (1 primary + 6 additional). Profile types: personal and pseudonymous. Each profile has its own reputation, items, contracts, and activity. ULID-based identifiers (26-character, globally unique, time-sortable). Human-readable addresses: `username@parahub.io`.
 
 ### Web of Trust (WoT)
-Decentralized identity verification. 3+ confirmations from verified users required. Hierarchical trust levels (Anon -> Registered -> Verified -> Apoiante -> Efetivo -> Fundador -> Admin). 10 roles with granular permission matrix. Fake account verified = all 3 verifiers auto-banned.
+Decentralized identity verification. 3+ confirmations from verified users required. 10 hierarchical trust levels (Anonymous → Authenticated → Has Profile → Personal/Pseudonymous → Verified → Apoiante → Efetivo → Fundador → Administrator) with a granular permission matrix. Fake account verified = all 3 verifiers auto-banned.
 
 ### PGP Cryptography
 Client-side key generation and signing via OpenPGP.js. Server stores only public keys. Critical operations require PGP signatures: contracts, governance votes, debt records, treasury allocations. PGP key history tracked. Optional: derive PGP keypair from BIP39 seed phrase.
@@ -58,7 +58,7 @@ Pelias with 213M documents, planet-wide coverage. Geographic bias via focus.poin
 Valhalla for street routing (car, walk, bike) with turn-by-turn maneuvers. MOTIS for multimodal transit routing (RAPTOR algorithm).
 
 ### Business Directory
-Organization and business directory. Building/Establishment unified model. Address search, map integration, photo galleries. Membership management with roles (Owner/Admin/Member). Public Board (Direção) section showing governance structure: president, board members, treasurer, auditor with role badges. Act-as-establishment: post items, events, and ads on behalf of an organization. Organization detail page features: open/closed status badge (based on opening hours), directions button (external map link), share button, map mini-view.
+Organization and business directory. WorldObject/Establishment model. Address search, map integration, photo galleries. Membership management with roles (Owner/Admin/Member). Public Board (Direção) section showing governance structure: president, board members, treasurer, auditor with role badges. Act-as-establishment: post items, events, and ads on behalf of an organization. Organization detail page features: open/closed status badge (based on opening hours), directions button (external map link), share button, map mini-view.
 
 ### Map Presence
 Real-time MMORPG-style avatars on the map. Redis GEOHASH for spatial indexing. WebSocket tile-based pub/sub for efficient updates.
@@ -159,13 +159,13 @@ OpenWrt 25.x firmware. Two profiles: Bumblebee (L3 gateway, full stack) and Bee 
 
 ## Condominium Management
 
-Building management system implementing Portuguese Lei 8/2022. CondominiumFraction model with permilagem (‰) ownership shares. Quota payment tracking with resident info and delinquency alerts. Assembly polls with permilagem-weighted voting and vote history. Permilagem explanation section. Budget display and inline editing for admins. 6 default budget categories (quotas-ordinarias, fundo-reserva, seguros, limpeza, manutencao, outros). Reuses Treasury (participatory budgets), Governance (weighted voting), and Matrix (auto chat room). Frontend wizard: create condo -> manage fractions -> track quotas -> create assemblies.
+Condominium management system implementing Portuguese Lei 8/2022. CondominiumFraction model with permilagem (‰) ownership shares. Quota payment tracking with resident info and delinquency alerts. Assembly polls with permilagem-weighted voting and vote history. Permilagem explanation section. Budget display and inline editing for admins. 6 default budget categories (quotas-ordinarias, fundo-reserva, seguros, limpeza, manutencao, outros). Reuses Treasury (participatory budgets), Governance (weighted voting), and Matrix (auto chat room). Frontend wizard: create condo -> manage fractions -> track quotas -> create assemblies.
 
 ---
 
 ## ParaSOS (Neighborhood Emergency Aid)
 
-Community-driven emergency mutual aid system. Safety groups with geographic coverage (max 50 members). SOS button: tap for level selection, long press (1.5s) for instant EMERGENCY. Three alert levels (INFO/WARNING/EMERGENCY) with per-level notification preferences and quiet hours. Real-time response tracking (SEEN/ON_WAY/ON_SITE) with live elapsed timer. Two member types: LOCAL (physical response in 2-5 min) and REMOTE (coordinates from afar — calls 112, shares medical context). Matrix chat auto-created per group. InactivityWatch: passive safety monitoring for elderly via IoT/HA sensors — auto-WARNING when no activity detected. IoT/HA auto-trigger webhook for smoke/motion/door sensors. "I'm OK" daily check-in button. Auto-resolve stale alerts after 2h. Privacy by design: no background tracking, location shared only during active SOS, responder coordinates ephemeral (never stored). WoT 2+ to create groups, WoT 1+ to join.
+Community-driven emergency mutual aid system. Safety groups with geographic coverage (max 50 members). SOS button: tap for level selection, long press (1.5s) for instant EMERGENCY. Three alert levels (INFO/WARNING/EMERGENCY) with per-level notification preferences and quiet hours. Real-time response tracking (SEEN/ON_WAY/ON_SITE) with live elapsed timer. Two member types: LOCAL (physical response in 2-5 min) and REMOTE (coordinates from afar — calls 112, shares medical context). Matrix chat auto-created per group. InactivityWatch: passive safety monitoring for elderly via IoT/HA sensors — auto-WARNING when no activity detected. IoT/HA auto-trigger webhook for smoke/motion/door sensors. "I'm OK" daily check-in button. Auto-resolve stale alerts after 2h. Privacy by design: no background tracking, location shared only during active SOS, responder coordinates ephemeral (never stored). WoT 3+ to create groups, WoT 1+ to join.
 
 ---
 
@@ -177,7 +177,7 @@ P2P solar energy distribution via ACC groups (Decreto-Lei 15/2022, Portugal). En
 
 ## Aerial Imagery (OpenSky)
 
-Community drone mapping protocol. ZIP/JPG upload (up to 2GB) with ODM (OpenDroneMap) processing. Automatic tile generation with auto-alignment to existing missions. 3D mesh generation with Draco compression and WebP textures (typical 12x size reduction). GLB download and fullscreen three.js viewer. KMZ flight plan generator for DJI drones (snake pattern, 75% overlap) with oblique angle support. Mission management and season comparison via web dashboard.
+Community drone mapping protocol. JPG-only upload (batch up to 50 files / 500MB) with ODM (OpenDroneMap) processing. ZIP upload was removed. Automatic tile generation with auto-alignment to existing missions. 3D mesh generation with Draco compression and WebP textures (typical 12x size reduction). GLB download and fullscreen three.js viewer. KMZ flight plan generator for DJI drones (snake pattern, 75% overlap) with oblique angle support. Mission management and season comparison via web dashboard.
 
 ---
 
@@ -202,7 +202,7 @@ Ticketing for events and transit. Lightning payment directly from buyer to opera
 
 ## Driver Mode
 
-Browser-based GPS broadcasting for transit vehicles. Verified drivers (WoT 2+) select a route and broadcast their position to the transit real-time pipeline. Passengers see driver vehicles on the map alongside official GTFS-RT feeds. Wake lock prevents screen sleep. TTS announces upcoming stops.
+Browser-based GPS broadcasting for transit vehicles. Verified drivers (WoT 3+) select a route and broadcast their position to the transit real-time pipeline. Passengers see driver vehicles on the map alongside official GTFS-RT feeds. Wake lock prevents screen sleep. TTS announces upcoming stops.
 
 ---
 
@@ -212,7 +212,7 @@ Browser-based GPS broadcasting for transit vehicles. Verified drivers (WoT 2+) s
 Traccar integration for personal GPS trackers. Zero PostgreSQL writes in the hot path: Traccar webhook -> Redis (GEOADD/HSET/PUBLISH) -> TimescaleDB batch insert every 60 seconds. WebSocket for real-time map overlay. Transit bridge: if a tracker device has an active vehicle assignment, positions also appear on the transit layer.
 
 ### Property ("My Home")
-Personal property management. 7 property types (house, apartment, land, office, dacha, garage, other). Inline map picker for location. Optional Building FK with auto-filled address. Territory polygon for boundaries. Cross-system integration: IoT devices, Home Assistant homes, energy producers/consumers, and contracts can link to a property. Photo upload. GeoJSON map layer.
+Personal property management. 7 property types (house, apartment, land, office, dacha, garage, other). Inline map picker for location. Optional WorldObject FK with auto-filled address. Territory polygon for boundaries. Cross-system integration: IoT devices, Home Assistant homes, energy producers/consumers, and contracts can link to a property. Photo upload. GeoJSON map layer.
 
 ### Home Assistant Integration
 Connect user-owned Home Assistant instances to Parahub. Discover, import, and control smart home entities. Supported domains: light, switch, fan, cover, lock, climate, media_player, vacuum, and more. Fernet-encrypted access tokens. Periodic state sync (60s timer). Connection via Yggdrasil IPv6 (zero NAT), public URL, or any reachable endpoint. SSRF-protected URL validation.
@@ -255,8 +255,11 @@ Multi-provider AI vision (Claude, GPT, Gemini). Quota system (30 analyses/day). 
 ### Zenith Assistant
 Personal AI agent powered by Gemini. Knowledge base stored in Gitea. Context-aware responses about the platform.
 
-### Yellow Gate
-AI agent automation system. Nine agents: Pixel (frontend), Forge (backend), Scout (data), Kevin (strategist), Vera (secretary/outreach), Alice (QA power user), Bob (QA newcomer), Atlas (architect), Iris (product owner). Powered by Claude Opus 4.6 via Claude Code CLI. Gitea issue-driven task management with intelligent task picker. Gitea MCP integration for native issue/label operations. Per-agent development slots with isolated build/test environments. WebSocket dashboard with real-time log streaming and fighting game roster UI. Kevin creates strategy issues and decomposes them into actionable tasks. Vera handles briefings, Matrix daemon, web research, and email outreach via Mailcow. Monitor script (30min) auto-heals services and tracks metrics.
+### Image Generation
+Editorial content (blog illustrations, mascot poses, marketing visuals). Nano Banana Pro/2 prompting with style anchors for series consistency.
+
+### Support Voice
+Anonymous voice-to-voice help pipeline. ElevenLabs STT → Gemini Flash (knowledge lookup against docs) → ElevenLabs TTS. No login required.
 
 ---
 

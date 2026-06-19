@@ -243,7 +243,7 @@ def list_hubs(request, lat: float = None, lon: float = None, radius_km: float = 
 @shipments_router.patch("/hubs/{establishment_id}/settings/", auth=ProfileAuth(), response={200: dict, 400: dict, 403: dict, 404: dict})
 @ratelimit(group='shipments:hub_settings', key=user_or_ip, rate='10/m', method='PATCH')
 def update_hub_settings(request, establishment_id: str, body: HubSettingsUpdate):
-    """Update hub settings. Owner/admin only. WoT 2+ to activate."""
+    """Update hub settings. Owner/admin only. WoT 3+ to activate."""
     profile = request.auth_profile
     est = Establishment.objects.filter(id=establishment_id, is_active=True).first()
     if not est:
@@ -253,7 +253,7 @@ def update_hub_settings(request, establishment_id: str, body: HubSettingsUpdate)
 
     if body.is_hub is True and not est.is_hub:
         if not profile.is_verified_wot and not profile.is_foundation_member():
-            raise HttpError(403, "WoT 2+ required to activate hub mode")
+            raise HttpError(403, "WoT 3+ required to activate hub mode")
 
     if body.hub_accepted_sizes is not None:
         invalid = set(body.hub_accepted_sizes) - SIZE_CHOICES

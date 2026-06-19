@@ -353,11 +353,17 @@ const saveDisplayName = async () => {
 }
 
 // Dev mode cookie
+// nginx reads this cookie RAW ($cookie_parahub_dev map) — Nuxt's default encode
+// JSON-quotes numeric-looking strings ('1' → %221%22), breaking routing. The
+// explicit decode must stay paired with it: the default decode destr's '1'
+// into a number, breaking the === '1' checks.
 const devModeCookie = useCookie('parahub_dev', {
   default: () => '',
-  maxAge: 86400 * 90, // 90 days
+  maxAge: 86400 * 400, // 400 days — browser-max ("indefinite"); Chrome/Edge clamp any longer lifetime to 400 days
   sameSite: 'lax',
-  watch: true
+  watch: true,
+  encode: (v: any) => encodeURIComponent(String(v ?? '')),
+  decode: (v: string) => v ? decodeURIComponent(v) : v
 })
 
 const devModeEnabled = ref(false)

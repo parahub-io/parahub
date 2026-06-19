@@ -36,7 +36,7 @@ const { data: page, error } = await useAsyncData(
       }
       if (site.value.profile_id) {
         return await $fetch<any>(
-          `/api/v1/cms/sites/by-profile/${site.value.profile_name}/pages/by-slug/${pageSlug.value}/`
+          `/api/v1/cms/sites/by-profile/${site.value.profile_local_name}/pages/by-slug/${pageSlug.value}/`
         )
       }
     } catch {

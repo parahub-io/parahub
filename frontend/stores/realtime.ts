@@ -146,6 +146,12 @@ export const useRealtimeStore = defineStore('realtime', {
 
       this.latestUpdates.set(data.id, update)
 
+      // Evict oldest entries to prevent unbounded growth
+      if (this.latestUpdates.size > 500) {
+        const oldest = this.latestUpdates.keys().next().value
+        if (oldest !== undefined) this.latestUpdates.delete(oldest)
+      }
+
       // Domain dispatch
       if (data.object_type === 'iot_device') {
         const iotStore = useIoTStore()

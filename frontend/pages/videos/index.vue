@@ -118,7 +118,7 @@ const authStore = useAuthStore()
 const PEERTUBE_URL = 'https://video.parahub.io'
 const PAGE_SIZE = 12
 
-const activeTab = ref('trending')
+const activeTab = useTabSync(['trending', 'recent'])
 const videos = ref<any[]>([])
 const pending = ref(true)
 const loadingMore = ref(false)

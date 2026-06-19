@@ -12,6 +12,7 @@ from django.conf import settings
 from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from parahub.auth import ProfileAuth, OptionalProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
@@ -26,6 +27,7 @@ router = Router(tags=["CMS"])
 # Content size limits
 MAX_POST_CONTENT_SIZE = 200_000  # ~200KB markdown
 MAX_PAGE_CONTENT_SIZE = 200_000
+MAX_PAGES_PER_SITE = 50
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -45,6 +47,7 @@ class PostListOut(Schema):
     comments_count: int
     author_id: str
     author_hna: str
+    author_local_name: str = ''
     author_display_name: Optional[str] = None
     author_avatar: Optional[str] = None
     establishment_id: Optional[str] = None
@@ -55,7 +58,12 @@ class PostListOut(Schema):
     available_languages: List[dict] = []  # [{language, slug, id}] — other translations
     is_demo: bool = False
     publish_order: Optional[int] = None
+    approved_at: Optional[datetime] = None
+    approved_by_id: Optional[str] = None
+    approved_by_name: Optional[str] = None
+    translation_of_id: Optional[str] = None
     created_at: datetime
+    updated_at: datetime
 
 
 class TranslationRef(Schema):
@@ -108,6 +116,10 @@ class PostUpdateIn(Schema):
     publish_order: Optional[int] = None
 
 
+class BatchPostsIn(Schema):
+    post_ids: List[str]
+
+
 class FileOut(Schema):
     id: str
     object_type: str = 'object_file'
@@ -121,8 +133,8 @@ class FileOut(Schema):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _check_wot2(profile: Profile):
-    """Raise 403 if profile doesn't meet WoT 2+ requirement."""
+def _check_wot3(profile: Profile):
+    """Raise 403 if profile doesn't meet WoT 3+ requirement."""
     if profile.account.is_superuser:
         return
     if profile.is_foundation_member():
@@ -131,8 +143,8 @@ def _check_wot2(profile: Profile):
         verified_profile=profile,
         is_active=True,
     ).count()
-    if count < 2:
-        raise HttpError(403, "Requires WoT level 2+ to publish blog posts")
+    if count < 3:
+        raise HttpError(403, "Requires WoT level 3+ to publish blog posts")
 
 
 def _post_to_list(post: Post, translations_map: dict = None, photos_map: dict = None) -> PostListOut:
@@ -163,6 +175,7 @@ def _post_to_list(post: Post, translations_map: dict = None, photos_map: dict = 
         ).exclude(id=post.id).only('id', 'language', 'slug')
         available = [{'id': s.id, 'language': s.language, 'slug': s.slug} for s in siblings]
 
+    approver = post.approved_by
     return PostListOut(
         id=post.id,
         title=post.title,
@@ -177,6 +190,7 @@ def _post_to_list(post: Post, translations_map: dict = None, photos_map: dict = 
         comments_count=post.comments_count,
         author_id=author.id,
         author_hna=author.hna,
+        author_local_name=author.local_name,
         author_display_name=author.display_name or None,
         author_avatar=author.avatar.url if author.avatar else None,
         establishment_id=est.id if est else None,
@@ -187,7 +201,12 @@ def _post_to_list(post: Post, translations_map: dict = None, photos_map: dict = 
         available_languages=available,
         is_demo=_is_demo_obj(post),
         publish_order=post.publish_order,
+        approved_at=post.approved_at,
+        approved_by_id=approver.id if approver else None,
+        approved_by_name=(approver.display_name or approver.hna) if approver else None,
+        translation_of_id=post.translation_of_id,
         created_at=post.created_at,
+        updated_at=post.updated_at,
     )
 
 
@@ -224,6 +243,7 @@ def _post_to_detail(post: Post) -> PostDetailOut:
     for s in siblings:
         translations.append(TranslationRef(id=s.id, language=s.language, slug=s.slug, title=s.title))
 
+    approver = post.approved_by
     return PostDetailOut(
         id=post.id,
         title=post.title,
@@ -238,6 +258,7 @@ def _post_to_detail(post: Post) -> PostDetailOut:
         comments_count=post.comments_count,
         author_id=author.id,
         author_hna=author.hna,
+        author_local_name=author.local_name,
         author_display_name=author.display_name or None,
         author_avatar=author.avatar.url if author.avatar else None,
         establishment_id=est.id if est else None,
@@ -247,6 +268,9 @@ def _post_to_detail(post: Post) -> PostDetailOut:
         tags=tag_list,
         is_demo=_is_demo_obj(post),
         publish_order=post.publish_order,
+        approved_at=post.approved_at,
+        approved_by_id=approver.id if approver else None,
+        approved_by_name=(approver.display_name or approver.hna) if approver else None,
         created_at=post.created_at,
         content=post.content,
         content_html=post.content_html,
@@ -303,14 +327,16 @@ DEMO_ATTR_KEYS = ('demo', '__demo_seed')
 
 def _exclude_demo_posts(qs):
     """Exclude posts with demo markers or from test/bot accounts."""
-    qs = qs.exclude(attributes__demo=True).exclude(attributes__has_key='__demo_seed')
+    # Use __contains for JSONField exclude — plain __demo=True evaluates to NULL
+    # when the key is absent, and NOT NULL is NULL (falsy), excluding ALL rows.
+    qs = qs.exclude(attributes__contains={'demo': True}).exclude(attributes__has_key='__demo_seed')
     qs = qs.exclude(author__account__is_test=True).exclude(author__account__is_bot=True)
     return qs
 
 
 def _exclude_demo_sites(qs):
     """Exclude sites with demo markers or owned by test/bot accounts."""
-    qs = qs.exclude(attributes__demo=True).exclude(attributes__has_key='__demo_seed')
+    qs = qs.exclude(attributes__contains={'demo': True}).exclude(attributes__has_key='__demo_seed')
     qs = qs.exclude(establishment__owner__account__is_test=True).exclude(establishment__owner__account__is_bot=True)
     qs = qs.exclude(profile__account__is_test=True).exclude(profile__account__is_bot=True)
     return qs
@@ -318,8 +344,8 @@ def _exclude_demo_sites(qs):
 
 def _exclude_demo_pages(qs):
     """Exclude site pages with demo markers or from demo sites."""
-    qs = qs.exclude(attributes__demo=True).exclude(attributes__has_key='__demo_seed')
-    qs = qs.exclude(site__attributes__demo=True).exclude(site__attributes__has_key='__demo_seed')
+    qs = qs.exclude(attributes__contains={'demo': True}).exclude(attributes__has_key='__demo_seed')
+    qs = qs.exclude(site__attributes__contains={'demo': True}).exclude(site__attributes__has_key='__demo_seed')
     return qs
 
 
@@ -334,7 +360,7 @@ def list_posts(request, establishment_id: str = None, establishment_slug: str = 
     Public post feed. Filters by establishment, author, tag, language.
     Drafts visible only to author/OWNER/ADMIN.
     """
-    qs = Post.objects.select_related('author', 'establishment').prefetch_related('tags')
+    qs = Post.objects.select_related('author', 'establishment', 'approved_by').prefetch_related('tags')
 
     profile = getattr(request, 'auth_profile', None)
 
@@ -375,9 +401,10 @@ def list_posts(request, establishment_id: str = None, establishment_slug: str = 
         qs = _exclude_demo_posts(qs)
 
     # Visibility: published only for public, drafts for owner/admin
-    if status and status in ('draft', 'archived') and profile:
-        # Show drafts/archived only if user can manage them
-        qs = qs.filter(status=status)
+    if status and status in ('draft', 'archived', 'all') and profile:
+        # Show drafts/archived/all only if user can manage them
+        if status != 'all':
+            qs = qs.filter(status=status)
         qs = qs.filter(
             Q(author=profile) |
             Q(establishment__owner=profile) |
@@ -395,11 +422,14 @@ def list_posts(request, establishment_id: str = None, establishment_slug: str = 
     if search:
         qs = qs.order_by('-rank', '-published_at')
 
-    # Apply pagination manually at DB level, then transform the page
+    # Apply pagination manually at DB level, then transform the page.
+    # Management views (status='all', authenticated) may legitimately need
+    # every post for a topic-grouped UI, so they get a higher cap.
     page = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 20))
-    if page_size > 100:
-        page_size = 100
+    max_page_size = 500 if (status == 'all' and profile) else 100
+    if page_size > max_page_size:
+        page_size = max_page_size
     offset = (page - 1) * page_size
 
     total = qs.count()
@@ -442,7 +472,7 @@ def posts_rss(request, establishment_slug: str = None, author_name: str = None):
     elif author_name:
         qs = qs.filter(author__local_name=author_name, establishment__isnull=True)
 
-    qs = qs[:30]
+    posts = list(qs[:30])
 
     base = 'https://parahub.io'
     if establishment_slug:
@@ -456,7 +486,7 @@ def posts_rss(request, establishment_slug: str = None, author_name: str = None):
         feed_link = f'{base}/blog/'
 
     items = []
-    for p in qs:
+    for p in posts:
         if p.establishment and p.establishment.slug:
             link = f'{base}/org/{p.establishment.slug}/blog/{p.slug}'
         else:
@@ -482,7 +512,7 @@ def posts_rss(request, establishment_slug: str = None, author_name: str = None):
     <title>{feed_title}</title>
     <link>{feed_link}</link>
     <description>{feed_title}</description>
-    <language>en</language>
+    <language>{posts[0].language if posts else 'en'}</language>
     <atom:link href="{feed_link}rss/" rel="self" type="application/rss+xml"/>
 {chr(10).join(items)}
   </channel>
@@ -495,14 +525,18 @@ def posts_rss(request, establishment_slug: str = None, author_name: str = None):
 def get_post_by_slug(request, slug: str, establishment_slug: str = None,
                      author_name: str = None):
     """Get a post by slug. Needs establishment_slug or author_name to disambiguate."""
-    qs = Post.objects.select_related('author', 'establishment').prefetch_related('tags')
+    qs = Post.objects.select_related('author', 'establishment', 'approved_by').prefetch_related('tags')
 
     if establishment_slug:
         qs = qs.filter(establishment__slug=establishment_slug, slug=slug)
     elif author_name:
         qs = qs.filter(author__local_name=author_name, slug=slug, establishment__isnull=True)
     else:
-        qs = qs.filter(slug=slug)
+        # Ambiguous — prefer published, newest first
+        qs = qs.filter(slug=slug).order_by(
+            models.Case(models.When(status='published', then=0), default=1),
+            '-published_at', '-created_at',
+        )
 
     post = qs.first()
     if not post:
@@ -518,11 +552,124 @@ def get_post_by_slug(request, slug: str, establishment_slug: str = None,
     return _post_to_detail(post)
 
 
+# ── Batch approve / unapprove / publish ──────────────────────────────────────
+# NB: these must be registered BEFORE `/posts/{post_id}/` parameterized routes,
+# otherwise Ninja matches `batch-approve` as a post_id and returns 405.
+
+def _batch_check_and_fetch(profile: Profile, post_ids: List[str]) -> List[Post]:
+    """
+    Load posts, verify they all belong to same establishment, verify profile is
+    OWNER/ADMIN (or superuser). Returns posts list.
+    """
+    if not post_ids:
+        raise HttpError(400, "post_ids cannot be empty")
+    if len(post_ids) > 50:
+        raise HttpError(400, "Maximum 50 posts per batch")
+
+    posts = list(
+        Post.objects.select_related('establishment', 'author')
+        .filter(id__in=post_ids)
+    )
+    if len(posts) != len(post_ids):
+        raise HttpError(404, "One or more posts not found")
+
+    # All posts must belong to the same establishment
+    est_ids = {p.establishment_id for p in posts}
+    if len(est_ids) != 1 or None in est_ids:
+        raise HttpError(400, "All posts must belong to the same establishment")
+
+    est = posts[0].establishment
+    if not profile.account.is_superuser:
+        from geo.permissions import get_user_role
+        role = get_user_role(est, profile)
+        if role not in SIGNING_ROLES:
+            raise HttpError(403, "Only OWNER/ADMIN can perform batch actions")
+
+    return posts
+
+
+@router.post('/posts/batch-approve/', response=List[PostListOut], auth=ProfileAuth())
+@ratelimit(group='cms:batch_approve', key=user_or_ip, rate='120/h')
+def batch_approve_posts(request, payload: BatchPostsIn):
+    """Mark a set of posts (one topic across languages) as approved. OWNER/ADMIN only."""
+    from django.db import transaction
+    profile: Profile = request.auth
+    posts = _batch_check_and_fetch(profile, payload.post_ids)
+
+    now = timezone.now()
+    with transaction.atomic():
+        for p in posts:
+            p.approved_at = now
+            p.approved_by = profile
+            p.save(update_fields=['approved_at', 'approved_by'])
+
+    logger.info(f"Batch approved {len(posts)} posts by {profile.hna}")
+    refreshed = list(
+        Post.objects.select_related('author', 'establishment', 'approved_by')
+        .prefetch_related('tags')
+        .filter(id__in=[p.id for p in posts])
+    )
+    return [_post_to_list(p) for p in refreshed]
+
+
+@router.post('/posts/batch-unapprove/', response=List[PostListOut], auth=ProfileAuth())
+@ratelimit(group='cms:batch_unapprove', key=user_or_ip, rate='120/h')
+def batch_unapprove_posts(request, payload: BatchPostsIn):
+    """Revoke approval (move back to drafts). OWNER/ADMIN only."""
+    from django.db import transaction
+    profile: Profile = request.auth
+    posts = _batch_check_and_fetch(profile, payload.post_ids)
+
+    with transaction.atomic():
+        for p in posts:
+            if p.status == 'published':
+                raise HttpError(400, f"Cannot unapprove published post '{p.title}' — unpublish first")
+            p.approved_at = None
+            p.approved_by = None
+            p.save(update_fields=['approved_at', 'approved_by'])
+
+    logger.info(f"Batch unapproved {len(posts)} posts by {profile.hna}")
+    refreshed = list(
+        Post.objects.select_related('author', 'establishment', 'approved_by')
+        .prefetch_related('tags')
+        .filter(id__in=[p.id for p in posts])
+    )
+    return [_post_to_list(p) for p in refreshed]
+
+
+@router.post('/posts/batch-publish/', response=List[PostListOut], auth=ProfileAuth())
+@ratelimit(group='cms:batch_publish', key=user_or_ip, rate='60/h')
+def batch_publish_posts(request, payload: BatchPostsIn):
+    """Publish a set of posts atomically (one topic across languages). OWNER/ADMIN only + WoT 3+."""
+    from django.db import transaction
+    profile: Profile = request.auth
+    posts = _batch_check_and_fetch(profile, payload.post_ids)
+    _check_wot3(profile)
+
+    now = timezone.now()
+    with transaction.atomic():
+        for p in posts:
+            if p.status == 'published':
+                continue
+            p.status = 'published'
+            if not p.published_at:
+                p.published_at = now
+            p.save(update_fields=['status', 'published_at'])
+
+    logger.info(f"Batch published {len(posts)} posts by {profile.hna}")
+    refreshed = list(
+        Post.objects.select_related('author', 'establishment', 'approved_by')
+        .prefetch_related('tags')
+        .filter(id__in=[p.id for p in posts])
+    )
+    return [_post_to_list(p) for p in refreshed]
+
+
 @router.get('/posts/{post_id}/', response=PostDetailOut, auth=OptionalProfileAuth())
 def get_post(request, post_id: str):
     """Get a post by ID."""
     post = get_object_or_404(
-        Post.objects.select_related('author', 'establishment').prefetch_related('tags'),
+        Post.objects.select_related('author', 'establishment', 'approved_by').prefetch_related('tags'),
         id=post_id,
     )
 
@@ -538,7 +685,7 @@ def get_post(request, post_id: str):
 @router.post('/posts/', response=PostDetailOut, auth=ProfileAuth())
 @ratelimit(group='cms:create_post', key=user_or_ip, rate='20/h')
 def create_post(request, payload: PostCreateIn):
-    """Create a blog post. Requires WoT 2+."""
+    """Create a blog post. Requires WoT 3+."""
     profile: Profile = request.auth
 
     # Content size check
@@ -551,7 +698,7 @@ def create_post(request, payload: PostCreateIn):
 
     # WoT check only for publishing
     if payload.status == 'published':
-        _check_wot2(profile)
+        _check_wot3(profile)
 
     establishment = None
     if payload.establishment_id:
@@ -594,6 +741,9 @@ def create_post(request, payload: PostCreateIn):
             if original.language == post.language:
                 raise HttpError(400, "Translation must be in a different language than the original")
             post.translation_of = original
+            # Inherit publish_order from original if not explicitly set
+            if post.publish_order is None and original.publish_order is not None:
+                post.publish_order = original.publish_order
         except Post.DoesNotExist:
             pass
 
@@ -611,7 +761,7 @@ def create_post(request, payload: PostCreateIn):
         post.tags.set(tags)
 
     # Re-fetch with relations
-    post = Post.objects.select_related('author', 'establishment').prefetch_related('tags').get(id=post.id)
+    post = Post.objects.select_related('author', 'establishment', 'approved_by').prefetch_related('tags').get(id=post.id)
     logger.info(f"Post created: '{post.title}' by {profile.hna}")
     return _post_to_detail(post)
 
@@ -626,7 +776,7 @@ def update_post(request, post_id: str, payload: PostUpdateIn):
         raise HttpError(400, f"Content too large (max {MAX_POST_CONTENT_SIZE // 1000}KB)")
 
     post = get_object_or_404(
-        Post.objects.select_related('author', 'establishment'),
+        Post.objects.select_related('author', 'establishment', 'approved_by'),
         id=post_id,
     )
 
@@ -635,7 +785,7 @@ def update_post(request, post_id: str, payload: PostUpdateIn):
 
     # WoT check on publish
     if payload.status == 'published' and post.status != 'published':
-        _check_wot2(profile)
+        _check_wot3(profile)
 
     if payload.title is not None:
         post.title = payload.title.strip()[:200]
@@ -691,7 +841,7 @@ def update_post(request, post_id: str, payload: PostUpdateIn):
         tags = Category.objects.filter(id__in=payload.tag_ids)
         post.tags.set(tags)
 
-    post = Post.objects.select_related('author', 'establishment').prefetch_related('tags').get(id=post.id)
+    post = Post.objects.select_related('author', 'establishment', 'approved_by').prefetch_related('tags').get(id=post.id)
     return _post_to_detail(post)
 
 
@@ -719,16 +869,6 @@ def delete_post(request, post_id: str):
 
 
 # ── Files ─────────────────────────────────────────────────────────────────────
-
-ALLOWED_FILE_TYPES = {
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain',
-    'text/csv',
-}
 
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
@@ -779,6 +919,7 @@ def upload_file(request, post_id: str, file: UploadedFile = File(...)):
 
 
 @router.delete('/posts/{post_id}/files/{file_id}/', auth=ProfileAuth())
+@ratelimit(group='cms:delete_file', key=user_or_ip, rate='60/h')
 def delete_file(request, post_id: str, file_id: str):
     """Delete a file attachment from a post."""
     profile: Profile = request.auth
@@ -793,7 +934,111 @@ def delete_file(request, post_id: str, file_id: str):
     return {'ok': True}
 
 
+# ── Illustration Generation ──────────────────────────────────────────────────
+
+ILLUSTRATION_ALLOWED_SLUG = 'parahub-associacao'
+
+
+class IllustrationInput(Schema):
+    prompt: Optional[str] = None
+
+
+@router.post('/posts/{post_id}/generate-illustration/', auth=ProfileAuth())
+@ratelimit(group='cms:generate_illustration', key=user_or_ip, rate='20/h')
+def generate_illustration(request, post_id: str, payload: IllustrationInput = None):
+    """Generate a featured image for a post using Gemini Nano Banana Pro.
+    Custom prompt or auto-generated from content. Restricted to OWNER/ADMIN of parahub-associacao."""
+    profile: Profile = request.auth
+    post = get_object_or_404(Post, id=post_id)
+
+    if not _can_edit_post(post, profile):
+        raise HttpError(403, "Not authorized")
+
+    # Restrict to parahub-associacao admins
+    from geo.models import Establishment, EstablishmentMembership
+    try:
+        est = Establishment.objects.get(slug=ILLUSTRATION_ALLOWED_SLUG, is_active=True)
+    except Establishment.DoesNotExist:
+        raise HttpError(403, "Illustration generation not available")
+
+    is_allowed = (
+        est.owner_id == profile.id
+        or EstablishmentMembership.objects.filter(
+            profile=profile, establishment=est, role__in=SIGNING_ROLES
+        ).exists()
+        or profile.account.is_superuser
+    )
+    if not is_allowed:
+        raise HttpError(403, "Only parahub-associacao admins can generate illustrations")
+
+    # Custom prompt or auto-generate from post content
+    custom_prompt = (payload.prompt or '').strip() if payload else ''
+    if custom_prompt:
+        prompt = f'{custom_prompt}\n\nWide panoramic composition (2:1 aspect ratio). No text overlays on the image.'
+    else:
+        title = post.title or 'Untitled'
+        excerpt = (post.content or '')[:800]
+        prompt = (
+            f'Generate a wide panoramic illustration (2:1 aspect ratio) for a blog post '
+            f'titled "{title}". Context: {excerpt}\n\n'
+            f'Style: warm colorful palette, hand-drawn feel, modern editorial illustration. '
+            f'No text overlays on the image.'
+        )
+
+    try:
+        from google import genai
+        from google.genai import types as genai_types
+        from parahub.models import AISettings
+
+        ai_settings = AISettings.objects.first()
+        if not ai_settings or not ai_settings.google_api_key:
+            raise HttpError(500, "AI API key not configured")
+
+        client = genai.Client(api_key=ai_settings.google_api_key)
+        response = client.models.generate_content(
+            model='gemini-3-pro-image-preview',
+            contents=[prompt],
+            config=genai_types.GenerateContentConfig(
+                response_modalities=['IMAGE', 'TEXT'],
+            ),
+        )
+
+        image_data = None
+        for part in response.parts:
+            if part.inline_data:
+                image_data = part.inline_data.data
+                break
+
+        if not image_data:
+            raise HttpError(500, "Image generation returned no image (safety filter?)")
+
+        # Save as ObjectPhoto and set as featured image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        uploaded = SimpleUploadedFile('illustration.png', image_data, content_type='image/png')
+        photo = ObjectPhoto(object_id=post.id, uploaded_by=profile)
+        photo.image.save(f'blog-illust-{post.id[:8]}.png', uploaded, save=True)
+
+        post.featured_image_id = photo.id
+        post.save(update_fields=['featured_image_id'])
+
+        logger.info(f"Generated illustration for post {post.id} by {profile.hna}")
+        return {
+            'ok': True,
+            'photo_id': photo.id,
+            'url': photo.image.url,
+        }
+
+    except HttpError:
+        raise
+    except Exception as e:
+        logger.error(f"Illustration generation failed: {e}")
+        raise HttpError(500, f"Generation failed: {str(e)}")
+
+
 # ── Site Schemas ──────────────────────────────────────────────────────────────
+
+VALID_NAV_SECTION_TYPES = {'blog', 'gallery', 'items', 'contact'}
+
 
 class SiteNavSection(Schema):
     type: str
@@ -842,6 +1087,7 @@ class SitePageOut(Schema):
     order: int
     show_in_nav: bool
     is_published: bool
+    is_homepage: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -853,6 +1099,7 @@ class SitePageCreateIn(Schema):
     order: int = 0
     show_in_nav: bool = True
     is_published: bool = True
+    is_homepage: bool = False
 
 
 class SitePageUpdateIn(Schema):
@@ -862,6 +1109,7 @@ class SitePageUpdateIn(Schema):
     order: Optional[int] = None
     show_in_nav: Optional[bool] = None
     is_published: Optional[bool] = None
+    is_homepage: Optional[bool] = None
 
 
 # ── Site Helpers ──────────────────────────────────────────────────────────────
@@ -878,7 +1126,11 @@ def _site_to_out(site: Site) -> SiteOut:
         'title': p.title,
         'slug': p.slug,
         'order': p.order,
-    } for p in site.pages.filter(show_in_nav=True, is_published=True).order_by('order')]
+        'is_homepage': p.is_homepage,
+        'content_html': p.content_html if p.is_homepage else '',
+    } for p in site.pages.filter(is_published=True).filter(
+        Q(show_in_nav=True) | Q(is_homepage=True)
+    ).order_by('order')]
 
     est = site.establishment
     profile = site.profile
@@ -915,6 +1167,7 @@ def _page_to_out(page: SitePage) -> SitePageOut:
         order=page.order,
         show_in_nav=page.show_in_nav,
         is_published=page.is_published,
+        is_homepage=page.is_homepage,
         created_at=page.created_at,
         updated_at=page.updated_at,
     )
@@ -975,24 +1228,24 @@ def resolve_site(request, slug: str = '', type: str = 'org', domain: str = ''):
         est = Establishment.objects.filter(slug=slug, is_active=True).first()
         if not est:
             raise HttpError(404, "Site not found")
-        site, _ = Site.objects.get_or_create(establishment=est)
+        site = Site.objects.filter(establishment=est, is_active=True).select_related('establishment', 'profile').first()
     else:
         from identity.models import Profile
         profile = Profile.objects.filter(local_name=slug).first()
         if not profile:
             raise HttpError(404, "Site not found")
-        site, _ = Site.objects.get_or_create(profile=profile)
+        site = Site.objects.filter(profile=profile, is_active=True).select_related('establishment', 'profile').first()
 
-    if not site.is_active:
+    if not site:
         raise HttpError(404, "Site not found")
 
     return _site_to_out(site)
 
 
-@router.get('/sites/by-establishment/{establishment_id}/', response=SiteOut, auth=None)
+@router.get('/sites/by-establishment/{establishment_id}/', response=SiteOut, auth=OptionalProfileAuth())
 def get_site(request, establishment_id: str):
-    """Get site config for an establishment (public, auto-creates)."""
-    site = _get_site_for_est(establishment_id)
+    """Get site config for an establishment. Auto-creates only for authenticated users."""
+    site = _get_site_for_est(establishment_id, auto_create=bool(request.auth))
     return _site_to_out(site)
 
 
@@ -1015,6 +1268,9 @@ def update_site(request, establishment_id: str, payload: SiteUpdateIn):
     if payload.hero_image_id is not None:
         site.hero_image_id = payload.hero_image_id[:26]
     if payload.nav_sections is not None:
+        for s in payload.nav_sections:
+            if s.type not in VALID_NAV_SECTION_TYPES:
+                raise HttpError(400, f"Invalid section type: {s.type}")
         site.nav_sections = [s.dict() for s in payload.nav_sections]
     if payload.is_active is not None:
         site.is_active = payload.is_active
@@ -1083,25 +1339,24 @@ def _validate_custom_domain(domain: str):
         pass  # Domain doesn't resolve yet — OK, user may not have set DNS yet
 
 
-_ssl_setup_lock: set = set()  # Domains currently being set up
-
 def _trigger_ssl_setup(domain: str):
-    """Run SSL cert issuance + nginx config in a background thread (with concurrency guard)."""
+    """Run SSL cert issuance + nginx config in a background thread (with Redis-based concurrency guard)."""
     import threading
     from django.core.management import call_command
+    from django.core.cache import cache
 
-    if domain in _ssl_setup_lock:
+    lock_key = f'ssl_setup:{domain}'
+    if not cache.add(lock_key, '1', timeout=600):  # 10 min lock
         logger.info(f"SSL setup already running for {domain}, skipping")
         return
 
     def _run():
-        _ssl_setup_lock.add(domain)
         try:
             call_command('setup_custom_domain', domain)
         except Exception:
             logger.exception(f"SSL setup failed for {domain}")
         finally:
-            _ssl_setup_lock.discard(domain)
+            cache.delete(lock_key)
 
     threading.Thread(target=_run, daemon=True).start()
     logger.info(f"SSL setup triggered in background for {domain}")
@@ -1227,12 +1482,21 @@ def verify_custom_domain(request, establishment_id: str):
 
 # ── SitePage Endpoints ────────────────────────────────────────────────────────
 
-@router.get('/sites/by-establishment/{establishment_id}/pages/', response=List[SitePageOut], auth=None)
+@router.get('/sites/by-establishment/{establishment_id}/pages/', response=List[SitePageOut], auth=OptionalProfileAuth())
 def list_site_pages(request, establishment_id: str):
-    """List published pages for a site (public)."""
-    site = _get_site_for_est(establishment_id)
-    pages = site.pages.filter(is_published=True).order_by('order')
-    return [_page_to_out(p) for p in pages]
+    """List pages for a site. Owners see all, public sees published only."""
+    site = _get_site_for_est(establishment_id, auto_create=False)
+    qs = site.pages.all().order_by('order')
+    show_all = False
+    if request.auth and site.establishment:
+        try:
+            get_establishment_for_action(site.establishment.id, request.auth, SIGNING_ROLES)
+            show_all = True
+        except Exception:
+            pass
+    if not show_all:
+        qs = qs.filter(is_published=True)
+    return [_page_to_out(p) for p in qs]
 
 
 @router.get('/sites/by-establishment/{establishment_id}/pages/{page_id}/', response=SitePageOut, auth=None)
@@ -1267,6 +1531,9 @@ def create_site_page(request, establishment_id: str, payload: SitePageCreateIn):
 
     site = _get_site_for_est(establishment_id)
 
+    if site.pages.count() >= MAX_PAGES_PER_SITE:
+        raise HttpError(400, f"Maximum {MAX_PAGES_PER_SITE} pages per site")
+
     page = SitePage(
         site=site,
         title=payload.title.strip()[:200],
@@ -1275,6 +1542,7 @@ def create_site_page(request, establishment_id: str, payload: SitePageCreateIn):
         order=payload.order,
         show_in_nav=payload.show_in_nav,
         is_published=payload.is_published,
+        is_homepage=payload.is_homepage,
     )
     page.save()
     return _page_to_out(page)
@@ -1309,12 +1577,15 @@ def update_site_page(request, establishment_id: str, page_id: str, payload: Site
         page.show_in_nav = payload.show_in_nav
     if payload.is_published is not None:
         page.is_published = payload.is_published
+    if payload.is_homepage is not None:
+        page.is_homepage = payload.is_homepage
 
     page.save()
     return _page_to_out(page)
 
 
 @router.delete('/sites/by-establishment/{establishment_id}/pages/{page_id}/', auth=ProfileAuth())
+@ratelimit(group='cms:delete_page', key=user_or_ip, rate='60/h')
 def delete_site_page(request, establishment_id: str, page_id: str):
     """Delete a page. OWNER/ADMIN only."""
     profile: Profile = request.auth
@@ -1336,10 +1607,10 @@ def _require_profile_owner(request, profile_name: str) -> 'Profile':
     return profile
 
 
-@router.get('/sites/by-profile/{profile_name}/', response=SiteOut, auth=None)
+@router.get('/sites/by-profile/{profile_name}/', response=SiteOut, auth=OptionalProfileAuth())
 def get_profile_site(request, profile_name: str):
-    """Get site config for a profile (public, auto-creates)."""
-    site = _get_site_for_profile(profile_name)
+    """Get site config for a profile. Auto-creates only for authenticated users."""
+    site = _get_site_for_profile(profile_name, auto_create=bool(request.auth))
     return _site_to_out(site)
 
 
@@ -1360,6 +1631,9 @@ def update_profile_site(request, profile_name: str, payload: SiteUpdateIn):
     if payload.hero_image_id is not None:
         site.hero_image_id = payload.hero_image_id[:26]
     if payload.nav_sections is not None:
+        for s in payload.nav_sections:
+            if s.type not in VALID_NAV_SECTION_TYPES:
+                raise HttpError(400, f"Invalid section type: {s.type}")
         site.nav_sections = [s.dict() for s in payload.nav_sections]
     if payload.is_active is not None:
         site.is_active = payload.is_active
@@ -1459,12 +1733,14 @@ def verify_profile_custom_domain(request, profile_name: str):
     )
 
 
-@router.get('/sites/by-profile/{profile_name}/pages/', response=List[SitePageOut], auth=None)
+@router.get('/sites/by-profile/{profile_name}/pages/', response=List[SitePageOut], auth=OptionalProfileAuth())
 def list_profile_site_pages(request, profile_name: str):
-    """List published pages for a profile site (public)."""
-    site = _get_site_for_profile(profile_name)
-    pages = site.pages.filter(is_published=True).order_by('order')
-    return [_page_to_out(p) for p in pages]
+    """List pages for a profile site. Owner sees all, public sees published only."""
+    site = _get_site_for_profile(profile_name, auto_create=False)
+    qs = site.pages.all().order_by('order')
+    if not (request.auth and (request.auth.local_name == profile_name or request.auth.account.is_superuser)):
+        qs = qs.filter(is_published=True)
+    return [_page_to_out(p) for p in qs]
 
 
 @router.get('/sites/by-profile/{profile_name}/pages/by-slug/{slug}/', response=SitePageOut, auth=None)
@@ -1488,6 +1764,9 @@ def create_profile_site_page(request, profile_name: str, payload: SitePageCreate
 
     site = _get_site_for_profile(profile_name)
 
+    if site.pages.count() >= MAX_PAGES_PER_SITE:
+        raise HttpError(400, f"Maximum {MAX_PAGES_PER_SITE} pages per site")
+
     page = SitePage(
         site=site,
         title=payload.title.strip()[:200],
@@ -1496,6 +1775,7 @@ def create_profile_site_page(request, profile_name: str, payload: SitePageCreate
         order=payload.order,
         show_in_nav=payload.show_in_nav,
         is_published=payload.is_published,
+        is_homepage=payload.is_homepage,
     )
     page.save()
     return _page_to_out(page)
@@ -1529,12 +1809,15 @@ def update_profile_site_page(request, profile_name: str, page_id: str, payload: 
         page.show_in_nav = payload.show_in_nav
     if payload.is_published is not None:
         page.is_published = payload.is_published
+    if payload.is_homepage is not None:
+        page.is_homepage = payload.is_homepage
 
     page.save()
     return _page_to_out(page)
 
 
 @router.delete('/sites/by-profile/{profile_name}/pages/{page_id}/', auth=ProfileAuth())
+@ratelimit(group='cms:delete_page', key=user_or_ip, rate='60/h')
 def delete_profile_site_page(request, profile_name: str, page_id: str):
     """Delete a page. Profile owner only."""
     _require_profile_owner(request, profile_name)
@@ -1607,3 +1890,141 @@ def sitemap_urls(request):
         urls.append({'loc': f'/u/{name}/blog'})
 
     return urls
+
+
+# ── Gitea webhook: issue comment snapshots + OTS ─────────────────────
+
+@router.post('/gitea-webhook/')
+@ratelimit(group='cms:gitea_webhook', key=user_or_ip, rate='120/m', method='POST')
+def cms_gitea_webhook(request):
+    """
+    Gitea webhook receiver for CMS repos.
+
+    Handles issue_comment events → GiteaCommentSnapshot + TimestampProof.
+    Works for any repo (cms-editorial/*, contracts/*, etc.) — generic.
+    """
+    import hashlib
+    import hmac
+    import os
+
+    secret = os.environ.get('GITEA_WEBHOOK_SECRET', '')
+    if not secret:
+        raise HttpError(500, 'Webhook secret not configured')
+
+    sig = request.headers.get('X-Gitea-Signature', '')
+    body = request.body
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        raise HttpError(403, 'Invalid signature')
+
+    import json as _json
+    payload = _json.loads(body)
+    action = payload.get('action', '')
+    event = request.headers.get('X-Gitea-Event', '')
+
+    if event == 'issue_comment':
+        _handle_issue_comment(payload, action)
+
+    return {'ok': True}
+
+
+def _handle_issue_comment(payload: dict, action: str):
+    """Process issue_comment webhook: create/edit/delete snapshots."""
+    import hashlib
+    import json as _json
+
+    comment = payload.get('comment', {})
+    issue = payload.get('issue', {})
+    repo = payload.get('repository', {})
+
+    gitea_comment_id = comment.get('id')
+    if not gitea_comment_id:
+        return
+
+    repo_full_name = repo.get('full_name', '')
+    issue_number = issue.get('number', 0)
+    author_username = comment.get('user', {}).get('login', '')
+    text = comment.get('body', '')
+
+    from audit_log.models import GiteaCommentSnapshot
+
+    if action == 'created':
+        # Find Parahub profile by Gitea username (OIDC SSO → same username)
+        from identity.models import Profile
+        profile = Profile.objects.filter(
+            account__username=author_username,
+        ).first()
+
+        snapshot = GiteaCommentSnapshot.objects.create(
+            gitea_comment_id=gitea_comment_id,
+            gitea_repo=repo_full_name,
+            gitea_issue_number=issue_number,
+            author_profile=profile,
+            author_username=author_username,
+            text=text,
+            version=1,
+        )
+
+        # Create pending OTS proof
+        from audit_log.signals import _create_pending_proof
+        data = {
+            'gitea_comment_id': gitea_comment_id,
+            'repo': repo_full_name,
+            'issue': issue_number,
+            'author': author_username,
+            'text': text,
+        }
+        _create_pending_proof(snapshot, data)
+
+        logger.info(
+            f'Comment snapshot created: {repo_full_name}#{issue_number} '
+            f'comment {gitea_comment_id} by {author_username}'
+        )
+
+    elif action == 'edited':
+        # Find latest version, create new one
+        latest = GiteaCommentSnapshot.objects.filter(
+            gitea_comment_id=gitea_comment_id,
+        ).order_by('-version').first()
+
+        new_version = (latest.version + 1) if latest else 1
+        from identity.models import Profile
+        profile = Profile.objects.filter(
+            account__username=author_username,
+        ).first()
+
+        snapshot = GiteaCommentSnapshot.objects.create(
+            gitea_comment_id=gitea_comment_id,
+            gitea_repo=repo_full_name,
+            gitea_issue_number=issue_number,
+            author_profile=profile,
+            author_username=author_username,
+            text=text,
+            version=new_version,
+        )
+
+        from audit_log.signals import _create_pending_proof
+        data = {
+            'gitea_comment_id': gitea_comment_id,
+            'repo': repo_full_name,
+            'issue': issue_number,
+            'author': author_username,
+            'text': text,
+            'version': new_version,
+        }
+        _create_pending_proof(snapshot, data)
+
+        logger.info(
+            f'Comment snapshot v{new_version}: {repo_full_name}#{issue_number} '
+            f'comment {gitea_comment_id}'
+        )
+
+    elif action == 'deleted':
+        GiteaCommentSnapshot.objects.filter(
+            gitea_comment_id=gitea_comment_id,
+        ).update(deleted_in_gitea=True)
+
+        logger.info(
+            f'Comment marked deleted: {repo_full_name}#{issue_number} '
+            f'comment {gitea_comment_id}'
+        )

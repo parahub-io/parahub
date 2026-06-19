@@ -42,11 +42,17 @@ from geo.opensky_processor import (
 )
 
 # LOD levels: (level, simplify_ratio, max_geometric_error, texture_size)
+# Texture sizes halved 2026-06 (2048/1024/512 → 1024/512/256): ODM meshes carry
+# ~76 texture chunks, decoded RGBA was ~1.7 GB per lod1 mission → multi-mission
+# 3D view OOM'd the tab (see PK/opensky-system.md § Memory governor). A/B on a
+# building (/design/opensky-lod-ab) showed 1024 visually ≈ 2048 (roof PSNR 29 dB)
+# at 4x less memory. 1024-chunk capacity (~80 Mpx/mission) still exceeds the
+# ~60 Mpx native-GSD content of one Z17 tile.
 LOD_LEVELS = [
     # lod0 = copy of original optimized GLB (no simplification)
-    (1, 0.5, 0.01, 2048),
-    (2, 0.1, 0.05, 1024),
-    (3, 0.02, 0.1, 512),
+    (1, 0.5, 0.01, 1024),
+    (2, 0.1, 0.05, 512),
+    (3, 0.02, 0.1, 256),
 ]
 
 # geometricError thresholds for tileset.json (meters)
@@ -58,6 +64,13 @@ GEOMETRIC_ERRORS = {
     'lod1': 10,    # show lod1 at 100-500m
     'lod0': 0,     # show lod0 at <100m (full detail)
 }
+
+# Bump on tileset.json schema changes (LOD chain, refine mode, content URIs).
+# Used as `?v=N` cache buster on per-mission tileset URIs in the root tileset
+# so browsers with old `max-age=604800` cached responses pick up changes
+# immediately instead of after a 7-day natural expiry. Frontend's TILESET_URL
+# carries the same constant for the root itself.
+TILESET_SCHEMA_VERSION = 4
 
 
 def local_to_ecef_transform(center_lat: float, center_lng: float, center_alt: float = 0) -> list[float]:
@@ -91,17 +104,24 @@ def local_to_ecef_transform(center_lat: float, center_lng: float, center_alt: fl
 
 
 def odm_origin_to_latlon(odm_origin: dict) -> tuple[float, float, float]:
-    """Convert ODM UTM origin to WGS84 lat/lon.
+    """Convert ODM origin to WGS84 lat/lon.
 
-    ODM stores the reconstruction origin in UTM coordinates in coords.txt.
-    We need to detect the UTM zone from the proj.txt or from the coordinate values.
-
-    Args:
-        odm_origin: dict with 'x', 'y', 'z' (UTM meters), optionally 'proj' (proj string)
+    Two supported formats:
+    1. UTM offset from coords.txt: {'x', 'y', 'z', 'proj'} — projected via pyproj
+    2. Direct WGS84 fallback: {'lat', 'lng', 'alt'} — used when coords.txt is
+       unavailable (e.g. recovered from photo EXIF centroid). Returned as-is.
 
     Returns:
-        (lat, lng, alt) in WGS84 degrees
+        (lat, lng, alt) in WGS84 degrees / meters
     """
+    # Direct WGS84 form (fallback when coords.txt is gone)
+    if 'lat' in odm_origin and 'lng' in odm_origin:
+        return (
+            float(odm_origin['lat']),
+            float(odm_origin['lng']),
+            float(odm_origin.get('alt', odm_origin.get('z', 0))),
+        )
+
     proj_str = odm_origin.get('proj', '')
 
     # Try to extract EPSG from proj string
@@ -116,19 +136,13 @@ def odm_origin_to_latlon(odm_origin: dict) -> tuple[float, float, float]:
         match = re.search(r'zone=(\d+)', proj_str)
         if match:
             zone = int(match.group(1))
-            # Check hemisphere from +north/+south
             is_south = '+south' in proj_str
             epsg = 32600 + zone if not is_south else 32700 + zone
 
     if not epsg:
-        # Guess UTM zone from X coordinate (100000-999999 range) and Y
-        # Y > 10000000 → southern hemisphere
-        x, y = odm_origin['x'], odm_origin['y']
-        is_south = y > 10000000
-        # X in UTM is 6-digit with false easting 500000, so zone can't be determined from X alone
-        # Fall back: use mission center_lat/center_lng (caller should provide)
-        logger.warning("Could not determine EPSG from ODM origin, falling back to EPSG:4326 assumption")
-        return odm_origin.get('lat', 0), odm_origin.get('lng', 0), odm_origin.get('z', 0)
+        raise ValueError(
+            f"Cannot determine CRS for ODM origin (no proj/EPSG and no lat/lng): {odm_origin}"
+        )
 
     transformer = Transformer.from_crs(f"EPSG:{epsg}", "EPSG:4326", always_xy=True)
     lng, lat, alt = transformer.transform(odm_origin['x'], odm_origin['y'], odm_origin['z'])
@@ -157,34 +171,64 @@ def generate_lods(glb_path: str, output_dir: str) -> dict[int, str]:
     lod_paths[0] = lod0_path
     logger.info(f"LOD0: {os.path.getsize(lod0_path) / (1024*1024):.1f} MB (copy)")
 
-    # LOD1-3 via gltf-transform simplify + optimize
+    # LOD1-3 via gltf-transform simplify → optimize(textures) → draco(geometry).
+    #
+    # Both downstream steps MUST mirror the main-pipeline GLB optimize
+    # (opensky_processor._process_mesh_artifacts), otherwise the rendered lod1
+    # leaf gets hairline seams where the basemap bleeds through (verified
+    # empirically on 01KQCPGFN546Q1BRD5MQ4F8TX7):
+    #
+    #   1. --lock-border true on simplify: ODM meshes have ~100 primitives (one
+    #      per texture chunk) with split vertices at chunk boundaries. Without
+    #      locking, meshopt decimates each primitive's shared edge independently
+    #      → the two sides drift apart → cracks. Locking pins the topological
+    #      borders (costs a little reduction near seams — correctness over size).
+    #   2. draco --quantization-volume scene (NOT optimize --compress draco):
+    #      the consolidated optimize form does not expose --quantization-volume
+    #      and defaults to per-primitive "mesh" volume → ~7cm drift between
+    #      shared vertices at 14-bit → the same hairline seams. Scene volume uses
+    #      ONE grid for all primitives → zero drift.
     for level, ratio, error, tex_size in LOD_LEVELS:
         lod_path = os.path.join(output_dir, f"lod{level}.glb")
-        tmp_path = os.path.join(output_dir, f"lod{level}_tmp.glb")
+        simp_path = os.path.join(output_dir, f"lod{level}_simp.glb")
+        opt_path = os.path.join(output_dir, f"lod{level}_opt.glb")
 
-        # Simplify
+        # Simplify (lock borders so primitive seams don't tear)
         result = subprocess.run(
-            [GLTF_TRANSFORM_PATH, "simplify", glb_path, tmp_path,
-             "--ratio", str(ratio), "--error", str(error)],
+            [GLTF_TRANSFORM_PATH, "simplify", glb_path, simp_path,
+             "--ratio", str(ratio), "--error", str(error),
+             "--lock-border", "true"],
             capture_output=True, text=True, timeout=600, env=env,
         )
         if result.returncode != 0:
             logger.error(f"gltf-transform simplify LOD{level} failed: {result.stderr[:300]}")
             raise RuntimeError(f"LOD{level} simplify failed: {result.stderr[:300]}")
 
-        # Optimize (Draco + WebP + texture resize)
+        # Step 1: textures only (WebP + resize), no geometry compression, no
+        # re-simplify (already simplified above).
         result = subprocess.run(
-            [GLTF_TRANSFORM_PATH, "optimize", tmp_path, lod_path,
-             "--compress", "draco", "--texture-compress", "webp",
-             "--texture-size", str(tex_size)],
+            [GLTF_TRANSFORM_PATH, "optimize", simp_path, opt_path,
+             "--compress", "false", "--texture-compress", "webp",
+             "--texture-size", str(tex_size), "--simplify", "false"],
             capture_output=True, text=True, timeout=600, env=env,
         )
         if result.returncode != 0:
             logger.error(f"gltf-transform optimize LOD{level} failed: {result.stderr[:300]}")
             raise RuntimeError(f"LOD{level} optimize failed: {result.stderr[:300]}")
 
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        # Step 2: Draco geometry compression with scene-wide quantization volume.
+        result = subprocess.run(
+            [GLTF_TRANSFORM_PATH, "draco", opt_path, lod_path,
+             "--quantization-volume", "scene"],
+            capture_output=True, text=True, timeout=600, env=env,
+        )
+        if result.returncode != 0:
+            logger.error(f"gltf-transform draco LOD{level} failed: {result.stderr[:300]}")
+            raise RuntimeError(f"LOD{level} draco failed: {result.stderr[:300]}")
+
+        for p in (simp_path, opt_path):
+            if os.path.exists(p):
+                os.unlink(p)
 
         lod_paths[level] = lod_path
         size_mb = os.path.getsize(lod_path) / (1024 * 1024)
@@ -219,7 +263,11 @@ def generate_mission_tileset(mission) -> dict:
         east = (lng + dlng) * math.pi / 180
         north = (lat + dlat) * math.pi / 180
 
-    region = [west, south, east, north, 0, 200]
+    # Altitude bounds in meters above WGS84 ellipsoid. Wide enough to enclose
+    # any reasonable terrain — narrow bounds cause loaders.gl to cull tiles.
+    # ODM mesh vertices typically span ~250m vertically; we add headroom for
+    # mountain terrain (up to ~2000m) and below-ellipsoid bowls (down to -200m).
+    region = [west, south, east, north, -200, 2000]
 
     # Compute ENU→ECEF transform
     # Use ODM origin for precise positioning if available
@@ -233,32 +281,48 @@ def generate_mission_tileset(mission) -> dict:
     else:
         transform = local_to_ecef_transform(mission.center_lat, mission.center_lng)
 
+    # Each child must have its own boundingVolume — strict per OGC 3D Tiles 1.1.
+    # `region` is always in WGS84 (lat/lng radians) and ignores any parent transform,
+    # so all LODs share the same region as the root.
+    bv = {"region": region}
+    # NOTE: lod0 is the unsimplified ODM mesh (44–53 MB GLB). It used to be the
+    # leaf, but at close zoom on the live map deck.gl would select it for every
+    # visible mission and lock the main thread on parse + GPU upload (browser
+    # tab freeze). lod1 is now the leaf (50% mesh decimation, 21 MB) — enough
+    # detail for in-map browsing. The lod0.glb file is still produced and stays
+    # on skystore; for inspection-grade detail use the OpenSky Dashboard's
+    # dedicated 3D viewer (`frontend/components/OpenSky/ModelViewer3D.vue`).
     return {
-        "asset": {"version": "1.1", "generator": "parahub-opensky"},
+        "asset": {
+            "version": "1.1",
+            "generator": "parahub-opensky",
+            # ODM produces meshes in Z-up local frame (ENU). Default 3D Tiles
+            # interpretation is Y-up which would tilt the model 90° around X.
+            # loaders.gl reads this from `tileset.asset.gltfUpAxis` (NOT from
+            # loadOptions — that's a no-op).
+            "gltfUpAxis": "Z",
+        },
         "geometricError": GEOMETRIC_ERRORS['root'],
         "root": {
-            "boundingVolume": {"region": region},
+            "boundingVolume": bv,
             "geometricError": GEOMETRIC_ERRORS['root'],
             "refine": "REPLACE",
             "transform": transform,
             "children": [
                 {
+                    "boundingVolume": bv,
                     "geometricError": GEOMETRIC_ERRORS['lod3'],
                     "content": {"uri": "lod3.glb"},
                     "children": [
                         {
+                            "boundingVolume": bv,
                             "geometricError": GEOMETRIC_ERRORS['lod2'],
                             "content": {"uri": "lod2.glb"},
                             "children": [
                                 {
+                                    "boundingVolume": bv,
                                     "geometricError": GEOMETRIC_ERRORS['lod1'],
                                     "content": {"uri": "lod1.glb"},
-                                    "children": [
-                                        {
-                                            "geometricError": GEOMETRIC_ERRORS['lod0'],
-                                            "content": {"uri": "lod0.glb"},
-                                        }
-                                    ]
                                 }
                             ]
                         }
@@ -269,14 +333,21 @@ def generate_mission_tileset(mission) -> dict:
     }
 
 
-def regenerate_root_tileset():
-    """Regenerate /skystore/opensky-3dtiles/tileset.json from all MESH_READY missions."""
+def regenerate_root_tileset(exclude_id: str = None):
+    """Regenerate /skystore/opensky-3dtiles/tileset.json from all MESH_READY missions.
+
+    `exclude_id` lets callers (e.g. delete_skystore_mission_files) skip a mission
+    that's about to be removed from DB but is still present at the moment of the
+    call. Without it, the regenerated root would still link the doomed child.
+    """
     from geo.models import OpenSkyMission
 
     missions = OpenSkyMission.objects.filter(
         mesh_status=OpenSkyMission.MeshStatus.MESH_READY,
         area__isnull=False,
     )
+    if exclude_id:
+        missions = missions.exclude(id=exclude_id)
     if not missions.exists():
         logger.info("No MESH_READY missions with area — removing root tileset")
         try:
@@ -294,13 +365,13 @@ def regenerate_root_tileset():
             min(c[1] for c in coords) * math.pi / 180,
             max(c[0] for c in coords) * math.pi / 180,
             max(c[1] for c in coords) * math.pi / 180,
-            0, 200,
+            -200, 2000,  # Wide altitude bounds — see generate_mission_tileset()
         ]
         all_regions.append(region)
         children.append({
             "boundingVolume": {"region": region},
             "geometricError": GEOMETRIC_ERRORS['root'],
-            "content": {"uri": f"missions/{m.id}/tileset.json"},
+            "content": {"uri": f"missions/{m.id}/tileset.json?v={TILESET_SCHEMA_VERSION}"},
         })
 
     global_region = [
@@ -312,7 +383,15 @@ def regenerate_root_tileset():
     ]
 
     tileset = {
-        "asset": {"version": "1.1", "generator": "parahub-opensky"},
+        "asset": {
+            "version": "1.1",
+            "generator": "parahub-opensky",
+            # loaders.gl reads `asset.gltfUpAxis` from the ROOT tileset only
+            # (via get3dTilesOptions(this.tileset.tileset)). MUST be set here
+            # too, not just on per-mission sub-tilesets, otherwise meshes are
+            # rotated 90° around X (Y-up default).
+            "gltfUpAxis": "Z",
+        },
         "geometricError": 500,
         "root": {
             "boundingVolume": {"region": global_region},
@@ -323,9 +402,11 @@ def regenerate_root_tileset():
     }
 
     # Write to temp file and upload to skystore
+    # NamedTemporaryFile defaults to mode 600 — chmod 644 so nginx (www-data) can read.
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(tileset, f, indent=2)
         tmp_path = f.name
+    os.chmod(tmp_path, 0o644)
 
     try:
         _skystore_ssh(f"mkdir -p {SKYSTORE_3DTILES}")
@@ -333,6 +414,32 @@ def regenerate_root_tileset():
         logger.info(f"Root tileset regenerated with {len(children)} mission(s)")
     finally:
         os.unlink(tmp_path)
+
+
+def regenerate_mission_tileset(mission) -> bool:
+    """Regenerate ONLY the per-mission tileset.json (no LOD GLB rebuild).
+
+    Use after a tileset schema change (e.g. dropping lod0 from the LOD chain)
+    when the GLB files on skystore are still valid and only the index needs
+    updating. Avoids the 30-min ODM/decimation pipeline.
+    """
+    try:
+        tileset = generate_mission_tileset(mission)
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(tileset, f, indent=2)
+            tmp_path = f.name
+        os.chmod(tmp_path, 0o644)
+        try:
+            remote = f"{SKYSTORE_3DTILES}/missions/{mission.id}/tileset.json"
+            _skystore_ssh(f"mkdir -p {SKYSTORE_3DTILES}/missions/{mission.id}")
+            _skystore_rsync(tmp_path, remote)
+            logger.info(f"Per-mission tileset regenerated for {mission.id}")
+            return True
+        finally:
+            os.unlink(tmp_path)
+    except Exception as e:
+        logger.error(f"Per-mission tileset regen failed for {mission.id}: {e}", exc_info=True)
+        return False
 
 
 def generate_3d_tiles_for_mission(mission, glb_path: str = None) -> bool:

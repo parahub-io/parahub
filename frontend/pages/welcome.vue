@@ -1,6 +1,7 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-secondary to-primary">
     <div class="bg-neutral-100/95 backdrop-blur-sm rounded-2xl p-8 w-full max-w-lg">
+      <img src="/images/para/welcome.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
       <h1 class="text-3xl font-bold text-center mb-2">Welcome to Parahub!</h1>
       <p class="text-center text-neutral-600 mb-8">Your account has been created successfully</p>
       
@@ -68,41 +69,29 @@
         </button>
       </div>
       
-      <div v-else class="text-center">
-        <p class="text-neutral-600">Loading your credentials...</p>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref } from 'vue'
 
-const router = useRouter()
 const localePath = useLocalePath()
-const credentials = ref(null)
 const showPassword = ref(false)
 const copiedText = ref('')
 
-onMounted(async () => {
-  // Fetch generated credentials from backend session
-  try {
-    const response = await $fetch('/api/v1/auth/generated-credentials/', {
-      credentials: 'include'
-    })
-    
-    if (response.hna && response.password) {
-      credentials.value = response
-    } else {
-      // No credentials found, redirect to home
-      await navigateTo(localePath('/'))
-    }
-  } catch (error) {
-    console.error('Failed to fetch credentials:', error)
-    await navigateTo(localePath('/'))
-  }
-})
+// SSR-aware credential fetch: if no pending credentials, redirect before render.
+// Prevents a brief flash of the welcome hero for users visiting /welcome directly.
+const { data: credentials } = await useAsyncData('welcome-credentials', () =>
+  $fetch('/api/v1/auth/generated-credentials/', {
+    credentials: 'include',
+    headers: useRequestHeaders(['cookie']),
+  }).catch(() => null)
+)
+
+if (!credentials.value?.hna || !credentials.value?.password) {
+  await navigateTo(localePath('/profile'))
+}
 
 const copyToClipboard = async (text, label) => {
   try {

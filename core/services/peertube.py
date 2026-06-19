@@ -1,5 +1,7 @@
 """PeerTube API client for server-to-server integration."""
 import logging
+from urllib.parse import urlparse
+
 import requests
 from django.conf import settings
 
@@ -7,6 +9,16 @@ logger = logging.getLogger(__name__)
 
 PEERTUBE_URL = getattr(settings, 'PEERTUBE_URL', 'https://video.parahub.io')
 PEERTUBE_INTERNAL_URL = getattr(settings, 'PEERTUBE_INTERNAL_URL', 'http://127.0.0.1:9000')
+
+# PeerTube validates the Host header against `webserver.hostname` from production.yaml
+# and returns 403 on /api/v1/oauth-clients/local (and others) if it doesn't match.
+# Hitting PEERTUBE_INTERNAL_URL directly (docker-proxy on 127.0.0.1:9000 — bypasses Nginx)
+# makes Python requests set Host: 127.0.0.1:9000, which PeerTube rejects.
+# Force the public hostname on every internal call via a session-level header.
+PEERTUBE_HOST = urlparse(PEERTUBE_URL).netloc
+
+_session = requests.Session()
+_session.headers.update({'Host': PEERTUBE_HOST})
 
 
 def get_admin_token():
@@ -19,11 +31,11 @@ def get_admin_token():
         return token
 
     try:
-        resp = requests.get(f'{PEERTUBE_INTERNAL_URL}/api/v1/oauth-clients/local', timeout=5)
+        resp = _session.get(f'{PEERTUBE_INTERNAL_URL}/api/v1/oauth-clients/local', timeout=5)
         resp.raise_for_status()
         client = resp.json()
 
-        resp = requests.post(f'{PEERTUBE_INTERNAL_URL}/api/v1/users/token', data={
+        resp = _session.post(f'{PEERTUBE_INTERNAL_URL}/api/v1/users/token', data={
             'client_id': client['client_id'],
             'client_secret': client['client_secret'],
             'grant_type': 'password',
@@ -53,7 +65,7 @@ def _get_admin_password():
 def get_video(peertube_uuid: str) -> dict | None:
     """Fetch video metadata from PeerTube by UUID."""
     try:
-        resp = requests.get(
+        resp = _session.get(
             f'{PEERTUBE_INTERNAL_URL}/api/v1/videos/{peertube_uuid}',
             timeout=10,
         )
@@ -133,7 +145,7 @@ def delete_video(peertube_uuid: str) -> bool:
     if not token:
         return False
     try:
-        resp = requests.delete(
+        resp = _session.delete(
             f'{PEERTUBE_INTERNAL_URL}/api/v1/videos/{peertube_uuid}',
             headers={'Authorization': f'Bearer {token}'},
             timeout=10,
@@ -154,8 +166,8 @@ def get_user_upload_config(profile) -> dict | None:
         return None
 
     try:
-        # Find PeerTube user by username (matches profile.local_name via OIDC)
-        resp = requests.get(
+        # Find PeerTube user by username (matches profile.local_name via OIDC) for quota info.
+        resp = _session.get(
             f'{PEERTUBE_INTERNAL_URL}/api/v1/users',
             params={'search': profile.local_name, 'count': 1},
             headers={'Authorization': f'Bearer {token}'},
@@ -169,8 +181,15 @@ def get_user_upload_config(profile) -> dict | None:
 
         pt_user = users[0]
 
-        # Get user's default channel
-        channels = pt_user.get('videoChannels', [])
+        # PeerTube's /users endpoint returns videoChannels=[] for everyone except /users/me,
+        # so fetch channels separately via the public account endpoint.
+        ch_resp = _session.get(
+            f'{PEERTUBE_INTERNAL_URL}/api/v1/accounts/{profile.local_name}/video-channels',
+            params={'count': 1, 'sort': 'createdAt'},
+            timeout=5,
+        )
+        ch_resp.raise_for_status()
+        channels = ch_resp.json().get('data', [])
         channel_id = channels[0]['id'] if channels else None
         channel_name = channels[0]['name'] if channels else None
 

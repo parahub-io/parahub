@@ -17,7 +17,6 @@
     "landing_title": "Gestão de condomínios gratuita",
     "landing_subtitle": "Open-source, moderno e gratuito — para sempre",
     "landing_meta": "Gestão de condomínios gratuita e open-source — assembleias digitais, quotas, orçamento com auditoria Merkle. Conforme Lei 8/2022.",
-
     "meta_create_title": "Criar Condomínio Gratuito — Parahub",
     "meta_create_desc": "Registe o seu condomínio online gratuitamente. Assembleias digitais, votação ponderada por permilagem, gestão de quotas — tudo em conformidade com a Lei 8/2022.",
     "meta_fractions_title": "Frações do Condomínio — Parahub",
@@ -28,7 +27,6 @@
     "meta_assembly_desc": "Criar assembleia de condomínio com votação digital ponderada por permilagem, em conformidade com a Lei 8/2022.",
     "meta_invite_title": "Convite de Condomínio — Parahub",
     "meta_invite_desc": "Aceitar convite para aderir ao seu condomínio na plataforma Parahub — gestão gratuita e transparente.",
-
     "address_placeholder": "Pesquisar morada (rua, cidade...)",
     "step_address": "Morada",
     "step_info": "Informação",
@@ -37,7 +35,6 @@
     "back": "Voltar",
     "create": "Criar Condomínio",
     "creating": "A criar...",
-
     "name": "Nome do condomínio",
     "name_placeholder": "ex: Condomínio Rua Augusta 10",
     "nif": "NIF/NIPC",
@@ -46,7 +43,6 @@
     "description_placeholder": "Breve descrição do condomínio",
     "regulamento": "Regulamento interno",
     "regulamento_placeholder": "Cole aqui o texto do regulamento (opcional)",
-
     "fractions_title": "Frações",
     "fractions_subtitle": "Adicione todas as frações. O total de permilagem deve ser igual a 1000.",
     "add_fraction": "Adicionar Fração",
@@ -56,18 +52,16 @@
     "floor_placeholder": "1",
     "type": "Tipo",
     "permilagem": "Permilagem",
-    "permilagem_help": "Quota-parte em \u2030 (por mil)",
+    "permilagem_help": "Quota-parte em ‰ (por mil)",
     "total_permilagem": "Total",
     "remove_fraction": "Remover",
     "description_fraction": "Descrição",
     "description_fraction_placeholder": "ex: T2 3.º andar",
-
     "type_apartment": "Apartamento",
     "type_garage": "Garagem",
     "type_storage": "Arrecadação",
     "type_commercial": "Loja",
     "type_other": "Outro",
-
     "fractions_tab": "Frações",
     "quotas_tab": "Quotas",
     "assembly_tab": "Assembleia",
@@ -83,7 +77,6 @@
     "invite_link": "Link de convite",
     "invite_copied": "Link copiado!",
     "invite_generate": "Gerar link de convite",
-
     "quotas_title": "Quotas Mensais",
     "month_select": "Mês",
     "expected": "Previsto",
@@ -106,7 +99,6 @@
     "delinquency_alert": "{count} fração(ões) com 2+ meses em atraso",
     "months_unpaid": "{count} meses em atraso",
     "fractions_paid_summary": "{paid}/{total} frações pagas",
-
     "assembly_title": "Criar Assembleia",
     "assembly_subtitle": "Criar uma votação ponderada para assembleia de condomínio",
     "poll_title": "Assunto",
@@ -122,7 +114,6 @@
     "quorum_unanimity": "Unanimidade (100%)",
     "ends_at": "Votação termina",
     "create_assembly": "Criar Assembleia",
-
     "assembly_history": "Assembleias",
     "empty_assemblies": "Ainda sem assembleias",
     "empty_assemblies_subtitle": "Crie a primeira votação de assembleia abaixo.",
@@ -133,8 +124,7 @@
     "assembly_status_cancelled": "Cancelada",
     "quorum_reached": "Quórum atingido",
     "quorum_not_reached": "Quórum não atingido",
-    "assembly_weight_info": "Cada voto é ponderado pela permilagem da fração do condómino (quota-parte em \u2030). O resultado reflete a proporção de propriedade, não apenas o número de votantes.",
-
+    "assembly_weight_info": "Cada voto é ponderado pela permilagem da fração do condómino (quota-parte em ‰). O resultado reflete a proporção de propriedade, não apenas o número de votantes.",
     "invite_accept_title": "Convite de Condomínio",
     "invite_accept_subtitle": "Foi convidado para participar em:",
     "invite_fraction": "Fração",
@@ -144,7 +134,6 @@
     "invite_success": "Adesão com sucesso!",
     "invite_error": "Link de convite inválido ou expirado",
     "invite_already_assigned": "Esta fração já tem um residente",
-
     "landing_hero_title": "Gestão moderna de condomínios — gratuita e open-source",
     "landing_hero_subtitle": "Assembleias digitais, votação ponderada, orçamento transparente e energia comunitária — tudo em conformidade com a Lei 8/2022",
     "landing_hero_cta": "Criar o seu condomínio",
@@ -174,6 +163,25 @@
     "landing_how_2": "Convide residentes via links seguros",
     "landing_how_3": "Comece a votar, gerir orçamento e quotas",
     "landing_free_title": "Gratuito para sempre",
-    "landing_free_desc": "Parahub é infraestrutura cívica. A gestão de condomínios não devia custar dinheiro — ao contrário das empresas tradicionais, não cobramos nada."
+    "landing_free_desc": "Parahub é infraestrutura cívica. A gestão de condomínios não devia custar dinheiro — ao contrário das empresas tradicionais, não cobramos nada.",
+    "overview_tab": "Visão geral",
+    "meta_overview_title": "Visão geral do condomínio — Parahub",
+    "meta_overview_desc": "Painel do condomínio — orçamento, estado de pagamentos, próximas assembleias.",
+    "overview_current_month_title": "Pagamentos de {month}",
+    "overview_view_quotas": "Ver quotas",
+    "overview_budget_title": "Orçamento {year}",
+    "overview_view_treasury": "Tesouraria",
+    "overview_next_assembly_title": "Próxima assembleia",
+    "overview_view_all_assemblies": "Todas as assembleias",
+    "overview_ends": "Termina {time}",
+    "overview_no_assembly": "Sem assembleia marcada",
+    "overview_create_assembly": "Criar assembleia",
+    "overview_set_budget": "Definir orçamento",
+    "overview_empty_title": "O seu condomínio está pronto",
+    "overview_empty_subtitle": "Defina um orçamento mensal para acompanhar quotas, ou crie a primeira assembleia.",
+    "stat_fractions": "Frações",
+    "stat_monthly_budget": "Mensal",
+    "stat_collection_rate": "Cobrado",
+    "stat_outstanding": "Em dívida"
   }
 }

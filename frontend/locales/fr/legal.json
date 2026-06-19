@@ -154,6 +154,10 @@
           "title": "Contenu et interactions",
           "text": "L'Utilisateur assume l'entière responsabilité de tout le contenu qu'il publie, transmet ou reçoit via le Service, ainsi que de toutes ses interactions avec d'autres utilisateurs."
         },
+        "imagery": {
+          "title": "Licence des images aériennes (OpenSky)",
+          "text": "Les images que vous téléversez vers la couche aérienne OpenSky — ainsi que les orthophotos, maillages 3D et tuiles cartographiques qui en sont dérivés — sont publiées sous la licence Creative Commons Attribution-Partage dans les Mêmes Conditions 4.0 International (CC BY-SA 4.0). En les téléversant, vous confirmez être l'auteur ou détenir les droits nécessaires, et vous accordez à l'Opérateur et au réseau fédéré Parahub une licence non exclusive, irrévocable et mondiale pour héberger, traiter, publier et redistribuer ces images selon ces conditions. Vous restez seul responsable du respect des lois applicables sur la protection des données (y compris le RGPD) et de la réglementation aérienne/drones (telle que l'ANAC au Portugal), et vous ne devez pas téléverser d'images portant atteinte aux droits ou à la vie privée d'autrui."
+        },
         "compliance": {
           "title": "Conformité légale",
           "text": "L'Utilisateur accepte d'utiliser le Service en stricte conformité avec les lois applicables de sa juridiction et de la juridiction de l'Opérateur."
@@ -1042,6 +1046,17 @@
       "total_sats": "sats donnés",
       "total_donations": "dons",
       "supporters": "soutiens"
+    },
+    "services": {
+      "title": "Services de la Plateforme",
+      "video": "Vidéo",
+      "video_desc": "Hébergement et streaming vidéo",
+      "git": "Projets",
+      "git_desc": "Dépôts de code et collaboration",
+      "chat": "Chat",
+      "chat_desc": "Messagerie chiffrée via Matrix",
+      "status": "État",
+      "status_desc": "Surveillance de la disponibilité"
     }
   }
 }

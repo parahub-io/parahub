@@ -308,7 +308,10 @@ class AgentVoiceConsumer(AsyncWebsocketConsumer):
             return
 
         self._processing = True
+        stage = 'stt'
         try:
+            from agents.voice_pipeline import EmptyTranscription
+
             # STT
             user_text = await self.pipeline.transcribe(audio_bytes, content_type='audio/webm')
             await self._send_status('transcript', text=user_text)
@@ -317,6 +320,7 @@ class AgentVoiceConsumer(AsyncWebsocketConsumer):
             self.pipeline._ensure_system_prompt_file()
 
             # Run filler sequence and main response in parallel
+            stage = 'think'
             main_task = asyncio.create_task(self._main_response(user_text))
             filler_task = asyncio.create_task(self._filler_sequence(user_text, main_task))
 
@@ -343,9 +347,20 @@ class AgentVoiceConsumer(AsyncWebsocketConsumer):
             await self._send_json({'type': 'done'})
             # Track cost for full turn (STT + LLM + TTS)
             await self._track_cost(COST_PER_TURN_MILLICENTS)
+        except EmptyTranscription:
+            logger.info(f"Empty transcription for {self.agent_name} (quiet/noisy audio)")
+            await self._send_json({'type': 'error', 'message': 'Could not understand audio. Please speak clearly and try again.'})
         except Exception as e:
-            logger.exception(f"Voice pipeline error for {self.agent_name}")
-            await self._send_json({'type': 'error', 'message': 'Voice processing failed. Please try again.'})
+            err_str = str(e)
+            if stage == 'stt':
+                logger.exception(f"STT failed for {self.agent_name}")
+                await self._send_json({'type': 'error', 'message': 'Speech recognition failed. Please try again.'})
+            elif 'TTS' in err_str or 'TTS' in type(e).__name__:
+                logger.exception(f"TTS failed for {self.agent_name}")
+                await self._send_json({'type': 'error', 'message': 'Voice synthesis failed. Please try again.'})
+            else:
+                logger.exception(f"Voice pipeline error ({stage}) for {self.agent_name}")
+                await self._send_json({'type': 'error', 'message': 'Voice processing failed. Please try again.'})
         finally:
             self._processing = False
 

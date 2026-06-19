@@ -14,7 +14,7 @@
           <div class="text-sm font-medium text-neutral-700 dark:text-neutral-300">
             {{ $t('market.create_modal.pricing_option_number', { number: index + 1 }) }}
           </div>
-          <UiButton variant="ghost" :icon="X" icon-only size="sm" class="text-error hover:bg-error/10" :aria-label="$t('common.remove')" @click="removePricingOption(index)" />
+          <UiButton type="button" variant="ghost" :icon="X" icon-only size="sm" class="text-error hover:bg-error/10" :aria-label="$t('common.remove')" @click="removePricingOption(index)" />
         </div>
 
         <!-- Type selector -->
