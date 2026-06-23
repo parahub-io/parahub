@@ -32,7 +32,7 @@ python-gnupg==0.5.6  # Replaced pgpy (doesn't support SHA-256)
 django-prometheus==2.5.0
 
 # Additional security & validation
-pydantic-settings==2.14.1
+pydantic-settings==2.14.2
 
 # Social authentication providers
 django-allauth[socialaccount]==65.18.0
