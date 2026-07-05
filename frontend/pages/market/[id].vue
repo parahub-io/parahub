@@ -48,9 +48,9 @@ const error = computed(() => {
 })
 
 // Videos (PeerTube/ObjectVideo) attached to this listing. Fetched alongside the
-// item — during SSR too — so they slot INTO the media gallery (Steam-style: a
-// video sits in the thumbnail strip with a play badge and plays in the main
-// stage when picked) instead of stacking in a separate block below it.
+// item — during SSR too — so they slot INTO the media gallery: a video sits
+// in the thumbnail strip with a play badge and plays in the main stage when
+// picked, instead of stacking in a separate block below it.
 const { data: videoData, refresh: refreshVideos } = await useAsyncData(
   `item-videos-${itemId.value}`,
   () => {
@@ -635,9 +635,9 @@ useHead({
     <!-- Item Content -->
     <div v-else-if="item" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div class="card rounded-xl overflow-hidden">
-        <!-- Media gallery (Steam-style): videos + photos in one strip. A video
-             sits among the thumbnails with a play badge; picking it plays inline
-             in the main stage. -->
+        <!-- Media gallery: videos + photos in one strip. A video sits among
+             the thumbnails with a play badge; picking it plays inline in the
+             main stage. -->
         <div v-if="mediaItems.length > 0" class="relative" @pointerdown="stopShowcase">
           <!-- Main stage -->
           <div ref="stageRef" class="aspect-video bg-neutral-100 dark:bg-neutral-700 relative">
@@ -737,7 +737,7 @@ useHead({
               <span v-else class="w-full h-full flex items-center justify-center bg-neutral-200 dark:bg-neutral-700">
                 <Play :size="16" class="text-neutral-500" />
               </span>
-              <!-- Video badges: play glyph + duration (Steam-style) -->
+              <!-- Video badges: play glyph + duration -->
               <template v-if="m.kind === 'video'">
                 <span class="absolute inset-0 flex items-center justify-center bg-black/30">
                   <Play :size="18" class="text-white fill-white drop-shadow" />
