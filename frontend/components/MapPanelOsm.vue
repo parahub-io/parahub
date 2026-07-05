@@ -451,6 +451,7 @@ import MapFeatureActivity from '~/components/MapFeatureActivity.vue'
 import { checkIsOpen } from '~/composables/useOpeningHours'
 
 const router = useRouter()
+const route = useRoute()
 const localePath = useLocalePath()
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -469,6 +470,7 @@ const emit = defineEmits<{
   (e: 'update:title', title: string): void
   (e: 'update:subtitle', subtitle: string): void
   (e: 'update:has-selected-establishment', val: boolean): void
+  (e: 'update:back-to-page', val: boolean): void
 }>()
 
 // ======== State ========
@@ -481,6 +483,10 @@ const loadingOsmData = ref(false)
 const establishments = ref<any[]>([])
 const loadingEstablishments = ref(false)
 const selectedEstablishment = ref<any>(null)
+// True when this establishment was opened by deep-link (e.g. an org page's
+// mini-map), not by the user drilling into the building's tenant list. In that
+// case "back" returns to where they came from, not to the unrelated tenant list.
+const establishmentOpenedViaDeepLink = ref(false)
 const activeTab = ref('info')
 const panelLightboxOpen = ref(false)
 const panelLightboxIdx = ref(0)
@@ -707,6 +713,12 @@ watch(featureTitle, (val) => emit('update:title', val), { immediate: true })
 watch(featureType, (val) => emit('update:subtitle', val), { immediate: true })
 watch(selectedEstablishment, (val) => emit('update:has-selected-establishment', !!val), { immediate: true })
 
+// "Back" from the establishment detail leaves the map (returns to the origin
+// page) when deep-linked, vs. returning to the building's tenant list otherwise.
+// The orchestrator's header uses this to pick the right label.
+const backTargetIsPage = computed(() => establishmentOpenedViaDeepLink.value && !!route.query.returnTo)
+watch(backTargetIsPage, (val) => emit('update:back-to-page', val), { immediate: true })
+
 // ======== Readable properties ========
 
 const readableProperties = computed(() => {
@@ -830,7 +842,7 @@ async function fetchEstablishments(lat: number, lon: number) {
       establishments.value = data.items
       if ((window as any)._pendingEstablishmentId) {
         const estId = (window as any)._pendingEstablishmentId
-        setTimeout(() => { showEstablishmentDetails(estId); delete (window as any)._pendingEstablishmentId }, 100)
+        setTimeout(() => { showEstablishmentDetails(estId, true); delete (window as any)._pendingEstablishmentId }, 100)
       }
     }
   } catch (error) {
@@ -856,8 +868,18 @@ async function fetchComments(objectId: string) {
 }
 
 async function fetchWorldObjectContracts(objectId: string) {
-  try { featureContracts.value = await $fetch(`/api/v1/geo/world-objects/${objectId}/contracts/`) }
-  catch { featureContracts.value = [] }
+  // Contracts are private to their parties — send the token so a party sees
+  // their own; anonymous/non-party viewers get an empty list from the backend.
+  try {
+    const headers: Record<string, string> = {}
+    if (authStore.isAuthenticated) {
+      await authStore.ensureToken()
+      if (authStore.token) headers['Authorization'] = `Bearer ${authStore.token}`
+    }
+    featureContracts.value = await $fetch(`/api/v1/geo/world-objects/${objectId}/contracts/`, {
+      credentials: 'include', headers,
+    })
+  } catch { featureContracts.value = [] }
 }
 
 // ======== Actions ========
@@ -958,15 +980,24 @@ async function onFeatureImageUpload(file: File) {
 
 // ======== Establishments CRUD ========
 
-const showEstablishmentDetails = async (id: string) => {
+const showEstablishmentDetails = async (id: string, viaDeepLink = false) => {
   try {
     selectedEstablishment.value = await $fetch(`/api/v1/geo/establishments/${id}/`)
+    establishmentOpenedViaDeepLink.value = viaDeepLink
     emit('establishment-selected', id)
   } catch (error) { console.error('Error loading establishment:', error) }
 }
 
 function backToList() {
+  // Deep-linked straight to one org (e.g. its page's mini-map): "back" returns
+  // to the originating page rather than revealing the building's tenant list,
+  // which the user never browsed.
+  if (establishmentOpenedViaDeepLink.value && route.query.returnTo) {
+    navigateTo(localePath(route.query.returnTo as string))
+    return
+  }
   selectedEstablishment.value = null
+  establishmentOpenedViaDeepLink.value = false
   activeTab.value = 'info'
   emit('establishment-selected', null)
 }
@@ -1059,6 +1090,7 @@ watch(() => [props.feature, props.clickCoordinates] as const, ([newFeature, coor
   osmData.value = null
   establishments.value = []
   selectedEstablishment.value = null
+  establishmentOpenedViaDeepLink.value = false
   activeTab.value = 'info'
   featureImageUrlOverride.value = null
   featurePhotoUrl.value = null
@@ -1071,7 +1103,10 @@ watch(() => [props.feature, props.clickCoordinates] as const, ([newFeature, coor
 
   if (!newFeature) return
 
-  if (coords?.lat && coords?.lng && newFeature?.sourceLayer === 'building') {
+  // Normally only buildings carry establishments; but a deep-link (e.g. org page
+  // "View on map") sets _pendingEstablishmentId and may land on any feature — fetch
+  // anyway so the requested org panel opens reliably.
+  if (coords?.lat && coords?.lng && (newFeature?.sourceLayer === 'building' || (window as any)._pendingEstablishmentId)) {
     fetchEstablishments(coords.lat, coords.lng)
   }
 

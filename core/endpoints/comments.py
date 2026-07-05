@@ -42,13 +42,24 @@ def create_comment(request, data: CommentInput):
     if not text or len(text) > 2000:
         return 400, {"error": "Text must be 1-2000 characters"}
 
+    # Civic opinion polls: comments only at local scopes (municipality/parish) —
+    # country/region political polls stay commentless (PK/civic-polls-system.md, U4)
+    from governance.models import Poll, PollContext
+    target_poll = Poll.objects.filter(id=data.object_id).select_related('context').first()
+    if target_poll and target_poll.poll_class == Poll.PollClass.OPINION:
+        if target_poll.context.context_type == PollContext.ContextType.TERRITORY:
+            from geo.models import Territory
+            territory = Territory.objects.filter(id=target_poll.context.context_id).first()
+            if territory and territory.level in ('country', 'region'):
+                return 400, {"error": "Comments are disabled for country/region opinion polls"}
+
     comment = ObjectComment.objects.create(
         object_id=data.object_id,
         author=request.auth,
         text=text,
     )
 
-    return 201, _format(comment, request.auth)
+    return 201, _format(comment, request.auth, viewer=request.auth)
 
 
 @router.get("/", auth=None, response=List[CommentResponse])
@@ -84,7 +95,7 @@ def delete_comment(request, comment_id: str):
     return 200, {"success": True}
 
 
-def _format(comment, author_profile=None) -> CommentResponse:
+def _format(comment, author_profile=None, viewer=None) -> CommentResponse:
     author = author_profile or getattr(comment, 'author', None)
     return CommentResponse(
         id=comment.id,
@@ -92,6 +103,6 @@ def _format(comment, author_profile=None) -> CommentResponse:
         text=comment.text,
         author_id=comment.author_id,
         author_name=author.local_name if author else "",
-        author_display_name=author.display_name if author else "",
+        author_display_name=author.display_name if author and author.name_visible_to(viewer) else "",
         created_at=comment.created_at,
     )

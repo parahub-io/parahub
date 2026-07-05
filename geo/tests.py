@@ -431,6 +431,64 @@ class EstablishmentDetailTest(TestCase):
         self.assertEqual(response.world_object.city, 'Lisboa')
 
 
+class EstablishmentLogoTest(TestCase):
+    """Logo upload / replace / remove — owner-gated, persists logo_url."""
+
+    def setUp(self):
+        self.instance = _create_instance()
+        self.account = _create_account(self.instance, 'alice')
+        self.profile = _create_profile(self.account, self.instance)
+        self.other_account = _create_account(self.instance, 'bob')
+        self.other_profile = _create_profile(self.other_account, self.instance)
+        self.establishment = _create_establishment(
+            self.profile, _create_building(), name='Logo Co', slug='logo-co')
+        self.factory = RequestFactory()
+        from geo.endpoints.buildings import _delete_logo_files
+        self.addCleanup(_delete_logo_files, self.establishment.id)
+
+    def _png(self):
+        from io import BytesIO
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        buf = BytesIO()
+        Image.new('RGB', (24, 24), 'red').save(buf, 'PNG')
+        return SimpleUploadedFile('logo.png', buf.getvalue(), content_type='image/png')
+
+    def test_owner_upload_sets_logo_url(self):
+        from geo.endpoints.buildings import upload_establishment_logo
+        from django.core.files.storage import default_storage
+        from django.conf import settings
+        status, body = upload_establishment_logo(
+            _make_auth_request(self.factory, self.account, self.profile, 'post'),
+            self.establishment.id, self._png())
+        self.assertEqual(status, 200)
+        self.assertTrue(body.logo_url)
+        self.establishment.refresh_from_db()
+        self.assertEqual(self.establishment.logo_url, body.logo_url)
+        rel = body.logo_url.replace(settings.MEDIA_URL, '', 1)
+        self.assertTrue(default_storage.exists(rel))
+
+    def test_non_owner_cannot_upload(self):
+        from geo.endpoints.buildings import upload_establishment_logo
+        status, body = upload_establishment_logo(
+            _make_auth_request(self.factory, self.other_account, self.other_profile, 'post'),
+            self.establishment.id, self._png())
+        self.assertEqual(status, 403)
+        self.establishment.refresh_from_db()
+        self.assertEqual(self.establishment.logo_url, '')
+
+    def test_owner_delete_clears_logo(self):
+        from geo.endpoints.buildings import upload_establishment_logo, delete_establishment_logo
+        upload_establishment_logo(
+            _make_auth_request(self.factory, self.account, self.profile, 'post'),
+            self.establishment.id, self._png())
+        delete_establishment_logo(
+            _make_auth_request(self.factory, self.account, self.profile, 'delete'),
+            self.establishment.id)
+        self.establishment.refresh_from_db()
+        self.assertEqual(self.establishment.logo_url, '')
+
+
 class EstablishmentUpdateTest(TestCase):
     """Test establishment update: owner-only access."""
 
@@ -1402,6 +1460,100 @@ class MyPostableTest(TestCase):
         request = _make_auth_request(self.factory, self.account, self.profile)
         response = my_postable_establishments(request)
         self.assertEqual(len(response), 0)
+
+
+# ===========================================================================
+# My Organizations (/establishments/mine/)
+# ===========================================================================
+
+class MyEstablishmentsTest(TestCase):
+    """Test the /mine/ endpoint backing the standalone 'My organizations' page."""
+
+    def setUp(self):
+        self.instance = _create_instance()
+        self.account = _create_account(self.instance, 'alice')
+        self.profile = _create_profile(self.account, self.instance)
+        # A separate owner to host orgs the user only participates in.
+        self.host_acc = _create_account(self.instance, 'bob')
+        self.host = _create_profile(self.host_acc, self.instance, local_name='bob')
+        self.factory = RequestFactory()
+
+    def _call(self):
+        from geo.endpoints.buildings import my_establishments
+        request = _make_auth_request(self.factory, self.account, self.profile)
+        return my_establishments(request)
+
+    def test_owned_appears_as_owner(self):
+        """An owned establishment appears tagged OWNER even without a membership row."""
+        _create_establishment(self.profile, slug='owned', name='Owned Co')
+        response = self._call()
+        self.assertEqual(len(response), 1)
+        self.assertEqual(response[0].role, 'OWNER')
+        self.assertEqual(response[0].name, 'Owned Co')
+
+    def test_includes_employee_and_contractor(self):
+        """Unlike /my-postable/, EMPLOYEE/CONTRACTOR affiliations are included."""
+        for i, role in enumerate(['EMPLOYEE', 'CONTRACTOR']):
+            est = _create_establishment(self.host, slug=f'work-{i}', name=f'Work {i}')
+            EstablishmentMembership.objects.create(
+                profile=self.profile, establishment=est, role=role,
+            )
+        response = self._call()
+        self.assertEqual({r.role for r in response}, {'EMPLOYEE', 'CONTRACTOR'})
+
+    def test_surfaces_position_and_flags(self):
+        """position_title, treasurer and auditor flags are surfaced."""
+        est = _create_establishment(self.host, slug='assoc', name='Assoc')
+        EstablishmentMembership.objects.create(
+            profile=self.profile, establishment=est, role='ADMIN',
+            position_title='Vice-Presidente', is_treasurer=True, is_auditor=False,
+        )
+        response = self._call()
+        self.assertEqual(len(response), 1)
+        self.assertEqual(response[0].position_title, 'Vice-Presidente')
+        self.assertTrue(response[0].is_treasurer)
+        self.assertFalse(response[0].is_auditor)
+
+    def test_member_count_populated(self):
+        """member_count reflects all membership rows on the establishment."""
+        est = _create_establishment(self.host, slug='counted', name='Counted')
+        EstablishmentMembership.objects.create(
+            profile=self.profile, establishment=est, role='MEMBER',
+        )
+        EstablishmentMembership.objects.create(
+            profile=self.host, establishment=est, role='OWNER',
+        )
+        response = self._call()
+        self.assertEqual(response[0].member_count, 2)
+
+    def test_sorted_management_first(self):
+        """Results are ordered OWNER/ADMIN before MEMBER before EMPLOYEE/CONTRACTOR."""
+        roles = ['CONTRACTOR', 'OWNER', 'MEMBER', 'ADMIN']
+        for i, role in enumerate(roles):
+            est = _create_establishment(self.host, slug=f'org-{i}', name=f'Org {i}')
+            EstablishmentMembership.objects.create(
+                profile=self.profile, establishment=est, role=role,
+            )
+        response = self._call()
+        self.assertEqual(
+            [r.role for r in response],
+            ['OWNER', 'ADMIN', 'MEMBER', 'CONTRACTOR'],
+        )
+
+    def test_excludes_inactive(self):
+        """Inactive establishments are excluded even when owned."""
+        _create_establishment(self.profile, slug='dead', is_active=False)
+        self.assertEqual(len(self._call()), 0)
+
+    def test_owner_not_duplicated_when_also_member(self):
+        """An owner who also has a membership row appears once, with that row's role."""
+        est = _create_establishment(self.profile, slug='dual', name='Dual')
+        EstablishmentMembership.objects.create(
+            profile=self.profile, establishment=est, role='OWNER',
+        )
+        response = self._call()
+        self.assertEqual(len(response), 1)
+        self.assertEqual(response[0].role, 'OWNER')
 
 
 # ===========================================================================

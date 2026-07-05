@@ -256,7 +256,7 @@
     },
     "responsible": {
       "title": "Responsible for Content",
-      "text": "Parahub - Associação, Portugal"
+      "country": "Portugal"
     },
     "disclaimer": {
       "title": "Disclaimer",
@@ -279,7 +279,6 @@
     }
   },
   "about": {
-    "title": "About",
     "android_app": "Android App",
     "meta": {
       "description": "Parahub — open-source federated platform for P2P cooperation, trade and communications. No fees, no middlemen, client-side encryption."
@@ -453,6 +452,14 @@
       "sos": {
         "title": "ParaSOS",
         "desc": "Neighborhood emergency mutual aid. One-tap SOS alerts to your safety group with push, siren, and location."
+      },
+      "subscriptions": {
+        "title": "Recurring Support",
+        "desc": "Back a profile every month with a fixed Lightning amount. Non-custodial, reminder-driven, no platform cut. Unlocks subscribers-only posts."
+      },
+      "rental": {
+        "title": "Rentals & Booking",
+        "desc": "Make any listing bookable by date range or time slot. Live calendar, never double-booked, instant-confirm or request."
       }
     },
     "principles": {
@@ -762,6 +769,21 @@
       "noEscrow": {
         "title": "Direct payments",
         "text": "Your payment goes directly to the event organizer or transit operator. The platform never holds funds — this is a core principle."
+      },
+      "offline": {
+        "title": "Works offline",
+        "text": "Tickets carry a cryptographically signed QR. Operators can validate them even with no signal — the signature proves a ticket is genuine without a live server check."
+      },
+      "fares": {
+        "title": "Fares & validity",
+        "text": "Operators can offer concession fares (student, senior, child) and set validity windows — single-use, time-limited, or a pass valid across a whole network. Prices can be shown in euros with a live conversion to sats at purchase."
+      },
+      "operator": {
+        "title": "Operator tools",
+        "point1": "A sales dashboard showing tickets sold, revenue, and validations in real time.",
+        "point2": "Network-wide tickets that work across every route of a transit agency, not just one line.",
+        "point3": "Refunds for unused tickets, issued directly back to the buyer.",
+        "point4": "Add trusted staff as operators of your establishment to sell and validate on your behalf."
       }
     },
     "driverMode": {
@@ -965,7 +987,7 @@
         "text": "Every user can generate a PGP keypair directly in the browser. The private key never leaves the device. Contracts and debts are signed with this key before being submitted to the server.",
         "point1": "Private key stays in your browser only",
         "point2": "All contracts and debts carry dual PGP signatures",
-        "point3": "Signatures verifiable against the public keyring at gitea.parahub.io/audit"
+        "point3": "Signatures verifiable against the public keyring at git.parahub.io/audit/parahub-registry"
       },
       "ots": {
         "title": "Bitcoin Anchoring",
@@ -992,6 +1014,25 @@
       "legal": {
         "title": "Legal standing",
         "text": "PGP signatures qualify as Advanced Electronic Signatures (AES) under eIDAS Regulation (EU 910/2014). OpenTimestamps provides cryptographic proof of existence anchored in Bitcoin — accepted by Portuguese courts under Código Civil Art. 363º."
+      },
+      "short": "Verify every contract, debt and key yourself — anchored in Bitcoin, mirrored in public git.",
+      "repo": {
+        "title": "Public audit repository",
+        "text": "The PGP keyring and every OpenTimestamps batch proof are mirrored to a public git repository, so they survive even if parahub.io disappears.",
+        "cta": "Browse the audit repository"
+      },
+      "live": {
+        "title": "Live anchoring status",
+        "keys": "public keys published",
+        "anchored": "proofs anchored",
+        "pending": "awaiting next batch",
+        "confirmed": "Bitcoin-confirmed batches",
+        "latest": "Latest batch",
+        "block": "Bitcoin block {block}",
+        "awaiting": "awaiting Bitcoin confirmation",
+        "commit": "commit {hash}",
+        "none": "No events anchored yet — the keyring is published and anchoring is active for new events.",
+        "disabled": "Anchoring is currently disabled."
       }
     },
     "gettingStarted": {
@@ -1057,6 +1098,130 @@
       "chat_desc": "Encrypted messaging via Matrix",
       "status": "Status",
       "status_desc": "Platform uptime monitoring"
+    },
+    "subscriptionsSystem": {
+      "title": "Recurring Support",
+      "intro": "Support a profile every month with a fixed Lightning amount — a non-custodial, reminder-driven way to back the people and projects you value. The platform never holds funds and takes no cut: every payment goes straight from you to the recipient.",
+      "flow": {
+        "title": "How it works",
+        "step1": "On any profile, tap “Support monthly”, choose an amount, and pay from your Lightning wallet. You become a supporter and the recipient is notified.",
+        "step2": "A few days before your month ends, you get a reminder. One tap re-pays and extends your support — there is never an automatic charge.",
+        "step3": "Don't want to continue? Just don't renew, or cancel anytime. Your access stays until the period you already paid for ends."
+      },
+      "subscribersOnly": {
+        "title": "Subscribers-only content",
+        "text": "Creators can mark blog posts as subscribers-only. The title, preview, and cover stay public as a teaser; the full text unlocks for active supporters. Everyone else sees a “Support to unlock” prompt."
+      },
+      "whyPush": {
+        "title": "Why monthly, not automatic",
+        "text": "Lightning is push, not pull — a non-custodial wallet can never be charged silently. The trade-off is deliberate: no auto-billing means no chargebacks, the recipient keeps ~100%, and your keys never leave your device."
+      },
+      "flatAmount": {
+        "title": "Any amount unlocks",
+        "text": "Support is a flat monthly amount you choose — there are no tiers or per-tier perks. Any active support unlocks the creator's subscribers-only content."
+      },
+      "cancelAnytime": {
+        "title": "Cancel anytime",
+        "text": "Cancelling means “don't renew”, not “revoke now”. You keep access through the period you've already paid for, and the recipient sees their supporter count and your renewal date."
+      },
+      "noCut": {
+        "title": "No escrow, no platform cut",
+        "text": "The platform never holds or routes your money and takes no fee. Each month's payment is a direct Lightning transfer from supporter to recipient — the same no-escrow principle behind every payment on Parahub."
+      }
+    },
+    "rentalSystem": {
+      "title": "Rentals & Booking",
+      "intro": "Rent things by the day or by the slot — bikes, rooms, tools, equipment, studio time. Any marketplace listing can be made bookable, with a live availability calendar that can never be double-booked. Booking is a lightweight layer: most rentals never need a signed contract.",
+      "flow": {
+        "title": "How booking works",
+        "step1": "Browse a rentable listing — anything offered for rent by a person or an organization shows a live availability calendar.",
+        "step2": "Pick a date range (for stays and multi-day rentals) or a time slot (for hourly bookings like a room or a court). Recurring weekly or monthly bookings are supported too.",
+        "step3": "Send your booking. Depending on the owner's settings it's confirmed instantly or sent as a request to approve — and the calendar updates live for everyone."
+      },
+      "noDoubleBooking": {
+        "title": "Never double-booked",
+        "text": "Overlapping bookings are blocked at the database level, not just in the interface. Two people can't grab the same slot in a race, and a cancelled booking frees the slot again immediately."
+      },
+      "twoModes": {
+        "title": "By range or by slot",
+        "text": "Two booking styles: a date range with pickup and return (stays, multi-day gear) or fixed time slots generated from opening hours (a room by the hour, a court, an appointment). Split shifts and lunch gaps are supported."
+      },
+      "recurring": {
+        "title": "Recurring & walk-ins",
+        "text": "Book a slot every week or every month in one go. Owners can also enter a booking by hand for a walk-in client who isn't on Parahub, keeping the calendar accurate."
+      },
+      "ownerControls": {
+        "title": "For owners",
+        "text": "Make any listing bookable: choose range or slots, set opening hours, instant-confirm or approve each request, buffers and how far ahead people can book. A live inbox shows incoming requests with one-tap confirm, complete, or cancel."
+      },
+      "lightweight": {
+        "title": "Lightweight by design",
+        "text": "A booking sits under the heavier signed-contract layer — most rentals stop at a booking and never need more. For high-value rentals you can still formalize the booking into a PGP-signed rental contract. As always, the platform holds no funds and no deposit."
+      }
+    },
+    "directorySystem": {
+      "title": "Business Directory",
+      "intro": "A community map of local businesses, cooperatives, associations, and public services. Click a building on the map to see what's inside, or browse the catalog with search and filters. Anyone can find a place; verified members keep it accurate.",
+      "buildings": {
+        "title": "Buildings & places",
+        "text": "Every listing is tied to a real-world place — a building, a unit, or an online-only organization. One building can hold many establishments, like a shopping center, and places imported from OpenStreetMap can be claimed by their owner."
+      },
+      "orgTypes": {
+        "title": "Companies & organizations",
+        "text": "Companies, NGOs, cooperatives, associations, condominiums, communities, and public bodies. Each type fits its purpose — an association, for example, shows a public board (president, treasurer, auditor) for transparency."
+      },
+      "openNow": {
+        "title": "Open-now hours",
+        "text": "Opening hours show on every listing, with a live badge telling you whether a place is open or closed right now."
+      },
+      "reviews": {
+        "title": "Reviews & ratings",
+        "text": "Verified members can leave star ratings and written reviews. Owners can reply. Average ratings and counts appear on each listing."
+      },
+      "membership": {
+        "title": "Membership",
+        "text": "Organizations can manage members and roles, accept join requests, and designate a treasurer (who receives payments) and an auditor for financial oversight."
+      },
+      "actAs": {
+        "title": "Post as your organization",
+        "text": "Members with posting rights can publish listings, events, and ads on behalf of their organization — and make its items bookable for rent."
+      },
+      "access": {
+        "title": "Who can do what",
+        "text": "Browsing and search are open to everyone, no account needed. Creating a place or organization and writing reviews require a verified profile (Web of Trust). Only owners and admins can edit a listing or manage members."
+      }
+    },
+    "marketplaceSystem": {
+      "title": "Marketplace",
+      "intro": "Parahub's core: a place to offer or request anything — goods, services, skills, or help. No platform fees, no algorithmic ranking, no middleman. Just people trading directly, on a map, in their own language.",
+      "creditDebit": {
+        "title": "Offer or request",
+        "text": "Every listing has a direction. “I'm offering” covers goods, services, skills, or things to give away. “I'm looking for” covers requests, needs, and wanted items — so demand is as visible as supply."
+      },
+      "pricing": {
+        "title": "Sell, rent, or give",
+        "text": "Set a fixed sale price, a rental rate per day or month, or mark it free for the gift economy. A single listing can carry several options at once — sell it, rent it, or give it to neighbors."
+      },
+      "visibility": {
+        "title": "Public or members-only",
+        "text": "Choose who sees each listing: public (visible to everyone, including search engines) or registered-only (visible just to signed-in members). Keep sensitive offers inside the community while public ones reach the whole web."
+      },
+      "selfMade": {
+        "title": "Made by hand",
+        "text": "Mark a listing as self-made to show it's your own craft, produce, or work — not resale. A badge highlights it, and a filter lets buyers find local makers and “your own and nearby” offers."
+      },
+      "matching": {
+        "title": "A needs marketplace",
+        "text": "Categories connect supply and demand automatically. The system suggests requests that match what you offer, and offers that match what you need — turning a catalog into a two-way matching engine."
+      },
+      "barterLink": {
+        "title": "Barter without money",
+        "text": "Don't want to pay cash? Items can join the barter graph, which finds multi-party exchange chains automatically — you give what you have and get what you want, even without a direct match."
+      },
+      "noFees": {
+        "title": "No platform fees",
+        "text": "Parahub never takes a cut of your trade and never holds your money. Payments — in Lightning or any agreed form — go directly between buyer and seller. There is no algorithmic feed deciding who gets seen."
+      }
     }
   }
 }

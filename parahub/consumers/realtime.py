@@ -12,10 +12,12 @@ Map presence stays separate (geo-tile paradigm).
 
 import json
 import logging
+from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from .base import AuthenticatedJsonWebsocketConsumer
 from .deploy_slot import get_deploy_slot
 from .feed_pubsub import FeedPubSubManager
+from parahub.services.presence import PresenceService
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,11 @@ _ROOM_REGISTRY = {
     },
     'parasos': {
         'channel_prefix': 'parasos:',
+    },
+    # Online presence (staff only). room_id is server-derived to the deploy slot,
+    # so the channel is presence:{slot} (no cross-slot leakage on shared Redis).
+    'presence': {
+        'channel_prefix': 'presence:',
     },
 }
 
@@ -96,7 +103,20 @@ class RealtimeConsumer(AuthenticatedJsonWebsocketConsumer):
         await self._feed.subscribe('ads_feed', self._on_ads_feed)
         await self._feed.subscribe('feed:system', self._on_feed_system)
 
+        # Mark this profile online for the staff presence widget
+        if self.profile:
+            meta = await self._presence_meta()
+            await sync_to_async(PresenceService.mark_online)(
+                self._deploy_slot, self.profile.id, meta,
+            )
+
     async def disconnect(self, close_code):
+        # Mark this profile offline (clean disconnect → instant removal)
+        if getattr(self, 'profile', None):
+            await sync_to_async(PresenceService.mark_offline)(
+                self._deploy_slot, self.profile.id,
+            )
+
         # Unsubscribe from personal + global channels
         if hasattr(self, '_feed'):
             await self._feed.unsubscribe(f'user:{self.user.id}', self._on_notification)
@@ -193,6 +213,10 @@ class RealtimeConsumer(AuthenticatedJsonWebsocketConsumer):
             await self.send_error(f'Unknown room type: {room}')
             return
 
+        # Presence is per-slot: ignore the client id, bind to this connection's slot
+        if room == 'presence':
+            room_id = self._deploy_slot
+
         # Permission check
         allowed = await self._check_room_permission(room, room_id)
         if not allowed:
@@ -235,6 +259,9 @@ class RealtimeConsumer(AuthenticatedJsonWebsocketConsumer):
         if not config:
             return
 
+        if room == 'presence':
+            room_id = self._deploy_slot
+
         channel = f"{config['channel_prefix']}{room_id}"
         await self._feed.unsubscribe(channel, self._on_room_event)
 
@@ -248,6 +275,15 @@ class RealtimeConsumer(AuthenticatedJsonWebsocketConsumer):
             'room': room,
             'id': room_id,
         })
+
+    async def handle_heartbeat(self, message):
+        """Refresh presence freshness on every heartbeat (keeps this profile
+        'online' through the window), then respond via the base handler."""
+        await super().handle_heartbeat(message)
+        if getattr(self, 'profile', None):
+            await sync_to_async(PresenceService.touch)(
+                self._deploy_slot, self.profile.id,
+            )
 
     # ------------------------------------------------------------------ #
     #  Redis pub/sub callbacks — forward to WS client
@@ -329,6 +365,9 @@ class RealtimeConsumer(AuthenticatedJsonWebsocketConsumer):
         elif room == 'opensky':
             return True  # Any authenticated user
 
+        elif room == 'presence':
+            return self.user.is_staff
+
         elif room == 'parasos':
             from parasos.models import SafetyGroupMember
             return SafetyGroupMember.objects.filter(
@@ -367,5 +406,20 @@ class RealtimeConsumer(AuthenticatedJsonWebsocketConsumer):
             from agents.services import get_stats_summary
             return get_stats_summary()
 
+        elif room == 'presence':
+            # room_id was server-derived to the deploy slot in handle_join
+            return PresenceService.get_snapshot(room_id)
+
         return None
+
+    @database_sync_to_async
+    def _presence_meta(self) -> dict:
+        """Display fields cached in Redis for the presence top-N list."""
+        p = self.profile
+        return {
+            'hna': p.hna,
+            'local_name': p.local_name,
+            'name': p.display_name or p.local_name,
+            'avatar': p.avatar.url if p.avatar else None,
+        }
 

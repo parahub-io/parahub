@@ -1,0 +1,51 @@
+{
+  "wotGraph": {
+    "pageTitle": "WoT-Graph — Sybil-Audit",
+    "staffOnly": "Nur für Personal.",
+    "title": "Vertrauensnetz — Graph",
+    "subtitle": "Vollständiges Verifizierungsnetz für Sybil-Cluster- und Kollusionsring-Audit",
+    "reload": "Neu laden",
+    "relayout": "Neu anordnen",
+    "stats": {
+      "profilesTotal": "{n} Profil insgesamt | {n} Profile insgesamt",
+      "verified": "{n} WoT-verifiziert | {n} WoT-verifiziert",
+      "inGraph": "{n} im Graph | {n} im Graph",
+      "verifications": "{n} Verifizierung | {n} Verifizierungen",
+      "mutualPairs": "{n} gegenseitiges Paar | {n} gegenseitige Paare",
+      "sameAccount": "{n} Verbindung gleicher Konten | {n} Verbindungen gleicher Konten"
+    },
+    "loadError": "Graph konnte nicht geladen werden",
+    "emptyTitle": "Noch keine Verifizierungen",
+    "emptyText": "Das Vertrauensnetz ist leer — keine aktiven Verifizierungen auf diesem Knoten.",
+    "legend": {
+      "title": "Legende",
+      "high": "Hoch (10+)",
+      "medium": "Mittel (5+)",
+      "basic": "Basis (3+)",
+      "low": "Niedrig (1–2)",
+      "none": "Keine (0)",
+      "verified": "verifiziert (3+)",
+      "pseudonymous": "pseudonym",
+      "oneway": "einseitig",
+      "mutual": "gegenseitig",
+      "sameAccount": "gleiches Konto"
+    },
+    "tooltip": {
+      "rep": "Rep",
+      "in": "ein",
+      "out": "aus"
+    },
+    "detail": {
+      "reputation": "Reputation",
+      "received": "Erhalten",
+      "given": "Gegeben",
+      "trust": "Vertrauen",
+      "type": "Typ",
+      "joined": "Beigetreten",
+      "account": "Konto",
+      "sharesAccount": "Teilt Konto mit: {names}",
+      "openProfile": "Profil öffnen"
+    },
+    "hint": "Knoten anklicken für Details. Zum Umordnen ziehen."
+  }
+}

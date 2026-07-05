@@ -68,10 +68,46 @@
                 <option value="community">{{ $t('governance.contextTypes.community') }}</option>
                 <option value="tszh">{{ $t('governance.contextTypes.tszh') }}</option>
                 <option value="adhoc">{{ $t('governance.contextTypes.adhoc') }}</option>
+                <option v-if="myProperties.length" value="household">{{ $t('civic.level.household') }}</option>
+                <option v-if="myCondos.length" value="condominium">{{ $t('civic.level.condominium') }}</option>
+                <option v-if="isStaff" value="territory">{{ $t('civic.create.territory') }}</option>
+              </select>
+              <p v-if="form.context_type === 'territory'" class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                {{ $t('civic.create.territoryHint') }}
+              </p>
+            </div>
+
+            <!-- Household: pick one of my properties -->
+            <div v-if="form.context_type === 'household'">
+              <label class="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                {{ $t('civic.level.household') }} <span class="text-error">*</span>
+              </label>
+              <select
+                v-model="form.context_id"
+                required
+                class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+              >
+                <option value="" disabled>—</option>
+                <option v-for="p in myProperties" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
             </div>
 
-            <div>
+            <!-- Condominium: pick one of my condos -->
+            <div v-else-if="form.context_type === 'condominium'">
+              <label class="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                {{ $t('civic.level.condominium') }} <span class="text-error">*</span>
+              </label>
+              <select
+                v-model="form.context_id"
+                required
+                class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+              >
+                <option value="" disabled>—</option>
+                <option v-for="c in myCondos" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+
+            <div v-else-if="form.context_type !== 'territory'">
               <label class="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
                 {{ form.context_type === 'adhoc' ? $t('governance.createPollForm.creatorProfile') : $t('governance.contextTypes.organization') }} <span class="text-error">*</span>
               </label>
@@ -131,6 +167,40 @@
                 <span v-else-if="manualContextIdInput">{{ $t('governance.createPollForm.manualUlidHint') }}</span>
                 <span v-else>{{ $t('governance.createPollForm.contextIdHint') }} ({{ organizations.length === 0 ? $t('governance.createPollForm.noOrganizations') : $t('governance.createPollForm.manualInput') }})</span>
               </p>
+            </div>
+          </div>
+
+          <!-- Territory scope + destination (civic opinion polls, staff-only MVP) -->
+          <div v-if="form.context_type === 'territory'" class="mt-4 space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                {{ $t('civic.create.selectTerritory') }} <span class="text-error">*</span>
+              </label>
+              <CivicTerritorySelect v-model="form.context_id" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                {{ $t('governance.createPollForm.pollType', 'Poll type') }}
+              </label>
+              <select
+                v-model="civicPollType"
+                class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+              >
+                <option value="multiple_choice">{{ $t('civic.create.typeChoice') }}</option>
+                <option value="sliders">{{ $t('civic.create.typeSliders') }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                {{ $t('civic.create.destination') }}
+              </label>
+              <input
+                v-model="form.civic_destination"
+                type="text"
+                maxlength="300"
+                class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+              />
+              <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{{ $t('civic.create.destinationHint') }}</p>
             </div>
           </div>
         </div>
@@ -301,8 +371,8 @@
           </div>
         </div>
 
-        <!-- Eligible Voters -->
-        <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6">
+        <!-- Eligible Voters (not applicable to civic scopes: audience = residency / membership) -->
+        <div v-if="!['territory', 'household', 'condominium'].includes(form.context_type)" class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6">
           <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">{{ $t('governance.createPollForm.eligibleVoters') }}</h2>
 
           <!-- Add all org members button -->
@@ -456,6 +526,44 @@ const form = ref({
   allow_delegation: true,
   public_results: true,
   require_wot_verified: false,
+  civic_destination: '',
+})
+
+const isStaff = computed(() => !!authStore.user?.is_staff)
+const civicPollType = ref<'multiple_choice' | 'sliders'>('multiple_choice')
+
+// Ideas pipeline (Phase 3): staff promotes a citizen idea — prefill from query
+const route = useRoute()
+const fromIdeaId = ref<string>('')
+onMounted(() => {
+  const q = route.query
+  if (typeof q.from_idea === 'string' && q.from_idea) {
+    fromIdeaId.value = q.from_idea
+    form.value.context_type = 'territory'
+    if (typeof q.territory === 'string') form.value.context_id = q.territory
+    if (typeof q.title === 'string') form.value.title = q.title
+  }
+})
+
+// Community scopes: my properties (household) and condominiums
+const myProperties = ref<any[]>([])
+const myCondos = ref<any[]>([])
+onMounted(async () => {
+  try {
+    await authStore.ensureToken()
+    const headers = { Authorization: `Bearer ${authStore.token}` }
+    const [props, condos] = await Promise.all([
+      $fetch<any[]>('/api/v1/iot/properties/', { credentials: 'include', headers }).catch(() => []),
+      $fetch<any[]>('/api/v1/geo/condominiums/my/', { credentials: 'include', headers }).catch(() => []),
+    ])
+    myProperties.value = props || []
+    myCondos.value = condos || []
+  } catch { /* keep empty — options stay hidden */ }
+})
+
+// Reset context_id on any scope switch (the adhoc watcher below sets its own value)
+watch(() => form.value.context_type, (newType) => {
+  if (newType !== 'adhoc') form.value.context_id = ''
 })
 
 const creating = ref(false)
@@ -661,8 +769,16 @@ async function createPoll() {
       payload.end_time = new Date(form.value.end_time).toISOString()
     }
 
-    if (eligibleVoterIds.length > 0) {
+    if (eligibleVoterIds.length > 0 && form.value.context_type !== 'territory') {
       payload.eligible_voter_ids = eligibleVoterIds
+    }
+
+    // Territory contexts create civic opinion polls (staff-only, backend enforces invariants)
+    if (form.value.context_type === 'territory') {
+      payload.poll_class = 'opinion'
+      payload.civic_destination = form.value.civic_destination
+      payload.poll_type = civicPollType.value  // options become axes for sliders
+      if (fromIdeaId.value) payload.from_idea_id = fromIdeaId.value
     }
 
     const createdPoll = await $fetch('/api/v1/governance/polls/', {

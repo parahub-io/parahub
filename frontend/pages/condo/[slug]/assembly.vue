@@ -13,10 +13,8 @@
     <h1 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">{{ condoName || $t('condo.title') }}</h1>
 
     <!-- Tab navigation -->
-    <UiTabs
-      model-value="assembly"
+    <UiRouteTabs
       :tabs="condoTabs"
-      variant="nav"
       class="mb-6"
     />
 
@@ -31,7 +29,7 @@
 
       <!-- Empty state -->
       <div v-else-if="!assemblies.length" class="text-center py-8">
-        <img src="/images/para/building.png" alt="" class="w-20 h-20 mx-auto mb-3 opacity-80" />
+        <img src="/images/para/building.webp" alt="" class="w-20 h-20 mx-auto mb-3 opacity-80" />
         <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('condo.empty_assemblies') }}</p>
         <p class="text-xs text-neutral-400 dark:text-neutral-500 mt-1">{{ $t('condo.empty_assemblies_subtitle') }}</p>
       </div>

@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 import aiohttp
 import redis.asyncio as aioredis
 from asgiref.sync import sync_to_async
+from psycopg2.extras import execute_values
 from django.conf import settings
 from django.core.cache import cache
 from django.core.management.base import BaseCommand
@@ -423,16 +424,18 @@ class Command(BaseCommand):
 
     async def _insert_history(self, batch):
         """Batch INSERT into TimescaleDB via raw SQL (sync_to_async)."""
+        # execute_values folds the whole batch into one multi-row INSERT;
+        # executemany here meant one server round-trip per vehicle position.
         sql = """
             INSERT INTO geo_vehiclepositionhistory
                 (time, data_source_id, vehicle_id, latitude, longitude,
                  bearing, speed, route_source_id, stop_source_id, direction_id, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES %s
         """
 
         def _do_insert():
             with connection.cursor() as cursor:
-                cursor.executemany(sql, batch)
+                execute_values(cursor.cursor, sql, batch, page_size=1000)
 
         try:
             await sync_to_async(_do_insert, thread_sensitive=True)()

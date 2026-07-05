@@ -7,7 +7,10 @@
     <div class="flex justify-between items-start mb-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-          <img src="/img/agents/forge.png" alt="Hive" class="w-9 h-9 object-contain" />
+          <!-- :src binding (not static src): img/agents/ is deliberately
+               gitignored (deployment-local avatars), and vite fails the
+               build trying to resolve a static src missing from public/ -->
+          <img :src="'/img/agents/forge.png'" alt="Hive" class="w-9 h-9 object-contain" />
         </div>
         <div>
           <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Hive</h3>

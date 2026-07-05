@@ -1,7 +1,27 @@
 {
   "directory": {
+    "my_orgs": {
+      "title": "My organizations",
+      "subtitle": "Organizations you belong to, grouped by your role.",
+      "group_manage": "I manage",
+      "group_member": "I'm a member",
+      "group_work": "I work with",
+      "empty_title": "No organizations yet",
+      "empty_desc": "You don't belong to any organization yet. Create your own or find one in the directory.",
+      "browse_directory": "Browse directory",
+      "treasurer": "Treasurer",
+      "auditor": "Auditor",
+      "role": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "member": "Member",
+        "employee": "Employee",
+        "contractor": "Contractor"
+      }
+    },
     "title": "Directory",
     "meta_description": "Partners, users, organizations and web of trust",
+    "intro": "Find people and organizations across Parahub — add partners, join organizations, and leave reviews.",
     "tabs": {
       "partners": "Partners",
       "users": "Users",
@@ -22,7 +42,9 @@
       "reputation_short": "rep",
       "open_now": "Open Now",
       "no_results": "No results found",
-      "no_results_desc": "Try adjusting your search or filters."
+      "no_results_desc": "Try adjusting your search or filters.",
+      "type_all": "All",
+      "refine_label": "Filters"
     },
     "people": {
       "type_filter_all": "All",
@@ -47,6 +69,12 @@
       "empty_subtitle": "No establishments match the selected filters"
     },
     "form": {
+      "danger_zone": "Danger zone",
+      "delete_org": "Delete organization",
+      "delete_org_hint": "Removes this organization from the directory and map. Listings, posts and members are kept; contact support to restore it.",
+      "delete_confirm_title": "Delete this organization?",
+      "delete_confirm_msg": "“{name}” will be hidden from the directory and map. This can't be undone from here.",
+      "deleted": "Organization deleted",
       "name": "Name",
       "description": "Description",
       "phone": "Phone",
@@ -62,7 +90,23 @@
       "building_unlink": "Unlink",
       "building_or_point": "Or click the map to set a point manually",
       "detecting_address": "Detecting address...",
-      "click_map_to_detect": "Click on the map to detect the building automatically"
+      "click_map_to_detect": "Click on the map to detect the building automatically",
+      "logo": "Logo",
+      "logo_upload": "Upload logo",
+      "logo_replace": "Replace logo",
+      "logo_hint": "Square image works best — PNG or JPG, up to 10 MB.",
+      "days": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      },
+      "hours_open": "Open",
+      "hours_closed": "Closed",
+      "hours_advanced_note": "Some entries use an advanced format and were kept as-is."
     },
     "users": {
       "search_placeholder": "Search by name or HNA...",
@@ -162,9 +206,13 @@
         "efetivo": "Full Member",
         "honorario": "Honorary Member",
         "apoiante": "Supporting Member"
-      }
+      },
+      "create_button": "New organization",
+      "type_government": "Government"
     },
     "act_as": {
+      "manage_menu": "Manage",
+      "new_post": "New blog post",
       "post_as": "Post as",
       "personal": "Personal",
       "pay": "Pay",
@@ -265,7 +313,20 @@
       "card": "Card",
       "crypto": "Crypto",
       "mbway": "MBWay"
-    }
+    },
+    "create": {
+      "title": "New organization",
+      "subtitle": "Create an association, cooperative, company or community — with or without a physical location.",
+      "type_label": "Type",
+      "category_label": "Category (optional)",
+      "has_location_hint": "This organization has a physical address on the map.",
+      "online_hint": "Online organization — no physical location.",
+      "submit": "Create organization",
+      "success": "Organization created",
+      "wot_required_title": "Verification required",
+      "wot_required": "Creating organizations requires Web-of-Trust level 3+ (3 verifications) or foundation membership."
+    },
+    "anon_hint": "Sign in to search people and add partners."
   },
   "wot": {
     "status_title": "Your Verification Status",
@@ -312,8 +373,6 @@
       "method_video_call": "Video Call",
       "method_documents": "Documents",
       "method_vouched": "Vouched by Trusted",
-      "notes_label": "Notes (Optional)",
-      "notes_placeholder": "Add any additional notes about the verification...",
       "warning": "By verifying this person, you are taking responsibility for their identity. False verifications may damage your reputation.",
       "cancel_button": "Cancel",
       "confirm_button": "Confirm Verification",
@@ -340,9 +399,6 @@
     "method_documents_desc": "Verified passport, ID, or notarized documents",
     "method_vouched": "Vouched",
     "method_vouched_desc": "Recommended by someone I trust who met them",
-    "notes_label": "Notes",
-    "notes_optional": "optional",
-    "notes_placeholder": "E.g., 'Met at Lisbon Web Summit 2025'",
     "next_review": "Next: Review Statement",
     "statement_review_title": "You are signing the following statement:",
     "signature_info_title": "PGP Digital Signature",
@@ -358,6 +414,27 @@
     "photo_confirm_match": "I confirm this photo matches the person I am verifying",
     "no_verification_photo": "This user hasn't uploaded a verification photo yet. They must upload one before they can be verified.",
     "photo_reconfirmation": "This user's photo was recently changed. {count}/3 re-confirmations received.",
-    "error_no_verification_photo": "Target user must upload a verification photo before WoT verification"
+    "error_no_verification_photo": "Target user must upload a verification photo before WoT verification",
+    "error_codes": {
+      "not_personal_profile": "Only personal profiles can verify other users. Pseudonymous profiles cannot take part in the Web of Trust.",
+      "verifier_no_pgp": "You need a PGP key to verify other users. Create one in your profile settings.",
+      "not_authorized": "You can't verify others yet. Standard users need 3+ verifications and WoT-verified status; Foundation members can verify immediately.",
+      "target_not_found": "User not found.",
+      "self_verification": "You can't verify yourself.",
+      "no_verification_photo": "This user must upload a verification photo (with biometric consent) before they can be verified.",
+      "no_face_embedding": "This user's verification photo has no detected face. Ask them to re-upload it.",
+      "reconfirmation_pending": "This user's photo was changed recently and is awaiting re-confirmation (3 needed).",
+      "face_duplicate": "Verification blocked: this face matches an already-verified profile.",
+      "already_verified": "You have already verified this user.",
+      "invalid_method": "Invalid verification method.",
+      "statement_expired": "The verification statement expired (older than 5 minutes). Please try again.",
+      "timestamp_future": "Verification timestamp is in the future. Check your device clock.",
+      "invalid_timestamp": "Invalid timestamp format.",
+      "statement_mismatch": "The statement doesn't match the expected verification data. Please try again.",
+      "invalid_statement_json": "Malformed verification statement. Please try again.",
+      "invalid_signature": "Invalid PGP signature. Make sure you signed with your registered PGP key.",
+      "signature_error": "Couldn't verify your PGP signature. Please try again.",
+      "internal_error": "Something went wrong on our side. Please try again later."
+    }
   }
 }

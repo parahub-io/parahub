@@ -38,7 +38,8 @@
     "registerLnAddress": "Создать",
     "copyLnAddress": "Копировать Lightning адрес",
     "lnAddressRegisterFailed": "Не удалось зарегистрировать адрес",
-    "walletOpenInAnotherTab": "Кошелёк уже открыт в другой вкладке. Закройте её.",
+    "walletOpenInAnotherTab": "Кошелёк активен в другой вкладке или окне этого браузера.",
+    "openHere": "Открыть здесь",
     "initError": "Не удалось подключить кошелёк",
     "lnurlDetected": "Обнаружен LNURL-pay. Введите сумму.",
     "amountlessInvoice": "Инвойс без суммы. Введите сумму.",
@@ -99,11 +100,11 @@
   "seedRestore": {
     "title": "Восстановить Кошелёк",
     "subtitle": "Введите вашу seed фразу из 12 слов",
-    "wordPlaceholder": "слово",
     "pasteAllWords": "Вставьте все 12 слов",
     "pasteAllWordsPlaceholder": "слово1 слово2 слово3 слово4 слово5 слово6 слово7 слово8 слово9 слово10 слово11 слово12",
-    "pasteWords": "Вставить из буфера",
     "invalidMnemonic": "Неверная seed фраза. Проверьте слова.",
+    "wordCount": "{count} / 12 слов",
+    "validPhrase": "Корректная seed фраза",
     "restoring": "Восстановление кошелька...",
     "restoreFailed": "Ошибка восстановления. Попробуйте снова."
   }

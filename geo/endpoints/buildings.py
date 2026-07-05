@@ -118,7 +118,7 @@ class EstablishmentPhotoResponse(BaseModel):
 class EstablishmentResponse(BaseModel):
     id: str
     object_type: str = "establishment"
-    owner_id: str
+    owner_id: Optional[str] = None  # null for imported/ownerless establishments (OSM churches, gov buildings)
     world_object: Optional[BuildingResponse] = None
     name: str
     slug: Optional[str] = None
@@ -135,6 +135,7 @@ class EstablishmentResponse(BaseModel):
     parent_id: Optional[str] = None
     category_id: Optional[str] = None
     category_name: Optional[str] = None
+    category_slug: Optional[str] = None
     category_icon: Optional[str] = None
     location: Optional[Dict[str, float]] = None
     floor: Optional[str] = None
@@ -154,6 +155,7 @@ class EstablishmentResponse(BaseModel):
     is_verified: bool = False
     is_active: bool = True
     member_count: int = 0
+    rentable_count: int = 0  # active bookable items → drives the "Rental" entry button
     is_member: bool = False
     user_membership_level: Optional[str] = None
     treasury_enabled: bool = False
@@ -220,6 +222,22 @@ class PostableEstablishment(BaseModel):
     role: str
 
 
+class MyEstablishment(BaseModel):
+    """The current user's establishment + their role/standing in it.
+    Powers the standalone "My organizations" page (/org)."""
+    id: str
+    name: str
+    slug: Optional[str] = None
+    logo_url: Optional[str] = None
+    organization_type: Optional[str] = None
+    role: str
+    position_title: Optional[str] = None
+    is_treasurer: bool = False
+    is_auditor: bool = False
+    is_verified: bool = False
+    member_count: int = 0
+
+
 class TreasurerResponse(BaseModel):
     profile_id: str
     profile_hna: str
@@ -272,6 +290,7 @@ def _format_establishment_response(establishment, request=None) -> Establishment
     """Helper to format Establishment model to response"""
     from geo.models import EstablishmentMembership
     from core.models import ObjectPhoto
+    from market.visibility import visible_items_q  # rentable_count must respect item visibility
 
     world_object_data = _format_world_object_response(establishment.world_object) if establishment.world_object else None
 
@@ -321,6 +340,7 @@ def _format_establishment_response(establishment, request=None) -> Establishment
         parent_id=establishment.parent_id,
         category_id=establishment.category_id,
         category_name=establishment.category.name if establishment.category else None,
+        category_slug=establishment.category.slug if establishment.category else None,
         category_icon=establishment.category.icon if establishment.category else None,
         location=location_data,
         floor=establishment.floor,
@@ -340,6 +360,9 @@ def _format_establishment_response(establishment, request=None) -> Establishment
         is_verified=establishment.is_verified,
         is_active=establishment.is_active,
         member_count=establishment.memberships.count(),
+        rentable_count=establishment.posted_items.filter(
+            is_active=True, bookable__isnull=False, bookable__is_active=True
+        ).filter(visible_items_q(request)).count(),
         is_member=is_member,
         user_membership_level=user_membership_level,
         treasury_enabled=establishment.treasury_enabled,
@@ -355,13 +378,13 @@ def _format_establishment_response(establishment, request=None) -> Establishment
     )
 
 
-def _format_review(review) -> ReviewResponse:
+def _format_review(review, viewer=None) -> ReviewResponse:
     return ReviewResponse(
         id=review.id,
         establishment_id=review.establishment_id,
         author_id=review.author_id,
         author_hna=review.author.hna,
-        author_display_name=review.author.display_name or '',
+        author_display_name=(review.author.display_name or '') if review.author.name_visible_to(viewer) else '',
         rating=review.rating,
         text=review.text,
         wot_count_snapshot=review.wot_count_snapshot,
@@ -601,6 +624,78 @@ def my_postable_establishments(request):
     return result
 
 
+# Role display priority for the "My organizations" page: management first.
+_MY_ORG_ROLE_ORDER = {'OWNER': 0, 'ADMIN': 1, 'MEMBER': 2, 'EMPLOYEE': 3, 'CONTRACTOR': 4}
+
+
+@router.get("/establishments/mine/", auth=ProfileAuth(), response=List[MyEstablishment])
+@ratelimit(group='directory:my_establishments', key=user_or_ip, rate='60/m')
+def my_establishments(request):
+    """
+    Every establishment the current user belongs to (any membership role) or owns,
+    each tagged with their role + standing. Powers the standalone "My organizations"
+    page (/org).
+
+    Unlike /my-postable/ (OWNER/ADMIN/MEMBER only, for the 'post as' picker), this
+    also includes EMPLOYEE/CONTRACTOR so the page is a complete view of the user's
+    affiliations — the frontend groups them by role (manage / member / work).
+
+    Must be defined BEFORE the {establishment_id} route to avoid collision.
+    """
+    from geo.models import Establishment, EstablishmentMembership
+
+    profile = request.auth
+
+    # Membership rows carry role + custom position title + treasurer/auditor flags.
+    by_est = {
+        m['establishment_id']: m
+        for m in EstablishmentMembership.objects.filter(
+            profile=profile, establishment__is_active=True
+        ).values('establishment_id', 'role', 'position_title', 'is_treasurer', 'is_auditor')
+    }
+
+    # Owners may lack a membership row — synthesize an OWNER entry for those.
+    owned_ids = Establishment.objects.filter(
+        owner=profile, is_active=True
+    ).values_list('id', flat=True)
+    for est_id in owned_ids:
+        if est_id not in by_est:
+            by_est[est_id] = {
+                'establishment_id': est_id, 'role': 'OWNER',
+                'position_title': '', 'is_treasurer': False, 'is_auditor': False,
+            }
+
+    if not by_est:
+        return []
+
+    # One annotated query for display fields + member counts.
+    ests = Establishment.objects.filter(
+        id__in=by_est.keys(), is_active=True
+    ).annotate(mc=Count('memberships')).values(
+        'id', 'name', 'slug', 'logo_url', 'organization_type', 'is_verified', 'mc'
+    )
+
+    result = []
+    for e in ests:
+        m = by_est[e['id']]
+        result.append(MyEstablishment(
+            id=e['id'],
+            name=e['name'],
+            slug=e['slug'] or None,
+            logo_url=e['logo_url'] or None,
+            organization_type=e['organization_type'] or None,
+            role=m['role'],
+            position_title=m['position_title'] or None,
+            is_treasurer=m['is_treasurer'],
+            is_auditor=m['is_auditor'],
+            is_verified=e['is_verified'],
+            member_count=e['mc'],
+        ))
+
+    result.sort(key=lambda r: (_MY_ORG_ROLE_ORDER.get(r.role, 9), r.name.lower()))
+    return result
+
+
 class GovernmentMapItem(BaseModel):
     id: str
     name: str
@@ -731,6 +826,7 @@ def list_establishments(
     organization_type: Optional[str] = None,
     is_online: Optional[bool] = None,
     my_memberships: Optional[bool] = None,
+    owned_only: Optional[bool] = None,
     page: int = 1,
 ):
     """
@@ -766,6 +862,10 @@ def list_establishments(
     if is_online is not None:
         conditions.append("e.is_online = %s")
         params.append(is_online)
+    if owned_only:
+        # Directory "organizations" tab: real member-orgs only, exclude ownerless
+        # OSM imports (churches/parish councils) that belong on the map overlays.
+        conditions.append("e.owner_id IS NOT NULL")
     if my_memberships and hasattr(request, 'auth_profile') and request.auth_profile:
         conditions.append(
             "EXISTS (SELECT 1 FROM geo_establishmentmembership em "
@@ -821,7 +921,8 @@ def list_establishments(
                    e.is_verified, e.is_active, e.views_count,
                    e.rating_avg, e.rating_count, e.attributes,
                    (SELECT COUNT(*) FROM geo_establishmentmembership m
-                    WHERE m.establishment_id = e.id) AS member_count
+                    WHERE m.establishment_id = e.id) AS member_count,
+                   c.slug
             {base_from}
             WHERE {where}
             ORDER BY e.is_verified DESC, e.views_count DESC
@@ -844,6 +945,7 @@ def list_establishments(
             'name': r[1], 'slug': r[2] or None,
             'description': r[3], 'organization_type': r[4] or None,
             'is_online': r[5], 'category_name': r[6], 'category_icon': r[7] or None,
+            'category_slug': r[24],
             'full_address': r[8], 'location': loc,
             'building_osm_way_id': r[9], 'phone': r[14],
             'logo_url': r[15] or None, 'opening_hours': hours,
@@ -1061,11 +1163,15 @@ def list_establishment_members(request, establishment_id: str):
         establishment=establishment
     ).select_related('profile', 'profile__instance').order_by('-created_at')
 
+    # Real name gated to name_public / owner / WoT viewers; others get the @handle
+    # (frontend falls back to profile_hna). Mirrors _format_review in this module.
+    viewer = getattr(request, 'auth_profile', None)
+
     return [
         MembershipResponse(
             profile_id=m.profile.id,
             profile_hna=m.profile.hna,
-            profile_display_name=m.profile.display_name,
+            profile_display_name=(m.profile.display_name or '') if m.profile.name_visible_to(viewer) else '',
             role=m.role,
             position_title=m.position_title,
             joined_at=m.created_at,
@@ -1092,12 +1198,29 @@ def get_establishment_terms(request, establishment_id: str):
     if not establishment.terms_url and not establishment.terms_content:
         raise HttpError(404, "No terms available")
 
+    # terms_content is owner-authored markdown rendered via v-html on the public
+    # estatutos page. Sanitize server-side (markdown -> HTML -> nh3 allowlist) so
+    # a hostile owner can't land stored XSS on every visitor. Strip the leading
+    # "# Title" preamble first (the page header already shows the name).
+    terms_content_html = ''
+    if establishment.terms_content:
+        from cms.models import render_markdown
+        import re
+        md = establishment.terms_content
+        m = re.search(r'^## ', md, re.MULTILINE)
+        if m and m.start() > 0:
+            md = md[m.start():]
+        terms_content_html = render_markdown(md)
+
     return {
         "establishment_id": establishment.id,
         "establishment_name": establishment.name,
         "establishment_slug": establishment.slug,
         "terms_url": establishment.terms_url,
+        # Raw markdown kept for backward-compat / non-HTML consumers; the UI
+        # renders the sanitized terms_content_html, never this.
         "terms_content": establishment.terms_content,
+        "terms_content_html": terms_content_html,
         "requires_acceptance": establishment.requires_terms_acceptance,
     }
 
@@ -1261,10 +1384,13 @@ def get_auditor(request, establishment_id: str):
     if not membership:
         raise HttpError(404, "No auditor set")
 
+    # Real name gated to name_public / owner / WoT viewers; others get the @handle.
+    viewer = getattr(request, 'auth_profile', None)
+
     return AuditorResponse(
         profile_id=membership.profile.id,
         profile_hna=membership.profile.hna,
-        profile_display_name=membership.profile.display_name,
+        profile_display_name=(membership.profile.display_name or '') if membership.profile.name_visible_to(viewer) else '',
         appointed_at=membership.created_at,
     )
 
@@ -1419,6 +1545,91 @@ def delete_establishment_photo(request, establishment_id: str, photo_id: str):
     return {"ok": True}
 
 
+# ===== Establishment Logo =====
+
+class LogoResponse(BaseModel):
+    logo_url: str
+
+
+def _delete_logo_files(establishment_id: str):
+    """Remove any previously stored logo files for this establishment
+    (both jpg/png variants) so a replace never leaves an orphan."""
+    from django.core.files.storage import default_storage
+    for ext in ('jpg', 'png'):
+        path = f"establishment_logos/{establishment_id}.{ext}"
+        if default_storage.exists(path):
+            default_storage.delete(path)
+
+
+@router.post("/establishments/{establishment_id}/logo/", auth=ProfileAuth(), response={200: LogoResponse, 400: dict, 403: dict})
+@ratelimit(group='directory:upload_logo', key=user_or_ip, rate='10/m', method='POST')
+def upload_establishment_logo(request, establishment_id: str, image: UploadedFile):
+    """Upload / replace an establishment logo. Owner only. Stores a single
+    optimized image (max 512px) and sets `logo_url`. Persists immediately so a
+    logo survives even if the edit form isn't saved."""
+    from PIL import Image
+    from io import BytesIO
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
+    establishment = _resolve_establishment(establishment_id, is_active=True)
+
+    if establishment.owner_id != request.auth.id:
+        return 403, {"error": "Only owner can change the logo"}
+
+    if not image.content_type.startswith('image/') or not _is_valid_image_magic(image.file):
+        return 400, {"error": "File must be an image"}
+
+    if image.size > 10 * 1024 * 1024:
+        return 400, {"error": "Image size must be less than 10MB"}
+
+    try:
+        img = Image.open(image.file)
+        if img.mode not in ('RGB', 'RGBA'):
+            img = img.convert('RGB')
+
+        img.thumbnail((512, 512), Image.Resampling.LANCZOS)
+
+        output = BytesIO()
+        fmt = 'PNG' if img.mode == 'RGBA' else 'JPEG'
+        if fmt == 'JPEG':
+            img.save(output, format='JPEG', quality=88, optimize=True)
+        else:
+            img.save(output, format='PNG', optimize=True)
+        output.seek(0)
+
+        _delete_logo_files(establishment.id)
+        ext = 'png' if fmt == 'PNG' else 'jpg'
+        saved = default_storage.save(
+            f"establishment_logos/{establishment.id}.{ext}",
+            ContentFile(output.read()),
+        )
+        establishment.logo_url = default_storage.url(saved)
+        establishment.save(update_fields=['logo_url'])
+
+        logger.info(f"Logo uploaded for establishment {establishment.id}")
+        return 200, LogoResponse(logo_url=establishment.logo_url)
+
+    except Exception as e:
+        logger.error(f"Error uploading establishment logo: {e}", exc_info=True)
+        return 400, {"error": f"Failed to upload logo: {str(e)}"}
+
+
+@router.delete("/establishments/{establishment_id}/logo/", auth=ProfileAuth(), response={200: dict, 403: dict, 404: dict})
+@ratelimit(group='directory:delete_logo', key=user_or_ip, rate='30/m', method='DELETE')
+def delete_establishment_logo(request, establishment_id: str):
+    """Remove an establishment logo. Owner only."""
+    establishment = _resolve_establishment(establishment_id, is_active=True)
+
+    if establishment.owner_id != request.auth.id:
+        raise HttpError(403, "Only owner can remove the logo")
+
+    _delete_logo_files(establishment.id)
+    establishment.logo_url = ""
+    establishment.save(update_fields=['logo_url'])
+    return {"ok": True}
+
+
 # ===== Establishment Reviews =====
 
 @router.get("/establishments/{establishment_id}/reviews/", auth=None, response=List[ReviewResponse])
@@ -1463,7 +1674,7 @@ def create_establishment_review(request, establishment_id: str, payload: ReviewI
         text=payload.text,
         wot_count_snapshot=wot_count,
     )
-    return 201, _format_review(review)
+    return 201, _format_review(review, viewer=request.auth)
 
 
 @router.put("/establishments/{establishment_id}/reviews/{review_id}/", auth=ProfileAuth(), response=ReviewResponse)
@@ -1479,7 +1690,7 @@ def update_establishment_review(request, establishment_id: str, review_id: str, 
     review.rating = payload.rating
     review.text = payload.text
     review.save(update_fields=['rating', 'text', 'updated_at'])
-    return _format_review(review)
+    return _format_review(review, viewer=request.auth)
 
 
 @router.delete("/establishments/{establishment_id}/reviews/{review_id}/", auth=ProfileAuth(), response={200: dict, 403: dict, 404: dict})
@@ -1520,4 +1731,4 @@ def reply_to_establishment_review(request, establishment_id: str, review_id: str
 
     review.owner_reply = payload.owner_reply
     review.save(update_fields=['owner_reply', 'updated_at'])
-    return _format_review(review)
+    return _format_review(review, viewer=request.auth)

@@ -6,13 +6,12 @@ interface Tab {
   label: string
   icon?: Component
   badge?: string | number
-  to?: string
 }
 
 interface Props {
   modelValue: string
   tabs: Tab[]
-  variant?: 'underline' | 'pills' | 'nav'
+  variant?: 'underline' | 'pills'
   fullWidth?: boolean
 }
 
@@ -29,7 +28,6 @@ const slots = useSlots()
 const hasPanel = computed(() => !!slots.default)
 
 function onKeydown(e: KeyboardEvent, index: number) {
-  if (props.variant === 'nav') return
   let next = index
   if (e.key === 'ArrowRight') {
     next = (index + 1) % props.tabs.length
@@ -54,25 +52,12 @@ const containerClass = computed(() => {
   if (props.variant === 'pills') {
     return 'flex bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1'
   }
-  if (props.variant === 'nav') {
-    return 'flex gap-1 overflow-x-auto'
-  }
   return ['flex -mb-px gap-1 overflow-x-auto border-b border-neutral-200 dark:border-neutral-700']
 })
 
 function tabClass(tab: Tab) {
   const active = tab.id === props.modelValue
   const base = props.fullWidth ? 'flex-1' : 'flex-shrink-0'
-
-  if (props.variant === 'nav') {
-    return [
-      base,
-      'px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-      active
-        ? 'bg-primary text-neutral-900'
-        : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800',
-    ]
-  }
 
   if (props.variant === 'pills') {
     return [
@@ -96,31 +81,7 @@ function tabClass(tab: Tab) {
 </script>
 
 <template>
-  <nav v-if="variant === 'nav'" :class="containerClass" aria-label="Navigation tabs">
-    <NuxtLink
-      v-for="tab in tabs"
-      :key="tab.id"
-      :to="tab.to || ''"
-      :class="tabClass(tab)"
-    >
-      <component
-        v-if="tab.icon"
-        :is="tab.icon"
-        class="w-4 h-4"
-        :aria-hidden="true"
-      />
-      {{ tab.label }}
-      <UiBadge
-        v-if="tab.badge !== undefined"
-        variant="primary"
-        type="solid"
-        size="sm"
-      >
-        {{ tab.badge }}
-      </UiBadge>
-    </NuxtLink>
-  </nav>
-  <div v-else>
+  <div>
     <div :class="containerClass" role="tablist">
       <button
         v-for="(tab, i) in tabs"

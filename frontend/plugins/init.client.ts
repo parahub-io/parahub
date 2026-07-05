@@ -18,8 +18,15 @@ export default defineNuxtPlugin((nuxtApp) => {
         // Register global notification handlers
         _registerNotificationHandlers(realtimeStore)
       } else {
-        // Anonymous: lightweight public WS for system broadcasts only
-        _connectPublicWs()
+        // Anonymous: lightweight public WS for system broadcasts only.
+        // Deferred to idle — it exists for the new-version banner and the
+        // staff guest counter (60s presence window), neither of which
+        // justifies competing with hydration/first paint.
+        const idle = (cb: () => void) =>
+          'requestIdleCallback' in window
+            ? requestIdleCallback(() => cb(), { timeout: 5000 })
+            : setTimeout(cb, 3000)
+        idle(() => _connectPublicWs())
       }
     } catch (e) {
       console.error('Client auth reconciliation error:', e)
@@ -109,6 +116,7 @@ function _connectPublicWs() {
   const url = `${protocol}//${window.location.host}/ws/v1/public/`
   let reconnectAttempts = 0
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
+  let heartbeat: ReturnType<typeof setInterval> | null = null
 
   function connect() {
     const ws = new WebSocket(url)
@@ -122,9 +130,19 @@ function _connectPublicWs() {
       } catch { /* ignore */ }
     }
 
-    ws.onopen = () => { reconnectAttempts = 0 }
+    ws.onopen = () => {
+      reconnectAttempts = 0
+      // Heartbeat → counted as a guest in the staff presence widget (60s window)
+      if (heartbeat) clearInterval(heartbeat)
+      heartbeat = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'heartbeat', timestamp: Date.now() }))
+        }
+      }, 30000)
+    }
 
     ws.onclose = (event) => {
+      if (heartbeat) { clearInterval(heartbeat); heartbeat = null }
       if (event.code !== 1000) {
         reconnectAttempts++
         const delay = Math.min(3000 * Math.pow(2, reconnectAttempts - 1), 60000)

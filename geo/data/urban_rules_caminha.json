@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "municipio": "caminha",
+    "source": "caminha_pdm_reg",
+    "source_version": "aviso-4482-2024",
+    "diploma": "DR, 2.ª série, N.º 41, 27-02-2024 — Aviso n.º 4482/2024 (3.ª alteração ao PDM de Caminha, com republicação)",
+    "note": "Solo urbano only (phase 1). Hand-transcribed from the consolidated regulamento; each value tagged with its artigo. usos_dominantes from the Caracterização/usos artigos (a.53/55/57/60/61/62/64). uso_default_regime = regime of a use NOT listed in usos_dominantes: 'condicionado' per the espaço's own «admite-se a instalação de outros usos, desde que compatíveis» clause (a.53/55/57); for a.60/61/62-63, whose transcribed text has no such clause, 'condicionado' ('admissibilidade a confirmar') is the curator's stance pending Gate-L2 confirmation — never interdito, which the regulamento does not state. Pending licensed-urbanista validation (Gate-L2). Não constitui parecer."
+  },
+  "rules": [
+    {
+      "categoria": "Espaços centrais",
+      "subcategoria": "Espaços centrais",
+      "artigo": "54.º",
+      "indice_utilizacao": null,
+      "indice_utilizacao_max": true,
+      "indice_impermeabilizacao_pct": 80,
+      "num_pisos_max": null,
+      "cercea_max_m": null,
+      "edificavel": true,
+      "notes": "Índice de utilização não fixado por valor: edificabilidade regida pelo alinhamento dominante e pela moda da altura de fachada da frente urbana em que o prédio se insere.",
+      "usos_dominantes": [
+        "services",
+        "commercial",
+        "tourism",
+        "residential",
+        "facility",
+        "mixed"
+      ],
+      "uso_default_regime": "condicionado",
+      "artigo_usos": "53.º",
+      "source_quote": "Art. 54.º (Edificabilidade): «Nos espaços centrais, a edificação deve atender os seguintes princípios: a) Respeito pelo alinhamento dominante e pela moda da altura de fachada da frente urbana em que o prédio se insere…; b) Índice máximo de impermeabilização de 80 %…». Art. 53.º (Caracterização, usos e regime): «Estas áreas desempenham funções de centralidade, onde predominam usos múltiplos como atividades de serviços, comércio, turismo, bem como espaços públicos, espaços verdes e equipamentos de utilização coletiva. A par da manutenção e reforço da função habitacional, admite-se a instalação de outros usos, desde que compatíveis»."
+    },
+    {
+      "categoria": "Espaços habitacionais",
+      "subcategoria": "Espaços habitacionais",
+      "artigo": "56.º",
+      "indice_utilizacao": 0.8,
+      "indice_utilizacao_max": false,
+      "indice_impermeabilizacao_pct": 65,
+      "num_pisos_max": null,
+      "cercea_max_m": null,
+      "edificavel": true,
+      "notes": "Parâmetros de referência para obras de construção e de ampliação.",
+      "usos_dominantes": [
+        "residential"
+      ],
+      "uso_default_regime": "condicionado",
+      "artigo_usos": "55.º",
+      "source_quote": "Art. 56.º (Edificabilidade): «Nos espaços residenciais as obras de construção e de ampliação devem atender os seguintes parâmetros de referência: a) Índice máximo de impermeabilização 65 %; b) Índice de utilização do solo de 0.80 m2/m2». Art. 55.º (Caracterização, usos e regime): «…destinam-se preferencialmente a funções residenciais, predominando a tipologia multifamiliar… admite-se a instalação de outros usos, desde que compatíveis com a função habitacional»."
+    },
+    {
+      "categoria": "Espaços urbanos de baixa densidade",
+      "subcategoria": "Tipo I",
+      "artigo": "58.º",
+      "indice_utilizacao": 0.5,
+      "indice_utilizacao_max": false,
+      "indice_impermeabilizacao_pct": 50,
+      "num_pisos_max": 2,
+      "cercea_max_m": null,
+      "edificavel": true,
+      "notes": "Tipo I — habitação unifamiliar isolada, geminada ou em banda (máximo 4 unidades). Parâmetros de referência. Tipologia em banda apenas em determinadas freguesias.",
+      "usos_dominantes": [
+        "residential"
+      ],
+      "uso_default_regime": "condicionado",
+      "artigo_usos": "57.º",
+      "source_quote": "Art. 58.º (Edificabilidade), quadro de parâmetros de referência: «Tipo I — Unifamiliar isolada, geminada ou em banda (máximo 4 unidades): Índice de utilização do solo 0.50 m2/m2; Índice máximo de impermeabilização 50 %; N.º máximo de pisos acima da cota de soleira 2». Art. 57.º (Caracterização, usos e regime): «Tipo I — habitação unifamiliar isolada, geminada ou em banda… admite-se a instalação de outros usos, desde que compatíveis com a função habitacional»."
+    },
+    {
+      "categoria": "Espaços urbanos de baixa densidade",
+      "subcategoria": "Tipo II",
+      "artigo": "58.º",
+      "indice_utilizacao": 0.3,
+      "indice_utilizacao_max": false,
+      "indice_impermeabilizacao_pct": 35,
+      "num_pisos_max": 2,
+      "cercea_max_m": null,
+      "edificavel": true,
+      "notes": "Tipo II — habitação unifamiliar isolada ou geminada. Parâmetros de referência.",
+      "usos_dominantes": [
+        "residential"
+      ],
+      "uso_default_regime": "condicionado",
+      "artigo_usos": "57.º",
+      "source_quote": "Art. 58.º (Edificabilidade), quadro de parâmetros de referência: «Tipo II — Unifamiliar isolada ou geminada: Índice de utilização do solo 0.30 m2/m2; Índice máximo de impermeabilização 35 %; N.º máximo de pisos acima da cota de soleira 2». Art. 57.º (Caracterização, usos e regime): «Tipo II — habitação unifamiliar isolada ou geminada… admite-se a instalação de outros usos, desde que compatíveis com a função habitacional»."
+    },
+    {
+      "categoria": "Espaços de uso especial",
+      "subcategoria": "Espaços de equipamentos e infraestruturas",
+      "artigo": "60.º",
+      "indice_utilizacao": 1.0,
+      "indice_utilizacao_max": true,
+      "indice_impermeabilizacao_pct": 65,
+      "num_pisos_max": null,
+      "cercea_max_m": null,
+      "edificavel": true,
+      "notes": "Equipamentos e infraestruturas estruturantes (saúde, educação, cultura, desporto, segurança).",
+      "usos_dominantes": [
+        "facility"
+      ],
+      "uso_default_regime": "condicionado",
+      "artigo_usos": "60.º",
+      "source_quote": "Art. 60.º (Caracterização, usos e regime): «Os espaços de equipamentos e infraestruturas… integram os equipamentos e infraestruturas estruturantes que respondem às necessidades coletivas dos cidadãos designadamente nos domínios da saúde, educação, cultura, desporto e segurança pública… a) Índice máximo de impermeabilização do solo de 65 %; b) Índice máximo de utilização não superior a 1.00 m2/m2»."
+    },
+    {
+      "categoria": "Espaços de uso especial",
+      "subcategoria": "Espaços turísticos",
+      "artigo": "61.º",
+      "indice_utilizacao": 0.3,
+      "indice_utilizacao_max": true,
+      "indice_impermeabilizacao_pct": 35,
+      "num_pisos_max": 3,
+      "cercea_max_m": null,
+      "edificavel": true,
+      "notes": "Empreendimentos turísticos; solução volumétrica deve evidenciar preocupações de enquadramento.",
+      "usos_dominantes": [
+        "tourism"
+      ],
+      "uso_default_regime": "condicionado",
+      "artigo_usos": "61.º",
+      "source_quote": "Art. 61.º (Caracterização, usos e regime): «Os espaços turísticos… integram áreas que acolhem ou têm vocação para acolher empreendimentos turísticos… a) Índice máximo de impermeabilização do solo de 35 %; b) Índice máximo de utilização não superior a 0.30 m2/m2; c) Número máximo de pisos — 3, devendo a solução volumétrica evidenciar preocupações de enquadramento»."
+    },
+    {
+      "categoria": "Espaços de atividades económicas",
+      "subcategoria": "Espaços de atividades económicas",
+      "artigo": "63.º",
+      "indice_utilizacao": 0.8,
+      "indice_utilizacao_max": true,
+      "indice_impermeabilizacao_pct": 65,
+      "num_pisos_max": null,
+      "cercea_max_m": null,
+      "edificavel": true,
+      "notes": "Atividades industriais, armazenagem e logística, comércio e serviços.",
+      "usos_dominantes": [
+        "industrial",
+        "warehouse",
+        "commercial",
+        "services"
+      ],
+      "uso_default_regime": "condicionado",
+      "artigo_usos": "62.º",
+      "source_quote": "Art. 63.º (Caracterização, usos e regime): «Os espaços de atividades económicas devem respeitar os seguintes princípios: a) Índice máximo de impermeabilização do solo de 65 %; b) Índice máximo de utilização não superior a 0.80 m2/m2». Art. 62.º (Identificação): «…destinam-se ao acolhimento de atividades económicas… nomeadamente atividades industriais, de armazenagem e logística, comércio e serviços»."
+    },
+    {
+      "categoria": "Espaços verdes",
+      "subcategoria": "Espaços verdes",
+      "artigo": "65.º",
+      "indice_utilizacao": null,
+      "indice_utilizacao_max": true,
+      "indice_impermeabilizacao_pct": null,
+      "num_pisos_max": null,
+      "cercea_max_m": null,
+      "edificavel": false,
+      "notes": "Edificabilidade restrita a edificações de apoio e complemento às atividades admitidas, sujeitas a projeto de arranjo urbanístico e paisagístico.",
+      "usos_dominantes": [],
+      "artigo_usos": "64.º",
+      "source_quote": "Art. 65.º (Edificabilidade): «Nos espaços verdes a edificabilidade restringe-se a edificações de apoio e complemento às atividades admitidas, de acordo com projetos de arranjo urbanístico e paisagístico, a que ficam obrigatoriamente sujeitos». Art. 64.º (Caracterização, usos e regime): «…integram áreas com funções de equilíbrio ambiental… admitem-se os usos e atividades compatíveis com a sua vocação específica»."
+    }
+  ]
+}

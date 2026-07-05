@@ -2,64 +2,211 @@
   <div class="py-6">
     <h1 class="sr-only">{{ $t('market.title') }}</h1>
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- Sticky Header: Search + Sort + Filters Button + Create (mobile & desktop) -->
-      <div class="sticky top-0 z-20 bg-white dark:bg-neutral-900 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 sm:py-3 mb-2 sm:mb-4">
-        <div class="max-w-4xl mx-auto flex items-center gap-2">
-          <!-- Search bar -->
-          <div class="relative flex-grow">
-            <input
-              v-model="searchQuery"
-              @input="debouncedSearch"
-              type="text"
-              :placeholder="$t('market.search_placeholder')"
-              class="w-full min-h-[44px] px-3 py-2 pr-9 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+      <!-- Sticky Header: search toolbar (all sizes) + desktop quick-filter bar (Row 2) -->
+      <div class="sticky top-0 z-20 bg-[var(--color-background)] border-b border-neutral-200 dark:border-neutral-800 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 sm:py-3 mb-2 sm:mb-4">
+        <div class="max-w-5xl mx-auto">
+          <!-- Row 1: search + filters trigger + my + create -->
+          <div class="flex items-center gap-2">
+            <!-- Search bar -->
+            <div class="relative flex-grow">
+              <input
+                v-model="searchQuery"
+                @input="debouncedSearch"
+                type="text"
+                :placeholder="$t('market.search_placeholder')"
+                class="w-full min-h-[44px] px-3 py-2 pr-9 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+              <Search class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 dark:text-neutral-500" />
+            </div>
+
+            <!-- Filters trigger. Mobile: opens the full bottom-sheet (all filters).
+                 Desktop: anchored popover with the SECONDARY filters only — the primary
+                 ones (type / category / price / sort) live in the visible bar below. -->
+            <div class="relative shrink-0">
+              <button
+                @click="showFiltersSheet = !showFiltersSheet"
+                :aria-label="$t('market.filters.title')"
+                :title="$t('market.filters.title')"
+                class="relative min-h-[44px] h-11 px-3 border rounded-lg bg-white dark:bg-neutral-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:border-primary dark:hover:border-primary flex items-center gap-2 text-neutral-700 dark:text-neutral-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                :class="hasActiveFilters ? 'border-primary' : 'border-neutral-300 dark:border-neutral-600'"
+              >
+                <SlidersHorizontal class="w-5 h-5" />
+                <span class="hidden sm:inline text-sm font-medium">{{ $t('market.filters.title') }}</span>
+                <span v-if="activeFiltersCount > 0" class="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-black bg-primary rounded-full ring-2 ring-[var(--color-background)]">
+                  {{ activeFiltersCount }}
+                </span>
+              </button>
+
+              <!-- Desktop secondary-filters popover (language / barter / self-made) -->
+              <div v-if="showFiltersSheet" @click="showFiltersSheet = false" class="hidden md:block fixed inset-0 z-40"></div>
+              <Transition
+                :enter-active-class="animationEnabled ? 'transition ease-out duration-100' : ''"
+                :enter-from-class="animationEnabled ? 'opacity-0 scale-95' : ''"
+                :enter-to-class="animationEnabled ? 'opacity-100 scale-100' : ''"
+                :leave-active-class="animationEnabled ? 'transition ease-in duration-75' : ''"
+                :leave-from-class="animationEnabled ? 'opacity-100 scale-100' : ''"
+                :leave-to-class="animationEnabled ? 'opacity-0 scale-95' : ''"
+              >
+                <div
+                  v-if="showFiltersSheet"
+                  @click.stop
+                  class="hidden md:block absolute right-0 top-full mt-2 w-72 origin-top-right bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 z-50 p-4 space-y-4"
+                >
+                  <!-- Language -->
+                  <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
+                    <input type="checkbox" v-model="showAllLanguages" @change="languageAutoExpanded = false; resetScroll(); fetchItems()" class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary">
+                    <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.show_all_languages') }}</span>
+                  </label>
+                  <!-- Barter -->
+                  <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
+                    <input type="checkbox" v-model="includeBarter" @change="onPriceFilterChange" class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary">
+                    <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.include_barter') }}</span>
+                  </label>
+                  <!-- Made-by-hand filter: producers, not resellers ("своими руками") -->
+                  <div class="border-t border-neutral-200 dark:border-neutral-700 pt-3">
+                    <label class="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
+                      <input type="checkbox" v-model="selfMadeOnly" @change="onSelfMadeFilterChange" class="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary shrink-0">
+                      <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.self_made_only') }}</span>
+                    </label>
+                  </div>
+                </div>
+              </Transition>
+            </div>
+
+            <!-- My listings + bookings (auth only) -->
+            <UiButton
+              v-if="authStore.isAuthenticated"
+              :to="localePath('/market/my')"
+              :aria-label="$t('market.my_items.title')"
+              variant="outline"
+              :icon="Package"
+              class="min-h-[44px]"
             >
-            <Search class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 dark:text-neutral-500" />
+              <span class="hidden sm:inline">{{ $t('market.my_items.title') }}</span>
+            </UiButton>
+
+            <!-- Create button (auth only) -->
+            <UiButton
+              v-if="authStore.isAuthenticated"
+              :to="localePath('/market/create')"
+              :aria-label="$t('market.create_listing')"
+              :icon="Plus"
+              class="min-h-[44px]"
+            >
+              <span class="hidden sm:inline">{{ $t('market.create_listing') }}</span>
+            </UiButton>
           </div>
 
+          <!-- Row 2: Desktop quick-filter bar — primary filters surfaced inline -->
+          <div class="hidden md:flex flex-wrap items-center gap-2 mt-2">
+            <!-- Type -->
+            <select
+              v-model="filters.typeAndPricing"
+              @change="onTypeFilterChange"
+              :aria-label="$t('market.filters.type_label')"
+              class="h-10 px-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
 
-          <!-- Filters button (mobile & desktop) -->
-          <button
-            @click="showFiltersSheet = !showFiltersSheet"
-            :aria-label="$t('market.filters.title')"
-            class="min-h-[44px] px-3 py-2 border rounded-lg bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            :class="hasActiveFilters ? 'border-primary' : 'border-neutral-300 dark:border-neutral-600'"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            <span class="hidden sm:inline">{{ $t('market.filters.title') }}</span>
-            <span v-if="activeFiltersCount > 0" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-black bg-primary rounded-full">
-              {{ activeFiltersCount }}
-            </span>
-          </button>
+            <!-- "For rent" quick filter — discoverable one-tap entry to the rental demand side -->
+            <button
+              @click="toggleRentFilter"
+              :aria-pressed="isRentFilterActive"
+              :title="$t('market.filters.offers_rent')"
+              class="h-10 px-3 border rounded-lg flex items-center gap-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary shrink-0"
+              :class="isRentFilterActive
+                ? 'border-primary bg-primary-100 dark:bg-primary-900/40 text-neutral-900 dark:text-neutral-100'
+                : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-primary hover:bg-primary-100 dark:hover:bg-primary-900/40'"
+            >
+              <KeyRound class="w-4 h-4" />
+              {{ $t('market.pricing_type.rent') }}
+            </button>
 
-          <!-- Create button (auth only) -->
-          <UiButton
-            v-if="authStore.isAuthenticated"
-            :to="localePath('/market/create')"
-            :aria-label="$t('market.create_listing')"
-            size="sm"
-            :icon="Plus"
-          >
-            <span class="hidden sm:inline">{{ $t('market.create_listing') }}</span>
-          </UiButton>
+            <!-- Category -->
+            <div class="relative flex items-center gap-1">
+              <button
+                @click="showCategoryFilter = !showCategoryFilter"
+                class="h-10 px-3 min-w-[150px] border rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 flex items-center justify-between gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                :class="filters.category ? 'border-primary' : 'border-neutral-300 dark:border-neutral-600'"
+              >
+                <span v-if="selectedFilterCategory" class="truncate">{{ selectedFilterCategory.icon }} {{ selectedFilterCategory.name }}</span>
+                <span v-else class="text-neutral-500 dark:text-neutral-400">{{ $t('market.filters.all_categories') }}</span>
+                <ChevronDown class="w-4 h-4 shrink-0" :class="{ 'rotate-180': showCategoryFilter }" />
+              </button>
+              <button
+                v-if="filters.category"
+                @click="resetCategoryFilter"
+                :title="$t('market.filters.reset_category_title')"
+                class="h-10 w-10 flex items-center justify-center border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              >
+                <X class="w-4 h-4" />
+              </button>
+              <div v-if="showCategoryFilter" class="absolute left-0 top-full mt-2 w-80 p-3 border border-neutral-200 dark:border-neutral-700 rounded-xl bg-white dark:bg-neutral-800 shadow-lg z-50">
+                <CategorySelect
+                  v-model="selectedCategoryId"
+                  :placeholder="$t('market.filters.all_categories')"
+                  domain="market"
+                  @change="onFilterCategoryChange"
+                />
+              </div>
+            </div>
+
+            <!-- Price range -->
+            <div class="flex items-center gap-1">
+              <input
+                v-model.number="minPrice"
+                type="number"
+                min="0"
+                step="1"
+                :placeholder="$t('market.filters.min_price')"
+                @input="debouncedPriceFilter"
+                :aria-label="$t('market.filters.min_price')"
+                class="h-10 w-24 px-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+              <span class="text-neutral-400">–</span>
+              <input
+                v-model.number="maxPrice"
+                type="number"
+                min="0"
+                step="1"
+                :placeholder="$t('market.filters.max_price')"
+                @input="debouncedPriceFilter"
+                :aria-label="$t('market.filters.max_price')"
+                class="h-10 w-24 px-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+            </div>
+
+            <!-- Sort (not a filter — pushed to the far right) -->
+            <select
+              v-model="sortBy"
+              @change="onSortChange"
+              :aria-label="$t('market.sort.label')"
+              class="h-10 px-3 ml-auto border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="-created_at">{{ $t('market.sort.newest') }}</option>
+              <option value="created_at">{{ $t('market.sort.oldest') }}</option>
+              <option value="min_price">{{ $t('market.sort.price_low') }}</option>
+              <option value="-min_price">{{ $t('market.sort.price_high') }}</option>
+              <option value="distance">{{ $t('market.sort.nearest') }}</option>
+            </select>
+          </div>
         </div>
       </div>
 
       <!-- Barter Banner -->
       <MarketBarterBanner />
 
-      <!-- Filters Bottom Sheet / Dropdown -->
+      <!-- Filters Bottom Sheet (mobile only; desktop uses the bar + secondary popover above) -->
       <Transition
-        :enter-active-class="animationEnabled ? 'transition-all duration-300 ease-out' : ''"
-        :enter-from-class="animationEnabled ? 'opacity-0 translate-y-full md:translate-y-0 md:scale-95' : ''"
-        :enter-to-class="animationEnabled ? 'opacity-100 translate-y-0 md:scale-100' : ''"
-        :leave-active-class="animationEnabled ? 'transition-all duration-200 ease-in' : ''"
-        :leave-from-class="animationEnabled ? 'opacity-100 translate-y-0 md:scale-100' : ''"
-        :leave-to-class="animationEnabled ? 'opacity-0 translate-y-full md:translate-y-0 md:scale-95' : ''"
+        :enter-active-class="animationEnabled ? 'transition-all duration-75 ease-out' : ''"
+        :enter-from-class="animationEnabled ? 'opacity-0 translate-y-full' : ''"
+        :enter-to-class="animationEnabled ? 'opacity-100 translate-y-0' : ''"
+        :leave-active-class="animationEnabled ? 'transition-all duration-[50ms] ease-in' : ''"
+        :leave-from-class="animationEnabled ? 'opacity-100 translate-y-0' : ''"
+        :leave-to-class="animationEnabled ? 'opacity-0 translate-y-full' : ''"
       >
-        <div v-if="showFiltersSheet" class="fixed inset-0 z-50 flex items-end md:items-start md:justify-center md:pt-24">
+        <div v-if="showFiltersSheet" class="md:hidden fixed inset-0 z-50 flex items-end">
           <!-- Backdrop (invisible, closes on click) -->
           <div
             @click="showFiltersSheet = false"
@@ -67,9 +214,9 @@
           ></div>
 
           <!-- Filters Panel -->
-          <div class="relative w-full md:w-auto md:min-w-[600px] md:max-w-2xl bg-white dark:bg-neutral-800 rounded-t-2xl md:rounded-xl shadow-2xl max-h-[80vh] overflow-y-auto md:max-h-[70vh]">
-            <!-- Header (mobile only) -->
-            <div class="md:hidden sticky top-0 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
+          <div class="relative w-full bg-white dark:bg-neutral-800 rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
+            <!-- Header -->
+            <div class="sticky top-0 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
               <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('market.filters.title') }}</h3>
               <button @click="showFiltersSheet = false" class="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded">
                 <X class="w-5 h-5" />
@@ -78,6 +225,19 @@
 
             <!-- Filters Content -->
             <div class="p-4 space-y-4">
+              <!-- "For rent" quick filter — surfaced at the top for discoverability -->
+              <button
+                @click="toggleRentFilter"
+                :aria-pressed="isRentFilterActive"
+                class="w-full px-3 py-2.5 border rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                :class="isRentFilterActive
+                  ? 'border-primary bg-primary-100 dark:bg-primary-900/40 text-neutral-900 dark:text-neutral-100'
+                  : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-primary hover:bg-primary-100 dark:hover:bg-primary-900/40'"
+              >
+                <KeyRound class="w-4 h-4" />
+                {{ $t('market.filters.offers_rent') }}
+              </button>
+
               <!-- Active owner_id filter badge -->
               <div v-if="filters.owner_id && ownerDisplayName" class="flex items-center justify-between p-3 bg-primary/10 border border-primary/30 rounded-lg">
                 <div class="flex items-center gap-2">
@@ -94,7 +254,7 @@
                 </button>
               </div>
 
-              <!-- Sort (mobile & desktop) -->
+              <!-- Sort -->
               <div>
                 <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   {{ $t('market.sort.label') }}
@@ -128,30 +288,6 @@
                 </label>
               </div>
 
-              <!-- Owner Filter (replaces Only Mine checkbox) -->
-              <div v-if="authStore.isAuthenticated">
-                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  {{ $t('market.filters.owner_label') }}
-                </label>
-                <select
-                  v-model="selectedOwnerFilter"
-                  @change="onOwnerFilterChange"
-                  data-testid="filter-owner"
-                  class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
-                  <option value="">{{ $t('market.filters.all_owners') }}</option>
-                  <option value="mine">{{ $t('market.filters.only_mine') }}</option>
-                  <option v-if="partnersLoading" disabled>{{ $t('market.filters.loading_partners') }}</option>
-                  <option
-                    v-for="partner in partners"
-                    :key="partner.id"
-                    :value="partner.id"
-                  >
-                    {{ partner.display_name || partner.hna || partner.id }}
-                  </option>
-                </select>
-              </div>
-
               <!-- Type Filter -->
               <div>
                 <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
@@ -162,23 +298,7 @@
                   @change="onTypeFilterChange"
                   class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
-                  <option value="">{{ $t('market.filters.all_types') }}</option>
-                  <option value="CREDIT">{{ $t('market.filters.offers') }}</option>
-                  <option value="CREDIT:sale">{{ $t('market.filters.offers_sale') }}</option>
-                  <option value="CREDIT:rent">{{ $t('market.filters.offers_rent') }}</option>
-                  <option value="CREDIT:free">{{ $t('market.filters.offers_free') }}</option>
-                  <option value="DEBIT">{{ $t('market.filters.requests') }}</option>
-                  <option value="DEBIT:sale">{{ $t('market.filters.requests_sale') }}</option>
-                  <option value="DEBIT:rent">{{ $t('market.filters.requests_rent') }}</option>
-                  <option value="DEBIT:free">{{ $t('market.filters.requests_free') }}</option>
-                  <option v-if="authStore.isAuthenticated" value="MATCH:offer_matches">
-                    {{ $t('market.filters.matches_i_can_offer') }}
-                    <span v-if="matchCounts.offer_matches > 0">({{ matchCounts.offer_matches }})</span>
-                  </option>
-                  <option v-if="authStore.isAuthenticated" value="MATCH:want_matches">
-                    {{ $t('market.filters.matches_i_want') }}
-                    <span v-if="matchCounts.want_matches > 0">({{ matchCounts.want_matches }})</span>
-                  </option>
+                  <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                 </select>
               </div>
 
@@ -259,8 +379,21 @@
                 </label>
               </div>
 
-              <!-- Action Buttons (mobile only) -->
-              <div class="md:hidden flex gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+              <!-- Made-by-hand filter: producers, not resellers ("своими руками") -->
+              <div class="border-t border-neutral-200 dark:border-neutral-700 pt-4">
+                <label class="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
+                  <input
+                    type="checkbox"
+                    v-model="selfMadeOnly"
+                    @change="onSelfMadeFilterChange"
+                    class="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary shrink-0"
+                  />
+                  <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.self_made_only') }}</span>
+                </label>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
                 <UiButton variant="outline" class="flex-1" @click="resetAllFilters">
                   {{ $t('market.filters.reset') }}
                 </UiButton>
@@ -332,7 +465,7 @@
           </UiButton>
         </UiAlert>
 
-        <img src="/images/para/searching.png" alt="Para" class="mx-auto h-32 w-auto mb-6" />
+        <img src="/images/para/searching.webp" alt="Para" class="mx-auto h-32 w-auto mb-6" />
         <h3 class="text-xl font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
           {{ $t('market.empty.title') }}
         </h3>
@@ -379,7 +512,7 @@ import { useAuthStore } from '~/stores/auth'
 import { useMapStore } from '~/stores/map'
 import { useNotification } from '~/composables/useNotification'
 import { useCategories } from '~/composables/useCategories'
-import { Search, Plus, X, Package, ChevronDown, Globe } from 'lucide-vue-next'
+import { Search, Plus, X, Package, ChevronDown, Globe, SlidersHorizontal, KeyRound } from 'lucide-vue-next'
 import CategorySelect from '~/components/CategorySelect.vue'
 import MarketItemSkeleton from '~/components/MarketItemSkeleton.vue'
 
@@ -498,11 +631,6 @@ const rootCategories = ref(initialData.value?.categories || [])
 // Real-time updates for listed items
 useObjectListSubscription(items)
 
-// Partners state (for owner filter dropdown)
-const partners = ref([])
-const partnersLoading = ref(false)
-const selectedOwnerFilter = ref('') // '' = all, 'mine' = my items, or partner_id
-
 const loading = ref(false)
 // Track initial refetch in onMounted to prevent flicker
 // Set to true immediately if query params present (will refetch in onMounted)
@@ -523,6 +651,7 @@ const matchCounts = ref({ offer_matches: 0, want_matches: 0 }) // Match counters
 const minPrice = ref(null)
 const maxPrice = ref(null)
 const includeBarter = ref(true)  // Default: include barter-only items
+const selfMadeOnly = ref(route.query.self_made === 'true')  // Show only producer-made items ("своими руками")
 const myItemCategories = ref({ credit: [], debit: [] }) // My items' categories for match detection
 
 // Infinite scroll sentinel ref
@@ -595,8 +724,8 @@ const hasActiveFilters = computed(() => {
     filters.value.category ||
     filters.value.onlyMine ||
     filters.value.owner_id ||
-    selectedOwnerFilter.value ||
     showAllLanguages.value ||
+    selfMadeOnly.value ||
     minPrice.value != null && minPrice.value !== '' ||
     maxPrice.value != null && maxPrice.value !== ''
   )
@@ -606,10 +735,35 @@ const activeFiltersCount = computed(() => {
   let count = 0
   if (filters.value.typeAndPricing) count++
   if (filters.value.category) count++
-  if (selectedOwnerFilter.value) count++ // Count owner filter (mine or specific partner)
+  if (filters.value.owner_id || filters.value.onlyMine) count++ // Count active owner deep-link filter
   if (showAllLanguages.value) count++ // Show all languages = non-default state
   if ((minPrice.value != null && minPrice.value !== '') || (maxPrice.value != null && maxPrice.value !== '')) count++
+  if (selfMadeOnly.value) count++ // Producer-made only ("своими руками")
   return count
+})
+
+// Type/pricing options — shared by the desktop quick-filter bar and the mobile sheet.
+// Match options require auth; their live counts are folded into the label string because
+// a native <option> renders only its text content (nested <span> counts never displayed).
+const typeOptions = computed(() => {
+  const opts = [
+    { value: '', label: $t('market.filters.all_types') },
+    { value: 'CREDIT', label: $t('market.filters.offers') },
+    { value: 'CREDIT:sale', label: $t('market.filters.offers_sale') },
+    { value: 'CREDIT:rent', label: $t('market.filters.offers_rent') },
+    { value: 'CREDIT:free', label: $t('market.filters.offers_free') },
+    { value: 'DEBIT', label: $t('market.filters.requests') },
+    { value: 'DEBIT:sale', label: $t('market.filters.requests_sale') },
+    { value: 'DEBIT:rent', label: $t('market.filters.requests_rent') },
+    { value: 'DEBIT:free', label: $t('market.filters.requests_free') }
+  ]
+  if (authStore.isAuthenticated) {
+    const om = matchCounts.value.offer_matches
+    const wm = matchCounts.value.want_matches
+    opts.push({ value: 'MATCH:offer_matches', label: $t('market.filters.matches_i_can_offer') + (om > 0 ? ` (${om})` : '') })
+    opts.push({ value: 'MATCH:want_matches', label: $t('market.filters.matches_i_want') + (wm > 0 ? ` (${wm})` : '') })
+  }
+  return opts
 })
 
 // AbortController for search/filter fetches (not infinite scroll)
@@ -659,6 +813,7 @@ const fetchItems = async (append = false, savedScrollPosition = null) => {
     if (minPrice.value != null && minPrice.value !== '') params.append('min_price', minPrice.value)
     if (maxPrice.value != null && maxPrice.value !== '') params.append('max_price', maxPrice.value)
     if (includeBarter.value) params.append('include_barter', 'true')
+    if (selfMadeOnly.value) params.append('self_made', 'true')
 
     // Language filter: send locale when not showing all languages
     if (!showAllLanguages.value && locale.value) {
@@ -709,6 +864,7 @@ const fetchItems = async (append = false, savedScrollPosition = null) => {
       if (filters.value.owner_id) query.owner_id = filters.value.owner_id  // CRITICAL: Keep owner_id in URL
       if (searchQuery.value) query.q = searchQuery.value
       if (filters.value.onlyMine) query.onlyMine = 'true'
+      if (selfMadeOnly.value) query.self_made = 'true'
 
       router.replace({ query })
     }
@@ -781,31 +937,6 @@ const loadMore = async () => {
   await fetchItems(true, savedScrollPosition)
 }
 
-// Fetch partners list for owner filter dropdown
-const fetchPartners = async () => {
-  if (!authStore.isAuthenticated) return
-
-  partnersLoading.value = true
-  try {
-    await authStore.ensureToken()
-
-    const response = await $fetch('/api/v1/partners/list/', {
-      credentials: 'include',
-      headers: {
-        'Authorization': `Bearer ${authStore.token}`
-      }
-    })
-
-    // API uses Ninja pagination: {items: [...], count: N, ...}
-    partners.value = Array.isArray(response) ? response : (response.items || response.results || [])
-  } catch (error) {
-    console.error('Failed to fetch partners:', error)
-    partners.value = []
-  } finally {
-    partnersLoading.value = false
-  }
-}
-
 // Fetch match counts for filter labels and my items categories
 const fetchMatchCounts = async () => {
   if (!authStore.isAuthenticated) return
@@ -852,25 +983,6 @@ const fetchMatchCounts = async () => {
   }
 }
 
-// Handle owner filter change
-const onOwnerFilterChange = () => {
-  const value = selectedOwnerFilter.value
-
-  if (value === 'mine') {
-    filters.value.onlyMine = true
-    filters.value.owner_id = ''
-  } else if (value) {
-    filters.value.onlyMine = false
-    filters.value.owner_id = value
-  } else {
-    filters.value.onlyMine = false
-    filters.value.owner_id = ''
-  }
-
-  resetScroll()
-  fetchItems()
-}
-
 // Debounced search
 let searchTimeout = null
 const debouncedSearch = () => {
@@ -907,6 +1019,15 @@ const onTypeFilterChange = () => {
   fetchItems()
 }
 
+// "For rent" quick filter — a discoverable one-tap shortcut to offers-for-rent
+// (CREDIT:rent). Reuses typeAndPricing so the dropdown + active-filter pills stay
+// in sync; toggling off clears the type/pricing filter.
+const isRentFilterActive = computed(() => filters.value.typeAndPricing === 'CREDIT:rent')
+const toggleRentFilter = () => {
+  filters.value.typeAndPricing = isRentFilterActive.value ? '' : 'CREDIT:rent'
+  onTypeFilterChange()
+}
+
 // Handle sort change
 const onSortChange = () => {
   resetScroll()
@@ -914,6 +1035,11 @@ const onSortChange = () => {
 }
 
 const onPriceFilterChange = () => {
+  resetScroll()
+  fetchItems()
+}
+
+const onSelfMadeFilterChange = () => {
   resetScroll()
   fetchItems()
 }
@@ -961,7 +1087,6 @@ const onCardCategoryFilter = (slug) => {
 const clearOwnerFilter = () => {
   filters.value.owner_id = ''
   filters.value.onlyMine = false
-  selectedOwnerFilter.value = ''
   ownerDisplayName.value = ''
   router.push({ query: { ...route.query, owner_id: undefined, onlyMine: undefined } })
   resetScroll()
@@ -1000,7 +1125,6 @@ const resetAllFilters = () => {
   filters.value.category = ''
   filters.value.onlyMine = false
   filters.value.owner_id = ''
-  selectedOwnerFilter.value = ''
   showAllLanguages.value = false
   languageAutoExpanded.value = false
   setSelectedFilterCategory(null)
@@ -1010,6 +1134,7 @@ const resetAllFilters = () => {
   minPrice.value = null
   maxPrice.value = null
   includeBarter.value = true
+  selfMadeOnly.value = false
   resetScroll()
   fetchItems()
 }
@@ -1173,15 +1298,9 @@ watch(() => route.query, async (newQuery, oldQuery) => {
     filters.value.owner_id = newOwnerId
     if (newOwnerId) {
       filters.value.onlyMine = false
-      selectedOwnerFilter.value = newOwnerId
       await loadOwnerDisplayName(newOwnerId)
     } else {
       ownerDisplayName.value = ''
-      if (newQuery.onlyMine === 'true') {
-        selectedOwnerFilter.value = 'mine'
-      } else {
-        selectedOwnerFilter.value = ''
-      }
     }
     needsRefetch = true
   }
@@ -1326,20 +1445,8 @@ onMounted(async () => {
     isInitialRefetch.value = false
   }
 
-  // Fetch partners for owner filter dropdown
-  fetchPartners()
-
   // Fetch match counts for filter labels
   fetchMatchCounts()
-
-  // Initialize selectedOwnerFilter from current filters state
-  if (filters.value.onlyMine) {
-    selectedOwnerFilter.value = 'mine'
-  } else if (filters.value.owner_id) {
-    selectedOwnerFilter.value = filters.value.owner_id
-  } else {
-    selectedOwnerFilter.value = ''
-  }
 
   // Add ESC key listener
   window.addEventListener('keydown', handleEscape)
@@ -1365,13 +1472,6 @@ onActivated(async () => {
     filters.value.owner_id = newOwnerId
     if (newOwnerId) {
       filters.value.onlyMine = false
-      selectedOwnerFilter.value = newOwnerId
-    } else {
-      if (route.query.onlyMine === 'true') {
-        selectedOwnerFilter.value = 'mine'
-      } else {
-        selectedOwnerFilter.value = ''
-      }
     }
   }
 

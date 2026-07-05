@@ -71,6 +71,11 @@ onMounted(() => {
 /* Safety padding for scrollable content bottom */
 .main-content {
   padding-bottom: 0.5rem;
+  /* Reserve the scrollbar gutter permanently so the layout width never shifts
+     when a page's content height briefly collapses (e.g. tab switch loading
+     empties a list → scrollbar disappears → centered content reflows). No-op
+     on overlay-scrollbar platforms (macOS/mobile). */
+  scrollbar-gutter: stable;
 }
 
 .skip-link {

@@ -74,12 +74,38 @@ class Profile(ULIDModel):
     antispam_fee_sats = models.BigIntegerField(default=10)
 
     is_publicly_linked = models.BooleanField(default=True)
+    name_public = models.BooleanField(
+        default=False,
+        help_text=(
+            "If True, display_name (real name) is shown to everyone. If False "
+            "(default for personal profiles), only the @handle is public; the real "
+            "name is revealed to the owner and WoT-verified viewers. Trust on parahub "
+            "is identity-linked, but the legal name is only needed at the moment of "
+            "commitment (a signed contract), not at browse time."
+        ),
+    )
     preferred_language = models.CharField(max_length=5, choices=Language.choices, blank=True, default='')
     preferred_currency = models.CharField(max_length=3, default='EUR', help_text="User's preferred currency for marketplace (ISO 4217 code)")
     country_code = models.CharField(
         max_length=2, blank=True, default='', db_index=True,
         help_text="User's country (ISO 3166-1 alpha-2). Auto-detected on first login, can be overridden."
     )
+
+    # Civic polls: declared residency + GDPR Art. 9 consent (see PK/civic-polls-system.md)
+    residency_territory = models.ForeignKey(
+        'geo.Territory', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='residents',
+        help_text="Declared residency (any level; parish preferred). Private: used only for civic poll scoping."
+    )
+    residency_changed_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Last residency change; 30-day cooldown guards against territory poll-shopping"
+    )
+    civic_opinion_consent = models.BooleanField(
+        default=False,
+        help_text="Explicit GDPR Art. 9(2)(a) consent to pseudonymized storage of opinion votes"
+    )
+    civic_opinion_consent_at = models.DateTimeField(null=True, blank=True)
 
     # Map style preference
     class MapStyle(models.TextChoices):
@@ -135,10 +161,12 @@ class Profile(ULIDModel):
         help_text="Profile avatar for UI display (square, max 400x400)"
     )
     id_photo = models.ImageField(
-        upload_to='id_photos/%Y/%m/',
+        upload_to='private/id_photos/%Y/%m/',
         blank=True,
         null=True,
-        help_text="Formal ID photo for Para-ID badge (passport-style, 3:4 ratio)"
+        help_text="Formal ID photo for Para-ID badge (passport-style, 3:4 ratio). "
+                  "Stored under media/private/ (nginx internal) — served only via the "
+                  "gated /profiles/{id}/id-photo/ endpoint to the owner or WoT-verified viewers."
     )
     id_photo_verified = models.BooleanField(
         default=False,
@@ -202,6 +230,26 @@ class Profile(ULIDModel):
         """
         return self.is_verified_wot or self.is_foundation_member()
 
+    def name_visible_to(self, viewer_profile=None):
+        """Whether `viewer_profile` may see this profile's display_name (real name).
+
+        Public when name_public=True (the opt-out toggle). Otherwise gated to the
+        owner and WoT-verified viewers: trust on parahub is identity-linked, but the
+        legal name is only needed at the moment of commitment (a signed contract),
+        not at browse time — so anonymous / non-WoT viewers see only the @handle.
+        """
+        return Profile.name_visible(self.name_public, self.id, viewer_profile)
+
+    @staticmethod
+    def name_visible(name_public, owner_profile_id, viewer_profile=None):
+        """Static twin of name_visible_to for CQRS paths that carry raw columns
+        instead of a Profile instance. Keep the gating rule in ONE place."""
+        if name_public:
+            return True
+        if viewer_profile is None:
+            return False
+        return viewer_profile.id == owner_profile_id or bool(getattr(viewer_profile, 'is_verified_wot', False))
+
     def can_manage_profile(self, target_profile):
         """Check if this profile can manage the target profile.
 
@@ -251,9 +299,10 @@ class Profile(ULIDModel):
         except Establishment.DoesNotExist:
             return False
 
-    def can_verify_others(self):
+    def verify_block_reason(self):
         """
-        Check if this profile has permission to verify other users in Web of Trust.
+        Why this profile cannot verify other users in Web of Trust, or None if it can.
+        Single source of truth for can_verify_others() and the UI hint on profile pages.
 
         Rules:
         - Only PERSONAL profiles can verify (pseudonymous cannot)
@@ -261,19 +310,19 @@ class Profile(ULIDModel):
         - Standard users: Need 3+ verifications AND WoT verified status AND PGP key
 
         Returns:
-            bool: True if can verify other users
+            str | None: 'not_personal', 'no_pgp', 'not_verified', or None if allowed
         """
         # Only personal profiles can verify others
         if self.profile_type != self.ProfileType.PERSONAL:
-            return False
+            return 'not_personal'
 
         # Must have PGP key to sign verifications
         if not self.pgp_public_key or not self.pgp_fingerprint:
-            return False
+            return 'no_pgp'
 
         # Foundation members can always verify
         if self.is_foundation_member():
-            return True
+            return None
 
         # Standard users need 3+ verifications and WoT status
         verification_count = Verification.objects.filter(
@@ -281,7 +330,20 @@ class Profile(ULIDModel):
             is_active=True
         ).count()
 
-        return self.is_verified_wot and verification_count >= 3
+        if self.is_verified_wot and verification_count >= 3:
+            return None
+
+        return 'not_verified'
+
+    def can_verify_others(self):
+        """
+        Check if this profile has permission to verify other users in Web of Trust.
+        See verify_block_reason() for the rules and the specific blocking reason.
+
+        Returns:
+            bool: True if can verify other users
+        """
+        return self.verify_block_reason() is None
 
     class Meta:
         unique_together = ('instance', 'local_name')
@@ -305,7 +367,6 @@ class Verification(ULIDModel):
     verifier = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="given_verifications")
     verified_profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="received_verifications")
     verification_method = models.CharField(max_length=20, choices=VerificationMethod.choices, default='IN_PERSON')
-    notes = models.TextField(blank=True, default='')
     signature = models.TextField(blank=True, default='')  # PGP signature (optional for now)
     verified_at = models.DateTimeField(auto_now_add=True, db_index=True, null=True, blank=True)
     is_active = models.BooleanField(default=True, db_index=True)
@@ -398,321 +459,6 @@ class Partner(models.Model):
 
     def __str__(self):
         return f"{self.profile.hna} → {self.partner_profile.hna}"
-
-
-class Contract(ULIDModel):
-    """
-    P2P contracts with dual PGP signatures
-
-    Workflow:
-    1. Creator creates contract with file SHA256 and signs it (PENDING_PARTNER)
-    2. Partner signs the contract (SIGNED)
-
-    File contents never leave client - only SHA256 is stored on server
-    """
-
-    class Status(models.TextChoices):
-        PENDING_PARTNER = 'PENDING_PARTNER', 'Awaiting Partner Signature'
-        SIGNED = 'SIGNED', 'Signed by Both Parties'
-        COMPLETED = 'COMPLETED', 'Completed (Work Done)'
-        CANCELLED = 'CANCELLED', 'Cancelled'
-
-    # Parties
-    creator = models.ForeignKey(
-        Profile,
-        on_delete=models.CASCADE,
-        related_name='contracts_created',
-        help_text="Profile that created the contract"
-    )
-    partner = models.ForeignKey(
-        Profile,
-        on_delete=models.CASCADE,
-        related_name='contracts_received',
-        help_text="Partner profile"
-    )
-    arbiter = models.ForeignKey(
-        Profile,
-        on_delete=models.SET_NULL,
-        related_name='contracts_arbitrating',
-        null=True,
-        blank=True,
-        help_text="Optional arbitrator for dispute resolution"
-    )
-
-    # Property subject
-    subject_property = models.ForeignKey(
-        'iot.Property', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='contracts',
-        help_text="Property this contract pertains to (sale, rental, etc.)"
-    )
-
-    # WorldObject subject
-    world_object = models.ForeignKey(
-        'geo.WorldObject', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='contracts',
-        help_text="WorldObject (building/POI) this contract pertains to"
-    )
-
-    # Contract data
-    title = models.CharField(
-        max_length=255,
-        help_text="Contract title/description"
-    )
-    file_sha256 = models.CharField(
-        max_length=64,
-        help_text="SHA256 hash of contract file (computed client-side)"
-    )
-
-    # Signatures
-    creator_signature = models.TextField(
-        help_text="PGP signature of creator (signing canonical JSON)"
-    )
-    partner_signature = models.TextField(
-        blank=True,
-        null=True,
-        help_text="PGP signature of partner (signing canonical JSON)"
-    )
-
-    # Status
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING_PARTNER,
-        db_index=True
-    )
-
-    # Timestamps
-    creator_signed_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="When creator signed the contract"
-    )
-    partner_signed_at = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text="When partner signed the contract"
-    )
-
-    # Completion tracking (both parties must confirm)
-    creator_completed_at = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text="When creator marked contract as completed"
-    )
-    partner_completed_at = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text="When partner marked contract as completed"
-    )
-
-    # Linked items
-    items = models.ManyToManyField(
-        'market.Item',
-        blank=True,
-        related_name='contracts',
-        help_text="Items being exchanged in this contract"
-    )
-
-    # Arbitration
-    arbitration_room_id = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        help_text="Matrix room ID for arbitration discussion"
-    )
-    arbitration_initiated_at = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text="When arbitration was initiated"
-    )
-    arbitration_initiator = models.ForeignKey(
-        Profile,
-        on_delete=models.SET_NULL,
-        related_name='initiated_arbitrations',
-        null=True,
-        blank=True,
-        help_text="Profile that initiated arbitration"
-    )
-
-    # Arbitration escalation
-    arbitration_level = models.SmallIntegerField(
-        default=1,
-        help_text="Arbitration level: 1=P2P, 2=Institutional (CAC), 3=Court"
-    )
-    arbitration_escalated_at = models.DateTimeField(
-        blank=True,
-        null=True,
-        help_text="When arbitration was escalated to the next level"
-    )
-    arbitration_escalated_by = models.ForeignKey(
-        Profile,
-        on_delete=models.SET_NULL,
-        related_name='escalated_arbitrations',
-        null=True,
-        blank=True,
-        help_text="Profile that escalated the arbitration"
-    )
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['creator', 'status', '-created_at']),
-            models.Index(fields=['partner', 'status', '-created_at']),
-        ]
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.title} ({self.creator.hna} ↔ {self.partner.hna})"
-
-    @property
-    def is_signed(self):
-        """Check if both parties have signed"""
-        return self.status == self.Status.SIGNED and bool(self.partner_signature)
-
-    @property
-    def is_fully_completed(self):
-        """Check if both parties have marked contract as completed"""
-        return bool(self.creator_completed_at) and bool(self.partner_completed_at)
-
-    def get_canonical_text(self):
-        """Generate canonical JSON for signing (without created_at to avoid sync issues)"""
-        import json
-
-        data = {
-            'title': self.title,
-            'creator_id': self.creator.id,
-            'partner_id': self.partner.id,
-            'file_sha256': self.file_sha256
-        }
-
-        # Include arbiter if specified
-        if self.arbiter_id:
-            data['arbiter_id'] = self.arbiter_id
-
-        return json.dumps(data, sort_keys=True, separators=(',', ':'))
-
-
-class ContractReview(ULIDModel):
-    """Reviews for completed contracts."""
-    contract = models.ForeignKey(
-        Contract,
-        on_delete=models.CASCADE,
-        related_name='reviews',
-        help_text="Contract being reviewed"
-    )
-    reviewer = models.ForeignKey(
-        Profile,
-        on_delete=models.CASCADE,
-        related_name='contract_reviews_given',
-        help_text="Profile giving the review"
-    )
-    reviewed = models.ForeignKey(
-        Profile,
-        on_delete=models.CASCADE,
-        related_name='contract_reviews_received',
-        help_text="Profile being reviewed (the other party)"
-    )
-    rating = models.SmallIntegerField(
-        help_text="Rating 1-5 stars"
-    )
-    comment = models.TextField(
-        blank=True,
-        help_text="Optional review comment"
-    )
-
-    class Meta:
-        unique_together = ('contract', 'reviewer')
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"Review by {self.reviewer.hna} for contract {self.contract.title}"
-
-
-class ArbiterProfile(ULIDModel):
-    """Extended profile for arbiters with specializations and fee info."""
-    profile = models.OneToOneField(
-        Profile,
-        on_delete=models.CASCADE,
-        related_name='arbiter_profile'
-    )
-    specializations = models.ManyToManyField(
-        'taxonomy.Category',
-        blank=True,
-        related_name='arbiter_profiles',
-        help_text="Arbiter specialization categories"
-    )
-    fee_amount = models.DecimalField(
-        max_digits=10, decimal_places=2,
-        null=True, blank=True,
-        help_text="Arbitration fee amount"
-    )
-    fee_currency = models.CharField(
-        max_length=3, default='EUR',
-        help_text="Fee currency (ISO 4217)"
-    )
-    bio = models.TextField(
-        blank=True,
-        help_text="Arbiter biography/description"
-    )
-    is_active = models.BooleanField(
-        default=True, db_index=True,
-        help_text="Whether this arbiter is currently available"
-    )
-
-    def __str__(self):
-        return f"Arbiter: {self.profile.hna}"
-
-
-class ArbitrationVerdict(ULIDModel):
-    """Verdict for a contract arbitration — one verdict per contract."""
-
-    class VerdictType(models.TextChoices):
-        FAVOR_CREATOR = 'FAVOR_CREATOR', 'In Favor of Creator'
-        FAVOR_PARTNER = 'FAVOR_PARTNER', 'In Favor of Partner'
-        PARTIAL = 'PARTIAL', 'Partial (Split)'
-        DISMISSED = 'DISMISSED', 'Dismissed'
-
-    contract = models.OneToOneField(
-        Contract,
-        on_delete=models.CASCADE,
-        related_name='verdict'
-    )
-    arbiter = models.ForeignKey(
-        Profile,
-        on_delete=models.CASCADE,
-        related_name='verdicts_given'
-    )
-    verdict_type = models.CharField(
-        max_length=20,
-        choices=VerdictType.choices,
-        help_text="Type of verdict"
-    )
-    summary = models.TextField(
-        help_text="Arbiter's reasoning and decision summary"
-    )
-    amount_awarded = models.DecimalField(
-        max_digits=12, decimal_places=2,
-        null=True, blank=True,
-        help_text="Amount awarded (if applicable)"
-    )
-    currency = models.CharField(
-        max_length=3, blank=True,
-        help_text="Currency of amount awarded"
-    )
-    creator_arbiter_rating = models.SmallIntegerField(
-        null=True, blank=True,
-        help_text="Creator's rating of the arbiter (1-5)"
-    )
-    partner_arbiter_rating = models.SmallIntegerField(
-        null=True, blank=True,
-        help_text="Partner's rating of the arbiter (1-5)"
-    )
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['arbiter']),
-        ]
-
-    def __str__(self):
-        return f"Verdict for {self.contract.title}: {self.verdict_type}"
 
 
 class PsychProfile(ULIDModel):

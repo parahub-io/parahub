@@ -9,8 +9,8 @@ from django.db import transaction
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import logging
-import threading
 
+from parahub.background import spawn
 from .models import IoTDevice
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ def sync_device_to_traccar(sender, instance, created, **kwargs):
             if conn:
                 conn.close()
 
-    transaction.on_commit(lambda: threading.Thread(target=do_sync, daemon=True).start())
+    transaction.on_commit(lambda: spawn(do_sync))
 
 @receiver(post_delete, sender=IoTDevice)
 def delete_device_from_traccar(sender, instance, **kwargs):
@@ -135,4 +135,4 @@ def delete_device_from_traccar(sender, instance, **kwargs):
             if conn:
                 conn.close()
 
-    transaction.on_commit(lambda: threading.Thread(target=do_delete, daemon=True).start())
+    transaction.on_commit(lambda: spawn(do_delete))

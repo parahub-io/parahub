@@ -24,6 +24,16 @@
           <p>{{ $t('about.wotSystem.problem.text') }}</p>
         </div>
 
+        <img
+          src="/images/docs/wot.webp"
+          alt=""
+          aria-hidden="true"
+          width="1200"
+          height="670"
+          loading="lazy"
+          class="w-full h-auto rounded-xl ring-1 ring-neutral-900/10 dark:ring-white/10"
+        />
+
         <div>
           <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">{{ $t('about.wotSystem.how.title') }}</h3>
           <ol class="list-decimal list-inside space-y-2.5 text-neutral-700 dark:text-neutral-300">

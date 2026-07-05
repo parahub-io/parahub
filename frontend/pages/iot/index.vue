@@ -58,7 +58,7 @@
           <!-- Empty state -->
           <div v-if="!propertyStore.loading && propertyStore.properties.length === 0 && !showPropertyForm"
                class="text-center py-8 text-neutral-500 dark:text-neutral-400">
-            <img src="/images/para/searching.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+            <img src="/images/para/searching.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
             <p>{{ $t('property.no_properties') }}</p>
             <p class="text-sm mt-1">{{ $t('property.no_properties_hint') }}</p>
           </div>
@@ -232,5 +232,13 @@ const openTraccar = () => {
   window.open('https://parahub.io/api/v1/iot/traccar/sso-redirect', '_blank', 'noopener,noreferrer')
 }
 
-onMounted(loadAll)
+// Client-side fetch behind Suspense (token-authed → no SSR): on client-side
+// navigation the previous page stays visible until devices/properties are in
+// the stores, instead of flashing an empty shell (was onMounted(loadAll)).
+const bootstrap = useAsyncData('iot-bootstrap', async () => {
+  await loadAll()
+  return true
+}, { server: false })
+
+await bootstrap
 </script>

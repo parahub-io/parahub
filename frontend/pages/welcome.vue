@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-secondary to-primary">
     <div class="bg-neutral-100/95 backdrop-blur-sm rounded-2xl p-8 w-full max-w-lg">
-      <img src="/images/para/welcome.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+      <img src="/images/para/welcome.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
       <h1 class="text-3xl font-bold text-center mb-2">Welcome to Parahub!</h1>
       <p class="text-center text-neutral-600 mb-8">Your account has been created successfully</p>
       

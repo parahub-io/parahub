@@ -156,6 +156,7 @@
             <div class="font-medium text-neutral-900 dark:text-neutral-100">
               {{ s.name }}
               <span v-if="s.member_count > 1" class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">{{ $t('transit.stops_count', { count: s.member_count }) }}</span>
+              <TransitInterchangeBadge v-if="s.interchange_modes?.length" :modes="s.interchange_modes" class="ml-1" />
             </div>
             <div v-if="s.directions?.length" class="text-xs text-secondary-600 dark:text-secondary-400 truncate mt-0.5">{{ $t('transit.towards', { dest: s.directions.join(' · ') }) }}</div>
             <div v-if="s.routes?.length" class="flex flex-wrap gap-1 mt-1">
@@ -172,6 +173,7 @@
           <img :src="routeTypeIcon(r.route_type)" :alt="routeTypeFallback(r.route_type)" class="w-8 h-8 flex-shrink-0" />
           <div class="flex-1 min-w-0">
             <span class="inline-block px-2 py-0.5 rounded font-bold text-sm" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
+            <span v-if="r.is_night" class="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium align-middle bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"><Moon class="w-3 h-3" />{{ $t('transit.night_route') }}</span>
             <span v-if="r.variant_count > 1" class="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">{{ $t('transit.percursos_count', { n: r.variant_count }) }}</span>
             <div class="text-sm text-neutral-600 dark:text-neutral-400 truncate mt-0.5">{{ r.long_name }}</div>
           </div>
@@ -195,6 +197,7 @@
               <div class="font-medium text-neutral-900 dark:text-neutral-100">
                 {{ f.properties.name }}
                 <span v-if="f.properties.kind === 'virtual'" class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">{{ $t('transit.stops_count', { count: f.properties.member_count }) }}</span>
+                <TransitInterchangeBadge v-if="f.properties.interchange_modes?.length" :modes="f.properties.interchange_modes" class="ml-1" />
               </div>
               <div v-if="f.properties.routes?.length" class="flex flex-wrap gap-1 mt-1">
                 <span v-for="r in f.properties.routes" :key="r.short_name" class="px-1.5 py-0.5 text-xs rounded font-medium" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
@@ -231,7 +234,10 @@
           <template v-if="item.type === 'stop'">
             <img src="/img/bus-stop.png" alt="" class="w-8 h-8 flex-shrink-0" />
             <div class="flex-1 min-w-0">
-              <div class="font-medium text-neutral-900 dark:text-neutral-100">{{ item.name }}</div>
+              <div class="font-medium text-neutral-900 dark:text-neutral-100">
+                {{ item.name }}
+                <TransitInterchangeBadge v-if="item.interchange_modes?.length" :modes="item.interchange_modes" class="ml-1" />
+              </div>
               <div v-if="item.routes?.length" class="flex flex-wrap gap-1 mt-1">
                 <span v-for="r in item.routes" :key="r.short_name" class="px-1.5 py-0.5 text-xs rounded font-medium" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
               </div>
@@ -241,6 +247,7 @@
             <img :src="routeTypeIcon(item.route_type)" :alt="routeTypeFallback(item.route_type)" class="w-8 h-8 flex-shrink-0" />
             <div class="flex-1 min-w-0">
               <span class="inline-block px-2 py-0.5 rounded font-bold text-sm" :style="routeBadgeStyle(item)">{{ item.short_name }}</span>
+              <span v-if="item.is_night" class="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium align-middle bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"><Moon class="w-3 h-3" />{{ $t('transit.night_route') }}</span>
               <div class="text-sm text-neutral-600 dark:text-neutral-400 truncate mt-0.5">{{ item.long_name }}</div>
             </div>
           </template>
@@ -250,7 +257,7 @@
 
     <!-- Loading -->
     <div v-else class="flex justify-center py-12" role="status" aria-live="polite">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" aria-hidden="true"></div>
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" aria-hidden="true"></div>
       <span class="sr-only">{{ $t('common.loading') }}</span>
     </div>
 
@@ -314,7 +321,7 @@
 <script setup lang="ts">
 const localePath = useLocalePath()
 import { ref, computed, onMounted } from 'vue'
-import { Search, LocateFixed, Car, Radio, Database, ChevronDown, MapPin } from 'lucide-vue-next'
+import { Search, LocateFixed, Car, Radio, Database, ChevronDown, MapPin, Moon } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()

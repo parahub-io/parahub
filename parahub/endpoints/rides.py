@@ -14,7 +14,8 @@ from django.contrib.gis.measure import D
 from django.contrib.gis.db.models.functions import Distance
 from django.db.models import Avg, Count, Value
 import logging
-import requests as http_requests
+import httpx
+from asgiref.sync import sync_to_async
 
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
@@ -189,21 +190,24 @@ def _decode_polyline6(encoded: str) -> list[tuple[float, float]]:
     return result
 
 
-def _get_valhalla_route(origin: RouteLocation, destination: RouteLocation) -> Optional[LineString]:
+VALHALLA_TIMEOUT = httpx.Timeout(10.0, connect=2.0)
+
+
+async def _get_valhalla_route(origin: RouteLocation, destination: RouteLocation) -> Optional[LineString]:
     """Get route geometry from Valhalla as PostGIS LineString."""
     try:
-        resp = http_requests.post(
-            'http://localhost:8002/route',
-            json={
-                'locations': [
-                    {'lat': origin.lat, 'lon': origin.lon},
-                    {'lat': destination.lat, 'lon': destination.lon},
-                ],
-                'costing': 'auto',
-                'shape_format': 'polyline6',
-            },
-            timeout=10,
-        )
+        async with httpx.AsyncClient(timeout=VALHALLA_TIMEOUT) as client:
+            resp = await client.post(
+                'http://localhost:8002/route',
+                json={
+                    'locations': [
+                        {'lat': origin.lat, 'lon': origin.lon},
+                        {'lat': destination.lat, 'lon': destination.lon},
+                    ],
+                    'costing': 'auto',
+                    'shape_format': 'polyline6',
+                },
+            )
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
@@ -390,25 +394,13 @@ def search_requests(request, lat: float, lon: float, radius_km: float = 2):
     ]
 
 
-@rides_router.post("/search/route/", response={200: list, 502: dict}, auth=ProfileAuth())
-@ratelimit(group='rides:search_route', key=user_or_ip, rate='20/m', method='POST')
-def search_by_route(request, body: RouteSearchBody):
-    """Search active ride requests along driver's planned route.
-
-    Calls Valhalla to get route geometry, then finds requests where both
-    origin and destination stops are within the corridor, in the correct
-    direction along the route.
-    """
-    route_line = _get_valhalla_route(body.origin, body.destination)
-    if route_line is None:
-        raise HttpError(502, "Could not calculate route")
-
+def _search_requests_along(profile, body: 'RouteSearchBody', route_line: LineString) -> list:
+    """Corridor search over active requests (sync ORM block)."""
     from django.contrib.gis.db.models.functions import LineLocatePoint
 
     corridor = D(km=body.corridor_km)
 
     # Find requests where BOTH stops are within the corridor of the route
-    profile = request.auth
     qs = _active_requests_qs().exclude(
         passenger=profile,
     ).filter(
@@ -441,6 +433,23 @@ def search_by_route(request, body: RouteSearchBody):
     # Sort by position along route (earliest pickup first)
     results.sort(key=lambda x: x['origin_fraction'])
     return results
+
+
+@rides_router.post("/search/route/", response={200: list, 502: dict}, auth=ProfileAuth())
+@ratelimit(group='rides:search_route', key=user_or_ip, rate='20/m', method='POST')
+async def search_by_route(request, body: RouteSearchBody):
+    """Search active ride requests along driver's planned route.
+
+    Calls Valhalla to get route geometry, then finds requests where both
+    origin and destination stops are within the corridor, in the correct
+    direction along the route. Async so the Valhalla wait doesn't hold the
+    shared sync executor thread; the ORM block runs on it as usual.
+    """
+    route_line = await _get_valhalla_route(body.origin, body.destination)
+    if route_line is None:
+        raise HttpError(502, "Could not calculate route")
+
+    return await sync_to_async(_search_requests_along)(request.auth, body, route_line)
 
 
 @rides_router.post("/requests/{request_id}/offer/", response={200: dict, 400: dict, 404: dict}, auth=ProfileAuth())

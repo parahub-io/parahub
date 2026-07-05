@@ -11,8 +11,8 @@ from market.models import Item
 from taxonomy.models import Category
 from identity.models import Profile
 from barter.graph_service import BarterGraphService
+from parahub.background import spawn
 import logging
-import threading
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def sync_profile_to_neo4j(sender, instance, created, **kwargs):
         except Exception as e:
             logger.error(f"Failed to sync profile {profile_pk} to Neo4j: {e}")
 
-    transaction.on_commit(lambda: threading.Thread(target=do_sync, daemon=True).start())
+    transaction.on_commit(lambda: spawn(do_sync))
 
 
 @receiver(post_save, sender=Category)
@@ -61,7 +61,7 @@ def sync_category_to_neo4j(sender, instance, created, **kwargs):
         except Exception as e:
             logger.error(f"Failed to sync category {category_pk} to Neo4j: {e}")
 
-    transaction.on_commit(lambda: threading.Thread(target=do_sync, daemon=True).start())
+    transaction.on_commit(lambda: spawn(do_sync))
 
 
 @receiver(post_save, sender=Item)
@@ -112,7 +112,7 @@ def sync_item_to_neo4j(sender, instance, created, **kwargs):
         except Exception as e:
             logger.error(f"Failed to sync item {item_pk} to Neo4j: {e}")
 
-    transaction.on_commit(lambda: threading.Thread(target=do_sync, daemon=True).start())
+    transaction.on_commit(lambda: spawn(do_sync))
 
 
 @receiver(pre_delete, sender=Item)
@@ -130,4 +130,4 @@ def delete_item_from_neo4j(sender, instance, **kwargs):
         except Exception as e:
             logger.error(f"Failed to delete item {item_pk} from Neo4j: {e}")
 
-    transaction.on_commit(lambda: threading.Thread(target=do_delete, daemon=True).start())
+    transaction.on_commit(lambda: spawn(do_delete))

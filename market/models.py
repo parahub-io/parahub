@@ -11,6 +11,14 @@ class Item(ULIDModel):
         CREDIT = 'CREDIT', 'Offer'
         DEBIT = 'DEBIT', 'Request'
 
+    class Visibility(models.TextChoices):
+        # Audience scope. Default PUBLIC keeps the civic-router discoverable;
+        # REGISTERED is opt-in. A future CIRCLE (WoT graph) tier is intentionally
+        # NOT defined yet — it needs a precise circle definition + graph caching,
+        # and an undefined-but-settable value would leak (no enforcement path).
+        PUBLIC = 'PUBLIC', 'Public — anyone, incl. anonymous & search engines'
+        REGISTERED = 'REGISTERED', 'Registered — signed-in parahub users only'
+
     owner = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="items")
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=150, blank=True, default='', db_index=True,
@@ -36,6 +44,16 @@ class Item(ULIDModel):
     accepted_payment_methods = models.JSONField(default=list, blank=True, help_text="Array of accepted payment method codes")
     is_active = models.BooleanField(default=True, db_index=True)
 
+    visibility = models.CharField(
+        max_length=12, choices=Visibility.choices, default=Visibility.PUBLIC, db_index=True,
+        help_text=(
+            "Audience scope. PUBLIC = discoverable by anyone incl. anonymous "
+            "visitors and search engines (default). REGISTERED = hidden from "
+            "anonymous + SEO, visible only to signed-in parahub users. "
+            "Orthogonal to is_active (which is the draft/paused switch)."
+        ),
+    )
+
     language = models.CharField(
         max_length=5, blank=True, default='', db_index=True,
         help_text="Content language (ISO 639-1: en/ru/pt/es/fr/de). Empty = unspecified (shown to all)."
@@ -47,6 +65,16 @@ class Item(ULIDModel):
     country_code = models.CharField(
         max_length=2, blank=True, default='', db_index=True,
         help_text="ISO 3166-1 alpha-2 country code from item coordinates. Empty = no location/digital."
+    )
+
+    self_made = models.BooleanField(
+        default=False, db_index=True,
+        help_text=(
+            "Seller is the producer — made / grew / prepared it themselves — not a "
+            "reseller. Drives the 'made by hand' badge and a ranking nudge (swadeshi / "
+            "bread-labour: prefer own-and-near). Bought parts/ingredients don't "
+            "disqualify; reselling finished goods does. Offers (CREDIT) only."
+        )
     )
 
     establishment = models.ForeignKey(

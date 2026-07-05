@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.http import Http404, HttpResponse
 from django.db import transaction, connection
-from django.db.models import Q
+from django.db.models import Q, F
 from django.contrib.gis.geos import Point
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -19,9 +19,12 @@ import logging
 import orjson
 
 from parahub.auth import ProfileAuth, OptionalProfileAuth
+from parahub.errors import LocalizedHttpError
 from parahub.ratelimit import ratelimit, user_or_ip
 from parahub.endpoints.ai_vision import _is_valid_image_magic
 from market.models import Item
+from market.visibility import visible_items_q, can_view_item, visible_items_sql
+from identity.models import Profile
 from core.models import ObjectPhoto
 from taxonomy.models import Category, Tag
 from currency.models import ExchangeRate
@@ -142,6 +145,8 @@ class ItemResponse(BaseModel):
     images: List[ItemImageResponse] = []
     language: str = ''
     is_international: bool = False
+    self_made: bool = False  # Producer (made/grew/prepared it), not a reseller — drives "made by hand" badge
+    visibility: str = 'PUBLIC'  # PUBLIC | REGISTERED — drives the "registered-only" badge
     version: int
     created_at: datetime
     updated_at: datetime
@@ -178,6 +183,8 @@ class ItemCreateRequest(BaseModel):
     category_id: Optional[str] = Field(None, description="Category ULID (26 chars)")
     tag_names: Optional[List[str]] = []
     is_international: bool = Field(False, description="Visible to all users regardless of language filter")
+    self_made: bool = Field(False, description="Producer made/grew/prepared it (not a reseller). Applies to offers (CREDIT) only.")
+    visibility: str = Field('PUBLIC', pattern="^(PUBLIC|REGISTERED)$", description="Audience scope: PUBLIC (anyone, default) or REGISTERED (signed-in users only).")
     ai_analysis_log_id: Optional[int] = Field(None, description="AI analysis log ID for accuracy tracking")
     establishment_id: Optional[str] = Field(None, description="Post on behalf of this establishment (ULID)")
 
@@ -190,150 +197,181 @@ class ItemUpdateRequest(BaseModel):
     category_id: Optional[str] = Field(None, description="Category ULID (26 chars)")
     tag_names: Optional[List[str]] = None
     is_active: Optional[bool] = None
+    self_made: Optional[bool] = Field(None, description="Producer made/grew/prepared it (not a reseller). Applies to offers (CREDIT) only.")
+    visibility: Optional[str] = Field(None, pattern="^(PUBLIC|REGISTERED)$", description="Audience scope: PUBLIC (anyone) or REGISTERED (signed-in users only).")
+    establishment_id: Optional[str] = Field(None, description="Post on behalf of this establishment (ULID). Empty string '' to detach (post personally).")
     expected_version: Optional[int] = Field(None, description="Version for optimistic locking")
 
 
-def fuzz_location(point: Point, fuzz_meters: int = 100) -> Dict[str, float]:
-    """
-    Fuzz location for privacy by rounding to nearest grid point
-
-    Args:
-        point: Original location point
-        fuzz_meters: Grid size in meters (default 100m)
-
-    Returns:
-        Dictionary with fuzzed latitude and longitude
-    """
-    if not point:
-        return None
-
-    # Simple grid-based fuzzing
-    # In production, use more sophisticated fuzzing
-    grid_size = fuzz_meters / 111000  # Rough conversion to degrees
-
-    fuzzed_lat = round(point.y / grid_size) * grid_size
-    fuzzed_lon = round(point.x / grid_size) * grid_size
-
-    return {
-        'latitude': fuzzed_lat,
-        'longitude': fuzzed_lon,
-        'fuzzed': True,
-        'accuracy_meters': fuzz_meters
-    }
-
-
-def convert_pricing_options(pricing_options: List[Dict], target_currency: str) -> List[PricingOption]:
-    """
-    Convert pricing options to target currency
-
-    Args:
-        pricing_options: List of pricing option dicts from Item model
-        target_currency: Target currency code (EUR, USD, etc)
-
-    Returns:
-        List of PricingOption objects with converted amounts
-    """
+def serialize_pricing_options(pricing_options: List[Dict], target_currency: Optional[str] = None) -> List[Dict]:
+    """Serialize raw pricing_options JSONB into response dicts, converting to
+    target_currency when requested. The ONLY pricing serialization — both the
+    ORM and the raw-SQL item paths go through here."""
     result = []
-    for opt in pricing_options:
-        original_currency = opt.get('currency')
-        original_amount = opt.get('amount')
-
-        # Build PricingOption
-        pricing_opt = PricingOption(
-            type=opt.get('type'),
-            amount=original_amount,
-            currency=original_currency,
-            unit=opt.get('unit') or opt.get('period'),
-            note=opt.get('note')
-        )
-
-        # Convert if needed
-        if original_currency and original_amount and target_currency and original_currency != target_currency:
+    for opt in pricing_options or []:
+        po = {
+            'type': opt.get('type'),
+            'amount': opt.get('amount'),
+            'currency': opt.get('currency'),
+            'unit': opt.get('unit') or opt.get('period'),
+            'note': opt.get('note'),
+            'converted_from': None,
+        }
+        if target_currency and po['currency'] and po['amount'] and po['currency'] != target_currency:
             try:
-                converted_amount = ExchangeRate.convert(
-                    Decimal(str(original_amount)),
-                    original_currency,
-                    target_currency
+                converted = ExchangeRate.convert(
+                    Decimal(str(po['amount'])), po['currency'], target_currency
                 )
-                pricing_opt.amount = converted_amount
-                pricing_opt.currency = target_currency
-                pricing_opt.converted_from = original_currency
+                # str keeps orjson serializable; pydantic coerces it back to Decimal
+                po['amount'] = str(converted)
+                po['converted_from'] = po['currency']
+                po['currency'] = target_currency
             except Exception as e:
-                logger.warning(f"Currency conversion failed ({original_currency} -> {target_currency}): {e}")
-                # Keep original values if conversion fails
-
-        result.append(pricing_opt)
-
+                logger.warning(f"Currency conversion failed ({po['converted_from'] or po['currency']} -> {target_currency}): {e}")
+                po['converted_from'] = None  # keep original values if conversion fails
+        result.append(po)
     return result
 
 
-def build_item_response(item: Item, request=None, target_currency: str = None, include_distance: bool = False, demand_count: int = None, photos_map: dict = None) -> ItemResponse:
-    """
-    Build ItemResponse from Item model instance
+def batch_demand_maps(category_ids, request):
+    """Demand aggregates for a set of categories, viewer-visibility-aware.
 
-    Avoids Pydantic model_validate which can't access related fields.
+    Returns (demand_total, demand_by_owner):
+      demand_total[(category_id, type)]            -> active visible count across all owners
+      demand_by_owner[(category_id, type, owner)]  -> active visible count for that owner
 
-    Args:
-        item: Item model instance
-        request: HTTP request object (for building absolute URLs)
-        target_currency: Optional target currency for price conversion
-        include_distance: Whether to include distance_meters from annotation
-        photos_map: Pre-fetched {object_id: [ObjectPhoto, ...]} to avoid N+1
+    Per-item demand = total for the OPPOSITE type − count owned by the item's
+    own owner (a user's own request must not inflate demand on their own offer).
+    Single implementation for both list paths so the raw path cannot drift from
+    the ORM path (it used to skip the visibility filter).
     """
-    # Build image responses (sorted by order, then created_at)
-    # Use relative URLs to avoid SSR issues with localhost
-    images = []
+    demand_total = {}
+    demand_by_owner = {}
+    category_ids = [c for c in category_ids if c]
+    if not category_ids:
+        return demand_total, demand_by_owner
+    from django.db.models import Count
+    counts = (
+        Item.objects.filter(category_id__in=category_ids, is_active=True)
+        .filter(visible_items_q(request))
+        .values('category_id', 'type', 'owner_id')
+        .annotate(count=Count('id'))
+    )
+    for row in counts:
+        key = (row['category_id'], row['type'])
+        demand_total[key] = demand_total.get(key, 0) + row['count']
+        demand_by_owner[(row['category_id'], row['type'], row['owner_id'])] = row['count']
+    return demand_total, demand_by_owner
+
+
+def demand_count_for(item_type, category_id, owner_id, demand_total, demand_by_owner):
+    """Demand for one item from batch_demand_maps aggregates: opposite-type
+    active items in the same category, excluding the item's own owner."""
+    if not category_id:
+        return None
+    opposite = 'DEBIT' if item_type == 'CREDIT' else 'CREDIT'
+    return (demand_total.get((category_id, opposite), 0)
+            - demand_by_owner.get((category_id, opposite, owner_id), 0)) or None
+
+
+def assemble_item_dict(
+    *,
+    item_id, slug, title, description, item_type,
+    spec_data, pricing_options, accepted_payment_methods,
+    is_active, language, is_international, self_made, visibility,
+    lat, lon,
+    category_id, category_name, category_path,
+    tags, images,
+    version, created_at, updated_at, attributes,
+    owner_id, owner_account_id, owner_hna, owner_display_name, owner_name_public,
+    establishment_id, establishment_name, establishment_slug, establishment_logo_url,
+    viewer=None, target_currency=None, demand_count=None, distance_meters=None,
+) -> dict:
+    """Single source of truth for the public Item JSON shape.
+
+    Every serialization path — build_item_response (ORM), get_item (detail)
+    and _list_items_raw (CQRS fast path) — assembles through this function so
+    the field set, defaults, privacy gating, location fuzzing and pricing
+    conversion cannot drift between them. Guarded by market.tests_item_parity.
+
+    `description` arrives already truncated where the endpoint truncates
+    (list paths); `images` is a list of ItemImageResponse-shaped dicts.
+    """
+    location = None
+    if lat is not None and lon is not None:
+        grid = 100 / 111000  # ~100m privacy grid, keep in sync with accuracy_meters
+        location = {
+            'latitude': round(lat / grid) * grid,
+            'longitude': round(lon / grid) * grid,
+            'fuzzed': True,
+            'accuracy_meters': 100,
+        }
+    attributes = attributes or {}
+    return {
+        'id': item_id,
+        'object_type': 'item',
+        'slug': slug or '',
+        'owner_id': owner_id,
+        'owner_account_id': owner_account_id,
+        'owner_hna': owner_hna,
+        'owner_display_name': (owner_display_name or '') if Profile.name_visible(owner_name_public, owner_id, viewer) else '',
+        'title': title,
+        'description': description or '',
+        'item_type': item_type,
+        'spec_data': spec_data or {},
+        'location': location,
+        'pricing_options': serialize_pricing_options(pricing_options, target_currency),
+        'accepted_payment_methods': accepted_payment_methods or [],
+        'is_active': is_active,
+        'language': language or '',
+        'is_international': is_international,
+        'self_made': self_made,
+        'visibility': visibility or 'PUBLIC',
+        'category_id': category_id,
+        'category_name': category_name,
+        'category_path': category_path,
+        'tags': tags,
+        'images': images,
+        'version': version,
+        'created_at': created_at,
+        'updated_at': updated_at,
+        'distance_meters': distance_meters,
+        'establishment_id': establishment_id or None,
+        'establishment_name': establishment_name,
+        'establishment_slug': establishment_slug,
+        'establishment_logo_url': establishment_logo_url,
+        'is_demo': bool(attributes.get('__demo_seed') or attributes.get('demo')),
+        'demand_count': demand_count,
+    }
+
+
+def _model_assemble_kwargs(item: Item, request, target_currency=None, demand_count=None, photos_map=None):
+    """Extract assemble_item_dict kwargs from an ORM Item instance."""
     if photos_map is not None:
         photo_list = photos_map.get(item.id, [])
     else:
         photo_list = ObjectPhoto.objects.filter(object_id=item.id).order_by('order', 'created_at')
-    for img in photo_list:
-        image_url = img.image.url  # Already relative (/media/...)
-        images.append(ItemImageResponse(
-            id=img.id,
-            object_type=img.type_name,
-            url=image_url,
-            order=img.order,
-            caption=img.caption
-        ))
-
-    # Convert pricing_options with optional currency conversion
-    if target_currency:
-        pricing_opts = convert_pricing_options(item.pricing_options, target_currency)
-    else:
-        pricing_opts = []
-        for opt in item.pricing_options:
-            pricing_opts.append(PricingOption(
-                type=opt.get('type'),
-                amount=opt.get('amount'),
-                currency=opt.get('currency'),
-                unit=opt.get('unit') or opt.get('period'),
-                note=opt.get('note')
-            ))
-
-    # Extract distance from annotation if available
-    distance = None
-    if include_distance and hasattr(item, 'distance_meters'):
-        distance = float(item.distance_meters.m) if item.distance_meters else None
-
-    return ItemResponse(
-        id=item.id,
-        object_type=item.type_name,
+    images = [
+        {'id': p.id, 'object_type': p.type_name, 'url': p.image.url,
+         'order': p.order, 'caption': p.caption or ''}
+        for p in photo_list
+    ]
+    return dict(
+        item_id=item.id,
         slug=item.slug,
-        owner_id=item.owner.id,
-        owner_account_id=item.owner.account.id,
-        owner_hna=item.owner.hna,
-        owner_display_name=item.owner.display_name or '',
         title=item.title,
-        description=_truncate(item.description, 200),
+        description=item.description,
         item_type=item.type,
         spec_data=item.spec_data,
-        location=fuzz_location(item.location),
-        pricing_options=pricing_opts,
+        pricing_options=item.pricing_options,
         accepted_payment_methods=item.accepted_payment_methods,
         is_active=item.is_active,
         language=item.language,
         is_international=item.is_international,
+        self_made=item.self_made,
+        visibility=item.visibility,
+        lat=item.location.y if item.location else None,
+        lon=item.location.x if item.location else None,
         category_id=item.category.id if item.category else None,
         category_name=item.category.name if item.category else None,
         category_path=item.category.get_path() if item.category else None,
@@ -342,34 +380,58 @@ def build_item_response(item: Item, request=None, target_currency: str = None, i
         version=item.version,
         created_at=item.created_at,
         updated_at=item.updated_at,
-        distance_meters=distance,
-        establishment_id=item.establishment_id if item.establishment_id else None,
+        attributes=item.attributes,
+        owner_id=item.owner.id,
+        owner_account_id=item.owner.account.id,
+        owner_hna=item.owner.hna,
+        owner_display_name=item.owner.display_name,
+        owner_name_public=item.owner.name_public,
+        establishment_id=item.establishment_id,
         establishment_name=item.establishment.name if item.establishment else None,
         establishment_slug=item.establishment.slug if item.establishment else None,
         establishment_logo_url=item.establishment.logo_url if item.establishment else None,
-        is_demo=bool(item.attributes.get('__demo_seed') or item.attributes.get('demo')),
+        viewer=getattr(request, 'auth_profile', None),
+        target_currency=target_currency,
         demand_count=demand_count,
     )
 
 
-def _fuzz_coord(val, grid_size=100/111000):
-    """Grid-snap a single coordinate for privacy."""
-    if val is None:
-        return None
-    return round(val / grid_size) * grid_size
+def build_item_response(item: Item, request=None, target_currency: str = None, include_distance: bool = False, demand_count: int = None, photos_map: dict = None) -> ItemResponse:
+    """Build ItemResponse from an Item instance via the shared assembly core.
+
+    Args:
+        item: Item model instance
+        request: HTTP request object (viewer for privacy gating)
+        target_currency: Optional target currency for price conversion
+        include_distance: Whether to include distance_meters from annotation
+        photos_map: Pre-fetched {object_id: [ObjectPhoto, ...]} to avoid N+1
+    """
+    kwargs = _model_assemble_kwargs(item, request, target_currency, demand_count, photos_map)
+    kwargs['description'] = _truncate(kwargs['description'], 200)
+    if include_distance and hasattr(item, 'distance_meters'):
+        kwargs['distance_meters'] = float(item.distance_meters.m) if item.distance_meters else None
+    return ItemResponse(**assemble_item_dict(**kwargs))
 
 
 def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
                     is_active, min_price, max_price, include_barter,
                     owner_id, target_currency, language, ordering,
-                    page, page_size, is_staff_or_test):
+                    page, page_size, is_staff_or_test, self_made=None):
     """Raw SQL fast path for items list — bypasses ORM/Pydantic overhead."""
     conditions = ["TRUE"]
     params = []
 
+    if self_made:
+        conditions.append("i.self_made = TRUE")
+
     # Hide test/bot items for non-staff
     if not is_staff_or_test:
         conditions.append("a.is_test = FALSE AND a.is_bot = FALSE")
+
+    # Visibility: anonymous viewers see PUBLIC only; authed users see all tiers.
+    vis_pred, vis_params = visible_items_sql(request)
+    conditions.append(vis_pred)
+    params.extend(vis_params)
 
     if item_type:
         conditions.append("i.type = %s")
@@ -477,7 +539,7 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
                 i.version, i.created_at, i.updated_at, i.attributes,
                 i.category_id, i.establishment_id,
                 -- owner
-                p.id, p.local_name, p.display_name, inst.domain, a.id,
+                p.id, p.local_name, p.display_name, p.name_public, inst.domain, a.id,
                 -- category
                 c.name, c.slug,
                 c2.id, c2.name, c2.slug,
@@ -485,7 +547,8 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
                 c4.id, c4.name, c4.slug,
                 c5.id, c5.name, c5.slug,
                 -- establishment
-                est.name, est.slug, est.logo_url
+                est.name, est.slug, est.logo_url,
+                i.self_made, i.visibility
             {base_from}
             WHERE {where}
             ORDER BY {order_clause}
@@ -533,23 +596,14 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
                 'order': order, 'caption': caption or '',
             })
 
-    # Batch demand counts
-    demand_counts = {}
-    cat_ids = list({r[17] for r in rows if r[17]})
-    if cat_ids:
-        with connection.cursor() as cur:
-            placeholders_c = ','.join(['%s'] * len(cat_ids))
-            cur.execute(f"""
-                SELECT category_id, type, COUNT(*)
-                FROM market_item
-                WHERE category_id IN ({placeholders_c}) AND is_active = TRUE
-                GROUP BY category_id, type
-            """, cat_ids)
-            for cat_id, itype, cnt in cur.fetchall():
-                demand_counts[(cat_id, itype)] = cnt
+    # Batch demand counts — one shared, visibility-aware implementation for
+    # both list paths (this raw path used to skip the visibility filter).
+    demand_total, demand_by_owner = batch_demand_maps({r[17] for r in rows}, request)
 
-    # Build response
-    grid = 100 / 111000
+    # Build response through the shared assembly core — same shape, privacy
+    # gating and pricing conversion as the ORM path (orjson serializes the
+    # datetime objects the cursor returns).
+    viewer = getattr(request, 'auth_profile', None)
     items = []
     for r in rows:
         (item_id, slug, title, desc, itype,
@@ -558,13 +612,13 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
          lat, lon,
          version, created_at, updated_at, attrs,
          cat_id, est_id,
-         owner_id, local_name, display_name, inst_domain, account_id,
+         owner_id, local_name, display_name, name_public, inst_domain, account_id,
          cat_name, cat_slug,
          c2_id, c2_name, c2_slug,
          c3_id, c3_name, c3_slug,
          c4_id, c4_name, c4_slug,
          c5_id, c5_name, c5_slug,
-         est_name, est_slug, est_logo) = r
+         est_name, est_slug, est_logo, self_made, visibility) = r
 
         # Parse JSONB fields (cursor returns str for jsonb)
         spec = orjson.loads(spec_data) if isinstance(spec_data, str) else (spec_data or {})
@@ -572,85 +626,38 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
         pay_methods = orjson.loads(payment_methods) if isinstance(payment_methods, str) else (payment_methods or [])
         attrs_parsed = orjson.loads(attrs) if isinstance(attrs, str) else (attrs or {})
 
-        # Build pricing_options response
-        pricing_response = []
-        for opt in pricing_opts:
-            po = {
-                'type': opt.get('type'),
-                'amount': opt.get('amount'),
-                'currency': opt.get('currency'),
-                'unit': opt.get('unit') or opt.get('period'),
-                'note': opt.get('note'),
-                'converted_from': None,
-            }
-            # Currency conversion if requested
-            if target_currency and po['currency'] and po['amount'] and po['currency'] != target_currency:
-                try:
-                    converted = ExchangeRate.convert(
-                        Decimal(str(po['amount'])), po['currency'], target_currency
-                    )
-                    po['converted_from'] = po['currency']
-                    po['amount'] = str(converted)
-                    po['currency'] = target_currency
-                except Exception:
-                    pass
-            pricing_response.append(po)
-
-        # Fuzz location
-        location = None
-        if lat is not None and lon is not None:
-            location = {
-                'latitude': _fuzz_coord(lat, grid),
-                'longitude': _fuzz_coord(lon, grid),
-                'fuzzed': True, 'accuracy_meters': 100,
-            }
-
-        # Category path (walk up to 5 levels)
+        # Category path (walk up to 5 levels, root first — same shape as Category.get_path)
         cat_path = None
         if cat_id:
-            cat_path = []
-            for cid, cname, cslug in [
-                (c5_id, c5_name, c5_slug), (c4_id, c4_name, c4_slug),
-                (c3_id, c3_name, c3_slug), (c2_id, c2_name, c2_slug),
-                (cat_id, cat_name, cat_slug),
-            ]:
-                if cid:
-                    cat_path.append({'id': cid, 'name': cname, 'slug': cslug})
+            cat_path = [
+                {'id': cid, 'name': cname, 'slug': cslug}
+                for cid, cname, cslug in [
+                    (c5_id, c5_name, c5_slug), (c4_id, c4_name, c4_slug),
+                    (c3_id, c3_name, c3_slug), (c2_id, c2_name, c2_slug),
+                    (cat_id, cat_name, cat_slug),
+                ] if cid
+            ]
 
-        # Demand count
-        dc = None
-        if cat_id:
-            opposite = 'DEBIT' if itype == 'CREDIT' else 'CREDIT'
-            dc = demand_counts.get((cat_id, opposite), 0) or None
-
-        items.append({
-            'id': item_id, 'object_type': 'item',
-            'slug': slug or '', 'owner_id': owner_id,
-            'owner_account_id': account_id,
-            'owner_hna': f'{local_name}@{inst_domain}',
-            'owner_display_name': display_name or '',
-            'title': title, 'description': desc or '',
-            'item_type': itype, 'spec_data': spec,
-            'location': location,
-            'pricing_options': pricing_response,
-            'accepted_payment_methods': pay_methods,
-            'is_active': active, 'language': lang or '',
-            'is_international': international,
-            'category_id': cat_id, 'category_name': cat_name,
-            'category_path': cat_path,
-            'tags': tags_map.get(item_id, []),
-            'images': photos_map.get(item_id, []),
-            'version': version,
-            'created_at': created_at.isoformat() if created_at else None,
-            'updated_at': updated_at.isoformat() if updated_at else None,
-            'distance_meters': None,
-            'establishment_id': est_id,
-            'establishment_name': est_name,
-            'establishment_slug': est_slug,
-            'establishment_logo_url': est_logo,
-            'is_demo': bool(attrs_parsed.get('__demo_seed') or attrs_parsed.get('demo')),
-            'demand_count': dc,
-        })
+        items.append(assemble_item_dict(
+            item_id=item_id, slug=slug, title=title, description=desc,
+            item_type=itype, spec_data=spec, pricing_options=pricing_opts,
+            accepted_payment_methods=pay_methods, is_active=active,
+            language=lang, is_international=international,
+            self_made=self_made, visibility=visibility,
+            lat=lat, lon=lon,
+            category_id=cat_id, category_name=cat_name, category_path=cat_path,
+            tags=tags_map.get(item_id, []),
+            images=photos_map.get(item_id, []),
+            version=version, created_at=created_at, updated_at=updated_at,
+            attributes=attrs_parsed,
+            owner_id=owner_id, owner_account_id=account_id,
+            owner_hna=f'{local_name}@{inst_domain}',
+            owner_display_name=display_name, owner_name_public=name_public,
+            establishment_id=est_id, establishment_name=est_name,
+            establishment_slug=est_slug, establishment_logo_url=est_logo,
+            viewer=viewer, target_currency=target_currency,
+            demand_count=demand_count_for(itype, cat_id, owner_id, demand_total, demand_by_owner),
+        ))
 
     body = orjson.dumps({
         'items': items, 'count': total,
@@ -679,6 +686,7 @@ def list_items(request,
                lng: Optional[float] = None,
                match_type: Optional[str] = None,
                language: Optional[str] = None,
+               self_made: Optional[bool] = None,
                page: int = 1,
                page_size: int = 20):
     """
@@ -693,6 +701,16 @@ def list_items(request,
         - 'offer_matches': show DEBIT items matching categories of my CREDIT items
         - 'want_matches': show CREDIT items matching categories of my DEBIT items
     """
+    # Hidden items are private. Force active-only unless the caller is listing
+    # their OWN items (My Items sends no is_active for "All", False for hidden).
+    # Don't trust the client's is_active value — an explicit is_active=false
+    # from a non-owner must not expose other people's hidden listings.
+    if is_active is not True:
+        viewer = getattr(request, 'auth_profile', None)
+        is_owner_self = bool(owner_id) and viewer is not None and owner_id == viewer.id
+        if not is_owner_self:
+            is_active = True
+
     # --- Fast path: raw SQL for simple filters ---
     use_orm = bool(match_type) or bool(q) or (ordering == 'distance')
     if not use_orm:
@@ -734,7 +752,7 @@ def list_items(request,
                 request, item_type, pricing_type, category_id_resolved,
                 is_active, min_price, max_price, include_barter,
                 owner_id, target_currency, language, ordering,
-                page, page_size, is_staff_or_test,
+                page, page_size, is_staff_or_test, self_made=self_made,
             )
         except Exception:
             logger.exception("Raw SQL items list failed, falling back to ORM")
@@ -750,6 +768,9 @@ def list_items(request,
                 queryset = queryset.exclude(owner__account__is_test=True).exclude(owner__account__is_bot=True)
         else:
             queryset = queryset.exclude(owner__account__is_test=True).exclude(owner__account__is_bot=True)
+
+        # Visibility: anonymous viewers see PUBLIC only; authed users see all tiers.
+        queryset = queryset.filter(visible_items_q(request))
 
         # Match type filter - show items matching user's opposite type items
         # "offer_matches": show DEBIT items (requests) matching my CREDIT items (offers)
@@ -841,6 +862,8 @@ def list_items(request,
             queryset = queryset.filter(is_active=is_active)
         if owner_id:
             queryset = queryset.filter(owner__id=owner_id)
+        if self_made:
+            queryset = queryset.filter(self_made=True)
 
         # Language filter: show items in requested language + untagged (legacy) + international
         # Physical items in viewer's country are shown regardless of language.
@@ -870,13 +893,21 @@ def list_items(request,
                 Q(tags__name__icontains=q)
             ).distinct()
 
-        # Price range filters on pricing_options JSONField
+        # Price range filters / min_price ordering need the SAME numeric cast
+        # as the raw path: pricing_options[0].amount is stored as a JSON
+        # string, so a plain jsonb key comparison (string vs number) never
+        # matches and jsonb ordering is lexicographic ('9' > '10').
+        if (min_price is not None or max_price is not None
+                or ordering in ('min_price', '-min_price')):
+            from django.db.models.expressions import RawSQL
+            queryset = queryset.annotate(
+                _first_amount=RawSQL("(pricing_options->0->>'amount')::numeric", []))
         if min_price is not None or max_price is not None:
             price_q = Q()
             if min_price is not None:
-                price_q &= Q(pricing_options__0__amount__gte=min_price)
+                price_q &= Q(_first_amount__gte=min_price)
             if max_price is not None:
-                price_q &= Q(pricing_options__0__amount__lte=max_price)
+                price_q &= Q(_first_amount__lte=max_price)
             if include_barter:
                 # Also include items with no pricing (barter-only)
                 price_q = price_q | Q(pricing_options=[])
@@ -904,12 +935,10 @@ def list_items(request,
                 distance_meters=Distance('location', user_location)
             ).order_by('distance_meters')
         elif ordering == 'min_price':
-            # Sort by minimum price (ascending)
-            # Extract first pricing option amount for sorting
-            queryset = queryset.order_by('pricing_options__0__amount')
+            # Numeric sort on first pricing option (same NULLS LAST as raw path)
+            queryset = queryset.order_by(F('_first_amount').asc(nulls_last=True))
         elif ordering == '-min_price':
-            # Sort by minimum price (descending)
-            queryset = queryset.order_by('-pricing_options__0__amount')
+            queryset = queryset.order_by(F('_first_amount').desc(nulls_last=True))
         elif ordering == 'created_at':
             # Oldest first
             queryset = queryset.order_by('created_at')
@@ -927,18 +956,9 @@ def list_items(request,
         # Get paginated items
         paginated_items = list(queryset[start:end])
 
-        # Batch compute demand counts: for each item, count opposite-type items in same category
-        demand_counts = {}
-        category_ids = {item.category_id for item in paginated_items if item.category_id}
-        if category_ids:
-            from django.db.models import Count
-            counts = (
-                Item.objects.filter(category_id__in=category_ids, is_active=True)
-                .values('category_id', 'type')
-                .annotate(count=Count('id'))
-            )
-            for row in counts:
-                demand_counts[(row['category_id'], row['type'])] = row['count']
+        # Batch demand counts — shared, visibility-aware implementation (same as raw path)
+        demand_total, demand_by_owner = batch_demand_maps(
+            {item.category_id for item in paginated_items}, request)
 
         # Batch-fetch photos for all items (eliminates N+1)
         item_ids = [item.id for item in paginated_items]
@@ -952,11 +972,7 @@ def list_items(request,
         include_distance = (ordering == 'distance' and lat is not None and lng is not None)
         items = []
         for item in paginated_items:
-            # demand_count = opposite type items in same category
-            dc = None
-            if item.category_id:
-                opposite = 'DEBIT' if item.type == 'CREDIT' else 'CREDIT'
-                dc = demand_counts.get((item.category_id, opposite), 0) or None
+            dc = demand_count_for(item.type, item.category_id, item.owner_id, demand_total, demand_by_owner)
             items.append(build_item_response(item, request, target_currency, include_distance, demand_count=dc, photos_map=photos_map))
 
         # Return paginated response
@@ -1041,6 +1057,9 @@ def create_item(request, data: ItemCreateRequest):
                 language=detected_lang,
                 country_code=detected_country,
                 is_international=data.is_international,
+                # self_made is meaningful only for offers (you can't "make" a request)
+                self_made=bool(data.self_made and data.item_type == 'CREDIT'),
+                visibility=data.visibility,
                 establishment=establishment,
             )
 
@@ -1092,7 +1111,7 @@ def create_item(request, data: ItemCreateRequest):
         return 500, {"error": "Failed to create item", "details": str(e)}
 
 
-@item_router.get("/{id}/", response={200: ItemDetailResponse, 404: dict})
+@item_router.get("/{id}/", response={200: ItemDetailResponse, 404: dict}, auth=OptionalProfileAuth())
 @ratelimit(group='items:detail', key='ip', rate='60/m')
 def get_item(request, id: str, target_currency: Optional[str] = None):
     """
@@ -1101,100 +1120,52 @@ def get_item(request, id: str, target_currency: Optional[str] = None):
     Returns fuzzed location for public access.
     Exact location only available to deal participants.
     Prices can be converted to target_currency if provided.
+
+    Hidden (is_active=False) items are not publicly reachable: only the owner
+    gets the detail; everyone else gets 404 (treat hidden as offline).
     """
     try:
         item = _resolve_item(id)
+        viewer = getattr(request, 'auth_profile', None)
 
-        # Demand count: opposite-type items in same category
-        demand_count = None
-        if item.category_id:
-            opposite_type = 'DEBIT' if item.type == 'CREDIT' else 'CREDIT'
-            dc = Item.objects.filter(
-                category_id=item.category_id,
-                type=opposite_type,
-                is_active=True,
-            ).count()
-            if dc > 0:
-                demand_count = dc
+        # Hidden items are private — owner only, 404 for anyone else.
+        if not item.is_active:
+            is_owner = viewer is not None and viewer.id == item.owner_id
+            if not is_owner:
+                raise Http404("Item not found")
+
+        # Visibility: a REGISTERED item is 404 for anonymous viewers (any
+        # signed-in user may see it; enforced here so the direct URL can't leak it).
+        if not can_view_item(item, request):
+            raise Http404("Item not found")
+
+        # Demand count — shared, visibility-aware implementation (same as list paths)
+        demand_total, demand_by_owner = batch_demand_maps([item.category_id], request)
+        demand_count = demand_count_for(item.type, item.category_id, item.owner_id, demand_total, demand_by_owner)
 
         # Exact location: currently not exposed (Deal model removed)
         show_exact_location = False
 
-        # Convert pricing_options with optional currency conversion
-        if target_currency:
-            pricing_opts = convert_pricing_options(item.pricing_options, target_currency)
-        else:
-            pricing_opts = []
-            for opt in item.pricing_options:
-                pricing_opts.append(PricingOption(
-                    type=opt.get('type'),
-                    amount=opt.get('amount'),
-                    currency=opt.get('currency'),
-                    unit=opt.get('unit') or opt.get('period'),
-                    note=opt.get('note')
-                ))
-
-        # Build image responses (sorted by order, then created_at)
-        # Use relative URLs to avoid SSR issues with localhost
-        images = []
-        for img in ObjectPhoto.objects.filter(object_id=item.id).order_by('order', 'created_at'):
-            image_url = img.image.url  # Already relative (/media/...)
-            images.append(ItemImageResponse(
-                id=img.id,
-                object_type=img.type_name,
-                url=image_url,
-                order=img.order,
-                caption=img.caption
-            ))
-
-        # Build response manually
-        response_data = ItemDetailResponse(
-            id=item.id,
-            object_type=item.type_name,
-            slug=item.slug,
-            owner_id=item.owner.id,
-            owner_account_id=item.owner.account.id,
-            owner_hna=item.owner.hna,
-            owner_display_name=item.owner.display_name or '',
+        # Same assembly core as the list paths; detail keeps the FULL description
+        # and adds the owner_* detail fields on top.
+        data = assemble_item_dict(**_model_assemble_kwargs(item, request, target_currency, demand_count))
+        return ItemDetailResponse(
+            **data,
             owner_reputation=item.owner.reputation_score,
             owner_is_verified=item.owner.is_verified_wot,
             owner_avatar_url=item.owner.avatar.url if item.owner.avatar else None,
             owner_created_at=item.owner.created_at,
             owner_verifications_count=item.owner.received_verifications.filter(is_active=True).count(),
-            title=item.title,
-            description=item.description,
-            item_type=item.type,
-            spec_data=item.spec_data,
-            location=fuzz_location(item.location),
             exact_location={
                 'latitude': item.location.y,
                 'longitude': item.location.x
             } if show_exact_location and item.location else None,
-            pricing_options=pricing_opts,
-            accepted_payment_methods=item.accepted_payment_methods,
-            is_active=item.is_active,
-            category_id=item.category.id if item.category else None,
-            category_name=item.category.name if item.category else None,
-            category_path=item.category.get_path() if item.category else None,
-            tags=[tag.name for tag in item.tags.all()],
-            images=images,
-            language=item.language,
-            is_international=item.is_international,
-            version=item.version,
-            created_at=item.created_at,
-            updated_at=item.updated_at,
-            establishment_id=item.establishment_id if item.establishment_id else None,
-            establishment_name=item.establishment.name if item.establishment else None,
-            establishment_slug=item.establishment.slug if item.establishment else None,
-            establishment_logo_url=item.establishment.logo.url if item.establishment and item.establishment.logo else None,
-            is_demo=bool(item.attributes.get('__demo_seed') or item.attributes.get('demo')),
-            demand_count=demand_count,
         )
-
-        return response_data
 
     except Item.DoesNotExist:
         raise Http404("Item not found")
+    except Http404:
+        raise
     except Exception as e:
         logger.error(f"Error retrieving item {id}: {e}")
         raise Http404("Item not found")
@@ -1252,7 +1223,12 @@ def update_item(request, id: str, data: ItemUpdateRequest):
                 item.pricing_options = pricing_opts_data
             if data.is_active is not None:
                 item.is_active = data.is_active
-            
+            if data.self_made is not None:
+                # self_made is meaningful only for offers (you can't "make" a request)
+                item.self_made = bool(data.self_made and item.type == 'CREDIT')
+            if data.visibility is not None:
+                item.visibility = data.visibility
+
             # Handle category update
             if data.category_id is not None:
                 if data.category_id == "":
@@ -1269,7 +1245,23 @@ def update_item(request, id: str, data: ItemUpdateRequest):
                         item.category = category
                     except Category.DoesNotExist:
                         return 404, {"error": f"Category {data.category_id} not found"}
-            
+
+            # Handle establishment update (post on behalf of)
+            # None = leave unchanged; "" = detach (post personally); ULID = attach if permitted.
+            # Placed before any DB-mutating op below so an early permission return leaves no partial writes.
+            if data.establishment_id is not None:
+                if data.establishment_id == "":
+                    item.establishment = None
+                else:
+                    from geo.permissions import get_establishment_for_action, POSTING_ROLES
+                    from ninja.errors import HttpError
+                    try:
+                        item.establishment = get_establishment_for_action(
+                            data.establishment_id, request.auth_profile, POSTING_ROLES
+                        )
+                    except HttpError as e:
+                        return e.status_code, {"error": e.message}
+
             # Handle tags update
             if data.tag_names is not None:
                 item.tags.clear()
@@ -1307,7 +1299,7 @@ def delete_item(request, id: str):
 
         # Check ownership
         if item.owner != request.auth_profile:
-            raise HttpError(403, "You don't have permission to delete this item")
+            raise LocalizedHttpError(403, "item_delete_forbidden", "You don't have permission to delete this item")
 
         item_ulid = item.id
         item.delete()
@@ -1320,7 +1312,7 @@ def delete_item(request, id: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting item: {e}")
-        raise HttpError(500, "Failed to delete item")
+        raise LocalizedHttpError(500, "item_delete_failed", "Failed to delete item")
 
 
 @item_router.post("/{id}/deactivate/", response={200: ItemResponse, 403: dict, 404: dict}, auth=ProfileAuth())
@@ -1335,13 +1327,35 @@ def deactivate_item(request, id: str):
 
     # Check ownership
     if item.owner != request.auth_profile:
-        raise HttpError(403, "You don't have permission to deactivate this item")
+        raise LocalizedHttpError(403, "item_deactivate_forbidden", "You don't have permission to deactivate this item")
 
     item.is_active = False
     item.save()
     item.refresh_from_db()
 
     logger.info(f"Item deactivated: {item.id} by {request.auth_profile.id}")
+    return build_item_response(item, request)
+
+
+@item_router.post("/{id}/activate/", response={200: ItemResponse, 403: dict, 404: dict}, auth=ProfileAuth())
+@ratelimit(group='items:activate', key=user_or_ip, rate='10/m', method='POST')
+def activate_item(request, id: str):
+    """
+    Re-activate a previously hidden item (by ULID or slug).
+
+    Requires authentication and owner permission. Inverse of deactivate_item.
+    """
+    item = _resolve_item(id)
+
+    # Check ownership
+    if item.owner != request.auth_profile:
+        raise LocalizedHttpError(403, "item_activate_forbidden", "You don't have permission to activate this item")
+
+    item.is_active = True
+    item.save()
+    item.refresh_from_db()
+
+    logger.info(f"Item activated: {item.id} by {request.auth_profile.id}")
     return build_item_response(item, request)
 
 
@@ -1371,9 +1385,11 @@ def upload_item_image(request, id: str, image: UploadedFile, order: int = Form(0
         if current_count >= 5:
             return 400, {"error": "Maximum 5 images per item allowed"}
 
-        # Validate order
-        if order < 0 or order > 4:
-            return 400, {"error": "Order must be between 0 and 4"}
+        # Validate order. Upper bound is the max combined media position
+        # (5 photos + 10 videos − 1); photos share one global order space with
+        # videos so a photo can sit past index 4 in the unified media strip.
+        if order < 0 or order > 14:
+            return 400, {"error": "Order must be between 0 and 14"}
 
         # Validate image file — content_type + magic bytes (content_type can be spoofed)
         if not image.content_type.startswith('image/') or not _is_valid_image_magic(image.file):
@@ -1443,6 +1459,103 @@ def upload_item_image(request, id: str, image: UploadedFile, order: int = Form(0
     except Exception as e:
         logger.error(f"Error uploading image: {e}", exc_info=True)
         return 400, {"error": f"Failed to upload image: {str(e)}"}
+
+
+@item_router.delete("/{id}/images/{image_id}/", response={200: dict, 403: dict, 404: dict}, auth=ProfileAuth())
+@ratelimit(group='items:delete_image', key=user_or_ip, rate='20/m', method='DELETE')
+def delete_item_image(request, id: str, image_id: str):
+    """
+    Delete a single image from an item.
+
+    Requires authentication and owner permission.
+    """
+    try:
+        item = _resolve_item(id)
+    except Item.DoesNotExist:
+        return 404, {"error": "Item not found"}
+
+    # Check ownership
+    if item.owner != request.auth_profile:
+        return 403, {"error": "You don't have permission to delete images for this item"}
+
+    photo = ObjectPhoto.objects.filter(object_id=item.id, id=image_id).first()
+    if not photo:
+        return 404, {"error": "Image not found"}
+
+    if photo.image:
+        photo.image.delete(save=False)
+    photo.delete()
+
+    logger.info(f"Image {image_id} deleted from item {item.id} by {request.auth_profile.id}")
+    return 200, {"success": True}
+
+
+class MediaOrderEntry(BaseModel):
+    type: str  # 'photo' | 'video'
+    id: str
+
+
+class MediaOrderPayload(BaseModel):
+    # Full media sequence in the desired display order. Photos and videos share
+    # one global order space — element index becomes each item's `order`, so the
+    # detail-page gallery (which merges photos+videos and sorts by `order`)
+    # renders them exactly as listed here. The first entry is the listing cover.
+    order: List[MediaOrderEntry]
+
+
+@item_router.patch("/{id}/media-order/", response={200: dict, 400: dict, 403: dict, 404: dict}, auth=ProfileAuth())
+@ratelimit(group='items:reorder_media', key=user_or_ip, rate='30/m', method='PATCH')
+def reorder_item_media(request, id: str, payload: MediaOrderPayload):
+    """
+    Set the combined display order of an item's photos and videos.
+
+    Body: {"order": [{"type": "photo"|"video", "id": "<ulid>"}, ...]} — the
+    full media list in the desired sequence. Each entry's position becomes its
+    `order` (0-based), giving photos and videos one shared ordering so the owner
+    can put a photo first and a video third.
+
+    Requires authentication and owner permission.
+    """
+    from core.models import ObjectVideo
+
+    try:
+        item = _resolve_item(id)
+    except Item.DoesNotExist:
+        return 404, {"error": "Item not found"}
+
+    if item.owner != request.auth_profile:
+        return 403, {"error": "You don't have permission to reorder this item's media"}
+
+    photo_ids = [e.id for e in payload.order if e.type == 'photo']
+    video_ids = [e.id for e in payload.order if e.type == 'video']
+
+    if any(e.type not in ('photo', 'video') for e in payload.order):
+        return 400, {"error": "Each entry type must be 'photo' or 'video'"}
+
+    photos = {p.id: p for p in ObjectPhoto.objects.filter(object_id=item.id, id__in=photo_ids)}
+    videos = {v.id: v for v in ObjectVideo.objects.filter(object_id=item.id, id__in=video_ids)}
+
+    # Every referenced id must resolve to a photo/video on THIS item (ignore dupes).
+    if len(photos) != len(set(photo_ids)) or len(videos) != len(set(video_ids)):
+        return 400, {"error": "Some media do not belong to this item"}
+
+    photos_to_update = []
+    videos_to_update = []
+    for idx, e in enumerate(payload.order):
+        obj = (photos if e.type == 'photo' else videos)[e.id]
+        if obj.order != idx:
+            obj.order = idx
+            (photos_to_update if e.type == 'photo' else videos_to_update).append(obj)
+
+    with transaction.atomic():
+        if photos_to_update:
+            ObjectPhoto.objects.bulk_update(photos_to_update, ['order'])
+        if videos_to_update:
+            ObjectVideo.objects.bulk_update(videos_to_update, ['order'])
+
+    logger.info(f"Media reordered for item {item.id} by {request.auth_profile.id} "
+                f"({len(photos)} photos, {len(videos)} videos)")
+    return 200, {"success": True}
 
 
 class AIAnalysisResponse(BaseModel):

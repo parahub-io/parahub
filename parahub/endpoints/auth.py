@@ -261,11 +261,15 @@ def register(request, data: RegisterRequest):
         if Account.objects.filter(username=username).exists():
             raise HttpError(400, "Username already exists")
 
-        # Get default instance (assuming single instance for now)
+        # Resolve this node's own instance. Must NOT use Instance.objects.first():
+        # Meta.ordering=['-created_at'] makes it return the newest instance (the
+        # localhost dev instance), which produced broken @localhost HNAs. Pin to
+        # the federation self-domain so this stays correct on any federated node.
+        from django.conf import settings
         try:
-            instance = Instance.objects.first()
-            if not instance:
-                raise HttpError(500, "No instance configured")
+            instance = Instance.objects.get(domain=settings.FEDERATION_DOMAIN)
+        except Instance.DoesNotExist:
+            raise HttpError(500, "No instance configured")
         except Exception:
             raise HttpError(500, "Instance configuration error")
 
@@ -275,8 +279,22 @@ def register(request, data: RegisterRequest):
 
         # Use provided email or fall back to HNA
         email = data.email if data.email else hna_email
-        if data.email and Account.objects.filter(email=data.email).exists():
-            raise HttpError(400, "Email already in use")
+
+        # Dedup real (non-HNA) emails across every existing identity. A Google
+        # user's real address lives ONLY in SocialAccount.extra_data (Account.email
+        # holds the HNA), so checking Account.email/EmailAddress alone would miss it
+        # and mint a duplicate account (root cause of the lilianaamf/noble-ocean
+        # split). HNA fallbacks are internal and skip this check.
+        email_norm = data.email.strip().lower() if data.email else None
+        if email_norm:
+            from allauth.account.models import EmailAddress
+            from allauth.socialaccount.models import SocialAccount
+            if (Account.objects.filter(email__iexact=email_norm).exists()
+                    or EmailAddress.objects.filter(email__iexact=email_norm).exists()
+                    or SocialAccount.objects.filter(extra_data__email__iexact=email_norm).exists()):
+                # Structured code so the client can show a localized, actionable
+                # message ("sign in / use Google") instead of a raw English string.
+                return 400, {"detail": "Email already in use", "code": "email_taken"}
 
         # Create user and profile in transaction
         with transaction.atomic():
@@ -288,13 +306,26 @@ def register(request, data: RegisterRequest):
                 instance=instance,
                 registration_ip=_get_client_ip(request),
             )
-            
-            # Create profile
+
+            # Mirror the real contact email into EmailAddress (allauth's canonical
+            # store) so dedup, recovery and notifications share one queryable source.
+            # HNA fallbacks are internal — never stored as a contact email.
+            if email_norm:
+                from allauth.account.models import EmailAddress
+                EmailAddress.objects.get_or_create(
+                    user=user,
+                    email=email_norm,
+                    defaults={'verified': False, 'primary': True},
+                )
+
+            # Create profile (primary — first profile of the account, see Profile.is_primary)
             profile = Profile.objects.create(
                 account=user,
                 instance=instance,
                 local_name=data.local_name,
-                display_name=data.display_name or data.local_name
+                display_name=data.display_name or data.local_name,
+                profile_type=Profile.ProfileType.PERSONAL,
+                is_primary=True
             )
             
             logger.info(f"New user registered: {user.username} with profile: {profile.hna}")
@@ -449,7 +480,10 @@ def check_session(request):
                 "is_foundation_member": profile.is_foundation_member(),
                 "avatar_url": profile.avatar.url if profile.avatar else None,
                 "profile_type": profile.profile_type,
-                "is_primary": profile.is_primary
+                "is_primary": profile.is_primary,
+                # Consumed by the i18n boot plugin — saves it a dedicated
+                # /profiles/me/ round-trip on every page load.
+                "preferred_language": profile.preferred_language,
             }
 
         # Check if new OAuth user needs to confirm username
@@ -631,6 +665,19 @@ def delete_account(request, data: DeleteAccountRequest):
         with transaction.atomic():
             # Log the deletion attempt
             logger.warning(f"[DeleteAccount] User {username} ({user.id}) initiated account deletion")
+
+            # Erase pseudonymous civic votes BEFORE profiles are gone: tokens are
+            # HMAC(profile_id, poll_id) — once the profile row is deleted the tokens
+            # become uncomputable and orphaned votes would pollute aggregates forever
+            # (PK/civic-polls-system.md § erasure)
+            try:
+                from governance.civic import erase_civic_data
+                for profile in Profile.objects.filter(account=user):
+                    erased = erase_civic_data(profile)
+                    if erased:
+                        logger.info(f"[DeleteAccount] Erased civic votes in {erased} polls for profile {profile.id[:8]}")
+            except Exception as civic_err:
+                logger.error(f"[DeleteAccount] Civic erasure failed (continuing): {civic_err}")
 
             # Deactivate Matrix/Synapse user (before Django deletion)
             _deactivate_synapse_user(username)
@@ -907,7 +954,8 @@ def check_username_availability(request, username: str):
 
     # Check Profile local_name (for same instance)
     try:
-        instance = Instance.objects.get(domain='parahub.io')
+        from django.conf import settings
+        instance = Instance.objects.get(domain=settings.FEDERATION_DOMAIN)
         if Profile.objects.filter(instance=instance, local_name=username).exists():
             return UsernameAvailabilityResponse(
                 username=username,
@@ -952,6 +1000,7 @@ def generate_available_username(request):
     - available: always true (guaranteed available)
     """
     from core.username_generator import ADJECTIVES, NOUNS
+    from django.conf import settings
     import random
 
     max_attempts = 100
@@ -972,7 +1021,7 @@ def generate_available_username(request):
 
         # Check Profile
         try:
-            instance = Instance.objects.get(domain='parahub.io')
+            instance = Instance.objects.get(domain=settings.FEDERATION_DOMAIN)
             if Profile.objects.filter(instance=instance, local_name=username).exists():
                 continue
         except Instance.DoesNotExist:
@@ -1048,7 +1097,8 @@ def set_username(request, data: SetUsernameRequest):
 
     # Also check if username was never changed (username matches profile local_name)
     try:
-        instance = Instance.objects.get(domain='parahub.io')
+        from django.conf import settings
+        instance = Instance.objects.get(domain=settings.FEDERATION_DOMAIN)
         profile = Profile.objects.filter(account=user, instance=instance).first()
     except Instance.DoesNotExist:
         return 400, {"error": "Instance not found"}

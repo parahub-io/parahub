@@ -28,7 +28,10 @@
                 ? 'border-green-500'
                 : 'border-amber-500'"
             >
-              <img :src="idPhotoUrl" alt="ID Photo" class="w-full h-full object-cover" />
+              <img v-if="idPhotoSrc" :src="idPhotoSrc" alt="ID Photo" class="w-full h-full object-cover" />
+              <div v-else class="w-full h-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-800">
+                <Loader2 class="w-5 h-5 animate-spin text-neutral-400" />
+              </div>
               <!-- Verification badge -->
               <div
                 class="absolute top-1 right-1 rounded-full p-1"
@@ -138,6 +141,7 @@
         </div>
         <p class="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
           {{ $t('profile.verification_photo.hint') }}
+          <NuxtLink :to="localePath('/docs/wot')" class="text-link whitespace-nowrap">{{ $t('profile.verification_photo.learn_more') }}</NuxtLink>
         </p>
 
         <!-- Status -->
@@ -322,13 +326,42 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
+const localePath = useLocalePath()
 const { showSuccess, showError } = useNotification()
 const authStore = useAuthStore()
 
 // === ID Photo state ===
+// id_photo_url is now a gated endpoint (private media) — presence = "has photo",
+// but the actual <img> needs an authed blob fetch (idPhotoSrc).
 const idPhotoUrl = computed(() => authStore.user?.profile?.id_photo_url || null)
 const idPhotoVerified = computed(() => authStore.user?.profile?.id_photo_verified || false)
+const idPhotoSrc = ref<string | null>(null)
 const verificationIssues = ref<string[]>([])
+
+const loadIdPhotoPreview = async (url: string) => {
+  if (!import.meta.client) return
+  try {
+    await authStore.ensureToken()
+    const res = await fetch(url, {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    if (res.ok) {
+      if (idPhotoSrc.value) URL.revokeObjectURL(idPhotoSrc.value)
+      idPhotoSrc.value = URL.createObjectURL(await res.blob())
+    }
+  } catch (err) {
+    console.error('Failed to load ID photo preview:', err)
+  }
+}
+
+watch(idPhotoUrl, (url) => {
+  if (url) loadIdPhotoPreview(url)
+  else if (idPhotoSrc.value) {
+    URL.revokeObjectURL(idPhotoSrc.value)
+    idPhotoSrc.value = null
+  }
+}, { immediate: true })
 
 const idPhotoUploading = ref(false)
 const idPhotoDeleting = ref(false)

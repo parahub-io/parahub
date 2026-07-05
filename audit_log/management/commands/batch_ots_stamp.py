@@ -58,8 +58,14 @@ class Command(BaseCommand):
             self.stderr.write(f"Git commit failed: {e}")
             return
 
-        # 3. Write batch_commits/{batch_label}.txt
-        hash_file = git_service.write_commit_hash_file(commit_hash, batch_label)
+        # 3. Capture the PUBLIC repo HEAD (PGP keyring + federation registry) and
+        #    record BOTH roots in the stamped file, so the single Bitcoin anchor
+        #    also covers the keyring — and it stays independently checkout-able.
+        try:
+            registry_commit = git_service.repo.head.commit.hexsha
+        except Exception:
+            registry_commit = None  # public repo has no commits yet → events-only anchor
+        hash_file = git_service.write_commit_hash_file(commit_hash, registry_commit, batch_label)
 
         # 4. OTS stamp the commit hash file
         ots_bytes = git_service.stamp_commit_hash_file(hash_file)
@@ -97,6 +103,7 @@ class Command(BaseCommand):
             except Exception as e:
                 logger.warning(f"Git push to remote failed (non-fatal): {e}")
 
+        reg = f", registry {registry_commit[:8]}" if registry_commit else ""
         self.stdout.write(self.style.SUCCESS(
-            f"Batch {batch.id}: {len(pending)} proofs stamped, commit {commit_hash[:8]}, batch_label={batch_label}"
+            f"Batch {batch.id}: {len(pending)} proofs stamped, events {commit_hash[:8]}{reg}, batch_label={batch_label}"
         ))

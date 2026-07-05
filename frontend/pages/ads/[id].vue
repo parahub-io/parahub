@@ -32,7 +32,7 @@
           <!-- Advertiser -->
           <NuxtLink
             v-if="ad.advertiser_id"
-            :to="localePath(`/u/${ad.advertiser_id}`)"
+            :to="localePath(`/u/${ad.advertiser_hna?.split('@')[0] || ad.advertiser_id}`)"
             class="inline-flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
           >
             <img

@@ -5,10 +5,6 @@
     "search_placeholder": "Search items...",
     "create_listing": "Create Listing",
     "barter_button": "Barter",
-    "type": {
-      "credit": "Offer",
-      "debit": "Request"
-    },
     "pricing_type": {
       "sale": "Sale",
       "rent": "Rent",
@@ -39,10 +35,7 @@
       "matches_i_want": "Matches: I want",
       "all_categories": "All Categories",
       "barter_possible": "Barter possible",
-      "owner_label": "Owner",
-      "all_owners": "All",
       "only_mine": "Mine",
-      "loading_partners": "Loading partners...",
       "reset_category_title": "Reset category",
       "filtered_by_user": "Filtered by user",
       "clear_user_filter": "Clear user filter",
@@ -56,7 +49,8 @@
       "price_range": "Price Range",
       "min_price": "Min",
       "max_price": "Max",
-      "include_barter": "Include barter-only"
+      "include_barter": "Include barter items",
+      "self_made_only": "By the maker only"
     },
     "empty": {
       "title": "No items found",
@@ -82,6 +76,8 @@
       "image_n": "Image {n} of {total}",
       "barter": "Barter",
       "mine_badge": "Mine",
+      "self_made_badge": "By the maker",
+      "registered_badge": "Registered only",
       "match_badge": "Match",
       "demand_need": "{n} need | {n} need",
       "demand_offers": "{n} offer | {n} offers",
@@ -107,7 +103,20 @@
     "pricing": {
       "free": "Free",
       "negotiable": "Price negotiable",
-      "converted_from": "from {currency}"
+      "converted_from": "from {currency}",
+      "sale": "Sale",
+      "rent": "Rent",
+      "unit_none": "No unit",
+      "unit_custom": "Other…",
+      "unit_custom_placeholder": "Unit (e.g. kg, hour, pcs)",
+      "units": {
+        "kg": "kg", "g": "g", "t": "t", "l": "l", "ml": "ml",
+        "m": "m", "m²": "m²", "m³": "m³",
+        "pcs": "pcs", "pair": "pair", "box": "box", "set": "set",
+        "hour": "hour", "day": "day", "week": "week", "month": "month", "year": "year",
+        "half_day": "half day", "weekend": "weekend",
+        "session": "session", "project": "project", "page": "page", "consultation": "consultation"
+      }
     },
     "time": {
       "just_now": "just now",
@@ -163,6 +172,10 @@
       "submitting": "Creating...",
       "international_label": "International listing",
       "international_desc": "Visible to all users regardless of their language setting (e.g. remote services, souvenirs)",
+      "self_made_label": "By the maker",
+      "self_made_desc": "Tick this if you produced, grew or prepared it yourself rather than reselling it. Bought parts and ingredients are fine — leave it unticked only if you bought it finished to resell.",
+      "visibility_label": "Registered users only",
+      "visibility_desc": "Hide this listing from anonymous visitors and search engines — only signed-in parahub users will see it. Leave off to stay public (anyone can find it).",
       "voice_dictate": "Dictate listing",
       "voice_recording": "Listening... tap to stop",
       "voice_processing": "Processing...",
@@ -188,7 +201,13 @@
       "longitude_placeholder": "Longitude",
       "cancel": "Cancel",
       "save": "Save",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "photos_help": "Photos are saved immediately.",
+      "media_label": "Photos & video",
+      "media_help": "The first item is the cover. Drag the tiles (or use the arrows) to reorder. Photos and video are saved instantly.",
+      "add_video": "Add video",
+      "move_earlier": "Move earlier",
+      "move_later": "Move later"
     },
     "delete_modal": {
       "title": "Delete listing?",
@@ -204,7 +223,8 @@
       "listed_by": "Listed by",
       "posted": "Posted",
       "contact_seller": "Contact Seller",
-      "make_deal": "Make Deal"
+      "make_deal": "Make Deal",
+      "tap_to_close": "Tap anywhere to close"
     },
     "notifications": {
       "created": "Listing created successfully!",
@@ -248,7 +268,13 @@
       "ai_error_401": "Authentication required",
       "ai_error_unknown": "Error",
       "ai_quota_exceeded": "Daily AI analysis quota exceeded ({limit}/{limit}). Try again tomorrow or fill manually.",
-      "ai_quota_exhausted": "AI quota exhausted. Please fill the form manually."
+      "ai_quota_exhausted": "AI quota exhausted. Please fill the form manually.",
+      "photo_deleted": "Photo deleted",
+      "photo_add_error": "Failed to add photo.",
+      "photo_delete_error": "Failed to delete photo.",
+      "order_save_error": "Couldn't save the new order.",
+      "video_deleted": "Video deleted",
+      "video_delete_error": "Couldn't delete the video."
     },
     "ai_quota_label": "AI: {remaining}/{limit}",
     "propose_deal": {
@@ -292,15 +318,23 @@
     "no_image": "No image",
     "zoom_image": "View full size",
     "my_items": {
-      "title": "My Listings",
-      "subtitle": "Manage your marketplace listings",
+      "tab_listings": "Listings",
+      "title": "My market",
+      "subtitle": "Your listings, requests and bookings",
       "filter_all": "All",
       "filter_active": "Active",
       "filter_inactive": "Inactive",
       "status_active": "Active",
       "status_hidden": "Hidden",
       "empty_title": "No listings yet",
-      "empty_description": "Create your first marketplace listing"
+      "empty_description": "Create your first marketplace listing",
+      "tab_barter": "Barter"
+    },
+    "error_codes": {
+      "item_delete_forbidden": "You don't have permission to delete this item",
+      "item_delete_failed": "Failed to delete item",
+      "item_deactivate_forbidden": "You don't have permission to hide this item",
+      "item_activate_forbidden": "You don't have permission to activate this item"
     }
   }
 }

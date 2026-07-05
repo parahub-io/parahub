@@ -8,8 +8,9 @@ from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime
 import os
-import requests
+import httpx
 import logging
+from asgiref.sync import sync_to_async
 from constance import config
 from parahub.ratelimit import ratelimit
 
@@ -49,6 +50,25 @@ def log_missing_image(request, payload: MissingImageRequest):
 # Pelias geocoding server URL
 PELIAS_URL = "http://localhost:4000"
 
+# Pelias is local; a stall must not hold the request slot longer than this.
+PELIAS_TIMEOUT = httpx.Timeout(5.0, connect=1.0)
+
+
+def _profile_language(request) -> str:
+    """Preferred language from the authenticated user's primary profile.
+
+    Sync helper (lazy request.user resolution + ORM) — call via sync_to_async
+    from async endpoints.
+    """
+    if not request.user.is_authenticated:
+        return ''
+    from identity.models import Profile
+    try:
+        profile = Profile.objects.get(account=request.user, is_primary=True)
+        return profile.preferred_language or ''
+    except Profile.DoesNotExist:
+        return ''
+
 # Elasticsearch URL for direct multilingual search
 ELASTICSEARCH_URL = "http://localhost:9200"
 
@@ -64,8 +84,8 @@ OPENMAPTILES_DB = {
 
 @router.get("/geocode/search", auth=None)
 @ratelimit(group='geo:geocode_search', key='ip', rate='60/m')
-def geocode_search(request, q: str = "", limit: int = 10, lang: str = "",
-                   focus_lat: float = None, focus_lon: float = None):
+async def geocode_search(request, q: str = "", limit: int = 10, lang: str = "",
+                         focus_lat: float = None, focus_lon: float = None):
     """
     Geocode search - find location by name/address using Pelias with multilingual support.
     Returns GeoJSON FeatureCollection with planet-wide coverage.
@@ -88,20 +108,8 @@ def geocode_search(request, q: str = "", limit: int = 10, lang: str = "",
         }
 
     try:
-        # Determine user language from profile or parameter
-        user_lang = lang  # Start with parameter
-
-        if not user_lang and request.user.is_authenticated:
-            # Get language from user profile
-            from identity.models import Profile
-            try:
-                profile = Profile.objects.get(account=request.user, is_primary=True)
-                user_lang = profile.preferred_language or 'en'
-            except Profile.DoesNotExist:
-                user_lang = 'en'
-
-        if not user_lang:
-            user_lang = 'en'  # Final fallback
+        # Determine user language from parameter or profile
+        user_lang = lang or await sync_to_async(_profile_language)(request) or 'en'
 
         # Use Pelias API (not direct ES) to get enriched data with admin hierarchy
         params = {
@@ -119,11 +127,8 @@ def geocode_search(request, q: str = "", limit: int = 10, lang: str = "",
         else:
             endpoint = '/v1/search'
 
-        response = requests.get(
-            f"{PELIAS_URL}{endpoint}",
-            params=params,
-            timeout=5
-        )
+        async with httpx.AsyncClient(timeout=PELIAS_TIMEOUT) as client:
+            response = await client.get(f"{PELIAS_URL}{endpoint}", params=params)
         response.raise_for_status()
         pelias_data = response.json()
 
@@ -170,7 +175,7 @@ def geocode_search(request, q: str = "", limit: int = 10, lang: str = "",
             'features': features
         }
 
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         logger.error(f"Geocoding error: {e}")
         raise HttpError(503, "Geocoding service temporarily unavailable")
     except Exception as e:
@@ -180,7 +185,7 @@ def geocode_search(request, q: str = "", limit: int = 10, lang: str = "",
 
 @router.get("/geocode/reverse", auth=None)
 @ratelimit(group='geo:geocode_reverse', key='ip', rate='60/m')
-def geocode_reverse(request, lat: float, lon: float):
+async def geocode_reverse(request, lat: float, lon: float):
     """
     Reverse geocoding - get address from coordinates using Pelias.
 
@@ -195,11 +200,8 @@ def geocode_reverse(request, lat: float, lon: float):
             'size': 1
         }
 
-        response = requests.get(
-            f"{PELIAS_URL}/v1/reverse",
-            params=params,
-            timeout=5
-        )
+        async with httpx.AsyncClient(timeout=PELIAS_TIMEOUT) as client:
+            response = await client.get(f"{PELIAS_URL}/v1/reverse", params=params)
         response.raise_for_status()
         pelias_response = response.json()
 
@@ -233,9 +235,11 @@ def geocode_reverse(request, lat: float, lon: float):
             'osm_type': props.get('source')
         }
 
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         logger.error(f"Reverse geocoding error: {e}")
         raise HttpError(503, "Geocoding service temporarily unavailable")
+    except HttpError:
+        raise
     except Exception as e:
         logger.error(f"Unexpected error in reverse geocoding: {e}")
         raise HttpError(500, "Internal server error")

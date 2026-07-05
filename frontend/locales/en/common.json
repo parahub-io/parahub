@@ -32,7 +32,11 @@
     "group_infrastructure": "Infrastructure",
     "group_advanced": "Advanced",
     "prev": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "subscriptions_desc": "Back a creator every month — direct, non-custodial, no platform cut",
+    "rental_desc": "Book by the day or by the slot — availability that can't double-book",
+    "marketplace_desc": "Offer or request anything — direct P2P trade, no platform fees",
+    "directory_desc": "Find local businesses and organizations on the map"
   },
   "common": {
     "save": "Save",
@@ -59,6 +63,7 @@
     "saved": "Saved"
   },
   "nav": {
+    "notifications": "Notifications",
     "messages": "Messages",
     "market": "Market",
     "map": "Map",
@@ -68,6 +73,7 @@
     "iot": "Devices",
     "directory": "Directory",
     "contracts": "Contracts",
+    "bookings": "Bookings",
     "projects": "Projects",
     "debts": "Debts",
     "wallet": "Wallet",
@@ -163,6 +169,7 @@
     "start": "Let's go"
   },
   "register": {
+    "email_taken": "This email already has an account. Try signing in — or use Google if that's how you signed up.",
     "title": "Create account",
     "subtitle": "No Google required — your identity, your rules",
     "username_label": "Username",
@@ -217,6 +224,8 @@
     "pulse_listings": "listings",
     "pulse_events": "events",
     "pulse_polls": "polls open",
+    "online_people": "{count} online",
+    "online_guests": "{count} guests",
     "top_partners": "Top Partners",
     "recent_listings": "Recent Listings",
     "upcoming_events": "Upcoming Events",
@@ -234,5 +243,8 @@
   "unlike": "Unlike",
   "go_home": "Go back home",
   "error_not_found": "Page not found",
-  "error_server": "Something went wrong"
+  "error_server": "Something went wrong",
+  "about": {
+    "title": "About"
+  }
 }

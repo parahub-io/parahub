@@ -1,14 +1,20 @@
 <template>
   <div>
-    <h1 class="sr-only">{{ $t('directory.title') }}</h1>
     <div class="w-full px-4 sm:px-6 lg:px-8 py-6">
-      <div class="max-w-7xl lg:min-w-[1024px] xl:min-w-[1280px] mx-auto w-full">
+      <div class="max-w-7xl mx-auto w-full">
+
+        <!-- Orientation header -->
+        <header class="mb-5">
+          <h1 class="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">{{ $t('directory.title') }}</h1>
+          <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400 max-w-2xl">{{ $t('directory.intro') }}</p>
+        </header>
+
         <div class="w-full bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
           <div class="p-3 sm:p-6 min-h-[400px] sm:min-h-[600px] w-full">
 
-            <!-- Search bar -->
-            <div class="mb-4">
-              <div class="relative">
+            <!-- Search bar + create action -->
+            <div class="mb-4 flex flex-col sm:flex-row gap-2">
+              <div class="relative flex-1">
                 <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                 <input
                   v-model="searchQuery"
@@ -19,78 +25,47 @@
                   class="w-full pl-10 pr-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
+              <UiButton
+                v-if="authStore.isAuthenticated"
+                variant="outline"
+                :icon="Building2"
+                :to="localePath('/org')"
+                class="shrink-0 justify-center"
+              >
+                {{ $t('directory.my_orgs.title') }}
+              </UiButton>
+              <UiButton
+                v-if="canCreateOrg"
+                variant="primary"
+                :icon="Plus"
+                :to="localePath('/org/create')"
+                class="shrink-0 justify-center"
+              >
+                {{ $t('directory.organizations.create_button') }}
+              </UiButton>
             </div>
 
-            <!-- Filter chips -->
-            <div class="mb-4 flex flex-wrap gap-2">
+            <!-- Step 1: what are you looking for? (type selector) -->
+            <div v-if="showTypeSelector" class="mb-3">
+              <UiTabs :model-value="viewType" :tabs="typeTabs" @update:model-value="setViewType" />
+            </div>
+            <p v-else class="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+              {{ $t('directory.anon_hint') }}
+              <NuxtLink :to="localePath('/login')" class="text-link">{{ $t('directory.users.login_button') }}</NuxtLink>
+            </p>
+
+            <!-- Step 2: refine (contextual filters) -->
+            <div v-if="visibleFilters.length" class="mb-4 flex flex-wrap items-center gap-2">
+              <span class="text-xs font-medium text-neutral-400 dark:text-neutral-500 mr-0.5">{{ $t('directory.filters.refine_label') }}:</span>
               <button
-                v-if="authStore.isAuthenticated"
-                @click="toggleChip('people')"
-                class="px-3 py-2.5 rounded-full text-sm font-medium border transition-colors"
-                :class="chips.people
-                  ? 'bg-primary/15 border-primary/40 text-neutral-900 dark:text-neutral-100'
-                  : 'bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
+                v-for="f in visibleFilters"
+                :key="f.key"
+                @click="toggleFilter(f.key)"
+                class="px-3 py-2 rounded-full text-sm font-medium border transition-colors"
+                :class="chipClass(f)"
               >
-                <Users class="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
-                {{ $t('directory.filters.people') }}
-              </button>
-
-              <button
-                @click="toggleChip('organizations')"
-                class="px-3 py-2.5 rounded-full text-sm font-medium border transition-colors"
-                :class="chips.organizations
-                  ? 'bg-primary/15 border-primary/40 text-neutral-900 dark:text-neutral-100'
-                  : 'bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
-              >
-                <Building2 class="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
-                {{ $t('directory.filters.organizations') }}
-              </button>
-
-              <template v-if="authStore.isAuthenticated">
-                <button
-                  @click="toggleChip('partners')"
-                  class="px-3 py-2.5 rounded-full text-sm font-medium border transition-colors"
-                  :class="chips.partners
-                    ? 'bg-secondary/15 border-secondary/40 text-secondary dark:text-secondary-300'
-                    : 'bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
-                >
-                  <UserPlus class="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
-                  {{ $t('directory.filters.my_partners') }}
-                </button>
-
-                <button
-                  @click="toggleChip('memberships')"
-                  class="px-3 py-2.5 rounded-full text-sm font-medium border transition-colors"
-                  :class="chips.memberships
-                    ? 'bg-secondary/15 border-secondary/40 text-secondary dark:text-secondary-300'
-                    : 'bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
-                >
-                  <BadgeCheck class="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
-                  {{ $t('directory.filters.my_memberships') }}
-                </button>
-
-                <button
-                  @click="toggleChip('verified')"
-                  class="px-3 py-2.5 rounded-full text-sm font-medium border transition-colors"
-                  :class="chips.verified
-                    ? 'bg-success/15 border-success/40 text-success dark:text-success-300'
-                    : 'bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
-                >
-                  <Shield class="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
-                  {{ $t('directory.filters.verified') }}
-                </button>
-              </template>
-
-              <button
-                v-if="!chips.people || chips.organizations"
-                @click="toggleChip('openNow')"
-                class="px-3 py-2.5 rounded-full text-sm font-medium border transition-colors"
-                :class="chips.openNow
-                  ? 'bg-green-100 dark:bg-green-900/30 border-green-400/40 text-green-700 dark:text-green-400'
-                  : 'bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
-              >
-                <Clock class="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
-                {{ $t('directory.filters.open_now') }}
+                <component :is="f.icon" class="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                {{ $t(f.labelKey) }}
               </button>
             </div>
 
@@ -99,141 +74,161 @@
               <DirectoryCardSkeleton v-for="n in 6" :key="n" />
             </div>
 
-            <!-- Results list -->
-            <div v-else-if="results.length > 0" class="space-y-2">
-              <template v-for="item in results" :key="item.id">
-                <!-- User Card -->
-                <NuxtLink
-                  v-if="item._type === 'user'"
-                  :to="localePath(`/u/${item.hna.split('@')[0]}`)"
-                  class="block bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-primary/10 dark:hover:bg-primary/10 hover:border-primary/40 cursor-pointer"
-                  style="transition: none"
-                >
-                  <div class="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3">
-                    <img
-                      v-if="item.avatar_url"
-                      :src="item.avatar_url"
-                      :alt="item.display_name"
-                      class="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
-                    />
-                    <div v-else class="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center">
-                      <span class="text-sm sm:text-base font-bold text-black">
-                        {{ getInitials(item.display_name || item.hna) }}
-                      </span>
-                    </div>
+            <!-- Results -->
+            <template v-else-if="peopleResults.length || orgResults.length">
 
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <h3 class="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                          {{ item.display_name || item.hna }}
-                        </h3>
-                        <UiBadge v-if="item.is_partner" variant="secondary" type="soft" size="sm" class="flex-shrink-0">
-                          {{ $t('directory.users.partner_badge') }}
-                        </UiBadge>
-                        <Shield v-if="item.is_verified_wot" class="w-4 h-4 text-success flex-shrink-0" />
-                      </div>
-                      <p v-if="item.bio" class="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">{{ item.bio }}</p>
-                      <div class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
-                        <span v-if="item.country_code" class="inline-flex items-center gap-0.5">
-                          {{ getCountryFlag(item.country_code) }} {{ getCountryName(item.country_code) }}
-                          <span class="mx-1 text-neutral-300 dark:text-neutral-600">&middot;</span>
-                        </span>
-                        <span v-if="item.reputation_score" :title="$t('directory.users.reputation_tooltip')">
-                          <Star class="w-3 h-3 inline -mt-0.5 text-warning" />
-                          {{ $t('directory.users.reputation_label') }} {{ formatReputation(item.reputation_score) }}
-                        </span>
-                        <span class="mx-1.5 text-neutral-300 dark:text-neutral-600">&middot;</span>
-                        <span :title="$t('directory.users.wot_tooltip', { count: item.verifications_received_count || 0 })">
-                          <Shield :class="item.verifications_received_count >= 3 ? 'text-success' : 'text-warning'" class="w-3 h-3 inline -mt-0.5" />
-                          {{ $t('directory.users.wot_label') }} {{ item.verifications_received_count || 0 }}/3
-                        </span>
-                        <span class="mx-1.5 text-neutral-300 dark:text-neutral-600">&middot;</span>
-                        <span class="font-mono text-neutral-400 dark:text-neutral-500">{{ item.hna }}</span>
-                      </div>
-                    </div>
-
-                    <div class="flex-shrink-0 flex items-center gap-3 text-xs text-neutral-400 dark:text-neutral-500">
-                      <span v-if="item.items_credit_count" class="hidden sm:flex items-center gap-1" :title="$t('directory.users.items_offered_tooltip')">
-                        <Package class="w-3.5 h-3.5" />
-                        {{ item.items_credit_count }}
-                      </span>
-                      <span v-if="item.items_debit_count" class="hidden sm:flex items-center gap-1" :title="$t('directory.users.items_sought_tooltip')">
-                        <ShoppingBag class="w-3.5 h-3.5" />
-                        {{ item.items_debit_count }}
-                      </span>
-                      <ChevronRight class="w-4 h-4 hidden sm:block" />
-                    </div>
-                  </div>
-                </NuxtLink>
-
-                <!-- Organization Card -->
-                <NuxtLink
-                  v-else-if="item._type === 'organization'"
-                  :to="localePath(`/org/${item.slug || item.id}`)"
-                  class="block bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-primary/10 dark:hover:bg-primary/10 hover:border-primary/40 cursor-pointer"
-                  style="transition: none"
-                >
-                  <div class="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3">
-                    <!-- Icon -->
-                    <div class="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                      <img v-if="item.logo_url" :src="item.logo_url" :alt="item.name" class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover" />
-                      <component
-                        v-else
-                        :is="getEstablishmentIcon(item)"
-                        class="w-5 h-5 sm:w-6 sm:h-6 text-neutral-400 dark:text-neutral-500"
+              <!-- People -->
+              <section v-if="peopleResults.length" :class="orgResults.length ? 'mb-6' : ''">
+                <h2 v-if="grouped" class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 mb-2">
+                  <Users class="w-3.5 h-3.5" />
+                  {{ $t('directory.filters.people') }}
+                  <span class="text-neutral-300 dark:text-neutral-600">&middot;</span>
+                  {{ peopleResults.length }}
+                </h2>
+                <div class="space-y-2">
+                  <NuxtLink
+                    v-for="item in peopleResults"
+                    :key="item.id"
+                    :to="localePath(`/u/${item.hna.split('@')[0]}`)"
+                    class="block bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:border-primary transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3">
+                      <img
+                        v-if="item.avatar_url"
+                        :src="item.avatar_url"
+                        :alt="item.display_name"
+                        class="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
                       />
-                    </div>
-
-                    <!-- Content -->
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <h3 class="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                          {{ item.name }}
-                        </h3>
-                        <BadgeCheck v-if="item.is_verified" class="w-4 h-4 text-primary flex-shrink-0" />
-                        <span
-                          v-if="getOpenStatus(item) === true"
-                          class="flex-shrink-0 px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium"
-                        >{{ $t('directory.establishments.open_now') }}</span>
-                        <span
-                          v-else-if="getOpenStatus(item) === false"
-                          class="flex-shrink-0 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full text-xs font-medium"
-                        >{{ $t('directory.establishments.closed_now') }}</span>
-                        <DemoBadge :is-demo="item.is_demo" />
-                        <UiBadge v-if="item.organization_type" variant="neutral" type="soft" size="sm" class="hidden sm:inline-flex flex-shrink-0">
-                          {{ getTypeLabel(item.organization_type) }}
-                        </UiBadge>
+                      <div v-else class="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center">
+                        <span class="text-sm sm:text-base font-bold text-black">
+                          {{ getInitials(item.display_name || item.hna) }}
+                        </span>
                       </div>
-                      <div class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
-                        <span v-if="item.category_name" class="hidden sm:inline">{{ item.category_name }}<span v-if="item.full_address || item.is_online" class="mx-1.5 text-neutral-300 dark:text-neutral-600">&middot;</span></span>
-                        <template v-if="item.full_address">
-                          <MapPin class="w-3 h-3 inline -mt-0.5" />
-                          {{ shortenAddress(item.full_address) }}
-                        </template>
-                        <span v-else-if="item.is_online" class="text-success dark:text-success-300">Online</span>
-                        <span v-else-if="item.category_name" class="sm:hidden">{{ item.category_name }}</span>
+
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                          <h3 class="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                            {{ item.display_name || item.hna }}
+                          </h3>
+                          <UiBadge v-if="item.is_partner" variant="secondary" type="soft" size="sm" class="flex-shrink-0">
+                            {{ $t('directory.users.partner_badge') }}
+                          </UiBadge>
+                          <Shield v-if="item.is_verified_wot" class="w-4 h-4 text-success flex-shrink-0" />
+                        </div>
+                        <p v-if="item.bio" class="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">{{ item.bio }}</p>
+                        <div class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
+                          <span v-if="item.country_code" class="inline-flex items-center gap-0.5">
+                            {{ getCountryFlag(item.country_code) }} {{ getCountryName(item.country_code) }}
+                            <span class="mx-1 text-neutral-300 dark:text-neutral-600">&middot;</span>
+                          </span>
+                          <span v-if="item.reputation_score" :title="$t('directory.users.reputation_tooltip')">
+                            <Star class="w-3 h-3 inline -mt-0.5 text-warning" />
+                            {{ $t('directory.users.reputation_label') }} {{ formatReputation(item.reputation_score) }}
+                          </span>
+                          <span class="mx-1.5 text-neutral-300 dark:text-neutral-600">&middot;</span>
+                          <span :title="$t('directory.users.wot_tooltip', { count: item.verifications_received_count || 0 })">
+                            <Shield :class="item.verifications_received_count >= 3 ? 'text-success' : 'text-warning'" class="w-3 h-3 inline -mt-0.5" />
+                            {{ $t('directory.users.wot_label') }} {{ item.verifications_received_count || 0 }}/3
+                          </span>
+                          <span class="mx-1.5 text-neutral-300 dark:text-neutral-600">&middot;</span>
+                          <span class="font-mono text-neutral-400 dark:text-neutral-500">{{ item.hna }}</span>
+                        </div>
+                      </div>
+
+                      <div class="flex-shrink-0 flex items-center gap-3 text-xs text-neutral-400 dark:text-neutral-500">
+                        <span v-if="item.items_credit_count" class="hidden sm:flex items-center gap-1" :title="$t('directory.users.items_offered_tooltip')">
+                          <Package class="w-3.5 h-3.5" />
+                          {{ item.items_credit_count }}
+                        </span>
+                        <span v-if="item.items_debit_count" class="hidden sm:flex items-center gap-1" :title="$t('directory.users.items_sought_tooltip')">
+                          <ShoppingBag class="w-3.5 h-3.5" />
+                          {{ item.items_debit_count }}
+                        </span>
+                        <ChevronRight class="w-4 h-4 hidden sm:block" />
                       </div>
                     </div>
+                  </NuxtLink>
+                </div>
+              </section>
 
-                    <!-- Right side stats -->
-                    <div class="flex-shrink-0 flex items-center gap-3 text-xs text-neutral-400 dark:text-neutral-500">
-                      <span v-if="item.rating_count > 0" class="flex items-center gap-1" :title="$t('directory.organizations.rating_tooltip', { rating: item.rating_avg.toFixed(1), count: item.rating_count })">
-                        <Star class="w-3.5 h-3.5 text-warning fill-warning" />
-                        {{ item.rating_avg.toFixed(1) }}
-                      </span>
-                      <span v-if="item.member_count > 0" class="flex items-center gap-1" :title="$t('directory.organizations.members_tooltip', { count: item.member_count })">
-                        <Users class="w-3.5 h-3.5" />
-                        {{ item.member_count }}
-                      </span>
-                      <ChevronRight class="w-4 h-4 hidden sm:block" />
+              <!-- Organizations -->
+              <section v-if="orgResults.length">
+                <h2 v-if="grouped" class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 mb-2">
+                  <Building2 class="w-3.5 h-3.5" />
+                  {{ $t('directory.filters.organizations') }}
+                  <span class="text-neutral-300 dark:text-neutral-600">&middot;</span>
+                  {{ orgResults.length }}
+                </h2>
+                <div class="space-y-2">
+                  <NuxtLink
+                    v-for="item in orgResults"
+                    :key="item.id"
+                    :to="localePath(`/org/${item.slug || item.id}`)"
+                    class="block bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:border-primary transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3">
+                      <!-- Icon -->
+                      <div class="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                        <img v-if="item.logo_url" :src="item.logo_url" :alt="item.name" class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover" />
+                        <component
+                          v-else
+                          :is="getEstablishmentIcon(item)"
+                          class="w-5 h-5 sm:w-6 sm:h-6 text-neutral-400 dark:text-neutral-500"
+                        />
+                      </div>
+
+                      <!-- Content -->
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                          <h3 class="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                            {{ item.name }}
+                          </h3>
+                          <BadgeCheck v-if="item.is_verified" class="w-4 h-4 text-primary flex-shrink-0" />
+                          <span
+                            v-if="getOpenStatus(item) === true"
+                            class="flex-shrink-0 px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium"
+                          >{{ $t('directory.establishments.open_now') }}</span>
+                          <span
+                            v-else-if="getOpenStatus(item) === false"
+                            class="flex-shrink-0 px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full text-xs font-medium"
+                          >{{ $t('directory.establishments.closed_now') }}</span>
+                          <DemoBadge :is-demo="item.is_demo" />
+                          <UiBadge v-if="item.organization_type" variant="neutral" type="soft" size="sm" class="hidden sm:inline-flex flex-shrink-0">
+                            {{ getTypeLabel(item.organization_type) }}
+                          </UiBadge>
+                        </div>
+                        <div class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
+                          <span v-if="item.category_name" class="hidden sm:inline">{{ categoryLabel(item) }}<span v-if="item.full_address || item.is_online" class="mx-1.5 text-neutral-300 dark:text-neutral-600">&middot;</span></span>
+                          <template v-if="item.full_address">
+                            <MapPin class="w-3 h-3 inline -mt-0.5" />
+                            {{ shortenAddress(item.full_address) }}
+                          </template>
+                          <span v-else-if="item.is_online" class="text-success dark:text-success-300">Online</span>
+                          <span v-else-if="item.category_name" class="sm:hidden">{{ categoryLabel(item) }}</span>
+                        </div>
+                      </div>
+
+                      <!-- Right side stats -->
+                      <div class="flex-shrink-0 flex items-center gap-3 text-xs text-neutral-400 dark:text-neutral-500">
+                        <span v-if="item.rating_count > 0" class="flex items-center gap-1" :title="$t('directory.organizations.rating_tooltip', { rating: item.rating_avg.toFixed(1), count: item.rating_count })">
+                          <Star class="w-3.5 h-3.5 text-warning fill-warning" />
+                          {{ item.rating_avg.toFixed(1) }}
+                        </span>
+                        <span v-if="item.member_count > 0" class="flex items-center gap-1" :title="$t('directory.organizations.members_tooltip', { count: item.member_count })">
+                          <Users class="w-3.5 h-3.5" />
+                          {{ item.member_count }}
+                        </span>
+                        <ChevronRight class="w-4 h-4 hidden sm:block" />
+                      </div>
                     </div>
-                  </div>
-                </NuxtLink>
-              </template>
-            </div>
+                  </NuxtLink>
+                </div>
+              </section>
+
+            </template>
 
             <!-- Empty state -->
-            <div v-else-if="!loading" class="text-center py-12">
+            <div v-else class="text-center py-12">
               <Search class="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" />
               <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">{{ $t('directory.filters.no_results') }}</h3>
               <p class="text-neutral-600 dark:text-neutral-400">{{ $t('directory.filters.no_results_desc') }}</p>
@@ -250,8 +245,8 @@
 <script setup lang="ts">
 import {
   Users, Shield, Star, Search, Package, ShoppingBag, Building2,
-  MapPin, ChevronRight, BadgeCheck, UserPlus, Clock,
-  Store, Landmark, Briefcase, Heart, UtensilsCrossed, Building
+  MapPin, ChevronRight, BadgeCheck, UserPlus, Clock, LayoutGrid,
+  Store, Landmark, Briefcase, Heart, UtensilsCrossed, Building, Plus
 } from 'lucide-vue-next'
 import DirectoryCardSkeleton from '~/components/DirectoryCardSkeleton.vue'
 import { checkIsOpen } from '~/composables/useOpeningHours'
@@ -264,6 +259,30 @@ const route = useRoute()
 const localePath = useLocalePath()
 const router = useRouter()
 
+// Can create an organization? Mirrors backend WoT gate (3+ verifications or foundation member)
+const canCreateOrg = computed(() =>
+  authStore.isAuthenticated &&
+  !!(authStore.user?.profile?.is_verified_wot || authStore.user?.profile?.is_foundation_member)
+)
+
+// Localized category labels for list items. The API returns reference data in
+// English (category_name — kept as-is for icon matching in getEstablishmentIcon);
+// for display we translate by slug via the localized category tree, falling back
+// to the English name when the slug is missing or untranslated.
+const { fetchCategories } = useCategories()
+const { locale: catLocale } = useI18n()
+const categoryLabelMap = ref<Record<string, string>>({})
+const loadCategoryLabels = async () => {
+  try {
+    const cats = await fetchCategories({})
+    const map: Record<string, string> = {}
+    for (const c of cats) map[c.slug] = c.name
+    categoryLabelMap.value = map
+  } catch { /* keep English category_name fallback */ }
+}
+const categoryLabel = (item: any) => categoryLabelMap.value[item?.category_slug] || item?.category_name || ''
+watch(catLocale, loadCategoryLabels)
+
 // SEO meta
 useSeoMeta({
   title: t('directory.title') + ' - Parahub',
@@ -275,166 +294,125 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
-interface ChipState {
-  people: boolean
-  organizations: boolean
-  partners: boolean
-  memberships: boolean
-  verified: boolean
-  openNow: boolean
-}
+type ViewType = 'all' | 'people' | 'organizations'
+type FilterKey = 'partners' | 'memberships' | 'verified' | 'openNow'
 
-const searchQuery = ref('')
-const results = ref<any[]>([])
-const loading = ref(false)
+const searchQuery = ref<string>((route.query.q as string) || '')
 
-// Parse initial chip state from query params
-const parseChipsFromQuery = (): ChipState => {
+// Parse view type + active filters from query params (`?type=`, `?filter=`)
+const parseFromQuery = (): { viewType: ViewType; filters: Record<FilterKey, boolean> } => {
+  const auth = authStore.isAuthenticated
   const type = route.query.type as string | undefined
-  const filter = route.query.filter as string | undefined
-  const filters = filter ? filter.split(',') : []
+  const filterCsv = route.query.filter as string | undefined
+  const fl = filterCsv ? filterCsv.split(',') : []
 
-  const state: ChipState = {
-    people: false,
-    organizations: false,
-    partners: false,
-    memberships: false,
-    verified: false,
-    openNow: false,
+  const filters: Record<FilterKey, boolean> = {
+    partners: auth && fl.includes('partners'),
+    memberships: auth && fl.includes('memberships'),
+    verified: auth && fl.includes('verified'),
+    openNow: fl.includes('open_now'),
   }
 
-  if (type === 'people' && authStore.isAuthenticated) state.people = true
-  else if (type === 'organizations') state.organizations = true
+  // Anonymous users can only browse organizations (people are private).
+  let viewType: ViewType = 'all'
+  if (!auth) viewType = 'organizations'
+  else if (type === 'people') viewType = 'people'
+  else if (type === 'organizations') viewType = 'organizations'
+  else viewType = 'all' // default for authenticated: show everything, grouped
 
-  if (filters.includes('partners') && authStore.isAuthenticated) state.partners = true
-  if (filters.includes('memberships') && authStore.isAuthenticated) state.memberships = true
-  if (filters.includes('verified') && authStore.isAuthenticated) state.verified = true
-  if (filters.includes('open_now')) state.openNow = true
-
-  // Default for authenticated: show all people; for anon: show organizations
-  if (!type && !filter) {
-    if (authStore.isAuthenticated) state.people = true
-    else state.organizations = true
-  }
-
-  return state
+  return { viewType, filters }
 }
 
-const chips = reactive<ChipState>(parseChipsFromQuery())
+const _init = parseFromQuery()
+const viewType = ref<ViewType>(_init.viewType)
+const filters = reactive<Record<FilterKey, boolean>>({ ..._init.filters })
+
+const showTypeSelector = computed(() => authStore.isAuthenticated)
+
+// Result partitions (also drive section grouping + tab count badges)
+const peopleResults = computed(() => results.value.filter(r => r._type === 'user'))
+const orgResults = computed(() => results.value.filter(r => r._type === 'organization'))
+const grouped = computed(() => peopleResults.value.length > 0 && orgResults.value.length > 0)
+
+const typeTabs = computed(() => [
+  { id: 'all', label: t('directory.filters.type_all'), icon: LayoutGrid },
+  { id: 'people', label: t('directory.filters.people'), icon: Users, badge: peopleResults.value.length || undefined },
+  { id: 'organizations', label: t('directory.filters.organizations'), icon: Building2, badge: orgResults.value.length || undefined },
+])
+
+// Contextual refinement filters — only the ones relevant to the chosen view type
+const FILTER_DEFS = [
+  { key: 'partners' as FilterKey, labelKey: 'directory.filters.my_partners', icon: UserPlus, types: ['all', 'people'], authOnly: true },
+  { key: 'verified' as FilterKey, labelKey: 'directory.filters.verified', icon: Shield, types: ['all', 'people'], authOnly: true },
+  { key: 'memberships' as FilterKey, labelKey: 'directory.filters.my_memberships', icon: BadgeCheck, types: ['all', 'organizations'], authOnly: true },
+  { key: 'openNow' as FilterKey, labelKey: 'directory.filters.open_now', icon: Clock, types: ['all', 'organizations'], authOnly: false },
+]
+
+const visibleFilters = computed(() => FILTER_DEFS.filter(f =>
+  f.types.includes(viewType.value) && (!f.authOnly || authStore.isAuthenticated)
+))
+
+// One active treatment for every filter toggle: indigo = "this refinement is on".
+// Colour here = state, not category (icon + label already say what the filter is).
+// The type selector owns yellow; green stays reserved for trust / "open now" signals.
+const ACTIVE_CHIP = 'bg-secondary text-white border-secondary'
+const INACTIVE_CHIP = 'bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300'
+const chipClass = (f: typeof FILTER_DEFS[number]) => filters[f.key] ? ACTIVE_CHIP : INACTIVE_CHIP
 
 const syncQueryParams = () => {
   const query: Record<string, string> = {}
 
-  // Type param
-  if (chips.people && !chips.organizations) query.type = 'people'
-  else if (chips.organizations && !chips.people) query.type = 'organizations'
+  // Type param (omit for the default 'all', and for anonymous which is always orgs)
+  if (viewType.value === 'people') query.type = 'people'
+  else if (viewType.value === 'organizations' && authStore.isAuthenticated) query.type = 'organizations'
 
-  // Filter param
-  const filters: string[] = []
-  if (chips.partners) filters.push('partners')
-  if (chips.memberships) filters.push('memberships')
-  if (chips.verified) filters.push('verified')
-  if (chips.openNow) filters.push('open_now')
-  if (filters.length > 0) query.filter = filters.join(',')
+  const fl: string[] = []
+  if (filters.partners) fl.push('partners')
+  if (filters.memberships) fl.push('memberships')
+  if (filters.verified) fl.push('verified')
+  if (filters.openNow) fl.push('open_now')
+  if (fl.length > 0) query.filter = fl.join(',')
 
   if (searchQuery.value) query.q = searchQuery.value
 
   router.replace({ path: localePath('/directory'), query })
 }
 
-const toggleChip = (chip: keyof ChipState) => {
-  chips[chip] = !chips[chip]
-
-  // People and Organizations are mutually exclusive (radio behavior)
-  if (chip === 'people' && chips.people) {
-    chips.organizations = false
-    chips.memberships = false
-  }
-  if (chip === 'organizations' && chips.organizations) {
-    chips.people = false
-    chips.partners = false
-    chips.verified = false
-  }
-
-  // Implicit type enabling
-  if (chip === 'partners' && chips.partners) {
-    if (!chips.people && !chips.organizations) chips.people = true
-  }
-  if (chip === 'memberships' && chips.memberships) {
-    if (!chips.people && !chips.organizations) chips.organizations = true
-  }
-  if (chip === 'openNow' && chips.openNow) {
-    if (!chips.organizations) chips.organizations = true
-    chips.people = false
-    chips.partners = false
-    chips.verified = false
-  }
-
-  // Turning off people → turn off people-only sub-filters
-  if (chip === 'people' && !chips.people) {
-    chips.partners = false
-    chips.verified = false
-  }
-  // Turning off organizations → turn off org-only sub-filters
-  if (chip === 'organizations' && !chips.organizations) {
-    chips.memberships = false
-    chips.openNow = false
-  }
-
+const setViewType = (v: ViewType) => {
+  viewType.value = v
+  // Drop filters that don't apply to the new view type
+  if (v === 'people') { filters.memberships = false; filters.openNow = false }
+  else if (v === 'organizations') { filters.partners = false; filters.verified = false }
   syncQueryParams()
   loadResults()
 }
 
-// Determine what to load
+const toggleFilter = (key: FilterKey) => {
+  filters[key] = !filters[key]
+  syncQueryParams()
+  loadResults()
+}
+
+// What to fetch — searching always queries both types
 const shouldLoadPeople = computed(() => {
-  // Anonymous users never load people (privacy)
   if (!authStore.isAuthenticated) return false
-  // When searching, always include people results
   if (searchQuery.value) return true
-  // If only organizations chip is on and people is off → skip people
-  if (chips.organizations && !chips.people && !chips.partners && !chips.verified) return false
-  // If memberships chip only → skip people
-  if (chips.memberships && !chips.people && !chips.partners && !chips.verified) return false
-  return true
+  return viewType.value === 'all' || viewType.value === 'people'
 })
 
 const shouldLoadOrgs = computed(() => {
-  // When searching, always include org results
   if (searchQuery.value) return true
-  // If only people chip is on and organizations is off → skip orgs
-  if (chips.people && !chips.organizations && !chips.memberships) return false
-  // If partners chip only → skip orgs
-  if (chips.partners && !chips.organizations && !chips.memberships) return false
-  // If verified chip only → skip orgs
-  if (chips.verified && !chips.organizations && !chips.memberships) return false
-  return true
+  return viewType.value === 'all' || viewType.value === 'organizations'
 })
 
-const loadResults = async () => {
-  loading.value = true
-  results.value = []
-
-  try {
-    const promises: Promise<any[]>[] = []
-
-    if (shouldLoadPeople.value) promises.push(loadUsers())
-    else promises.push(Promise.resolve([]))
-
-    if (shouldLoadOrgs.value) promises.push(loadOrganizations())
-    else promises.push(Promise.resolve([]))
-
-    const [people, orgs] = await Promise.all(promises)
-    results.value = [...people, ...orgs]
-  } finally {
-    loading.value = false
-  }
-}
+// loadResults / results / loading are declared after the two source loaders
+// below (useAsyncData runs its handler immediately — consts must exist).
 
 const loadUsers = async (): Promise<any[]> => {
   try {
     const params = new URLSearchParams({ page_size: '50' })
-    if (chips.partners) params.append('only_partners', 'true')
-    if (chips.verified) params.append('verified_only', 'true')
+    if (filters.partners) params.append('only_partners', 'true')
+    if (filters.verified) params.append('verified_only', 'true')
     if (searchQuery.value) params.append('q', searchQuery.value)
 
     const headers: Record<string, string> = {}
@@ -465,15 +443,16 @@ const loadOrganizations = async (): Promise<any[]> => {
     }
 
     const apiParams = new URLSearchParams()
+    apiParams.append('owned_only', 'true')  // real member-orgs only; OSM church/gov imports live on the map
     if (searchQuery.value) apiParams.append('search', searchQuery.value)
-    if (chips.memberships) apiParams.append('my_memberships', 'true')
+    if (filters.memberships) apiParams.append('my_memberships', 'true')
 
     const response = await $fetch(`/api/v1/geo/establishments/?${apiParams.toString()}`, {
       credentials: 'include',
       headers
     })
     let orgs = (response?.items || []).map((o: any) => ({ ...o, _type: 'organization' }))
-    if (chips.openNow) {
+    if (filters.openNow) {
       orgs = orgs.filter((o: any) => checkIsOpen(o.opening_hours) === true)
     }
     return orgs
@@ -482,6 +461,25 @@ const loadOrganizations = async (): Promise<any[]> => {
     return []
   }
 }
+
+// SSR + Suspense-blocking + payload-cached (market/index.vue pattern; multi-
+// source page, so useAsyncData over a merged loader instead of useListData).
+// During SSR auth is always anonymous → orgs only (the public catalog —
+// exactly what crawlers should index); people join on authed client loads.
+const resultsData = useAsyncData<any[]>(
+  'directory-results',
+  async () => {
+    const [people, orgs] = await Promise.all([
+      shouldLoadPeople.value ? loadUsers() : Promise.resolve([]),
+      shouldLoadOrgs.value ? loadOrganizations() : Promise.resolve([]),
+    ])
+    return [...people, ...orgs]
+  },
+  { default: () => [] },
+)
+const { data: results, pending: loading } = resultsData
+
+const loadResults = () => resultsData.refresh()
 
 let searchTimeout: NodeJS.Timeout
 const debouncedSearch = () => {
@@ -492,20 +490,23 @@ const debouncedSearch = () => {
   }, 500)
 }
 
-// Sync on browser back/forward
+// Sync on browser back/forward (programmatic viewType set has no side effects)
 watch(() => route.query, (newQuery) => {
-  const newChips = parseChipsFromQuery()
-  const changed = (Object.keys(newChips) as (keyof ChipState)[]).some(k => chips[k] !== newChips[k])
+  const parsed = parseFromQuery()
   const newQ = (newQuery.q as string) || ''
-  if (changed || newQ !== searchQuery.value) {
-    Object.assign(chips, newChips)
+  const filtersChanged = (Object.keys(parsed.filters) as FilterKey[]).some(k => filters[k] !== parsed.filters[k])
+  if (parsed.viewType !== viewType.value || filtersChanged || newQ !== searchQuery.value) {
+    viewType.value = parsed.viewType
+    Object.assign(filters, parsed.filters)
     searchQuery.value = newQ
     loadResults()
   }
 }, { deep: true })
 
-// Migrate old hash-based URLs
 onMounted(() => {
+  loadCategoryLabels()
+
+  // Migrate old hash-based / ?tab= URLs
   const hash = route.hash.replace('#', '')
   const oldTab = route.query.tab as string
   if (oldTab === 'events') {
@@ -515,17 +516,19 @@ onMounted(() => {
   if (hash || oldTab) {
     const target = hash || oldTab
     const query: Record<string, string> = {}
-    if (target === 'partners') query.filter = 'partners'
-    else if (target === 'organizations') query.type = 'organizations'
-    // 'people' = default (no params needed)
+    if (target === 'partners') { query.filter = 'partners'; if (authStore.isAuthenticated) filters.partners = true }
+    else if (target === 'organizations') { query.type = 'organizations'; if (authStore.isAuthenticated) viewType.value = 'organizations' }
+    // 'people'/'users' = default (no params needed)
     router.replace({ path: localePath('/directory'), query })
+    // The query watcher only reloads when parsed state differs from the current
+    // refs. We've just synced those refs to the normalised query, so it stays a
+    // no-op — notably for anonymous users, whose viewType is always
+    // 'organizations'. Load explicitly so the list isn't left empty.
+    loadResults()
     return
   }
-
-  // Read search query from URL
-  if (route.query.q) searchQuery.value = route.query.q as string
-
-  loadResults()
+  // No unconditional load here — the setup-level useAsyncData already ran
+  // (SSR or client) and its payload hydrates the first render.
 })
 
 const getInitials = (name: string) => {
@@ -591,4 +594,9 @@ const getCountryName = (code: string) => {
     return code
   }
 }
+
+// Block client-side navigation until the first results are ready, so Suspense
+// holds the previous page instead of flashing an empty shell. Must stay last —
+// all lifecycle hooks above must register before this await suspends setup.
+await resultsData
 </script>

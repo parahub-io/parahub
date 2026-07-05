@@ -101,7 +101,7 @@ useSeoMeta({
       <UiAlert v-else-if="error" variant="error" class="mb-6">{{ error }}</UiAlert>
 
       <div v-else-if="posts.length === 0" class="text-center py-12">
-        <img src="/images/para/reading.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+        <img src="/images/para/reading.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
         <h3 class="text-lg font-semibold text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.noPosts') }}</h3>
         <p class="text-neutral-500 dark:text-neutral-400">{{ t('cms.noPostsDesc') }}</p>
       </div>

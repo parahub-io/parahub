@@ -2,6 +2,7 @@
 Audit Log services for cryptographic proof generation and management.
 """
 import json
+import logging
 import os
 import subprocess
 import tempfile
@@ -14,6 +15,8 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 
 from .models import AuditBatch, PGPKeyPublication, TimestampProof
+
+logger = logging.getLogger(__name__)
 
 
 class PGPKeyringService:
@@ -150,40 +153,72 @@ class GitAuditService:
     OTS_BIN = str(Path(settings.BASE_DIR) / 'venv/bin/ots')
 
     def __init__(self):
-        self.repo_path = Path(settings.AUDIT_LOG_GIT_PATH) / 'public-git'
-        self.events_path = self.repo_path / 'events'
+        base = Path(settings.AUDIT_LOG_GIT_PATH)
+        # PUBLIC mirror (pushed to Gitea): keyring + batch_commits + federation registry
+        self.repo_path = base / 'public-git'
         self.batch_commits_path = self.repo_path / 'batch_commits'
-        self.events_path.mkdir(parents=True, exist_ok=True)
         self.batch_commits_path.mkdir(parents=True, exist_ok=True)
         self.repo = git.Repo(self.repo_path)
 
+        # LOCAL-ONLY repo for per-event JSON snapshots (contract/debt/verification
+        # metadata). Deliberately has NO remote — events never leave this host.
+        # The OTS proof anchors this repo's commit hash (a git Merkle root), and
+        # only that hash + its .ots land in the public mirror; the event blobs do
+        # not. See PK/audit-system.md.
+        self.events_repo_path = base / 'events-local'
+        self.events_path = self.events_repo_path / 'events'
+        self.events_path.mkdir(parents=True, exist_ok=True)
+        self.events_repo = self._ensure_events_repo()
+
+    def _ensure_events_repo(self) -> 'git.Repo':
+        """Open the local-only events repo, initializing it on first use. No remote."""
+        try:
+            return git.Repo(self.events_repo_path)
+        except (git.InvalidGitRepositoryError, git.NoSuchPathError):
+            repo = git.Repo.init(self.events_repo_path)
+            with repo.config_writer() as cw:
+                cw.set_value('user', 'name', 'Parahub Audit System')
+                cw.set_value('user', 'email', 'audit@parahub.io')
+            return repo
+
     def write_event_files(self, proofs) -> List[Path]:
-        """Write JSON event files for proofs that don't have git_event_path yet."""
-        written = []
+        """
+        Ensure an event JSON file exists on disk for every (batch-less) proof and
+        return ALL their paths — so they get committed + stamped this run.
+
+        Must NOT skip proofs that already have git_event_path: a proof can carry a
+        path from a previous run that failed before AuditBatch creation (git commit
+        or OTS stamp failed), leaving the file uncommitted/unstamped. Gating on
+        "path already set" stranded such proofs permanently. We gate on batch__isnull
+        (caller's query) and re-materialize any missing file here.
+        """
+        paths = []
         for proof in proofs:
             if proof.git_event_path:
-                continue
-            day_dir = self.events_path / proof.created_at.strftime('%Y-%m-%d')
-            day_dir.mkdir(parents=True, exist_ok=True)
-            filename = f"{proof.content_type.model}_{proof.object_id}.json"
-            file_path = day_dir / filename
-            file_path.write_text(proof.data_json, encoding='utf-8')
-            rel_path = file_path.relative_to(self.repo_path)
-            proof.git_event_path = str(rel_path)
-            proof.save(update_fields=['git_event_path'])
-            written.append(file_path)
-        return written
+                file_path = self.events_repo_path / proof.git_event_path
+            else:
+                day_dir = self.events_path / proof.created_at.strftime('%Y-%m-%d')
+                day_dir.mkdir(parents=True, exist_ok=True)
+                filename = f"{proof.content_type.model}_{proof.object_id}.json"
+                file_path = day_dir / filename
+                proof.git_event_path = str(file_path.relative_to(self.events_repo_path))
+                proof.save(update_fields=['git_event_path'])
+            if not file_path.exists():
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.write_text(proof.data_json, encoding='utf-8')
+            paths.append(file_path)
+        return paths
 
     def commit_events(self, file_paths: List[Path], batch_label: str) -> str:
-        """git add + commit event files; returns commit hexsha."""
+        """git add + commit event files to the LOCAL-ONLY events repo; returns commit hexsha."""
         if not file_paths:
             raise ValueError("No files to commit")
         str_paths = [str(p) for p in file_paths]
         last_exc = None
         for attempt in range(3):
             try:
-                self.repo.index.add(str_paths)
-                commit = self.repo.index.commit(
+                self.events_repo.index.add(str_paths)
+                commit = self.events_repo.index.commit(
                     f"audit: batch event log {batch_label}\n\n{len(file_paths)} events"
                 )
                 return commit.hexsha
@@ -193,10 +228,31 @@ class GitAuditService:
                 time.sleep(1)
         raise RuntimeError(f"git commit failed after 3 attempts: {last_exc}")
 
-    def write_commit_hash_file(self, commit_hash: str, batch_label: str) -> Path:
-        """Write batch_commits/{batch_label}.txt containing the commit hash."""
+    @staticmethod
+    def _batch_file_text(events_commit: str, registry_commit: Optional[str] = None) -> str:
+        """
+        Canonical content of batch_commits/{label}.txt — the EXACT bytes that get
+        OTS-stamped. A batch anchors TWO git Merkle roots under one Bitcoin
+        timestamp:
+          registry_commit — HEAD of the PUBLIC repo (PGP keyring + federation
+                            registry). It is checkout-able by anyone, so the
+                            keyring is both Bitcoin-anchored AND independently
+                            verifiable (`git checkout <registry_commit>`).
+          events_commit  — HEAD of the LOCAL-ONLY event log (contract/debt
+                            metadata). Only its hash is published; the event
+                            blobs never leave the host.
+        Legacy single-root batches (registry_commit=None) keep the bare-hash form
+        so their already-stamped .ots proofs still verify byte-for-byte.
+        """
+        if registry_commit:
+            return f"registry_commit {registry_commit}\nevents_commit {events_commit}\n"
+        return events_commit + '\n'
+
+    def write_commit_hash_file(self, events_commit: str, registry_commit: Optional[str],
+                               batch_label: str) -> Path:
+        """Write batch_commits/{batch_label}.txt with the batch's Merkle root(s)."""
         hash_file = self.batch_commits_path / f"{batch_label}.txt"
-        hash_file.write_text(commit_hash + '\n', encoding='utf-8')
+        hash_file.write_text(self._batch_file_text(events_commit, registry_commit), encoding='utf-8')
         return hash_file
 
     def stamp_commit_hash_file(self, hash_file_path: Path) -> Optional[bytes]:
@@ -229,14 +285,24 @@ class GitAuditService:
         self.repo.index.commit(f"audit: OTS proof for batch {batch_label}")
 
     def verify_batch(self, batch: AuditBatch) -> bool:
-        """Verify OTS proof for a batch against Bitcoin blockchain."""
+        """
+        Verify a batch's OTS proof against Bitcoin. Verifies the ACTUAL published
+        artifact (batch_commits/*.txt) so it is format-agnostic — single-root
+        (legacy) or dual-root (registry+events) both verify against their own
+        stamped bytes. Falls back to reconstructing the legacy single-root content
+        only if the published file is unavailable.
+        """
         if not batch.ots_proof:
             return False
+        published = (self.repo_path / batch.git_commit_file) if batch.git_commit_file else None
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             hash_file = tmp_path / 'commit.txt'
             ots_file = tmp_path / 'commit.txt.ots'
-            hash_file.write_text(batch.git_commit_hash + '\n', encoding='utf-8')
+            if published and published.exists():
+                hash_file.write_bytes(published.read_bytes())
+            else:
+                hash_file.write_text(self._batch_file_text(batch.git_commit_hash), encoding='utf-8')
             ots_file.write_bytes(bytes(batch.ots_proof))
             try:
                 result = subprocess.run(
@@ -246,19 +312,20 @@ class GitAuditService:
                     timeout=60,
                 )
                 output = result.stdout + result.stderr
-                if 'Success' in output or 'Bitcoin block' in output:
-                    for line in output.split('\n'):
-                        if 'Bitcoin block' in line:
-                            import re
-                            m = re.search(r'Bitcoin block (\d+)', line)
-                            if m:
-                                batch.bitcoin_block = int(m.group(1))
+                # Confirmed ONLY when a real Bitcoin block number is attested.
+                # A pending stamp prints "Pending confirmation in Bitcoin
+                # blockchain" — the bare substring "Bitcoin block" matches that
+                # ("block"+"chain"), so we must require "Bitcoin block <digits>".
+                import re
+                m = re.search(r'Bitcoin block (\d+)', output)
+                if m:
+                    batch.bitcoin_block = int(m.group(1))
                     batch.verified_at = datetime.now(timezone.utc)
                     batch.save(update_fields=['bitcoin_block', 'verified_at'])
                     return True
                 return False
             except Exception as e:
-                print(f"Error verifying batch {batch.id}: {e}")
+                logger.warning(f"Error verifying batch {batch.id}: {e}")
                 return False
 
 
@@ -308,14 +375,7 @@ class ProofExportService:
                 object_id=contract.id
             ).first()
 
-            if ots_proof and ots_proof.batch_id and ots_proof.batch and ots_proof.batch.ots_proof:
-                zipf.writestr('batch_ots_proof.ots', bytes(ots_proof.batch.ots_proof))
-                zipf.writestr('batch_git_commit.txt', (
-                    f"Git commit: {ots_proof.batch.git_commit_hash}\n"
-                    f"Event file: {ots_proof.git_event_path}\n"
-                    f"Stamped: {ots_proof.batch.stamped_at.isoformat()}\n"
-                    f"Bitcoin block: {ots_proof.batch.bitcoin_block or 'pending'}\n"
-                ))
+            self._write_batch_proof(zipf, ots_proof)
 
             # 4. Verification instructions
             readme = self._generate_readme('contract', contract.id)
@@ -360,14 +420,7 @@ class ProofExportService:
                 object_id=debt.id
             ).first()
 
-            if ots_proof and ots_proof.batch_id and ots_proof.batch and ots_proof.batch.ots_proof:
-                zipf.writestr('batch_ots_proof.ots', bytes(ots_proof.batch.ots_proof))
-                zipf.writestr('batch_git_commit.txt', (
-                    f"Git commit: {ots_proof.batch.git_commit_hash}\n"
-                    f"Event file: {ots_proof.git_event_path}\n"
-                    f"Stamped: {ots_proof.batch.stamped_at.isoformat()}\n"
-                    f"Bitcoin block: {ots_proof.batch.bitcoin_block or 'pending'}\n"
-                ))
+            self._write_batch_proof(zipf, ots_proof)
 
             # README
             readme = self._generate_readme('debt', debt.id)
@@ -385,7 +438,7 @@ class ProofExportService:
 
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
             # Export contracts
-            from identity.models import Contract
+            from contracts.models import Contract
             contracts = Contract.objects.filter(
                 creator=profile
             ) | Contract.objects.filter(partner=profile)
@@ -466,6 +519,30 @@ class ProofExportService:
 
         zip_buffer.seek(0)
         return zip_buffer.read()
+
+    def _write_batch_proof(self, zipf, ots_proof):
+        """
+        Add the OTS-stamped batch file + its Bitcoin proof to the export ZIP so the
+        timestamp is independently verifiable straight from the ZIP:
+            ots verify batch_commit.txt.ots
+        `batch_commit.txt` is the exact stamped artifact (dual-root: registry +
+        events commit hashes), required because the dual-root content can't be
+        reconstructed from a single hash. `batch_proof_info.txt` is the human-
+        readable summary.
+        """
+        if not (ots_proof and ots_proof.batch_id and ots_proof.batch and ots_proof.batch.ots_proof):
+            return
+        batch = ots_proof.batch
+        stamped = Path(settings.AUDIT_LOG_GIT_PATH) / 'public-git' / batch.git_commit_file
+        if stamped.exists():
+            zipf.writestr('batch_commit.txt', stamped.read_text(encoding='utf-8'))
+        zipf.writestr('batch_commit.txt.ots', bytes(batch.ots_proof))
+        zipf.writestr('batch_proof_info.txt', (
+            f"Git commit (event log): {batch.git_commit_hash}\n"
+            f"Event file: {ots_proof.git_event_path}\n"
+            f"Stamped: {batch.stamped_at.isoformat()}\n"
+            f"Bitcoin block: {batch.bitcoin_block or 'pending'}\n"
+        ))
 
     def _contract_to_dict(self, contract) -> Dict:
         """Convert contract to JSON-serializable dict"""
@@ -579,10 +656,12 @@ VERIFICATION INSTRUCTIONS
 
 1. Verify PGP Signatures:
 
-   # Import public key from Parahub keyring
-   curl https://gitea.parahub.io/audit/parahub-audit/raw/branch/master/pgp-keyring/{object_id}.asc | gpg --import
+   # Public keys live in the audit keyring, one file per PROFILE id.
+   # The party profile IDs are in the exported .json files. Browse:
+   #   https://git.parahub.io/audit/parahub-registry/src/branch/master/pgp-keyring
+   curl https://git.parahub.io/audit/parahub-registry/raw/branch/master/pgp-keyring/<PROFILE_ID>.asc | gpg --import
 
-   # Verify signature
+   # Verify a detached signature
    gpg --verify creator_signature.asc
 
 2. Verify OpenTimestamps Proof:
@@ -590,8 +669,8 @@ VERIFICATION INSTRUCTIONS
    # Install opentimestamps-client
    pip install opentimestamps-client
 
-   # Verify proof (checks Bitcoin blockchain)
-   ots verify *.ots
+   # Verify the Bitcoin timestamp of the batch this object was anchored in
+   ots verify batch_commit.txt.ots
 
 3. Verify Data Integrity:
 

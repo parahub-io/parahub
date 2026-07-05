@@ -1,0 +1,175 @@
+{
+  "civic": {
+    "badge": "Meinung",
+    "badgeHint": "Unverbindliches Meinungsbarometer der Einwohner",
+    "level": {
+      "all": "Alle",
+      "parish": "Gemeinde",
+      "municipality": "Kommune",
+      "region": "Region",
+      "country": "Land",
+      "groups": "Gruppen",
+      "household": "Zuhause",
+      "condominium": "Wohnanlage"
+    },
+    "feed": {
+      "participation": "{n} Stimmen",
+      "voted": "Sie haben abgestimmt",
+      "commentsEnabled": "Kommentare offen",
+      "emptyScope": "Auf dieser Ebene gibt es noch keine Umfragen",
+      "emptyScopeHint": "Umfragen erscheinen hier, sobald sie für Ihr Gebiet erstellt werden",
+      "needResidency": "Geben Sie Ihre Gemeinde an, um lokale Umfragen zu sehen",
+      "needResidencyAction": "Standort wählen",
+      "loginToSee": "Melden Sie sich an, um Umfragen Ihrer Region zu sehen"
+    },
+    "destination": "Wohin das Ergebnis geht",
+    "outcome": "Ergebnis",
+    "vote": {
+      "title": "Ihre Stimme",
+      "changeHint": "Sie können Ihre Stimme jederzeit ändern",
+      "changed": "Stimme aktualisiert",
+      "cooldown": "Bitte warten Sie eine Minute, bevor Sie Ihre Stimme erneut ändern",
+      "loginCta": "Zum Abstimmen anmelden",
+      "outOfScope": "Diese Umfrage ist für Einwohner von {name}",
+      "notActive": "Die Abstimmung ist geschlossen"
+    },
+    "consent": {
+      "title": "Vor Ihrer ersten Stimme",
+      "p1": "Ihre Wahl wird nirgendwo veröffentlicht. Sie wird entpersonalisiert gespeichert: der Stimmeintrag enthält keine Verbindung zu Ihrem Profil.",
+      "p2": "Sie können Ihre Stimme ändern, alle Ihre Stimmen löschen oder diese Einwilligung jederzeit in den Einstellungen widerrufen. Öffentlich sind nur aggregierte Summen.",
+      "p3": "Ehrliche Grenzen: der Serverbetreiber könnte die Verbindung technisch über einen geschützten Serverschlüssel wiederherstellen. Das erfordert eine bewusste Handlung und geschieht im Normalbetrieb nie. Politische Meinungen sind sensible Daten (DSGVO Art. 9) — wir bitten um Ihre ausdrückliche Einwilligung für diese Speicherung.",
+      "accept": "Verstanden — abstimmen",
+      "decline": "Nicht jetzt"
+    },
+    "results": {
+      "title": "Ergebnisse",
+      "hiddenTitle": "Stimmen Sie ab, um die Ergebnisse zu sehen",
+      "hiddenHint": "Das Live-Bild öffnet sich nach Ihrer eigenen Stimme — damit es Sie nicht beeinflusst",
+      "participation": "Beteiligung",
+      "fewVotes": "Noch wenige Stimmen — Zahlen sind ungefähr und aktualisieren verzögert",
+      "all": "Alle",
+      "verified": "Verifiziert",
+      "verifiedHint": "WoT-verifizierte Konten (3+ Bestätigungen)",
+      "byTerritory": "Nach Kommunen",
+      "ended": "Umfrage beendet",
+      "frozen": "Die Originalstimmen wurden nach dem Ende gelöscht (Datenminimierung); dies sind die eingefrorenen Aggregate"
+    },
+    "receipt": {
+      "check": "Prüfen, dass meine Stimme gezählt wurde",
+      "ok": "Ihre Stimme ist in der Audit-Kette und die Kette ist intakt",
+      "fail": "Beleg nicht in der Audit-Kette gefunden — kontaktieren Sie den Support",
+      "chainBroken": "Die Prüfung der Audit-Kette ist fehlgeschlagen"
+    },
+    "residency": {
+      "title": "Mein Standort (zivisch)",
+      "hint": "Wird nur verwendet, um Umfragen Ihrer Region anzuzeigen. Nicht im öffentlichen Profil sichtbar.",
+      "country": "Land",
+      "municipality": "Kommune",
+      "parish": "Gemeinde",
+      "search": "Suchen…",
+      "save": "Standort speichern",
+      "saved": "Standort gespeichert",
+      "cooldown": "Der Standort kann nach dem {date} erneut geändert werden",
+      "notSet": "Nicht festgelegt"
+    },
+    "privacy": {
+      "title": "Meine zivischen Daten",
+      "consentGiven": "Einwilligung zur entpersonalisierten Speicherung: erteilt am {date}",
+      "consentNone": "Einwilligung nicht erteilt",
+      "erase": "Alle meine Stimmen löschen",
+      "eraseTitle": "Zivische Stimmen löschen",
+      "eraseMessage": "Alle Ihre Meinungsstimmen werden aus allen Umfragen gelöscht und die Einwilligung wird widerrufen. Die aggregierten Summen werden neu berechnet. Dies ist unwiderruflich.",
+      "eraseConfirm": "Alles löschen",
+      "erased": "Stimmen in {n} Umfragen gelöscht"
+    },
+    "create": {
+      "territory": "Territorium (zivische Meinungsumfrage)",
+      "territoryHint": "Vorerst nur Staff: erstellt ein unverbindliches Barometer für Einwohner des gewählten Territoriums",
+      "destination": "Wohin das Ergebnis geht",
+      "destinationHint": "z. B. \"Junta de Freguesia de X, 1. Sep 2026\" — Umfragen mit erklärtem Empfänger erreichen echte Beteiligung",
+      "selectTerritory": "Territorium wählen",
+      "typeChoice": "Auswahl (Optionen)",
+      "typeSliders": "Regler (mehr/weniger vs heute)"
+    },
+    "comments": {
+      "title": "Kommentare",
+      "placeholder": "Teilen Sie Ihre Sicht (dies verrät nie Ihre Stimme)",
+      "submit": "Senden",
+      "empty": "Noch keine Kommentare",
+      "login": "Zum Kommentieren anmelden"
+    },
+    "household": {
+      "title": "Haushalt",
+      "members": "Haushaltsmitglieder",
+      "invite": "In den Haushalt einladen",
+      "inviteHint": "Teilen Sie diesen Link mit Familie/Mitbewohnern — sie treten bei und können an Haus-Umfragen teilnehmen. Ein neuer Link widerruft den alten.",
+      "copyLink": "Einladungslink kopieren",
+      "linkCopied": "Link kopiert",
+      "remove": "Entfernen",
+      "leave": "Haushalt verlassen",
+      "joinTitle": "Haushalt beitreten",
+      "joinSuccess": "Sie sind «{name}» beigetreten. Haus-Umfragen sind jetzt in Ihrem Feed.",
+      "joinAlready": "Sie sind bereits Mitglied von «{name}».",
+      "joinFail": "Einladung nicht gefunden oder widerrufen",
+      "toPolls": "Umfragen öffnen"
+    },
+    "openBallots": {
+      "title": "Wer wie gestimmt hat",
+      "empty": "Noch keine Stimmen",
+      "onBehalf": "+{n} delegiert"
+    },
+    "sliders": {
+      "a_m2": "viel weniger",
+      "a_m1": "weniger",
+      "a_0": "wie jetzt",
+      "a_p1": "mehr",
+      "a_p2": "viel mehr",
+      "submit": "Meine Positionen senden",
+      "median": "Median",
+      "hint": "Relativ zum heutigen Status quo"
+    },
+    "delegations": {
+      "title": "Meine Delegationen",
+      "voiceUsed": "Ihre Stimme zählt derzeit in {n} Umfragen per Delegation",
+      "lockedTitle": "Delegiert an {name}",
+      "lockedCast": "hat gestimmt, {date}",
+      "lockedNotCast": "hat noch nicht gestimmt",
+      "override": "Selbst abstimmen",
+      "given": "Vergeben",
+      "receivedPending": "Anfragen an Sie",
+      "receivedActive": "Sie vertreten",
+      "accept": "Annehmen",
+      "decline": "Ablehnen",
+      "revoke": "Widerrufen",
+      "revokeSure": "Sicher?",
+      "create": "Stimme delegieren",
+      "delegatePlaceholder": "Delegierte(r) (Name oder {'@'}Handle)",
+      "scopeTopic": "Nach Thema",
+      "scopeTerritory": "Nach Territorium (alle Umfragen darin)",
+      "created": "Anfrage gesendet — wartet auf Annahme",
+      "acceptHint": "Mit der Annahme sehen Ihre Delegierenden Ihre Stimmen in diesem Bereich",
+      "empty": "Noch keine Delegationen",
+      "hint": "Vertrauen Sie ein Thema oder Ihr Gebiet jemandem an — dessen Stimme gilt als Ihre, bis Sie sie überschreiben. Bei jeder Umfrage können Sie selbst abstimmen."
+    },
+    "ideas": {
+      "title": "Ideen",
+      "hint": "Schlagen Sie eine Umfrage für Ihr Gebiet vor. Bei {threshold} Unterstützenden geht sie in die neutrale Formulierungsprüfung und wird zur Umfrage.",
+      "create": "Idee vorschlagen",
+      "formTitle": "Titel der Idee",
+      "formBody": "Was und warum (die Formulierung wird bei der Prüfung neutralisiert)",
+      "submit": "Idee senden",
+      "support": "Unterstützen",
+      "supported": "Unterstützt",
+      "supporters": "{n} von {threshold}",
+      "statusReview": "In Prüfung",
+      "statusPromoted": "Wurde zur Umfrage",
+      "statusRejected": "Nicht übernommen",
+      "openPoll": "Umfrage öffnen",
+      "promote": "Zur Umfrage machen",
+      "reject": "Ablehnen",
+      "rejectSure": "Sicher?",
+      "empty": "Noch keine Ideen — schlagen Sie die erste vor",
+      "report": "Melden"
+    }
+  }
+}

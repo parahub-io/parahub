@@ -155,7 +155,7 @@
 
       <!-- Empty state -->
       <div v-else class="text-center py-12">
-        <img src="/images/para/searching.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+        <img src="/images/para/searching.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
         <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-1">
           {{ $t('energy.empty.title') }}
         </h3>
@@ -353,9 +353,14 @@ const authStore = useAuthStore()
 const localePath = useLocalePath()
 const toastStore = useToastStore()
 
-const cells = ref<any[]>([])
+// Public cells list: SSR'd + Suspense-blocking + payload-cached. Auth-only
+// bits (myStatus, myCooperatives) stay client-side in onMounted.
+const cellsData = useListData<any[]>('/api/v1/energy/cells/map/', {
+  default: () => [],
+})
+const { data: cells, isInitial: loading } = cellsData
+
 const myStatus = ref<any>(null)
-const loading = ref(true)
 const showCreateModal = ref(false)
 const creating = ref(false)
 const locationLoading = ref(false)
@@ -387,14 +392,7 @@ const howSteps = computed(() => [
   t('energy.how.step4'),
 ])
 
-const fetchCells = async () => {
-  try {
-    const data = await $fetch<any[]>('/api/v1/energy/cells/map/')
-    cells.value = data || []
-  } catch (e) {
-    console.error('[energy] Failed to load cells', e)
-  }
-}
+const fetchCells = () => cellsData.refresh()
 
 const fetchMyStatus = async () => {
   if (!authStore.isAuthenticated) return
@@ -490,8 +488,12 @@ const createCell = async () => {
   }
 }
 
-onMounted(async () => {
-  await Promise.all([fetchCells(), fetchMyStatus(), fetchMyCooperatives()])
-  loading.value = false
+onMounted(() => {
+  // Cells already loaded via useListData; only the auth-gated extras here.
+  fetchMyStatus()
+  fetchMyCooperatives()
 })
+
+// Suspense barrier — must stay last in setup (see useListData docs).
+await cellsData
 </script>

@@ -1,0 +1,13 @@
+[Unit]
+Description=Push working-repo master to local Gitea CI mirror (admin/parahub-ng)
+After=network.target
+
+[Service]
+Type=oneshot
+User=norn
+WorkingDirectory=/opt/parahub
+# --force: the mirror is a verbatim copy of the working master, never a
+# place anyone commits to directly. Credentials live in the `ci-mirror`
+# remote URL (.git/config, server-local — same trust plane as .env).
+ExecStart=/usr/bin/git push --force --quiet ci-mirror master:master
+Nice=10

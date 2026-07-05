@@ -38,7 +38,8 @@
     "registerLnAddress": "Enregistrer",
     "copyLnAddress": "Copier l'adresse Lightning",
     "lnAddressRegisterFailed": "Échec de l'enregistrement de l'adresse",
-    "walletOpenInAnotherTab": "Le portefeuille est déjà ouvert dans un autre onglet. Fermez-le d'abord.",
+    "walletOpenInAnotherTab": "Le portefeuille est actif dans un autre onglet ou fenêtre de ce navigateur.",
+    "openHere": "Ouvrir ici",
     "initError": "Échec de connexion du portefeuille",
     "lnurlDetected": "LNURL-pay détecté. Entrez le montant.",
     "amountlessInvoice": "Facture sans montant. Entrez le montant.",
@@ -99,11 +100,11 @@
   "seedRestore": {
     "title": "Restaurer le portefeuille",
     "subtitle": "Entrez votre phrase de récupération de 12 mots",
-    "wordPlaceholder": "mot",
     "pasteAllWords": "Coller les 12 mots",
     "pasteAllWordsPlaceholder": "mot1 mot2 mot3 mot4 mot5 mot6 mot7 mot8 mot9 mot10 mot11 mot12",
-    "pasteWords": "Coller depuis le presse-papiers",
     "invalidMnemonic": "Phrase de récupération invalide. Vérifiez vos mots.",
+    "wordCount": "{count} / 12 mots",
+    "validPhrase": "Phrase de récupération valide",
     "restoring": "Restauration du portefeuille...",
     "restoreFailed": "Échec de la restauration. Veuillez réessayer."
   }

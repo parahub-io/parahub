@@ -1,84 +1,112 @@
 <template>
   <div class="pb-20">
     <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center py-32" role="status" aria-live="polite">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" aria-hidden="true" />
+    <div v-if="loading" class="flex items-center justify-center py-12" role="status" aria-live="polite">
+      <div class="animate-spin rounded-full h-12 w-12 border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-700 dark:border-t-neutral-100" aria-hidden="true" />
       <span class="sr-only">{{ $t('common.loading') }}</span>
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="flex items-center justify-center py-32">
-      <div class="text-center max-w-md mx-auto px-4">
-        <AlertCircle class="w-12 h-12 text-red-500 mx-auto mb-3" />
-        <h2 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">{{ $t('directory.establishments.empty_title') }}</h2>
-        <p class="text-neutral-600 dark:text-neutral-400 mb-4 text-sm">{{ error }}</p>
-        <UiButton variant="primary" size="sm" @click="navigateTo(localePath('/directory') + '#organizations')">
-          {{ $t('directory.tabs.organizations') }}
-        </UiButton>
+    <div v-else-if="error" class="py-12 text-center max-w-md mx-auto px-4">
+      <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+        <AlertCircle class="w-8 h-8 text-red-600 dark:text-red-400" />
       </div>
+      <h2 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">{{ $t('directory.establishments.empty_title') }}</h2>
+      <p class="text-neutral-600 dark:text-neutral-400 mb-4 text-sm">{{ error }}</p>
+      <UiButton variant="primary" size="sm" @click="navigateTo(localePath('/directory') + '#organizations')">
+        {{ $t('directory.tabs.organizations') }}
+      </UiButton>
     </div>
 
     <!-- Content -->
-    <div v-else-if="establishment" class="max-w-3xl mx-auto px-4 py-6">
+    <div v-else-if="establishment" class="pb-6">
 
-      <!-- Back link -->
-      <UiButton variant="ghost" size="sm" :icon="ArrowLeft" @click="goBack" class="mb-4 -ml-2">
-        {{ $t('directory.tabs.organizations') }}
-      </UiButton>
+      <!-- Back link — neutral strip above the band (keeps the band a pure identity hero) -->
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 pt-4">
+        <UiButton variant="ghost" size="sm" :icon="ArrowLeft" @click="goBack" class="-ml-2">
+          {{ $t('directory.tabs.organizations') }}
+        </UiButton>
+      </div>
+
+      <!-- Yellow header band (identity) — full-bleed, like /docs/mission. Dark text on yellow in both themes. -->
+      <div class="org-header border-b border-primary/40 dark:border-primary/30">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
+          <!-- Name + verified + rating -->
+          <div class="flex items-start gap-3">
+            <!-- Logo slot: shows the logo when set; for the owner when empty, a
+                 dashed placeholder nudging them to add one (links to edit form) -->
+            <img
+              v-if="establishment.logo_url"
+              :src="establishment.logo_url"
+              alt=""
+              class="w-16 h-16 rounded-lg object-contain flex-shrink-0"
+            />
+            <NuxtLink
+              v-else-if="isOwner"
+              :to="localePath(`/org/${establishment.slug || props.id}/edit`)"
+              :title="$t('directory.form.logo_upload')"
+              class="w-16 h-16 rounded-lg border border-dashed border-neutral-900/30 hover:border-neutral-900/60 bg-white/40 hover:bg-white/70 flex flex-col items-center justify-center gap-0.5 text-neutral-900/70 hover:text-neutral-900 flex-shrink-0 transition-colors"
+            >
+              <ImagePlus class="w-5 h-5" />
+              <span class="text-[10px] font-medium leading-none">{{ $t('directory.form.logo') }}</span>
+            </NuxtLink>
+
+            <div class="flex-1 min-w-0">
+              <h1 class="text-xl sm:text-2xl font-bold text-neutral-900 flex items-center gap-2 flex-wrap">
+                {{ establishment.name }}
+                <BadgeCheck v-if="establishment.is_verified" class="w-5 h-5 sm:w-6 sm:h-6 text-secondary flex-shrink-0" />
+              </h1>
+
+              <!-- Category + inline meta (category · type · views · members · legal id) -->
+              <div class="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap text-sm text-neutral-900/70">
+                <DemoBadge :is-demo="establishment.is_demo" />
+                <span v-if="establishment.category_name">{{ localizedCategoryName }}</span>
+                <span
+                  v-if="establishment.organization_type"
+                  class="px-1.5 py-0.5 bg-white/60 text-neutral-700 rounded text-xs"
+                >
+                  {{ getTypeLabel(establishment.organization_type) }}
+                </span>
+                <span v-if="establishment.is_online" class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">
+                  Online
+                </span>
+                <span v-if="establishment.member_count > 0" class="inline-flex items-center gap-1">
+                  <Users class="w-3.5 h-3.5" />{{ establishment.member_count }} {{ $t('directory.organizations.members_count') }}
+                </span>
+                <span class="inline-flex items-center gap-1">
+                  <Eye class="w-3.5 h-3.5" />{{ establishment.views_count }}
+                </span>
+                <span v-if="establishment.legal_entity_id" class="inline-flex items-center gap-1 font-mono text-xs">
+                  <FileText class="w-3.5 h-3.5" />{{ establishment.legal_entity_id }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Rating -->
+            <div v-if="establishment.rating_count > 0" class="flex-shrink-0 text-right">
+              <div class="flex items-center gap-1">
+                <Star class="w-5 h-5 text-amber-600 fill-amber-600" />
+                <span class="text-lg font-bold text-neutral-900">{{ Number(establishment.rating_avg).toFixed(1) }}</span>
+              </div>
+              <span class="text-xs text-neutral-900/60">{{ establishment.rating_count }} {{ establishment.rating_count === 1 ? 'review' : 'reviews' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 py-6">
 
       <!-- Header card -->
       <div class="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
-        <!-- Name + verified + rating -->
-        <div class="flex items-start gap-3">
-          <div class="flex-1 min-w-0">
-            <h1 class="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2 flex-wrap">
-              {{ establishment.name }}
-              <BadgeCheck v-if="establishment.is_verified" class="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
-            </h1>
 
-            <!-- Category + type -->
-            <div class="flex items-center gap-2 mt-1 flex-wrap">
-              <DemoBadge :is-demo="establishment.is_demo" />
-              <span v-if="establishment.category_name" class="text-sm text-neutral-500 dark:text-neutral-400">
-                {{ establishment.category_name }}
-              </span>
-              <span
-                v-if="establishment.organization_type"
-                class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 rounded text-xs"
-              >
-                {{ getTypeLabel(establishment.organization_type) }}
-              </span>
-              <span v-if="establishment.is_online" class="px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-xs">
-                Online
-              </span>
-            </div>
-          </div>
-
-          <!-- Rating -->
-          <div v-if="establishment.rating_count > 0" class="flex-shrink-0 text-right">
-            <div class="flex items-center gap-1">
-              <Star class="w-5 h-5 text-yellow-500 fill-yellow-500" />
-              <span class="text-lg font-bold text-neutral-900 dark:text-neutral-100">{{ Number(establishment.rating_avg).toFixed(1) }}</span>
-            </div>
-            <span class="text-xs text-neutral-400">{{ establishment.rating_count }} {{ establishment.rating_count === 1 ? 'review' : 'reviews' }}</span>
-          </div>
-        </div>
-
-        <!-- Quick links row -->
-        <div class="mt-3 flex flex-wrap gap-1">
-          <UiButton variant="ghost" size="sm" :icon="Newspaper" :to="localePath(`/org/${establishment.slug || props.id}/blog`)">
-            {{ $t('cms.blog') }}
-          </UiButton>
-          <UiButton v-if="canManageTreasurer" variant="ghost" size="sm" :icon="Settings" :to="localePath(`/org/${establishment.slug || props.id}/manage`)">
-            {{ $t('cms.manage.title') }}
-          </UiButton>
-          <UiButton v-if="isOwner" variant="ghost" size="sm" :icon="Pencil" :to="localePath(`/org/${establishment.slug || props.id}/edit`)">
-            {{ $t('common.edit') }}
-          </UiButton>
-        </div>
+        <!-- Quick links row: public links + a single, clearly-marked owner menu -->
+        <!-- (Аренда + owner menu moved into the unified action row below) -->
+        <!-- Shared hidden photo input — triggered from owner menu and gallery -->
+        <input v-if="isOwner" ref="photoInput" type="file" accept="image/*" multiple class="hidden" @change="handlePhotoUpload" />
 
         <!-- Description -->
-        <p v-if="establishment.description" class="mt-3 text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
+        <p v-if="establishment.description" class="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
           {{ establishment.description }}
         </p>
 
@@ -97,22 +125,6 @@
           >
             <span class="w-2 h-2 bg-red-500 rounded-full" />
             {{ $t('directory.establishments.closed_now') }}
-          </span>
-        </div>
-
-        <!-- Quick info row -->
-        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-neutral-600 dark:text-neutral-400">
-          <span v-if="establishment.member_count > 0" class="flex items-center gap-1.5">
-            <Users class="w-4 h-4" />
-            {{ establishment.member_count }} {{ $t('directory.organizations.members_count') }}
-          </span>
-          <span class="flex items-center gap-1.5">
-            <Eye class="w-4 h-4" />
-            {{ establishment.views_count }}
-          </span>
-          <span v-if="establishment.legal_entity_id" class="flex items-center gap-1.5 font-mono text-xs">
-            <FileText class="w-4 h-4" />
-            {{ establishment.legal_entity_id }}
           </span>
         </div>
 
@@ -140,8 +152,13 @@
           </div>
         </div>
 
-        <!-- Action buttons -->
-        <div class="mt-4 flex flex-wrap gap-2">
+        <!-- Unified action row: booking · public CTAs · utilities · owner menu (pushed right) -->
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <!-- Booking board -->
+          <UiButton v-if="establishment.rentable_count > 0" variant="outline" size="sm" :icon="CalendarClock" :to="localePath(`/rental/org/${establishment.slug || props.id}`)">
+            {{ $t('booking.board.link') }}
+          </UiButton>
+          <!-- Join -->
           <UiButton
             v-if="authStore.isAuthenticated && isJoinable && !establishment.is_member"
             variant="primary" size="sm" :loading="isJoining"
@@ -149,27 +166,7 @@
           >
             {{ $t('directory.organizations.join_button') }}
           </UiButton>
-          <UiButton
-            v-if="establishment.terms_url"
-            variant="outline" size="sm" :icon="Scale"
-            :to="establishment.terms_url.startsWith('/') ? localePath(establishment.terms_url) : establishment.terms_url"
-          >
-            {{ $t('directory.organizations.view_terms') }}
-          </UiButton>
-          <UiButton
-            v-if="establishment.treasury_enabled && establishment.slug"
-            variant="outline" size="sm" :icon="Landmark"
-            :to="localePath(`/org/${establishment.slug}/treasury`)"
-          >
-            {{ $t('treasury.title') }}
-          </UiButton>
-          <UiButton
-            v-if="establishment.treasury_enabled && establishment.slug"
-            variant="outline-warning" size="sm" :icon="ClipboardCheck"
-            :to="localePath(`/org/${establishment.slug}/audit`)"
-          >
-            {{ $t('treasury.audit.title') }}
-          </UiButton>
+          <!-- Pay -->
           <UiButton
             v-if="establishment.spark_address || establishment.ln_address"
             variant="success" size="sm" :icon="Wallet"
@@ -177,13 +174,31 @@
           >
             {{ $t('directory.act_as.pay') }}
           </UiButton>
+          <!-- Terms -->
           <UiButton
-            v-if="establishment.is_hub && authStore.isAuthenticated"
-            variant="outline" size="sm" :icon="Package"
-            :to="localePath(`/shipments?dest=${establishment.id}`)"
+            v-if="establishment.terms_url"
+            variant="outline" size="sm" :icon="Scale"
+            :to="establishment.terms_url.startsWith('/') ? localePath(establishment.terms_url) : establishment.terms_url"
           >
-            {{ $t('shipments.hub.send_here') }}
+            {{ $t('directory.organizations.view_terms') }}
           </UiButton>
+          <!-- Treasury -->
+          <UiButton
+            v-if="establishment.treasury_enabled && establishment.slug"
+            variant="outline" size="sm" :icon="Landmark"
+            :to="localePath(`/org/${establishment.slug}/treasury`)"
+          >
+            {{ $t('treasury.title') }}
+          </UiButton>
+          <!-- Audit -->
+          <UiButton
+            v-if="establishment.treasury_enabled && establishment.slug"
+            variant="outline-warning" size="sm" :icon="ClipboardCheck"
+            :to="localePath(`/org/${establishment.slug}/audit`)"
+          >
+            {{ $t('treasury.audit.title') }}
+          </UiButton>
+          <!-- Condominium tabs -->
           <template v-if="establishment.organization_type === 'CONDOMINIUM' && establishment.slug">
             <UiButton variant="outline" size="sm" :icon="Grid3x3" :to="localePath(`/condo/${establishment.slug}/fractions`)">
               {{ $t('condo.fractions_tab') }}
@@ -195,19 +210,64 @@
               {{ $t('condo.assembly_tab') }}
             </UiButton>
           </template>
-        </div>
 
-        <!-- Utility buttons -->
-        <div class="mt-3 flex flex-wrap gap-2">
+          <!-- Utilities (labelled, lighter weight) -->
           <UiButton v-if="mapCoords" variant="outline" size="sm" :icon="Navigation" @click="getDirections">
             {{ $t('directory.establishments.get_directions') }}
-          </UiButton>
-          <UiButton v-if="mapCoords" variant="outline" size="sm" :icon="Map" @click="openInMap">
-            {{ $t('directory.establishments.view_on_map') }}
           </UiButton>
           <UiButton variant="outline" size="sm" :icon="Share2" @click="shareEstablishment">
             {{ $t('directory.establishments.share') }}
           </UiButton>
+
+          <!-- Owner / admin management menu — pushed to the right, set apart from public links -->
+          <div v-if="canManageTreasurer || isOwner" ref="ownerMenuEl" class="relative ml-auto">
+            <UiButton variant="outline" size="sm" :icon="ShieldCheck" @click="ownerMenuOpen = !ownerMenuOpen">
+              {{ $t('directory.act_as.manage_menu') }}
+              <ChevronDown class="w-4 h-4 -mr-1 transition-transform" :class="{ 'rotate-180': ownerMenuOpen }" />
+            </UiButton>
+            <div
+              v-if="ownerMenuOpen"
+              class="absolute right-0 top-full mt-1 z-30 w-56 py-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg"
+              role="menu"
+            >
+              <NuxtLink
+                v-if="isOwner"
+                :to="localePath(`/org/${establishment.slug || props.id}/edit`)"
+                class="flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-primary-100 dark:hover:bg-primary-900/40"
+                role="menuitem"
+                @click="ownerMenuOpen = false"
+              >
+                <Pencil class="w-4 h-4 text-neutral-400" /> {{ $t('common.edit') }}
+              </NuxtLink>
+              <NuxtLink
+                v-if="canManageTreasurer"
+                :to="localePath(`/org/${establishment.slug || props.id}/manage`)"
+                class="flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-primary-100 dark:hover:bg-primary-900/40"
+                role="menuitem"
+                @click="ownerMenuOpen = false"
+              >
+                <LayoutTemplate class="w-4 h-4 text-neutral-400" /> {{ $t('cms.manage.title') }}
+              </NuxtLink>
+              <NuxtLink
+                v-if="canManageTreasurer"
+                :to="localePath(`/blog/create?est=${establishment.slug || props.id}`)"
+                class="flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-primary-100 dark:hover:bg-primary-900/40"
+                role="menuitem"
+                @click="ownerMenuOpen = false"
+              >
+                <SquarePen class="w-4 h-4 text-neutral-400" /> {{ $t('directory.act_as.new_post') }}
+              </NuxtLink>
+              <button
+                v-if="isOwner"
+                type="button"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-primary-100 dark:hover:bg-primary-900/40"
+                role="menuitem"
+                @click="triggerPhotoUpload"
+              >
+                <ImagePlus class="w-4 h-4 text-neutral-400" /> {{ $t('directory.photos.add') }}
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Direção (Board) — public section -->
@@ -243,73 +303,76 @@
           </div>
         </div>
 
-        <!-- Treasurer info (for OWNER/ADMIN) -->
+        <!-- Org management (owner/admin): treasurer · payment address · auditor — one compact block -->
         <div v-if="canManageTreasurer" class="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-          <div class="flex items-center justify-between">
-            <div class="text-sm text-neutral-600 dark:text-neutral-400">
-              <UserCheck class="w-4 h-4 inline -mt-0.5 mr-1" />
-              {{ $t('directory.act_as.treasurer') }}:
-              <span v-if="treasurer" class="font-medium text-neutral-900 dark:text-neutral-100">{{ treasurer.profile_display_name || treasurer.profile_hna.split('@')[0] }}</span>
-              <span v-else class="italic">{{ $t('directory.act_as.no_treasurer') }}</span>
+          <h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-1.5">
+            <ShieldCheck class="w-4 h-4 text-neutral-400" />
+            {{ $t('directory.act_as.manage_menu') }}
+          </h3>
+          <div class="space-y-2.5">
+            <!-- Treasurer -->
+            <div class="flex items-center justify-between gap-3">
+              <div class="text-sm text-neutral-600 dark:text-neutral-400 min-w-0">
+                <UserCheck class="w-4 h-4 inline -mt-0.5 mr-1 text-neutral-400" />
+                {{ $t('directory.act_as.treasurer') }}:
+                <span v-if="treasurer" class="font-medium text-neutral-900 dark:text-neutral-100">{{ treasurer.profile_display_name || treasurer.profile_hna.split('@')[0] }}</span>
+                <span v-else class="italic">{{ $t('directory.act_as.no_treasurer') }}</span>
+              </div>
+              <div class="flex gap-1 shrink-0">
+                <UiButton variant="ghost" size="sm" @click="showTreasurerModal = true">
+                  {{ treasurer ? $t('directory.act_as.change_treasurer') : $t('directory.act_as.set_treasurer') }}
+                </UiButton>
+                <UiButton v-if="treasurer" variant="outline-error" size="sm" icon-only :icon="UserMinus" @click="removeTreasurer" />
+              </div>
             </div>
-            <div class="flex gap-2">
-              <UiButton variant="ghost" size="sm" @click="showTreasurerModal = true">
-                {{ treasurer ? $t('directory.act_as.change_treasurer') : $t('directory.act_as.set_treasurer') }}
-              </UiButton>
-              <UiButton v-if="treasurer" variant="outline-error" size="sm" icon-only :icon="UserMinus" @click="removeTreasurer" />
-            </div>
-          </div>
-        </div>
 
-        <!-- Payment address (for OWNER/ADMIN/TREASURER) -->
-        <div v-if="canManageTreasurer" class="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-          <div class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
-            <Wallet class="w-4 h-4 inline -mt-0.5 mr-1" />
-            {{ $t('directory.act_as.payment_address') }}
-          </div>
-          <div v-if="!editingPaymentAddress" class="flex items-center justify-between">
-            <div class="text-xs font-mono text-neutral-500 dark:text-neutral-400 truncate max-w-[280px]">
-              {{ establishment.spark_address || establishment.ln_address || $t('directory.act_as.no_payment_address') }}
+            <!-- Payment address -->
+            <div>
+              <div v-if="!editingPaymentAddress" class="flex items-center justify-between gap-3">
+                <div class="text-sm text-neutral-600 dark:text-neutral-400 min-w-0 truncate">
+                  <Wallet class="w-4 h-4 inline -mt-0.5 mr-1 text-neutral-400" />
+                  {{ $t('directory.act_as.payment_address') }}:
+                  <span class="font-mono text-xs text-neutral-500 dark:text-neutral-400">{{ establishment.spark_address || establishment.ln_address || $t('directory.act_as.no_payment_address') }}</span>
+                </div>
+                <UiButton variant="ghost" size="sm" class="shrink-0" @click="startEditPaymentAddress">
+                  {{ $t('directory.act_as.change_treasurer') }}
+                </UiButton>
+              </div>
+              <div v-else class="space-y-2">
+                <input
+                  v-model="paymentAddressInput"
+                  type="text"
+                  :placeholder="$t('directory.act_as.payment_address_placeholder')"
+                  class="w-full text-xs border border-neutral-300 dark:border-neutral-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-mono"
+                />
+                <p class="text-[10px] text-neutral-400 dark:text-neutral-500">
+                  {{ $t('directory.act_as.payment_address_help') }}
+                </p>
+                <div class="flex gap-2">
+                  <UiButton variant="primary" size="sm" :loading="savingPaymentAddress" @click="savePaymentAddress">
+                    {{ $t('treasury.audit.save') }}
+                  </UiButton>
+                  <UiButton variant="ghost" size="sm" @click="editingPaymentAddress = false">
+                    {{ $t('treasury.audit.cancel') }}
+                  </UiButton>
+                </div>
+              </div>
             </div>
-            <UiButton variant="ghost" size="sm" @click="startEditPaymentAddress" class="shrink-0 ml-2">
-              {{ $t('directory.act_as.change_treasurer') }}
-            </UiButton>
-          </div>
-          <div v-else class="space-y-2">
-            <input
-              v-model="paymentAddressInput"
-              type="text"
-              :placeholder="$t('directory.act_as.payment_address_placeholder')"
-              class="w-full text-xs border border-neutral-300 dark:border-neutral-600 rounded-lg px-2.5 py-1.5 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-mono"
-            />
-            <p class="text-[10px] text-neutral-400 dark:text-neutral-500">
-              {{ $t('directory.act_as.payment_address_help') }}
-            </p>
-            <div class="flex gap-2">
-              <UiButton variant="primary" size="sm" :loading="savingPaymentAddress" @click="savePaymentAddress">
-                {{ $t('treasury.audit.save') }}
-              </UiButton>
-              <UiButton variant="ghost" size="sm" @click="editingPaymentAddress = false">
-                {{ $t('treasury.audit.cancel') }}
-              </UiButton>
-            </div>
-          </div>
-        </div>
 
-        <!-- Auditor (Fiscal Único) info (for OWNER/ADMIN) -->
-        <div v-if="canManageTreasurer" class="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-          <div class="flex items-center justify-between">
-            <div class="text-sm text-neutral-600 dark:text-neutral-400">
-              <ClipboardCheck class="w-4 h-4 inline -mt-0.5 mr-1" />
-              {{ $t('directory.act_as.auditor') }}:
-              <span v-if="auditor" class="font-medium text-neutral-900 dark:text-neutral-100">{{ auditor.profile_hna || auditor.profile_display_name }}</span>
-              <span v-else class="italic">{{ $t('directory.act_as.no_auditor') }}</span>
-            </div>
-            <div class="flex gap-2">
-              <UiButton variant="ghost" size="sm" @click="showAuditorModal = true">
-                {{ auditor ? $t('directory.act_as.change_auditor') : $t('directory.act_as.set_auditor') }}
-              </UiButton>
-              <UiButton v-if="auditor" variant="outline-error" size="sm" icon-only :icon="UserMinus" @click="removeAuditor" />
+            <!-- Auditor (Fiscal Único) -->
+            <div class="flex items-center justify-between gap-3">
+              <div class="text-sm text-neutral-600 dark:text-neutral-400 min-w-0">
+                <ClipboardCheck class="w-4 h-4 inline -mt-0.5 mr-1 text-neutral-400" />
+                {{ $t('directory.act_as.auditor') }}:
+                <span v-if="auditor" class="font-medium text-neutral-900 dark:text-neutral-100">{{ auditor.profile_hna || auditor.profile_display_name }}</span>
+                <span v-else class="italic">{{ $t('directory.act_as.no_auditor') }}</span>
+              </div>
+              <div class="flex gap-1 shrink-0">
+                <UiButton variant="ghost" size="sm" @click="showAuditorModal = true">
+                  {{ auditor ? $t('directory.act_as.change_auditor') : $t('directory.act_as.set_auditor') }}
+                </UiButton>
+                <UiButton v-if="auditor" variant="outline-error" size="sm" icon-only :icon="UserMinus" @click="removeAuditor" />
+              </div>
             </div>
           </div>
         </div>
@@ -338,6 +401,7 @@
           </UiButton>
         </div>
       </div>
+
 
       <!-- Join modal (terms acceptance) -->
       <div v-if="showJoinModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" @click.self="showJoinModal = false">
@@ -492,16 +556,17 @@
           </div>
         </div>
 
-        <!-- Upload button (owner only) -->
+        <!-- Upload button (owner only) — shares the single hidden file input -->
         <div v-if="isOwner" class="mt-2">
-          <label
+          <button
             v-if="!isUploading"
+            type="button"
             class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
+            @click="triggerPhotoUpload"
           >
             <ImagePlus class="w-4 h-4" />
             {{ $t('directory.photos.add') }}
-            <input type="file" accept="image/*" multiple class="hidden" @change="handlePhotoUpload" />
-          </label>
+          </button>
           <span v-else class="inline-flex items-center gap-1.5 text-sm text-neutral-500">
             <Loader2 class="w-4 h-4 animate-spin" />
             {{ $t('directory.photos.uploading') }}
@@ -536,18 +601,26 @@
       <!-- Contact & details -->
       <div v-if="hasContactInfo" class="mt-3 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 divide-y divide-neutral-100 dark:divide-neutral-800">
 
-        <!-- Address -->
-        <div v-if="establishment.world_object" class="flex items-start gap-3 px-4 sm:px-6 py-3">
+        <!-- Address — clickable shortcut to /map (same as the map preview below) when coords are known -->
+        <component
+          :is="mapCoords ? 'button' : 'div'"
+          v-if="establishment.world_object"
+          :type="mapCoords ? 'button' : undefined"
+          class="w-full text-left flex items-start gap-3 px-4 sm:px-6 py-3"
+          :class="mapCoords ? 'hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer' : ''"
+          style="transition: none"
+          @click="mapCoords ? openInMap() : null"
+        >
           <MapPin class="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
           <div class="min-w-0">
-            <p class="text-sm text-neutral-900 dark:text-neutral-100">{{ establishment.world_object.full_address }}</p>
+            <p class="text-sm" :class="mapCoords ? 'text-secondary' : 'text-neutral-900 dark:text-neutral-100'">{{ establishment.world_object.full_address }}</p>
             <p v-if="establishment.floor || establishment.office_number" class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
               <span v-if="establishment.floor">{{ $t('directory.establishments.floor') }} {{ establishment.floor }}</span>
               <span v-if="establishment.floor && establishment.office_number">, </span>
               <span v-if="establishment.office_number">{{ $t('directory.establishments.office') }} {{ establishment.office_number }}</span>
             </p>
           </div>
-        </div>
+        </component>
 
         <!-- Phone -->
         <a v-if="establishment.phone" :href="`tel:${establishment.phone}`" class="flex items-center gap-3 px-4 sm:px-6 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800" style="transition: none">
@@ -569,10 +642,10 @@
         </a>
       </div>
 
-      <!-- Map preview -->
+      <!-- Map preview — clickable shortcut to /map (replaces the old "view on map" button) -->
       <div
         v-if="mapCoords"
-        class="mt-3 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 cursor-pointer"
+        class="mt-3 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 hover:border-primary transition-colors cursor-pointer"
         @click="openInMap"
       >
         <StaticMapPreview
@@ -611,22 +684,34 @@
 
       <!-- Hub info (public, visible when is_hub) -->
       <div v-if="establishment.is_hub" class="mt-3 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 px-4 sm:px-6 py-4">
-        <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
-          <Package class="w-4 h-4 text-primary" />
-          {{ $t('shipments.hub.info_title') }}
-        </h2>
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+            <Package class="w-4 h-4 text-neutral-400" />
+            {{ $t('shipments.hub.info_title') }}
+          </h2>
+          <!-- Primary CTA lives with the hub details it belongs to -->
+          <UiButton
+            v-if="authStore.isAuthenticated"
+            variant="primary" size="sm" :icon="Package"
+            :to="localePath(`/shipments?dest=${establishment.id}`)"
+          >
+            {{ $t('shipments.hub.send_here') }}
+          </UiButton>
+        </div>
         <div class="grid grid-cols-2 gap-3 text-sm">
           <!-- Accepted sizes -->
           <div v-if="establishment.hub_accepted_sizes?.length" class="col-span-2">
             <span class="text-neutral-500 dark:text-neutral-400 text-xs">{{ $t('shipments.hub.accepted_sizes') }}</span>
             <div class="flex flex-wrap gap-1.5 mt-1">
-              <span
+              <UiBadge
                 v-for="size in establishment.hub_accepted_sizes"
                 :key="size"
-                class="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-lg font-medium"
+                variant="primary"
+                type="soft"
+                size="sm"
               >
                 {{ $t(`shipments.size.${size}`) }}
-              </span>
+              </UiBadge>
             </div>
           </div>
           <!-- Capacity -->
@@ -695,11 +780,60 @@
         </div>
       </div>
 
+      <!-- Blog: latest posts (public preview) / owner-admin invite when none published -->
+      <section
+        v-if="latestPosts.length > 0 || canManageTreasurer"
+        class="mt-3 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 px-4 sm:px-6 py-4"
+      >
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+            <Newspaper class="w-4 h-4 text-neutral-400" />
+            {{ $t('cms.blog') }}
+          </h2>
+          <NuxtLink
+            v-if="latestPosts.length > 0"
+            :to="localePath(`/org/${establishment.slug || props.id}/blog`)"
+            class="text-link text-sm inline-flex items-center gap-1"
+          >
+            {{ $t('cms.allPosts') }}
+            <ChevronRight class="w-4 h-4" />
+          </NuxtLink>
+        </div>
+
+        <!-- Latest posts -->
+        <div v-if="latestPosts.length > 0" class="space-y-3">
+          <BlogPostCard
+            v-for="post in latestPosts"
+            :key="post.id"
+            :post="post"
+            :link-base="`/org/${establishment.slug || props.id}/blog`"
+          />
+        </div>
+
+        <!-- No published posts yet — invite owner/admin to write (public sees nothing) -->
+        <div v-else class="py-12 text-center">
+          <Newspaper class="w-12 h-12 mx-auto text-neutral-300 dark:text-neutral-600 mb-3" />
+          <h3 class="text-base font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+            {{ $t('cms.orgBlogInviteTitle') }}
+          </h3>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+            {{ $t('cms.orgBlogInviteDesc') }}
+          </p>
+          <UiButton
+            variant="primary" size="sm" :icon="SquarePen"
+            :to="localePath(`/blog/create?est=${establishment.slug || props.id}`)"
+          >
+            {{ $t('cms.newPost') }}
+          </UiButton>
+        </div>
+      </section>
+
       <!-- Reviews -->
       <div class="mt-3 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 px-4 sm:px-6 py-4">
-        <EstablishmentReviews :establishment-id="props.id" />
+        <EstablishmentReviews :establishment-id="props.id" :owner-id="establishment.owner_id" />
       </div>
 
+      </div><!-- /body -->
     </div>
   </div>
 </template>
@@ -710,7 +844,8 @@ import {
   Landmark, MapPin, Phone, Mail, Globe, ExternalLink, Clock,
   AlertCircle, Wallet, UserCheck, UserMinus, ClipboardCheck, ChevronDown, Loader2,
   ImagePlus, X, ChevronLeft, ChevronRight, Camera, Pencil, Trash2,
-  Grid3x3, Receipt, Vote, Package, Navigation, Map, Share2, Newspaper, Settings
+  Grid3x3, Receipt, Vote, Package, Navigation, Share2, Newspaper, CalendarClock,
+  LayoutTemplate, ShieldCheck, SquarePen
 } from 'lucide-vue-next'
 import StaticMapPreview from '~/components/IoT/StaticMapPreview.vue'
 import HubActivation from '~/components/HubActivation.vue'
@@ -722,6 +857,7 @@ const props = defineProps({
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const localePath = useLocalePath()
 const authStore = useAuthStore()
 
@@ -734,6 +870,33 @@ const error = computed(() => {
   if (!fetchError.value) return null
   return (fetchError.value as any)?.message || 'Failed to load establishment'
 })
+
+// Latest published posts for the org blog teaser (SSR for SEO/crawl).
+// Public endpoint → published only; managers with 0 published see an invite plate,
+// the public sees nothing (section hidden).
+const { data: latestPostsData } = await useAsyncData(
+  `establishment-posts-${props.id}`,
+  () => $fetch<{ items: any[]; count: number }>('/api/v1/cms/posts/', {
+    params: { establishment_slug: props.id, page_size: '3' }
+  })
+)
+const latestPosts = computed(() => latestPostsData.value?.items || [])
+
+// Localized category label: API returns reference data in English (category_name);
+// translate via the localized category tree by slug, falling back to the English name.
+const { fetchCategory } = useCategories()
+const localizedCategoryName = ref('')
+watch(establishment, async (e) => {
+  const fallback = e?.category_name || ''
+  const slug = e?.category_slug
+  if (!slug) { localizedCategoryName.value = fallback; return }
+  try {
+    const cat = await fetchCategory(slug)
+    localizedCategoryName.value = cat?.name || fallback
+  } catch {
+    localizedCategoryName.value = fallback
+  }
+}, { immediate: true })
 
 // Photos
 const isUploading = ref(false)
@@ -772,6 +935,34 @@ const lightboxPrev = () => {
 const lightboxNext = () => {
   lightboxIdx.value = (lightboxIdx.value + 1) % allPhotos.value.length
 }
+
+// Owner management menu — a single, clearly-marked entry point for owner/admin
+// actions, kept apart from the public quick links.
+const ownerMenuOpen = ref(false)
+const ownerMenuEl = ref<HTMLElement | null>(null)
+const photoInput = ref<HTMLInputElement | null>(null)
+
+const triggerPhotoUpload = () => {
+  ownerMenuOpen.value = false
+  photoInput.value?.click()
+}
+
+function onOwnerMenuOutside(e: MouseEvent) {
+  if (ownerMenuOpen.value && ownerMenuEl.value && !ownerMenuEl.value.contains(e.target as Node)) {
+    ownerMenuOpen.value = false
+  }
+}
+function onOwnerMenuKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') ownerMenuOpen.value = false
+}
+onMounted(() => {
+  document.addEventListener('click', onOwnerMenuOutside)
+  document.addEventListener('keydown', onOwnerMenuKeydown)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', onOwnerMenuOutside)
+  document.removeEventListener('keydown', onOwnerMenuKeydown)
+})
 
 const handlePhotoUpload = async (e: Event) => {
   const input = e.target as HTMLInputElement
@@ -1215,15 +1406,35 @@ useHead({
 })
 
 const openInMap = () => {
-  if (mapCoords.value) {
-    router.push(localePath(`/map?lat=${mapCoords.value.lat}&lng=${mapCoords.value.lon}&zoom=18`))
-  }
+  if (!mapCoords.value) return
+  // Center on the org AND open its panel: establishmentId drives MapView's feature
+  // restore → MapPanelOsm.showEstablishmentDetails; layer=building prefers the
+  // footprint under the point so the native org panel opens.
+  const q = new URLSearchParams({
+    lat: String(mapCoords.value.lat),
+    lng: String(mapCoords.value.lon),
+    zoom: '17',
+    establishmentId: String(establishment.value?.id || props.id),
+    layer: 'building',
+    // Remember where we came from so the map's back button returns to this org
+    // page instead of dumping the user into the building's tenant list.
+    returnTo: route.fullPath,
+  })
+  router.push(localePath(`/map?${q.toString()}`))
 }
 
 const getDirections = () => {
-  if (mapCoords.value) {
-    router.push(localePath(`/map?dest_lat=${mapCoords.value.lat}&dest_lng=${mapCoords.value.lon}&zoom=15`))
-  }
+  if (!mapCoords.value) return
+  // Hand the destination to /map, which opens the directions panel pre-filled
+  // (the map reads dest_lat/dest_lng/dest_name — see MapView applyDirectionsFromQuery).
+  const q = new URLSearchParams({
+    dest_lat: String(mapCoords.value.lat),
+    dest_lng: String(mapCoords.value.lon),
+    dest_name: establishment.value?.name || establishment.value?.world_object?.full_address || '',
+    zoom: '15',
+    returnTo: route.fullPath,
+  })
+  router.push(localePath(`/map?${q.toString()}`))
 }
 
 const shareEstablishment = async () => {
@@ -1243,7 +1454,14 @@ const shareEstablishment = async () => {
 }
 
 const goBack = () => {
-  if (window.history.length > 2) {
+  // Browser-back only when the previous history entry is the organizations
+  // directory itself (preserves its filters/scroll). Otherwise — arrived from the
+  // map, a profile, search, or an external/direct link — go to the directory
+  // directly so the "Organizations" label always lands on the organizations list,
+  // not wherever the user happened to come from. router history state is the
+  // reliable in-app signal (document.referrer stays empty across SPA navigation).
+  const back = router.options.history.state.back
+  if (typeof back === 'string' && /\/directory(\?|#|$)/.test(back)) {
     router.back()
   } else {
     navigateTo(localePath('/directory') + '#organizations')
@@ -1257,3 +1475,10 @@ onMounted(async () => {
   detectUserRole()
 })
 </script>
+
+<style scoped>
+/* Yellow identity band — same treatment as the docs header (/docs/mission). */
+.org-header {
+  background-color: var(--color-primary);
+}
+</style>

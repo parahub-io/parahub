@@ -191,7 +191,7 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
   let _gridHandlers: { mousemove: any, click: any, moveend: any } | null = null
   let _hoveredTileX: number | null = null
   let _hoveredTileY: number | null = null
-  let _coveredTiles: Set<string> | null = null
+  let _coveredTiles: Map<string, { count: number, dates: string[] }> | null = null
 
   /** Generate GeoJSON rectangles for all Z17 tiles in viewport */
   function _generateViewportTiles(map: any) {
@@ -224,9 +224,19 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
         // Separate Point at the tile centre for the coordinate label. A point
         // lands in exactly one MapLibre internal tile, so the symbol renders once;
         // a centroid-on-polygon label gets duplicated wherever the polygon is split.
+        // Covered tiles also carry a `dateLabel` — the survey date(s): a single
+        // mission shows just its date, several show up to 3 most-recent dates plus
+        // the total count in parens (e.g. "2026-06-01 / 2026-06-20 (2)").
+        const cov = _coveredTiles?.get(`${x}:${y}`)
+        const labelProps: any = { x, y, label: true }
+        if (cov && cov.dates.length) {
+          labelProps.dateLabel = cov.count > 1
+            ? `${cov.dates.join(' / ')} (${cov.count})`
+            : cov.dates[0]
+        }
         features.push({
           type: 'Feature' as const,
-          properties: { x, y, label: true },
+          properties: labelProps,
           geometry: {
             type: 'Point' as const,
             coordinates: [(w + e) / 2, (n + s) / 2]
@@ -259,7 +269,7 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
   async function _loadCoveredTiles(map: any) {
     const bounds = map.getBounds()
     try {
-      const data = await $fetch<{ tiles: Array<{ x: number, y: number }> }>(
+      const data = await $fetch<{ tiles: Array<{ x: number, y: number, count: number, dates: string[] }> }>(
         '/api/v1/geo/opensky/covered-tiles/', {
           params: {
             west: bounds.getWest(),
@@ -269,10 +279,10 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
           },
         }
       )
-      _coveredTiles = new Set(data.tiles.map(t => `${t.x}:${t.y}`))
+      _coveredTiles = new Map(data.tiles.map(t => [`${t.x}:${t.y}`, { count: t.count, dates: t.dates }]))
     } catch (e) {
       console.warn('[OpenSky] Failed to load covered tiles:', e)
-      _coveredTiles = new Set()
+      _coveredTiles = new Map()
     }
   }
 
@@ -281,7 +291,7 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       return { type: 'FeatureCollection' as const, features: [] as any[] }
     }
     const features: any[] = []
-    for (const key of _coveredTiles) {
+    for (const key of _coveredTiles.keys()) {
       const [x, y] = key.split(':').map(Number)
       const w = tile2lng(x, TILE_ZOOM)
       const e = tile2lng(x + 1, TILE_ZOOM)
@@ -335,8 +345,39 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       }
     })
 
+    // Third label line — survey date(s) — only on covered tiles. A SEPARATE
+    // symbol layer (not a third line folded into the x/y label) so the longer
+    // multi-date string can collide-cull on its own without dragging the x/y
+    // coordinate label down with it. Amber ties it to the yellow covered fill.
+    // From z16: a single date fits a tile here, the long multi-date strings
+    // surface once the tile is big enough (z17+).
+    map.addLayer({
+      id: 'opensky-tile-grid-date',
+      type: 'symbol',
+      source: 'opensky-tile-grid',
+      minzoom: 16,
+      filter: ['all', ['==', ['geometry-type'], 'Point'], ['has', 'dateLabel']],
+      layout: {
+        'text-field': ['get', 'dateLabel'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 16, 8, 19, 11],
+        'text-offset': [0, 1.9],
+        'text-anchor': 'top',
+        'text-allow-overlap': false,
+        'text-max-width': 20,
+      },
+      paint: {
+        'text-color': '#b45309',
+        'text-halo-color': 'rgba(255, 255, 255, 0.95)',
+        'text-halo-width': 1.4,
+      }
+    })
+
     // Covered (published) tiles — yellow fill
     await _loadCoveredTiles(map)
+    // Re-emit the grid now that covered-tile dates are known, so the date label
+    // line shows on first enable (not only after the first pan).
+    map.getSource('opensky-tile-grid')?.setData(_generateViewportTiles(map))
     map.addSource('opensky-covered-tiles', {
       type: 'geojson',
       data: _generateCoveredTilesGeoJSON()
@@ -394,7 +435,11 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       )
     }
 
-    const onMoveEnd = () => {
+    const onMoveEnd = async () => {
+      // Refresh covered tiles for the new viewport first, so both the yellow
+      // fill and the date labels (derived from _coveredTiles) stay correct on pan.
+      await _loadCoveredTiles(map)
+      map.getSource('opensky-covered-tiles')?.setData(_generateCoveredTilesGeoJSON())
       map.getSource('opensky-tile-grid')?.setData(_generateViewportTiles(map))
     }
 
@@ -407,7 +452,7 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
   }
 
   function _disableTileGrid(map: any) {
-    for (const id of ['opensky-tile-highlight-outline', 'opensky-tile-highlight-fill', 'opensky-covered-tiles-outline', 'opensky-covered-tiles-fill', 'opensky-tile-grid-label', 'opensky-tile-grid-outline']) {
+    for (const id of ['opensky-tile-highlight-outline', 'opensky-tile-highlight-fill', 'opensky-covered-tiles-outline', 'opensky-covered-tiles-fill', 'opensky-tile-grid-date', 'opensky-tile-grid-label', 'opensky-tile-grid-outline']) {
       if (map.getLayer(id)) map.removeLayer(id)
     }
     for (const id of ['opensky-tile-highlight', 'opensky-covered-tiles', 'opensky-tile-grid']) {

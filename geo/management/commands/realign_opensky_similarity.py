@@ -129,12 +129,13 @@ class Command(BaseCommand):
         # reciprocals disagree by metres; see SIM_MAX_SEASON_GAP_DAYS). ---
         georef_changed = {m.id: m.georef_changed_at for m in solve_missions}
         captured = {m.id: (m.captured_at or m.uploaded_at) for m in solve_missions}
+        tilexy = {m.id: (m.tile_x, m.tile_y) for m in solve_missions}
         orb = OpenSkyPoseEdge.objects.filter(
             edge_type=OpenSkyPoseEdge.EdgeType.ORB_PAIR,
             mission_a_id__in=solve_ids, mission_b_id__in=solve_ids,
         )
         max_gap = options['max_season_gap'] if options['max_season_gap'] is not None else SIM_MAX_SEASON_GAP_DAYS
-        edges, n_stale, n_cross_season = [], 0, 0
+        edges, n_stale, n_cross_season, n_diag = [], 0, 0, 0
         for e in orb:
             if not _edge_is_fresh(e.measured_at,
                                   georef_changed.get(e.mission_a_id),
@@ -144,6 +145,15 @@ class Command(BaseCommand):
             ca, cb = captured.get(e.mission_a_id), captured.get(e.mission_b_id)
             if ca and cb and abs((ca - cb).days) > max_gap:
                 n_cross_season += 1
+                continue
+            # Only orthogonally-adjacent cells (N/S/E/W). Diagonal pairs share only
+            # a small corner → ORB scale/translation is relief-contaminated and
+            # poisons the BA (2026-06-19: 01KT4K22<->01KT6S2S diagonal pushed a
+            # mission 5.3m→10.8m). Far pairs (|Δ|>1) likewise unreliable.
+            ta, tb = tilexy.get(e.mission_a_id), tilexy.get(e.mission_b_id)
+            if ta and tb and ta[0] is not None and tb[0] is not None and \
+                    (abs(ta[0] - tb[0]) + abs(ta[1] - tb[1])) != 1:
+                n_diag += 1
                 continue
             edges.append({
                 'a': e.mission_a_id, 'b': e.mission_b_id,
@@ -163,6 +173,10 @@ class Command(BaseCommand):
                 f"{n_cross_season} cross-season edge(s) skipped (captures >"
                 f"{SIM_MAX_SEASON_GAP_DAYS}d apart — ortho-ORB unreliable across seasons; "
                 f"those seams need consolidation/sfm_bridge)")
+        if n_diag:
+            self.stdout.write(
+                f"{n_diag} diagonal/far edge(s) skipped (only N/S/E/W adjacency kept — "
+                f"corner-overlap ORB is relief-contaminated)")
         if not edges:
             self.stderr.write(self.style.ERROR(
                 "No fresh ORB edges in the solve set — run "
@@ -206,6 +220,52 @@ class Command(BaseCommand):
                 f"{m.id[:12]} {s['ln_scale']*1e6:+10.0f} {s['rotation_deg']:+7.3f} "
                 f"{d_t:7.2f}   {'YES' if move else 'no'}")
         self.stdout.write(f"{len(movers)}/{len(free)} missions would be re-tiled")
+
+        # --- Predicted post-solve seam residuals (measure-only, no apply) ---
+        # For each ORB edge the BA's translation stage targets
+        #   (T_a - T_b) = r_ab - lever_a + lever_b,  lever_i = u_i·d_i + ω_i·(J·d_i)
+        # so the residual after applying = (T_a-T_b) - r_ab + lever_a - lever_b. Its
+        # magnitude is the predicted seam offset. Lets us see map-wide whether σ
+        # closes seams net-positive BEFORE retiling anything (and which WORSEN).
+        import numpy as _np
+        def _lever(mid, xref):
+            s = sol[mid]; cx, cy = centroids[mid]
+            dx_, dy_ = xref[0] - cx, xref[1] - cy
+            u = s['ln_scale']; w = math.radians(s['rotation_deg'])
+            return (u * dx_ - w * dy_, u * dy_ + w * dx_)  # J = [[0,-1],[1,0]]
+        seen_pred = {}
+        for e in edges:
+            a, b = e['a'], e['b']
+            if a not in sol or b not in sol:
+                continue
+            key = tuple(sorted((a, b)))
+            if key in seen_pred:
+                continue
+            xref = e['xref'] or ((centroids[a][0] + centroids[b][0]) / 2,
+                                 (centroids[a][1] + centroids[b][1]) / 2)
+            la, lb = _lever(a, xref), _lever(b, xref)
+            rx = (sol[a]['tx'] - sol[b]['tx']) - e['dx'] + la[0] - lb[0]
+            ry = (sol[a]['ty'] - sol[b]['ty']) - e['dy'] + la[1] - lb[1]
+            seen_pred[key] = (math.hypot(e['dx'], e['dy']), math.hypot(rx, ry))
+        if seen_pred:
+            before = _np.array([v[0] for v in seen_pred.values()])
+            after = _np.array([v[1] for v in seen_pred.values()])
+            worsen = int((after > before + 0.3).sum())
+            # NOTE: this is the BA's LINEAR self-consistency residual — OPTIMISTIC.
+            # Empirically (2026-06-19) the real ORB re-measure after applying is far
+            # higher (predicted 0.03m → measured ~1.8m median). Use ONLY to catch
+            # blowups (an edge whose 'after' >> others), NOT as absolute seam closure.
+            self.stdout.write(
+                f"PREDICTED seams [BA linear self-consistency — OPTIMISTIC, blowup-detector only] "
+                f"(n={len(seen_pred)} unique edges): "
+                f"before median={_np.median(before):.2f}m max={before.max():.2f}m  →  "
+                f"after median={_np.median(after):.2f}m max={after.max():.2f}m  "
+                f"| worsen(>+0.3m): {worsen}  improve: {int((after < before - 0.3).sum())}")
+            for key, (bf, af) in sorted(seen_pred.items(), key=lambda kv: kv[1][1] - kv[1][0], reverse=True):
+                if af > bf + 0.3:
+                    self.stdout.write(f"    WORSENS {key[0][:8]}<->{key[1][:8]}: {bf:.2f}m -> {af:.2f}m")
+            mk, (mbf, maf) = max(seen_pred.items(), key=lambda kv: kv[1][1])
+            self.stdout.write(f"    MAX-after {mk[0][:8]}<->{mk[1][:8]}: {mbf:.2f}m -> {maf:.2f}m")
 
         if dry_run:
             self.stdout.write(self.style.SUCCESS("[DRY RUN] nothing applied")); return

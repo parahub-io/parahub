@@ -22,27 +22,12 @@ const getOpenPGP = async () => {
 // Uses unique path that doesn't conflict with BIP44/84
 const PGP_DERIVATION_PATH = "m/19910605'/0'/0'"
 
-/**
- * Deterministic PRNG based on HKDF-SHA256
- * Used to make OpenPGP key generation reproducible from seed
- */
-class DeterministicPRNG {
-  private seed: Uint8Array
-  private counter: number = 0
-
-  constructor(seed: Uint8Array) {
-    this.seed = seed
-  }
-
-  async getRandomBytes(length: number): Promise<Uint8Array> {
-    const { hkdf } = await import('@noble/hashes/hkdf.js')
-    const { sha256 } = await import('@noble/hashes/sha2.js')
-
-    // Use counter as info to get different bytes each call
-    const info = new TextEncoder().encode(`openpgp-keygen-${this.counter++}`)
-    return hkdf(sha256, this.seed, new Uint8Array(0), info, length)
-  }
-}
+// Fixed creation date for seed-derived keys. An OpenPGP v4 fingerprint is a hash
+// over the key material AND its creation timestamp, so a moving date would make
+// "recovery from seed" produce a different fingerprint on every regeneration.
+// Pinning the date keeps "same seed → same key". Value is arbitrary but MUST NOT
+// change, or previously-derived keys would no longer reproduce.
+const PGP_KEY_CREATION_DATE = new Date('2020-01-01T00:00:00Z')
 
 interface PGPKeyPair {
   publicKey: string
@@ -141,12 +126,20 @@ export const usePGP = () => {
    * This creates reproducible keys from the same mnemonic, allowing
    * users to regenerate their PGP identity when restoring from seed.
    *
-   * The determinism is achieved by:
+   * Determinism is achieved by:
    * 1. Deriving key material from BIP39 seed at path m/19910605'/0'/0'
-   * 2. Using HKDF-based PRNG to replace OpenPGP's random source
+   * 2. Expanding it with HKDF-SHA256 into the Ed25519 (signing) and X25519
+   *    (encryption) key material, computing the public points ourselves.
+   * 3. Injecting that material into OpenPGP.js key generation and pinning a
+   *    fixed creation date, so the fingerprint is fully reproducible.
    *
-   * IMPORTANT: Same seed = same PGP key (name/email are just metadata)
-   * The fingerprint will be identical regardless of name/email used.
+   * NOTE: OpenPGP.js 6.x removed `config.customRandom` (the v5 hook this used to
+   * rely on), so seeding randomness no longer works — we must build the key
+   * material directly. We override the packet `generate()` step with our
+   * precomputed material instead of letting OpenPGP draw from the CSPRNG.
+   *
+   * IMPORTANT: Same seed = same PGP key (name/email are just metadata).
+   * The fingerprint is identical regardless of name/email used.
    */
   const generateKeysFromSeed = async (
     words: string[],
@@ -160,14 +153,14 @@ export const usePGP = () => {
       const openpgp = await getOpenPGP()
       const { HDKey } = await import('@scure/bip32')
       const { sha256 } = await import('@noble/hashes/sha2.js')
+      const { hkdf } = await import('@noble/hashes/hkdf.js')
+      const { ed25519, x25519 } = await import('@noble/curves/ed25519.js')
       const bip39 = await import('bip39')
 
-      // Convert mnemonic to seed
+      // Convert mnemonic to seed and derive key material at PGP-specific path
       const mnemonic = words.join(' ')
       const seedBuffer = await bip39.mnemonicToSeed(mnemonic)
       const seed = new Uint8Array(seedBuffer)
-
-      // Derive key material at PGP-specific path
       const master = HDKey.fromMasterSeed(seed)
       const derived = master.derive(PGP_DERIVATION_PATH)
 
@@ -175,31 +168,82 @@ export const usePGP = () => {
         throw new Error('Failed to derive PGP key material from seed')
       }
 
-      // Create deterministic seed ONLY from derived key (not from identity)
-      // This ensures same seed = same PGP key, regardless of name/email
+      // Create deterministic seed ONLY from derived key (not from identity),
+      // so the same seed = the same PGP key regardless of name/email.
       const domainSeparator = new TextEncoder().encode('parahub-pgp-v1')
       const combined = new Uint8Array(domainSeparator.length + derived.privateKey.length)
       combined.set(domainSeparator, 0)
       combined.set(derived.privateKey, domainSeparator.length)
       const deterministicSeed = sha256(combined)
 
-      // Create deterministic PRNG from seed
-      const prng = new DeterministicPRNG(deterministicSeed)
+      // Expand into key material with stable HKDF counters (matches the old
+      // PRNG call order: counter 0 = signing key, counter 1 = encryption key).
+      const expand = (counter: number, length: number) =>
+        hkdf(sha256, deterministicSeed, new Uint8Array(0),
+          new TextEncoder().encode(`openpgp-keygen-${counter}`), length)
 
-      // Save original random function
-      const originalRandom = openpgp.config.customRandom
+      const edSeed = expand(0, 32)                // Ed25519 signing seed (primary)
+      const edPub = ed25519.getPublicKey(edSeed)  // 32-byte public point
+      const xPriv = expand(1, 32)                 // X25519 encryption scalar (subkey)
+      const xPub = x25519.getPublicKey(xPriv)     // 32-byte u-coordinate
 
-      // Replace with deterministic PRNG
-      openpgp.config.customRandom = async (length: number) => {
-        return prng.getRandomBytes(length)
+      // OpenPGP.js does not export the OID / KDFParams constructors, so capture
+      // the (curve-constant) instances it builds for a throwaway key and reuse
+      // them — only the key points/scalars need to be deterministic.
+      const template = await openpgp.generateKey({
+        type: 'ecc', curve: 'curve25519', userIDs: [{ name, email }], format: 'object'
+      })
+      const edOID = (template as any).privateKey.keyPacket.publicParams.oid
+      const subParams = (template as any).privateKey.subkeys[0].keyPacket.publicParams
+      const xOID = subParams.oid
+      const kdfParams = subParams.kdfParams
+
+      // Prefix a public EC point with the 0x40 native-format leading byte.
+      const withLead = (point: Uint8Array) => {
+        const out = new Uint8Array(point.length + 1)
+        out[0] = 0x40
+        out.set(point, 1)
+        return out
       }
 
+      const EDDSA = openpgp.enums.publicKey.eddsaLegacy
+      const ECDH = openpgp.enums.publicKey.ecdh
+
+      // Override the per-packet key-material generation with our deterministic
+      // material. `this.algorithm` is already set when generate() is called.
+      const SecretKeyProto: any = (openpgp as any).SecretKeyPacket.prototype
+      const SecretSubkeyProto: any = (openpgp as any).SecretSubkeyPacket.prototype
+      const origGenerate = SecretKeyProto.generate
+      const origSubGenerate = Object.prototype.hasOwnProperty.call(SecretSubkeyProto, 'generate')
+        ? SecretSubkeyProto.generate
+        : null
+
+      function deterministicGenerate(this: any) {
+        if (this.algorithm === EDDSA) {
+          this.publicParams = { oid: edOID, Q: withLead(edPub) }
+          this.privateParams = { seed: edSeed }
+        } else if (this.algorithm === ECDH) {
+          // curve25519Legacy stores the scalar big-endian and pre-clamped.
+          const d = xPriv.slice().reverse()
+          d[0] = (d[0] & 127) | 64
+          d[31] &= 248
+          this.publicParams = { oid: xOID, Q: withLead(xPub), kdfParams }
+          this.privateParams = { d }
+        } else {
+          throw new Error(`Unexpected key algorithm for seed derivation: ${this.algorithm}`)
+        }
+        this.isEncrypted = false
+      }
+
+      SecretKeyProto.generate = deterministicGenerate
+      if (origSubGenerate) SecretSubkeyProto.generate = deterministicGenerate
+
       try {
-        // Generate key with deterministic randomness
         const { privateKey, publicKey } = await openpgp.generateKey({
           type: 'ecc',
           curve: 'curve25519',
           userIDs: [{ name, email }],
+          date: PGP_KEY_CREATION_DATE,
           format: 'armored'
         })
 
@@ -220,8 +264,9 @@ export const usePGP = () => {
 
         return keyPair.value
       } finally {
-        // Always restore original random function
-        openpgp.config.customRandom = originalRandom
+        // Always restore the original key-material generators
+        SecretKeyProto.generate = origGenerate
+        if (origSubGenerate) SecretSubkeyProto.generate = origSubGenerate
       }
     } catch (e: any) {
       console.error('Failed to generate PGP keys from seed:', e)

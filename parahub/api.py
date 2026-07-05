@@ -59,6 +59,18 @@ def create_ninja_api() -> NinjaAPI:
     )
     
     # Global exception handlers
+    from parahub.errors import LocalizedHttpError
+
+    @api.exception_handler(LocalizedHttpError)
+    def localized_http_error_handler(request, exc):
+        """HttpError that also carries a machine-readable `code` for client-side
+        localization. `detail` stays as the canonical English fallback."""
+        return api.create_response(
+            request,
+            {"detail": exc.message, "code": exc.code},
+            status=exc.status_code,
+        )
+
     @api.exception_handler(ValidationError)
     def validation_exception_handler(request, exc):
         """Handle validation errors with detailed feedback"""
@@ -144,6 +156,7 @@ from barter.api import router as barter_router
 from debts.api import router as debts_router
 from geo.api import router as geo_router
 from parahub.endpoints.contracts import router as contracts_router
+from parahub.endpoints.rental import router as rental_router
 from audit_log.endpoints import router as audit_router
 from notifications.api import router as notifications_router
 from parahub.endpoints.zenith import router as zenith_router
@@ -154,6 +167,7 @@ from energy.api import router as energy_router
 from treasury.api import router as treasury_router
 from agents.api import router as agents_router
 from parahub.endpoints.income import income_router
+from parahub.endpoints.subscriptions import subscriptions_router
 from parahub.endpoints.federation import router as federation_router
 from tickets.api import router as tickets_router
 from parahub.endpoints.likes import likes_router
@@ -180,6 +194,7 @@ v1_router.add_router("/iot", new_iot_router)
 v1_router.add_router("/barter", barter_router)
 v1_router.add_router("/debts", debts_router)
 v1_router.add_router("/contracts", contracts_router)
+v1_router.add_router("/rental", rental_router)
 v1_router.add_router("/geo", geo_router)
 v1_router.add_router("/audit", audit_router)
 v1_router.add_router("/notifications", notifications_router)
@@ -190,6 +205,7 @@ v1_router.add_router("/energy", energy_router)
 v1_router.add_router("/treasury", treasury_router)
 v1_router.add_router("/agents", agents_router)
 v1_router.add_router("/income", income_router)
+v1_router.add_router("/subscriptions", subscriptions_router)
 v1_router.add_router("/federation", federation_router)
 v1_router.add_router("/tickets", tickets_router)
 v1_router.add_router("/shipments", shipments_router)
@@ -232,11 +248,61 @@ def transit_gtfs_health(request, ds_id: str):
     }
 
 
+# GTFS-RT liveness thresholds (see _rt_freshness_status)
+RT_STALE_SECS = 600          # freshest served vehicle older than this w/ 0 fresh → frozen
+RT_NIGHT_GUARD = (1, 5)      # agency-local [start, end) hours where idle-vs-frozen is ambiguous
+
+
+def _rt_freshness_status(*, fresh_count, mirror_vehicles, now, local_hour, last_error):
+    """Pure liveness decision for a GTFS-RT feed → (status, reason, freshest_age).
+
+    The naive "0 vehicles ⇒ down" false-alarms every night; "down only on daemon
+    error" (the old rule) never catches a frozen *upstream* — STCP froze for 4h+
+    on 2026-06-28 while every poll returned HTTP 200 with stale data, so Kuma
+    stayed green (PK/gtfs-feed-quirks.md § STCP). Signal: the unfiltered mirror
+    (`transit:rt:{ds}`) keeps the full feed incl. stale fixes; if the feed is
+    *serving* vehicles but none are fresh (≥now-180s, the `transit:members` set)
+    and its freshest fix is old, the producer has stalled.
+
+      • fresh_count > 0           → ok (delivering live data)
+      • mirror empty              → ok / idle (feed returns nothing → genuine no-service)
+      • served-but-all-stale      → down once freshest_age > RT_STALE_SECS …
+      • … except deep night       → ok (guard: ghost-lingering feeds like CM keep
+                                    hours-old parked-bus fixes when off-service and
+                                    can't be told apart from a freeze without a
+                                    feed-level heartbeat CM doesn't publish; a freeze
+                                    persisting into morning service is still caught
+                                    when the guard lifts and the mirror stays stale).
+    """
+    if last_error:
+        return "down", f"daemon error: {last_error}", None
+    if fresh_count > 0:
+        return "ok", None, 0
+    total = len(mirror_vehicles) if mirror_vehicles else 0
+    if total == 0:
+        return "ok", "idle (feed empty)", None
+    freshest_age = now - max((v.get("t", 0) for v in mirror_vehicles), default=0)
+    if RT_NIGHT_GUARD[0] <= local_hour < RT_NIGHT_GUARD[1]:
+        return "ok", "night guard", freshest_age
+    if freshest_age > RT_STALE_SECS:
+        return ("down",
+                f"feed stalled: {total} vehicles served, freshest fix {freshest_age}s old, 0 fresh",
+                freshest_age)
+    return "ok", None, freshest_age
+
+
 @api.get("/health/transit/{ds_id}/rt/", auth=None)
 def transit_rt_health(request, ds_id: str):
-    """GTFS-RT feed health — based on Redis vehicle data freshness."""
-    from geo.models import TransitDataSource
-    import redis as _redis
+    """GTFS-RT feed health — detects a frozen *upstream* (200 OK + stale data),
+    not just daemon errors. Night-safe via deep-night guard. 503 on down so the
+    Kuma keyword monitor flips regardless of body text."""
+    from geo.models import TransitDataSource, Agency
+    from django.core.cache import cache
+    from django.utils import timezone as tz
+    from zoneinfo import ZoneInfo
+    from parahub.services.redis_pool import get_redis
+    import json as _json
+    import time as _time
 
     try:
         ds = TransitDataSource.objects.get(id=ds_id, is_active=True)
@@ -247,21 +313,47 @@ def transit_rt_health(request, ds_id: str):
     if not has_rt:
         return {"status": "n/a", "name": ds.name, "vehicles": 0, "error": "no RT URL configured"}
 
+    now = int(_time.time())
     try:
-        r = _redis.Redis(host='localhost', port=6379, db=0)
-        count = r.scard(f"transit:members:{ds_id}")
+        fresh_count = get_redis().scard(f"transit:members:{ds_id}")
     except Exception:
-        count = 0
+        fresh_count = 0
 
-    # "down" only when there's an actual error; 0 vehicles at night is normal
-    status = "down" if ds.last_error else "ok"
+    # unfiltered feed mirror (full incl. stale ghosts) — written via Django cache API
+    mirror = []
+    try:
+        raw = cache.get(f"transit:rt:{ds_id}")
+        if raw:
+            mirror = _json.loads(raw) if isinstance(raw, (bytes, bytearray, str)) else raw
+    except Exception:
+        mirror = []
 
-    return {
+    # agency-local hour for the deep-night guard (feeds span many timezones)
+    agency = Agency.objects.filter(data_source=ds).exclude(timezone="").first()
+    tzname = agency.timezone if (agency and agency.timezone) else "UTC"
+    try:
+        local_hour = tz.now().astimezone(ZoneInfo(tzname)).hour
+    except Exception:
+        local_hour = tz.now().hour
+
+    status, reason, freshest_age = _rt_freshness_status(
+        fresh_count=fresh_count,
+        mirror_vehicles=mirror,
+        now=now,
+        local_hour=local_hour,
+        last_error=ds.last_error,
+    )
+
+    body = {
         "status": status,
         "name": ds.name,
-        "vehicles": count,
+        "vehicles": fresh_count,
+        "total_served": len(mirror) if mirror else 0,
+        "freshest_age_s": freshest_age,
+        "reason": reason,
         "error": ds.last_error if ds.last_error else None,
     }
+    return Response(body, status=200 if status in ("ok", "n/a") else 503)
 
 
 @api.get("/health/", response=HealthResponse, auth=None)
@@ -286,10 +378,9 @@ def health_check(request):
     
     # Check Redis connectivity
     try:
-        import redis
         from django.conf import settings
-        r = redis.Redis(host='localhost', port=6379, db=0)
-        r.ping()
+        from parahub.services.redis_pool import get_redis
+        get_redis().ping()
         redis_status = "healthy"
     except Exception as e:
         logger.error(f"Redis health check failed: {e}")

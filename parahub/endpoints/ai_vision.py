@@ -2,7 +2,7 @@
 AI Vision Analysis API endpoint
 """
 
-from ninja import Router, UploadedFile, File
+from ninja import Router, UploadedFile, File, Form
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 from decimal import Decimal
@@ -57,13 +57,19 @@ class AIAnalysisResponse(BaseModel):
 
 @ai_router.post("/analyze-image/", response={200: AIAnalysisResponse, 400: dict, 429: dict, 503: dict}, auth=ProfileAuth())
 @ratelimit(group='ai:analyze', key=user_or_ip, rate='5/m', method='POST')
-def analyze_item_image(request, image: UploadedFile):
+def analyze_item_image(request, image: UploadedFile, item_type: str = Form('CREDIT')):
     """
     Analyze item image using AI vision API
 
     Supports: Claude Sonnet 4.5, OpenAI GPT-5, Google Cloud Vision
     Quota: 30 analyses per day per account (shared across all profiles)
+
+    item_type ('CREDIT' = the user sells the item; 'DEBIT' = the user is looking
+    to buy an item like the one shown) flips the AI's framing from a seller's
+    listing to a "wanted"/buy-request listing.
     """
+    # Normalize to the only two valid intents; anything else falls back to sell.
+    item_type = item_type.upper() if item_type and item_type.upper() in ('CREDIT', 'DEBIT') else 'CREDIT'
     from parahub.services.vision_ai import AIVisionService
     from parahub.services.quota import QuotaService, QuotaExceeded
     from parahub.models import AISettings, AIAnalysisLog
@@ -175,7 +181,8 @@ def analyze_item_image(request, image: UploadedFile):
                 image_data,
                 language=user_language,
                 user_currency=user_currency,
-                user_id=request.auth_profile.account_id  # For WS notifications
+                user_id=request.auth_profile.account_id,  # For WS notifications
+                item_type=item_type
             )
         except ValueError as e:
             return 503, {"error": str(e)}

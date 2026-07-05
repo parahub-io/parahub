@@ -1,0 +1,51 @@
+{
+  "wotGraph": {
+    "pageTitle": "Graphe WoT — Audit Sybil",
+    "staffOnly": "Personnel uniquement.",
+    "title": "Réseau de Confiance — Graphe",
+    "subtitle": "Réseau complet de vérifications pour l'audit des clusters Sybil et anneaux de collusion",
+    "reload": "Recharger",
+    "relayout": "Réorganiser",
+    "stats": {
+      "profilesTotal": "{n} profil au total | {n} profils au total",
+      "verified": "{n} vérifié WoT | {n} vérifiés WoT",
+      "inGraph": "{n} dans le graphe | {n} dans le graphe",
+      "verifications": "{n} vérification | {n} vérifications",
+      "mutualPairs": "{n} paire mutuelle | {n} paires mutuelles",
+      "sameAccount": "{n} lien de même compte | {n} liens de même compte"
+    },
+    "loadError": "Échec du chargement du graphe",
+    "emptyTitle": "Aucune vérification pour l'instant",
+    "emptyText": "Le graphe de confiance est vide — aucune vérification active sur ce nœud.",
+    "legend": {
+      "title": "Légende",
+      "high": "Élevé (10+)",
+      "medium": "Moyen (5+)",
+      "basic": "Basique (3+)",
+      "low": "Faible (1–2)",
+      "none": "Aucun (0)",
+      "verified": "vérifié (3+)",
+      "pseudonymous": "pseudonyme",
+      "oneway": "unidirectionnel",
+      "mutual": "mutuel",
+      "sameAccount": "même compte"
+    },
+    "tooltip": {
+      "rep": "rép",
+      "in": "ent",
+      "out": "sor"
+    },
+    "detail": {
+      "reputation": "Réputation",
+      "received": "Reçues",
+      "given": "Données",
+      "trust": "Confiance",
+      "type": "Type",
+      "joined": "Inscription",
+      "account": "Compte",
+      "sharesAccount": "Partage le compte avec : {names}",
+      "openProfile": "Ouvrir le profil"
+    },
+    "hint": "Cliquez sur un nœud pour les détails. Glissez pour réorganiser."
+  }
+}

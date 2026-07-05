@@ -1,0 +1,17 @@
+{
+  "notifications": {
+    "title": "Notificaciones",
+    "mark_all_read": "Marcar todas como leídas",
+    "empty": "Aún no hay notificaciones",
+    "empty_unread": "Estás al día",
+    "empty_mine": "Aún no hay actividad",
+    "empty_incoming": "Sin notificaciones recibidas",
+    "filter_all": "Todas",
+    "filter_incoming": "Recibidas",
+    "filter_mine": "Mis acciones",
+    "unread_only": "Solo no leídas",
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "load_more": "Cargar más"
+  }
+}

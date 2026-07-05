@@ -909,7 +909,7 @@ class CustomDomainAPITest(TestCase):
         site.save()
 
         request = _auth_request(self.factory, self.acc, self.profile, 'post')
-        with patch('cms.api._trigger_ssl_removal'):
+        with patch('cms.api.domains._trigger_ssl_removal'):
             result = set_custom_domain(
                 request, self.est.id, CustomDomainIn(domain=''),
             )
@@ -961,7 +961,7 @@ class CustomDomainAPITest(TestCase):
             )
         self.assertEqual(ctx.exception.status_code, 400)
 
-    @patch('cms.api.socket.gethostbyname', return_value='127.0.0.1')
+    @patch('cms.api.domains.socket.gethostbyname', return_value='127.0.0.1')
     def test_reject_domain_resolving_to_loopback(self, mock_dns):
         """SSRF protection: domain resolving to 127.x.x.x must be rejected."""
         from cms.api import set_custom_domain, CustomDomainIn
@@ -974,7 +974,7 @@ class CustomDomainAPITest(TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
         self.assertIn('private', str(ctx.exception.message).lower())
 
-    @patch('cms.api.socket.gethostbyname', return_value='<LXC_IP>')
+    @patch('cms.api.domains.socket.gethostbyname', return_value='<LXC_IP>')
     def test_reject_domain_resolving_to_private_10(self, mock_dns):
         """SSRF protection: domain resolving to 10.x.x.x must be rejected."""
         from cms.api import set_custom_domain, CustomDomainIn
@@ -986,7 +986,7 @@ class CustomDomainAPITest(TestCase):
             )
         self.assertEqual(ctx.exception.status_code, 400)
 
-    @patch('cms.api.socket.gethostbyname', return_value='169.254.169.254')
+    @patch('cms.api.domains.socket.gethostbyname', return_value='169.254.169.254')
     def test_reject_domain_resolving_to_metadata(self, mock_dns):
         """SSRF protection: domain resolving to 169.254.x.x (cloud metadata) must be rejected."""
         from cms.api import set_custom_domain, CustomDomainIn
@@ -998,7 +998,7 @@ class CustomDomainAPITest(TestCase):
             )
         self.assertEqual(ctx.exception.status_code, 400)
 
-    @patch('cms.api.socket.gethostbyname', return_value='192.168.1.1')
+    @patch('cms.api.domains.socket.gethostbyname', return_value='192.168.1.1')
     def test_reject_domain_resolving_to_private_192(self, mock_dns):
         """SSRF protection: domain resolving to 192.168.x.x must be rejected."""
         from cms.api import set_custom_domain, CustomDomainIn
@@ -1010,7 +1010,7 @@ class CustomDomainAPITest(TestCase):
             )
         self.assertEqual(ctx.exception.status_code, 400)
 
-    @patch('cms.api.socket.gethostbyname', side_effect=__import__('socket').gaierror)
+    @patch('cms.api.domains.socket.gethostbyname', side_effect=__import__('socket').gaierror)
     def test_allow_domain_that_doesnt_resolve_yet(self, mock_dns):
         """Domain that doesn't resolve yet is OK — user may not have set DNS."""
         from cms.api import set_custom_domain, CustomDomainIn

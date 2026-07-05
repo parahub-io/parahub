@@ -41,6 +41,9 @@
         <span class="text-xs text-neutral-400 dark:text-neutral-500 font-normal">{{ est.role }}</span>
       </button>
     </div>
+    <NuxtLink :to="localePath('/org')" class="inline-block mt-2 text-xs text-link">
+      {{ $t('directory.my_orgs.title') }} →
+    </NuxtLink>
   </div>
 </template>
 
@@ -54,6 +57,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const authStore = useAuthStore()
+const localePath = useLocalePath()
 
 interface PostableEstablishment {
   id: string

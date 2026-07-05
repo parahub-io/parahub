@@ -225,6 +225,10 @@ class Post(ULIDModel):
     pgp_signature = models.TextField(blank=True)
     allow_comments = models.BooleanField(default=True)
     allow_tips = models.BooleanField(default=True)
+    # Restricted content: full body served only to the author and to live
+    # subscribers of the author (finance.Subscription). Others get the excerpt +
+    # a prompt. Gated server-side in the CMS API, never client-side.
+    subscribers_only = models.BooleanField(default=False)
 
     # Org features
     is_pinned = models.BooleanField(default=False)

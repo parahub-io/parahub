@@ -2,13 +2,21 @@
 Parahub core models
 """
 
+from decimal import Decimal
+
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
 class AISettings(models.Model):
     """
-    AI Vision API settings (singleton model - only one instance)
-    Configurable via Django admin
+    Global AI settings (singleton model - only one instance).
+    Configurable via Django admin.
+
+    Holds the vision-analysis config (enabled/provider/categorization) AND the
+    platform-wide AI API keys: zenith_service (global-key fallback),
+    support_voice, CMS illustration generation, profile photo checks and the
+    image-generation scripts all read their keys from this model.
     """
 
     class Provider(models.TextChoices):
@@ -49,6 +57,19 @@ class AISettings(models.Model):
         default=False,
         verbose_name="Use single request",
         help_text="When vision and categorization use same provider, combine into ONE request instead of two. Faster (~8s vs 13s). Supported: Claude, OpenAI, Gemini."
+    )
+
+    market_discount_pct = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=Decimal('0.20'),
+        validators=[MinValueValidator(Decimal('0')), MaxValueValidator(Decimal('1'))],
+        help_text=(
+            "Liquidity discount applied to the AI-suggested market price before it is "
+            "pre-filled into the listing form. 0.20 = anchor the asking price 20% below "
+            "the model's raw estimate to favour faster sales; 0 = disabled. The seller can "
+            "always edit the final price."
+        )
     )
 
     # API Keys (encrypted in production)
@@ -95,8 +116,16 @@ class AISettings(models.Model):
 
     @classmethod
     def get_instance(cls):
-        """Get the singleton instance"""
-        instance, created = cls.objects.get_or_create(pk=1)
+        """Get the singleton instance (create a disabled default if none exists).
+
+        Reads the oldest row exactly like the `.objects.first()` consumers do,
+        instead of get_or_create(pk=1): if the singleton was ever recreated
+        under a different pk, the pk=1 variant would spawn a second blank row
+        and every reader would silently switch to the unconfigured copy.
+        """
+        instance = cls.objects.first()
+        if instance is None:
+            instance = cls.objects.create()
         return instance
 
 

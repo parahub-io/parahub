@@ -32,7 +32,7 @@ Disallow: /ads/campaigns
 Disallow: /ads/history
 Disallow: /ads/settings
 Disallow: /market/create
-Disallow: /market/my-items
+Disallow: /market/my
 Disallow: /events/create
 Disallow: /governance/polls/create
 Disallow: /blog/create
@@ -68,7 +68,7 @@ Disallow: /pt/ads/campaigns
 Disallow: /pt/ads/history
 Disallow: /pt/ads/settings
 Disallow: /pt/market/create
-Disallow: /pt/market/my-items
+Disallow: /pt/market/my
 Disallow: /pt/events/create
 Disallow: /pt/governance/polls/create
 Disallow: /pt/blog/create
@@ -103,7 +103,7 @@ Disallow: /es/ads/campaigns
 Disallow: /es/ads/history
 Disallow: /es/ads/settings
 Disallow: /es/market/create
-Disallow: /es/market/my-items
+Disallow: /es/market/my
 Disallow: /es/events/create
 Disallow: /es/governance/polls/create
 Disallow: /es/blog/create
@@ -138,7 +138,7 @@ Disallow: /fr/ads/campaigns
 Disallow: /fr/ads/history
 Disallow: /fr/ads/settings
 Disallow: /fr/market/create
-Disallow: /fr/market/my-items
+Disallow: /fr/market/my
 Disallow: /fr/events/create
 Disallow: /fr/governance/polls/create
 Disallow: /fr/blog/create
@@ -173,7 +173,7 @@ Disallow: /de/ads/campaigns
 Disallow: /de/ads/history
 Disallow: /de/ads/settings
 Disallow: /de/market/create
-Disallow: /de/market/my-items
+Disallow: /de/market/my
 Disallow: /de/events/create
 Disallow: /de/governance/polls/create
 Disallow: /de/blog/create
@@ -208,7 +208,7 @@ Disallow: /ru/ads/campaigns
 Disallow: /ru/ads/history
 Disallow: /ru/ads/settings
 Disallow: /ru/market/create
-Disallow: /ru/market/my-items
+Disallow: /ru/market/my
 Disallow: /ru/events/create
 Disallow: /ru/governance/polls/create
 Disallow: /ru/blog/create
@@ -222,6 +222,7 @@ Sitemap: https://democracia.parahub.io/sitemap.xml
 Sitemap: https://directorio.parahub.io/sitemap.xml
 Sitemap: https://energia.parahub.io/sitemap.xml
 Sitemap: https://eventos.parahub.io/sitemap.xml
+Sitemap: https://mesh.parahub.io/sitemap.xml
 Sitemap: https://sos.parahub.io/sitemap.xml
 Sitemap: https://transporte.parahub.io/sitemap.xml
 Sitemap: https://troca.parahub.io/sitemap.xml

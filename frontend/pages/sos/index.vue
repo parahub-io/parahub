@@ -15,7 +15,7 @@
         <div class="relative mb-6">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
           <input
-            v-model="searchQuery"
+            v-model="searchInput"
             @input="debouncedSearch"
             type="text"
             :placeholder="$t('parasos.groups.search_placeholder')"
@@ -24,13 +24,13 @@
         </div>
 
         <!-- Loading -->
-        <div v-if="loading" class="text-center py-12 text-neutral-500">
+        <div v-if="isInitial" class="text-center py-12 text-neutral-500">
           {{ $t('parasos.loading') }}
         </div>
 
         <!-- Empty state -->
         <div v-else-if="groups.length === 0" class="text-center py-12">
-          <img src="/images/para/welcome.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+          <img src="/images/para/welcome.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
           <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
             {{ $t('parasos.groups.empty_title') }}
           </h3>
@@ -47,8 +47,8 @@
           </NuxtLink>
         </div>
 
-        <!-- Groups grid -->
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Groups grid (dimmed while a tab/search change refetches) -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" :class="{ 'opacity-60 transition-opacity': refreshing }">
           <NuxtLink
             v-for="group in groups"
             :key="group.id"
@@ -99,52 +99,41 @@ useSeoMeta({
 })
 
 const activeTab = useTabSync(['my', 'nearby'])
-const searchQuery = ref('')
-const loading = ref(true)
-const groups = ref<any[]>([])
+const searchInput = ref('')   // bound to the search field
+const searchQuery = ref('')   // debounced value that feeds the query
 
 const tabs = computed(() => [
   { id: 'my', label: t('parasos.groups.my_groups') },
   { id: 'nearby', label: t('parasos.groups.nearby') },
 ])
 
+// Own groups vs nearby (+ search) → reactive URL/query → background refetch.
+const groupsUrl = () => activeTab.value === 'my'
+  ? '/api/v1/parasos/groups/my/'
+  : '/api/v1/parasos/groups/'
+const groupsQuery = computed(() =>
+  activeTab.value === 'nearby' && searchQuery.value ? { search: searchQuery.value } : {})
+
+const groupsData = useListData<any>(groupsUrl, {
+  auth: true,
+  query: groupsQuery,
+  default: () => [],
+})
+const { data, error, isInitial, refreshing } = groupsData
+const groups = computed<any[]>(() =>
+  Array.isArray(data.value) ? data.value : (data.value?.items || []))
+
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 function debouncedSearch() {
   if (searchTimeout) clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => fetchGroups(), 300)
+  searchTimeout = setTimeout(() => { searchQuery.value = searchInput.value }, 300)
 }
 
-async function fetchGroups() {
-  loading.value = true
-  try {
-    await authStore.ensureToken()
+watch(error, (e) => {
+  if (e) toastStore.error(t('parasos.errors.fetch_groups'))
+})
 
-    let url = ''
-    if (activeTab.value === 'my') {
-      url = '/api/v1/parasos/groups/my/'
-    } else {
-      url = '/api/v1/parasos/groups/'
-      if (searchQuery.value) {
-        url += `?search=${encodeURIComponent(searchQuery.value)}`
-      }
-    }
-
-    const data = await $fetch<any>(url, {
-      credentials: 'include',
-      headers: authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
-    })
-
-    groups.value = Array.isArray(data) ? data : data.items || []
-  } catch (e: any) {
-    console.error('Failed to fetch groups:', e)
-    toastStore.error(t('parasos.errors.fetch_groups'))
-    groups.value = []
-  } finally {
-    loading.value = false
-  }
-}
-
-watch(activeTab, () => fetchGroups())
-
-onMounted(() => fetchGroups())
+// Block client-side navigation until groups are ready (Suspense holds the
+// previous page — no spinner flash). Cache-first on revisit.
+await groupsData
 </script>

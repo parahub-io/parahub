@@ -32,7 +32,11 @@
     "group_infrastructure": "Infraestrutura",
     "group_advanced": "Avançado",
     "prev": "Anterior",
-    "next": "Seguinte"
+    "next": "Seguinte",
+    "subscriptions_desc": "Apoie um criador todos os meses — direto, não-custodial, sem comissão da plataforma",
+    "rental_desc": "Reserve ao dia ou por período — disponibilidade sem reserva dupla",
+    "marketplace_desc": "Ofereça ou procure qualquer coisa — comércio P2P direto, sem comissões",
+    "directory_desc": "Encontre negócios e organizações locais no mapa"
   },
   "common": {
     "save": "Guardar",
@@ -59,6 +63,7 @@
     "saved": "Guardado"
   },
   "nav": {
+    "notifications": "Notificações",
     "messages": "Mensagens",
     "market": "Mercado",
     "map": "Mapa",
@@ -68,6 +73,7 @@
     "iot": "Dispositivos",
     "directory": "Diretório",
     "contracts": "Contratos",
+    "bookings": "Reservas",
     "projects": "Projetos",
     "debts": "Dívidas",
     "wallet": "Carteira",
@@ -163,6 +169,7 @@
     "start": "Vamos lá"
   },
   "register": {
+    "email_taken": "Este email já tem uma conta. Inicia sessão — ou via Google, se foi assim que te registaste.",
     "title": "Criar conta",
     "subtitle": "Sem Google — a tua identidade, as tuas regras",
     "create_account": "Criar",
@@ -217,6 +224,8 @@
     "pulse_listings": "anúncios",
     "pulse_events": "eventos",
     "pulse_polls": "votações abertas",
+    "online_people": "{count} online",
+    "online_guests": "{count} convidados",
     "top_partners": "Melhores Parceiros",
     "recent_listings": "Anúncios Recentes",
     "upcoming_events": "Próximos Eventos",
@@ -234,5 +243,8 @@
   "unlike": "Remover gosto",
   "go_home": "Voltar ao início",
   "error_not_found": "Página não encontrada",
-  "error_server": "Algo correu mal"
+  "error_server": "Algo correu mal",
+  "about": {
+    "title": "Sobre"
+  }
 }

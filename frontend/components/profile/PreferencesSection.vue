@@ -30,6 +30,33 @@
         </p>
       </div>
 
+      <!-- Name Visibility (privacy opt-out) -->
+      <div>
+        <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+          {{ $t('profile.preferences.name_public_label') }}
+        </label>
+        <div class="flex items-center gap-3">
+          <button
+            @click="toggleNamePublic"
+            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            :class="namePublic ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-600'"
+            :aria-label="$t('profile.preferences.name_public_label')"
+            :aria-pressed="namePublic"
+          >
+            <span
+              class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+              :class="namePublic ? 'translate-x-6' : 'translate-x-1'"
+            />
+          </button>
+          <span class="text-sm text-neutral-700 dark:text-neutral-300">
+            {{ namePublic ? $t('profile.preferences.name_public_enabled') : $t('profile.preferences.name_public_disabled') }}
+          </span>
+        </div>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+          {{ $t('profile.preferences.name_public_hint') }}
+        </p>
+      </div>
+
       <!-- Push Notifications -->
       <div>
         <PushNotificationToggle />
@@ -254,18 +281,20 @@ const { isSubscribed: pushSubscribed } = usePushNotifications()
 
 // Notification category preferences
 const notifGroupId = useId()
-type NotifCategory = 'social' | 'contracts' | 'governance' | 'calls'
+type NotifCategory = 'social' | 'contracts' | 'governance' | 'calls' | 'rental'
 
 const notifPrefs = reactive<Record<NotifCategory, boolean>>({
   social: true,
   contracts: true,
   governance: true,
   calls: true,
+  rental: true,
 })
 
 const notifCategories = computed(() => [
   { key: 'social' as NotifCategory, label: t('profile.preferences.notify_social'), hint: t('profile.preferences.notify_social_hint') },
   { key: 'contracts' as NotifCategory, label: t('profile.preferences.notify_contracts'), hint: t('profile.preferences.notify_contracts_hint') },
+  { key: 'rental' as NotifCategory, label: t('profile.preferences.notify_rental'), hint: t('profile.preferences.notify_rental_hint') },
   { key: 'governance' as NotifCategory, label: t('profile.preferences.notify_governance'), hint: t('profile.preferences.notify_governance_hint') },
   { key: 'calls' as NotifCategory, label: t('profile.preferences.notify_calls'), hint: t('profile.preferences.notify_calls_hint') },
 ])
@@ -305,15 +334,46 @@ const displayName = ref('')
 const originalDisplayName = ref('')
 const displayNameSaving = ref(false)
 
+// Name visibility (privacy opt-out): when false, only the @handle is public
+const namePublic = ref(false)
+
+const toggleNamePublic = async () => {
+  const next = !namePublic.value
+  namePublic.value = next
+  try {
+    await authStore.ensureToken()
+    await $fetch('/api/v1/profiles/me/preferences/', {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name_public: next })
+    })
+    if (authStore.profile) authStore.profile.name_public = next
+    showSuccess(next
+      ? t('profile.preferences.name_public_enabled')
+      : t('profile.preferences.name_public_disabled'))
+  } catch (error) {
+    namePublic.value = !next // revert on failure
+    console.error('Failed to update name visibility:', error)
+    showError(t('profile.preferences.display_name_update_failed'))
+  }
+}
+
 onMounted(() => {
   // Load display name from profile
   displayName.value = authStore.profile?.display_name || ''
   originalDisplayName.value = displayName.value
 
+  // Load name visibility preference
+  namePublic.value = Boolean(authStore.profile?.name_public)
+
   // Load notification preferences (empty object = all enabled by default)
   const saved = authStore.profile?.notification_prefs
   if (saved && typeof saved === 'object') {
-    for (const key of ['social', 'contracts', 'governance', 'calls'] as NotifCategory[]) {
+    for (const key of ['social', 'contracts', 'governance', 'calls', 'rental'] as NotifCategory[]) {
       if (key in saved) {
         notifPrefs[key] = Boolean(saved[key])
       }

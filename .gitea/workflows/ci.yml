@@ -1,0 +1,58 @@
+# Gitea Actions CI — runs on the local runner (host mode) registered with
+# git.parahub.io. Commits reach the `admin/parahub-ng` mirror repo via
+# parahub-ci-mirror.timer (push of the working repo's master), which is what
+# triggers this workflow — no change to anyone's push habits required.
+#
+# Host mode = jobs execute directly on the production box: they reuse the
+# real venv, PostgreSQL (dedicated parahub_ci DB → test_parahub_ci, so runs
+# never collide with manual `manage.py test` sessions), Redis and Neo4j.
+# The runner's capacity is 1 — jobs serialize instead of competing with dev
+# rebuilds for RAM.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  backend-tests:
+    runs-on: host
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Django test suite
+        run: |
+          # settings.py read_env()s BASE_DIR/.env itself — link the real one
+          # into the workspace checkout. Never `source` it: values contain
+          # bash-hostile chars (SECRET_KEY has parentheses).
+          ln -sf /opt/parahub/.env .env
+          # LOGGING has a file handler at BASE_DIR/logs/django.log
+          mkdir -p logs
+          # Same credentials/host, isolated DB: parahub_ci → test DB
+          # test_parahub_ci (os.environ overrides read_env values)
+          BASE_URL=$(grep -E '^DATABASE_URL=' /opt/parahub/.env | cut -d= -f2-)
+          export DATABASE_URL="${BASE_URL%/*}/parahub_ci"
+          /opt/parahub/venv/bin/python manage.py test --keepdb --noinput 2>&1 | tail -40
+          exit ${PIPESTATUS[0]}
+
+  frontend-build:
+    runs-on: host
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Nuxt frontend
+        working-directory: frontend
+        run: |
+          # System node is 18 (too old for nuxt tooling) — use the nvm
+          # default like 0restart-dev does.
+          export NVM_DIR="$HOME/.nvm"
+          . "$NVM_DIR/nvm.sh"
+          # The build needs >4GB heap (default V8 cap aborts with OOM) —
+          # same value 0restart/0restart-dev use.
+          export NODE_OPTIONS="--max-old-space-size=8192"
+          # npm ci, not install: a fresh `npm install` hits the npm optional-
+          # deps bug (npm/cli#4828) and skips the oxc native bindings; the
+          # lockfile records them and ci installs from it verbatim.
+          npm ci --no-audit --no-fund
+          # Build inside the runner workspace — its own .output, never the
+          # production one.
+          npx nuxi build

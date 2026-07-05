@@ -64,6 +64,12 @@
         @toggle="toggleSection"
       />
 
+      <CivicSection
+        :open-sections="openSections"
+        :animation-enabled="animationEnabled"
+        @toggle="toggleSection"
+      />
+
       <DataPrivacySection
         :open-sections="openSections"
         :animation-enabled="animationEnabled"
@@ -84,6 +90,7 @@ import PhotoSection from '@/components/profile/PhotoSection.vue'
 import SecuritySection from '@/components/profile/SecuritySection.vue'
 import LightningWalletSection from '@/components/profile/LightningWalletSection.vue'
 import MigrationSection from '@/components/profile/MigrationSection.vue'
+import CivicSection from '@/components/profile/CivicSection.vue'
 import DataPrivacySection from '@/components/profile/DataPrivacySection.vue'
 
 // Set page metadata
@@ -208,6 +215,15 @@ const handleActionClick = (actionId: string) => {
     }
   })
 }
+
+// Deep-link: /profile?section=civic opens + scrolls to that section
+const route = useRoute()
+onMounted(() => {
+  const section = route.query.section
+  if (typeof section === 'string' && section) {
+    handleActionClick(section)
+  }
+})
 
 const loadUserCredentials = async () => {
   // Ensure we have a JWT token

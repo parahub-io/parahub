@@ -47,7 +47,7 @@
 import {
   Compass, LayoutGrid, ArrowLeftRight, Scale, Cpu, ScrollText, ChevronRight,
   ShieldCheck, Shield, Zap, Wifi, Vote, Rocket, KeyRound, Megaphone, HandCoins, Globe, Landmark,
-  Package, Ticket, Bus, Navigation,
+  Package, Ticket, Bus, Navigation, Store, CalendarCheck, HeartHandshake, Building2,
 } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -69,14 +69,18 @@ const sections = [
   { to: '/docs/features', icon: LayoutGrid, titleKey: 'about.features.title', descKey: 'docs.features_desc' },
   { to: '/docs/wot', icon: ShieldCheck, titleKey: 'about.wotSystem.title', descKey: 'docs.wot_desc' },
   { to: '/docs/crypto', icon: KeyRound, titleKey: 'about.cryptoProofs.title', descKey: 'docs.crypto_desc' },
+  { to: '/docs/marketplace', icon: Store, titleKey: 'about.marketplaceSystem.title', descKey: 'docs.marketplace_desc' },
   { to: '/docs/barter', icon: ArrowLeftRight, titleKey: 'about.barterSystem.title', descKey: 'docs.barter_desc' },
+  { to: '/docs/rental', icon: CalendarCheck, titleKey: 'about.rentalSystem.title', descKey: 'docs.rental_desc' },
   { to: '/docs/governance', icon: Vote, titleKey: 'about.governanceSystem.title', descKey: 'docs.governance_desc' },
   { to: '/docs/ads', icon: Megaphone, titleKey: 'about.adsSystem.title', descKey: 'docs.ads_desc' },
+  { to: '/docs/subscriptions', icon: HeartHandshake, titleKey: 'about.subscriptionsSystem.title', descKey: 'docs.subscriptions_desc' },
   { to: '/docs/mesh', icon: Wifi, titleKey: 'about.meshSystem.title', descKey: 'docs.mesh_desc' },
   { to: '/docs/energy', icon: Zap, titleKey: 'about.energySystem.title', descKey: 'docs.energy_desc', wip: true },
   { to: '/docs/federation', icon: Globe, titleKey: 'about.federationSystem.title', descKey: 'docs.federation_desc' },
   { to: '/docs/transparency', icon: HandCoins, titleKey: 'about.transparency.title', descKey: 'docs.transparency_desc' },
   { to: '/docs/condo', icon: Landmark, titleKey: 'about.condoSystem.title', descKey: 'docs.condo_desc', wip: true },
+  { to: '/docs/directory', icon: Building2, titleKey: 'about.directorySystem.title', descKey: 'docs.directory_desc' },
   { to: '/docs/phub', icon: Package, titleKey: 'about.phubSystem.title', descKey: 'docs.phub_desc' },
   { to: '/docs/sos', icon: Shield, titleKey: 'parasos.title', descKey: 'docs.parasos_desc' },
   { to: '/docs/tickets', icon: Ticket, titleKey: 'about.ticketsSystem.title', descKey: 'docs.tickets_desc' },

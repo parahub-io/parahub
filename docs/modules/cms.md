@@ -17,6 +17,7 @@ Write posts using a Markdown editor with visual mode. Posts can be personal (on 
 - **Tags** -- categorize posts using the taxonomy system (e.g., "News", "Announcement", "Minutes")
 - **Multi-language** -- each post has a language, and translations can be linked together
 - **RSS feed** -- subscribe to any blog via RSS reader
+- **Subscribers-only posts** -- gate a post's body to your monthly supporters; title, excerpt, and cover image stay public as a teaser (see [Recurring Support](subscriptions.md))
 - **SEO** -- automatic meta tags, Open Graph, and JSON-LD Article schema for search engines
 
 ### URLs

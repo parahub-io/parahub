@@ -6,6 +6,7 @@ Handles real Matrix/Synapse integration with auto-provisioning
 from ninja import Router
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
+import html
 import httpx
 import hashlib
 import hmac
@@ -25,6 +26,11 @@ SYNAPSE_BASE_URL = "http://localhost:8008"
 SYNAPSE_PUBLIC_URL = "https://parahub.io"
 SYNAPSE_ADMIN_TOKEN = getattr(settings, 'SYNAPSE_ADMIN_TOKEN', None)
 SYNAPSE_SHARED_SECRET = settings.SYNAPSE_REGISTRATION_SHARED_SECRET
+
+# Synapse is local; connect must be near-instant. The overall ceiling bounds
+# how long a Synapse hiccup can hold a request slot (endpoints here are sync,
+# and sync handlers share a single executor thread per worker).
+SYNAPSE_HTTP_TIMEOUT = httpx.Timeout(10.0, connect=2.0)
 
 
 def generate_mac(shared_secret: str, nonce: str, user: str, password: str, 
@@ -191,7 +197,7 @@ def get_login_token(request):
     matrix_user_id = get_matrix_user_id(user.id)
 
     try:
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             # Ensure user exists with OIDC link (so SSO will use same user)
             displayname = user.profile.hna if hasattr(user, 'profile') else user.username
             if not _ensure_matrix_user_exists(client, user.id, matrix_user_id, displayname):
@@ -259,7 +265,7 @@ def get_widget_token(request):
         }
     
     try:
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             # Ensure user exists with OIDC link (so SSO will use same user)
             if SYNAPSE_ADMIN_TOKEN:
                 displayname = user.profile.hna if hasattr(user, 'profile') else user.username
@@ -323,7 +329,7 @@ def get_user_rooms(request):
         return {"success": False, "error": "No active Matrix session"}
     
     try:
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             response = client.get(
                 f"{SYNAPSE_BASE_URL}/_matrix/client/r0/joined_rooms",
                 headers={"Authorization": f"Bearer {session['access_token']}"}
@@ -362,7 +368,7 @@ def ensure_direct_room(request, other_user_cri: str):
     other_matrix_user = get_matrix_user_id(other_user_cri)
 
     try:
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             # Create direct room
             response = client.post(
                 f"{SYNAPSE_BASE_URL}/_matrix/client/r0/createRoom",
@@ -466,7 +472,7 @@ def _get_or_create_matrix_token(user_id: str) -> Optional[str]:
     password = hashlib.sha256(f"{user_id}:{SYNAPSE_SHARED_SECRET}".encode()).hexdigest()
 
     try:
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             # CRITICAL: DO NOT create users via backend API!
             # Users MUST be created via OIDC SSO to avoid localpart conflicts.
             # Backend only tries to login existing users or use admin API.
@@ -544,7 +550,7 @@ def _get_or_create_matrix_token_for_dm(user_id: str) -> Optional[str]:
     # Validate token before returning
     if token:
         try:
-            with httpx.Client() as client:
+            with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
                 response = client.get(
                     f"{SYNAPSE_BASE_URL}/_matrix/client/v3/account/whoami",
                     headers={"Authorization": f"Bearer {token}"}
@@ -570,7 +576,7 @@ def _get_or_create_matrix_token_for_dm(user_id: str) -> Optional[str]:
         # Generate Matrix user ID from profile's local_name (human-readable)
         matrix_user_id = get_matrix_user_id(user_id)
 
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             # Step 1: Ensure user exists with OIDC link (so SSO will use same user)
             if not _ensure_matrix_user_exists(client, user_id, matrix_user_id):
                 logger.error(f"[Matrix DM] Failed to create user {matrix_user_id}")
@@ -637,7 +643,7 @@ def get_matrix_login_token(request):
         matrix_user_id = get_matrix_user_id(user_id)
 
         # Request a login token from Synapse (requires admin API)
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             # Use the user's own access token to get a login token
             # This is the standard way: user authenticates with their access_token and gets a login_token
             login_token_response = client.post(
@@ -888,7 +894,7 @@ def create_dm_between_accounts(account_id_1: str, account_id_2: str, initial_mes
         matrix_user_1 = get_matrix_user_id(account_id_1)
         matrix_user_2 = get_matrix_user_id(account_id_2)
 
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             # Check if DM room already exists
             existing_room_id = _find_existing_dm(client, token_1, account_id_1, matrix_user_2, token_2)
             if existing_room_id:
@@ -1041,9 +1047,11 @@ def create_dm_room(request, payload: CreateDMRequest):
         profile_url = f"https://parahub.io/u/{buyer_local_name}"
 
         initial_message = f"\U0001f6d2 {payload.item_title}\n{item_url}\n\n\U0001f464 {buyer_hna}\n{profile_url}"
+        # Escape everything interpolated into formatted_body — item_id/item_title
+        # come straight from the client (href attribute + element content).
         initial_message_html = (
-            f'<p>\U0001f6d2 <a href="{item_url}">{payload.item_title}</a></p>'
-            f'<p>\U0001f464 <a href="{profile_url}">{buyer_hna}</a></p>'
+            f'<p>\U0001f6d2 <a href="{html.escape(item_url)}">{html.escape(payload.item_title)}</a></p>'
+            f'<p>\U0001f464 <a href="{html.escape(profile_url)}">{html.escape(buyer_hna)}</a></p>'
         )
 
     room_id = create_dm_between_accounts(current_user_id, target_user_id, initial_message, initial_message_html)
@@ -1124,7 +1132,7 @@ def create_group_chat_room(request, payload: CreateGroupChatRequest):
             # Get Matrix user ID from profile's local_name (human-readable)
             participant_matrix_ids.append(get_matrix_user_id(account_id))
 
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             # Create group chat room
             create_room_response = client.post(
                 f"{SYNAPSE_BASE_URL}/_matrix/client/r0/createRoom",

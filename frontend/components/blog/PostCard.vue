@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Calendar, Languages, MessageCircle, Pin, User } from 'lucide-vue-next'
+import { Calendar, HeartHandshake, Languages, MessageCircle, Pin, User } from 'lucide-vue-next'
 
 interface Post {
   id: string
@@ -10,6 +10,7 @@ interface Post {
   language: string
   published_at: string | null
   is_pinned: boolean
+  subscribers_only?: boolean
   comments_count: number
   author_hna: string
   author_display_name: string | null
@@ -70,6 +71,10 @@ function postUrl(post: Post, base?: string) {
           </UiBadge>
           <UiBadge v-if="post.status === 'draft'" variant="default" type="soft" size="sm">
             {{ $t('cms.draft') }}
+          </UiBadge>
+          <UiBadge v-if="post.subscribers_only" variant="error" type="soft" size="sm">
+            <HeartHandshake class="w-3 h-3 mr-1" />
+            {{ $t('subscriptions.locked_title') }}
           </UiBadge>
           <UiBadge
             v-for="tag in post.tags.slice(0, 3)"

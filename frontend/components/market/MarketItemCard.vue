@@ -69,22 +69,26 @@
     <!-- Item type badge -->
     <div class="px-4 pt-4 pb-2">
       <div class="flex justify-between items-start mb-2">
-        <span
-          :class="item.item_type === 'CREDIT' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-secondary-100 text-secondary-800 dark:bg-secondary-900 dark:text-secondary-200'"
-          class="text-xs font-medium px-2 py-1 rounded"
-        >
-          {{ item.item_type === 'CREDIT' ? $t('market.item.offer') : $t('market.item.request') }}
-        </span>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <MarketListingType :item-type="item.item_type" size="sm" />
+          <!-- Made-by-hand badge: producer, not reseller (swadeshi / bread-labour) -->
+          <UiBadge v-if="item.self_made" variant="warning" type="soft" size="sm">
+            <Hand class="w-3 h-3 mr-1" />
+            {{ $t('market.item.self_made_badge') }}
+          </UiBadge>
+          <!-- Registered-only badge: hidden from anonymous visitors + search engines -->
+          <UiBadge v-if="item.visibility === 'REGISTERED'" variant="neutral" type="soft" size="sm">
+            <Lock class="w-3 h-3 mr-1" />
+            {{ $t('market.item.registered_badge') }}
+          </UiBadge>
+        </div>
         <!-- Demand badge: opposite-type count in same category -->
-        <span
-          v-if="item.demand_count"
-          class="text-xs font-medium px-2 py-1 rounded bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200"
-        >
+        <UiBadge v-if="item.demand_count" variant="primary" type="soft" size="sm">
           {{ item.item_type === 'CREDIT'
             ? $t('market.item.demand_need', item.demand_count, { n: item.demand_count })
             : $t('market.item.demand_offers', item.demand_count, { n: item.demand_count })
           }}
-        </span>
+        </UiBadge>
         <!-- Category breadcrumbs -->
         <div v-if="item.category_path && item.category_path.length" class="text-xs text-neutral-600 dark:text-neutral-300 flex items-center gap-1">
           <button
@@ -118,7 +122,7 @@
               :key="idx"
               class="font-semibold text-neutral-900 dark:text-neutral-100"
             >
-              {{ formatPricingOption(opt) }}
+              {{ formatPricingOption(opt, { withNote: false }) }}
             </div>
             <div v-if="item.pricing_options.length > 2" class="text-xs text-neutral-600 dark:text-neutral-300">
               +{{ item.pricing_options.length - 2 }} {{ $t('market.item.more_options') }}
@@ -153,7 +157,7 @@
             </NuxtLink>
             <span class="text-neutral-400">·</span>
             <NuxtLink
-              :to="`/u/${item.owner_id}`"
+              :to="localePath(`/u/${item.owner_hna?.split('@')[0] || item.owner_id}`)"
               @click.stop
               class="text-neutral-400 dark:text-neutral-500 hover:text-secondary dark:hover:text-secondary hover:underline shrink-0"
             >
@@ -162,7 +166,7 @@
           </template>
           <NuxtLink
             v-else
-            :to="`/u/${item.owner_id}`"
+            :to="localePath(`/u/${item.owner_hna?.split('@')[0] || item.owner_id}`)"
             @click.stop
             class="text-neutral-600 dark:text-neutral-300 hover:text-secondary dark:hover:text-secondary hover:underline"
           >
@@ -179,7 +183,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Package, MapPin } from 'lucide-vue-next'
+import { Package, MapPin, Hand, Lock } from 'lucide-vue-next'
 
 const props = defineProps({
   item: { type: Object, required: true },

@@ -108,6 +108,7 @@ class OpenSkyMissionResponse(BaseModel):
     status: str
     pilot_id: Optional[str]
     pilot_name: Optional[str]
+    pilot_hna: Optional[str] = None
     area: Optional[Dict[str, Any]]  # GeoJSON polygon
     area_m2: Optional[float] = None
     center_lat: Optional[float]
@@ -146,6 +147,7 @@ class OpenSkyMissionListItem(BaseModel):
     status: str
     pilot_id: Optional[str]
     pilot_name: Optional[str]
+    pilot_hna: Optional[str] = None
     center_lat: Optional[float]
     center_lng: Optional[float]
     place_label: str = ""
@@ -215,6 +217,7 @@ def _format_opensky_mission(mission, detailed: bool = False) -> dict:
         'status': mission.status,
         'pilot_id': mission.pilot_id,
         'pilot_name': mission.pilot.display_name if mission.pilot else None,
+        'pilot_hna': mission.pilot.hna if mission.pilot else None,
         'center_lat': mission.center_lat,
         'center_lng': mission.center_lng,
         # Place name resolved once at publish (reverse-geo); card reads these directly
@@ -966,8 +969,15 @@ def satellite_align_opensky_mission(request, mission_id: str, action: str = "che
 def get_opensky_covered_tiles(request, west: float, south: float, east: float, north: float):
     """
     Return Z17 tile coordinates that have at least one PUBLISHED mission,
-    filtered to the given viewport bounding box.
+    filtered to the given viewport bounding box. Each tile carries its survey
+    date(s) (up to the 3 most recent distinct dates, ascending) and the total
+    mission count, for the mission-planning grid label.
+
+    Consolidations have NULL tile coords (tile_z != TILE_ZOOM) so they are
+    excluded automatically — count reflects real flights, not super-tiles.
     """
+    from collections import defaultdict
+    from django.utils import timezone
     from geo.models import OpenSkyMission
     from geo.mission_generator import TILE_ZOOM
 
@@ -979,18 +989,40 @@ def get_opensky_covered_tiles(request, west: float, south: float, east: float, n
     y_min = int((1 - math.log(math.tan(lat_rad_n) + 1 / math.cos(lat_rad_n)) / math.pi) / 2 * n)
     y_max = int((1 - math.log(math.tan(lat_rad_s) + 1 / math.cos(lat_rad_s)) / math.pi) / 2 * n)
 
-    tiles = list(
+    rows = (
         OpenSkyMission.objects.filter(
             status=OpenSkyMission.Status.PUBLISHED,
             tile_z=TILE_ZOOM,
             tile_x__gte=x_min, tile_x__lte=x_max,
             tile_y__gte=y_min, tile_y__lte=y_max,
         )
-        .values_list('tile_x', 'tile_y')
-        .distinct()
+        .values_list('tile_x', 'tile_y', 'captured_at', 'uploaded_at')
     )
 
-    return {'tiles': [{'x': t[0], 'y': t[1]} for t in tiles]}
+    # Aggregate per tile: total mission count + distinct survey dates.
+    # Survey date = earliest-photo EXIF (captured_at); fall back to the upload
+    # date for legacy missions whose EXIF date was never extracted (uploaded_at
+    # is auto_now_add, so always present).
+    agg = defaultdict(lambda: {'count': 0, 'dates': set()})
+    for tx, ty, captured_at, uploaded_at in rows:
+        bucket = agg[(tx, ty)]
+        bucket['count'] += 1
+        when = captured_at or uploaded_at
+        if when:
+            bucket['dates'].add(timezone.localtime(when).date().isoformat())
+
+    tiles = [
+        {
+            'x': tx,
+            'y': ty,
+            'count': bucket['count'],
+            # Most recent 3 distinct dates, ascending (oldest of the three first).
+            'dates': sorted(bucket['dates'])[-3:],
+        }
+        for (tx, ty), bucket in agg.items()
+    ]
+
+    return {'tiles': tiles}
 
 
 @router.get("/opensky/stats/", auth=None, response=OpenSkyStatsResponse)

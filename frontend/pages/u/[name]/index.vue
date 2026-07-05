@@ -52,10 +52,14 @@
                 :class="profile.id_photo_verified ? 'border-green-500' : 'border-amber-500'"
               >
                 <img
-                  :src="profile.id_photo_url"
+                  v-if="idPhotoObjectUrl"
+                  :src="idPhotoObjectUrl"
                   :alt="t('user_profile.id_photo')"
                   class="w-full h-full object-cover"
                 />
+                <div v-else class="w-full h-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-800">
+                  <Loader2 class="w-5 h-5 animate-spin text-neutral-400" />
+                </div>
                 <div
                   class="absolute top-1 right-1 rounded-full p-0.5"
                   :class="profile.id_photo_verified ? 'bg-green-500' : 'bg-amber-500'"
@@ -72,7 +76,9 @@
             <h1 class="text-xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100 break-words leading-tight">
               {{ profile.display_name || profile.hna }}
             </h1>
-            <p class="text-neutral-500 dark:text-neutral-400 font-mono text-xs sm:text-sm mt-0.5 truncate">{{ profile.hna }}</p>
+            <!-- Handle subtitle only when the H1 shows a distinct display name; when the
+                 real name is gated the H1 already IS the handle, so skip the duplicate -->
+            <p v-if="profile.display_name && profile.display_name !== profile.hna" class="text-neutral-500 dark:text-neutral-400 font-mono text-xs sm:text-sm mt-0.5 truncate">{{ profile.hna }}</p>
 
             <!-- Badges — part of identity, not a separate section -->
             <div class="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -112,6 +118,14 @@
           </div>
         </Tooltip>
 
+        <!-- Recurring-supporter count -->
+        <Tooltip v-if="subStatus.subscriber_count > 0" :text="$t('subscriptions.supporters_tooltip')">
+          <div class="flex items-center gap-1 px-2.5 py-1 bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-700 rounded-full text-xs">
+            <HeartHandshake class="w-3.5 h-3.5 text-rose-500" />
+            <span class="font-semibold text-rose-700 dark:text-rose-400">{{ subStatus.subscriber_count }}</span>
+          </div>
+        </Tooltip>
+
         <!-- Partnership Status -->
         <div v-if="authStore.isAuthenticated && partnershipStatus.they_added_me" class="flex items-center gap-1 px-2.5 py-1 bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-full text-xs">
           <Users class="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
@@ -148,63 +162,75 @@
           </div>
         </div>
 
-        <!-- QR Code (own profile) -->
+        <!-- Share my profile (own profile): a tappable QR preview (→ large scannable
+             code) next to one Share button. Copy-link/QR/vCard all live in the share
+             sheet, so no duplicate inline controls. -->
         <div v-if="isOwnProfile" class="flex items-center gap-3 mt-3">
-          <div class="relative flex-shrink-0">
-            <div v-if="!ownQrGenerated" class="w-11 h-11 sm:w-16 sm:h-16 rounded-lg bg-neutral-100 dark:bg-neutral-800 animate-pulse"></div>
-            <canvas v-show="ownQrGenerated" ref="ownQrCanvas" class="w-11 h-11 sm:w-16 sm:h-16 rounded-lg" role="img" :aria-label="$t('user_profile.qr_aria_label')"></canvas>
-          </div>
+          <button
+            type="button"
+            class="relative flex-shrink-0 rounded-lg transition hover:ring-2 hover:ring-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            :title="t('user_profile.show_qr_code')"
+            :aria-label="t('user_profile.show_qr_code')"
+            @click="openShareModal('qr')"
+          >
+            <div v-if="!ownQrGenerated" class="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-neutral-100 dark:bg-neutral-800 animate-pulse"></div>
+            <canvas v-show="ownQrGenerated" ref="ownQrCanvas" class="w-12 h-12 sm:w-16 sm:h-16 rounded-lg block" aria-hidden="true"></canvas>
+          </button>
           <UiButton
             variant="ghost"
             size="sm"
-            :icon="linkCopied ? Check : ClipboardCopy"
-            @click="copyProfileLink"
+            :icon="Share2"
+            @click="openShareModal()"
           >
-            {{ t('user_profile.copy_link') }}
+            {{ t('user_profile.share') }}
           </UiButton>
         </div>
       </div>
 
       <!-- ========== Stats ========== -->
-      <div v-if="hasAnyStats" class="rounded-xl overflow-hidden bg-neutral-200 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-700">
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-px">
-          <NuxtLink v-if="profile.items_credit_count > 0" :to="`/market?owner_id=${profile.id}&type=CREDIT`" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
+      <div v-if="hasAnyStats">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <NuxtLink v-if="profile.items_credit_count > 0" :to="localePath(`/market?owner_id=${profile.id}&type=CREDIT`)" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
             <Package class="w-4 h-4 text-secondary flex-shrink-0" />
             <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.items_credit_count }}</strong> <span class="text-neutral-500 dark:text-neutral-400">{{ t('user_profile.offers') }}</span></span>
           </NuxtLink>
-          <NuxtLink v-if="profile.items_debit_count > 0" :to="`/market?owner_id=${profile.id}&type=DEBIT`" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
+          <NuxtLink v-if="profile.items_debit_count > 0" :to="localePath(`/market?owner_id=${profile.id}&type=DEBIT`)" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
             <ShoppingBag class="w-4 h-4 text-amber-500 flex-shrink-0" />
             <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.items_debit_count }}</strong> <span class="text-neutral-500 dark:text-neutral-400">{{ t('user_profile.seeks') }}</span></span>
           </NuxtLink>
-          <button v-if="profile.verifications_received_count > 0" @click="showVerificationsModal('received')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors text-left">
+          <NuxtLink v-if="profile.rentable_count > 0" :to="localePath(`/rental/u/${profile.hna?.split('@')[0] || profile.id}`)" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
+            <CalendarClock class="w-4 h-4 text-secondary flex-shrink-0" />
+            <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.rentable_count }}</strong> <span class="text-neutral-500 dark:text-neutral-400">{{ t('booking.board.link') }}</span></span>
+          </NuxtLink>
+          <button v-if="profile.verifications_received_count > 0" @click="showVerificationsModal('received')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors text-left">
             <CheckCircle class="w-4 h-4 text-success flex-shrink-0" />
             <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.verifications_received_count }}</strong> <span class="text-neutral-500 dark:text-neutral-400">{{ t('user_profile.verified_by') }}</span></span>
           </button>
-          <button v-if="profile.verifications_given_count > 0" @click="showVerificationsModal('given')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors text-left">
+          <button v-if="profile.verifications_given_count > 0" @click="showVerificationsModal('given')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors text-left">
             <UserCheck class="w-4 h-4 text-success flex-shrink-0" />
             <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.verifications_given_count }}</strong> <span class="text-neutral-500 dark:text-neutral-400">{{ t('user_profile.verified_others') }}</span></span>
           </button>
-          <div v-if="profile.invited_count > 0" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900">
+          <div v-if="profile.invited_count > 0" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg">
             <UserPlus class="w-4 h-4 text-secondary flex-shrink-0" />
             <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.invited_count }}</strong> <span class="text-neutral-500 dark:text-neutral-400">{{ t('user_profile.invited') }}</span></span>
           </div>
-          <NuxtLink v-if="profile.contracts_active_count > 0" :to="localePath('/contracts?status=SIGNED')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
+          <NuxtLink v-if="profile.contracts_active_count > 0" :to="localePath('/contracts?status=SIGNED')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
             <FileText class="w-4 h-4 text-neutral-500 flex-shrink-0" />
             <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.contracts_active_count }}</strong> <span class="text-neutral-500 dark:text-neutral-400">{{ t('user_profile.contracts_active') }}</span></span>
           </NuxtLink>
-          <NuxtLink v-if="profile.contracts_completed_count > 0" :to="localePath('/contracts?status=COMPLETED')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
+          <NuxtLink v-if="profile.contracts_completed_count > 0" :to="localePath('/contracts?status=COMPLETED')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
             <CheckCircle class="w-4 h-4 text-success flex-shrink-0" />
             <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.contracts_completed_count }}</strong> <span class="text-success-600 dark:text-success-400">{{ t('user_profile.contracts_completed') }}</span></span>
           </NuxtLink>
-          <NuxtLink v-if="profile.debts_active_count > 0" :to="localePath('/wallet/debts')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
+          <NuxtLink v-if="profile.debts_active_count > 0" :to="localePath('/wallet/debts')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
             <Bitcoin class="w-4 h-4 text-warning flex-shrink-0" />
             <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.debts_active_count }}</strong> <span class="text-warning-600 dark:text-warning-400">{{ t('user_profile.debts_active') }}</span></span>
           </NuxtLink>
-          <NuxtLink v-if="profile.debts_settled_count > 0" :to="localePath('/wallet/debts')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
+          <NuxtLink v-if="profile.debts_settled_count > 0" :to="localePath('/wallet/debts')" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
             <CheckCircle class="w-4 h-4 text-neutral-500 flex-shrink-0" />
             <span class="text-sm"><strong class="text-neutral-900 dark:text-neutral-100">{{ profile.debts_settled_count }}</strong> <span class="text-neutral-500 dark:text-neutral-400">{{ t('user_profile.debts_settled') }}</span></span>
           </NuxtLink>
-          <NuxtLink v-if="profile.is_arbiter" :to="localePath(`/arbiters/${profile.id}`)" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
+          <NuxtLink v-if="profile.is_arbiter" :to="localePath(`/arbiters/${profile.id}`)" class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors">
             <Scale class="w-4 h-4 text-secondary flex-shrink-0" />
             <span class="text-sm font-medium text-secondary-700 dark:text-secondary-400">{{ t('arbiter_stats.badge') }}</span>
           </NuxtLink>
@@ -233,13 +259,28 @@
         </div>
         <!-- Secondary actions -->
         <div class="flex flex-wrap gap-2">
-          <UiButton v-if="!profile.i_verified_them && canVerifyOthers" variant="outline" size="sm" :icon="Shield" @click="showVerifyModal = true">
+          <UiButton v-if="!profile.i_verified_them && canVerifyOthers && profile.has_verification_photo" variant="outline-success" size="sm" :icon="ShieldCheck" @click="showVerifyModal = true">
+            {{ t('user_profile.verify_button') }}
+          </UiButton>
+          <UiButton v-else-if="!profile.i_verified_them && canVerifyOthers" variant="outline-success" size="sm" :icon="ShieldCheck" disabled>
+            {{ t('user_profile.verify_button') }}
+          </UiButton>
+          <UiButton v-else-if="!profile.i_verified_them && !canVerifyOthers && verifyBlockedReason" variant="outline-success" size="sm" :icon="ShieldCheck" disabled>
             {{ t('user_profile.verify_button') }}
           </UiButton>
           <UiButton variant="ghost" size="sm" :icon="Zap" @click="showLightningPayModal = true">
             {{ t('user_profile.send_lightning') }}
           </UiButton>
-          <UiButton variant="ghost" size="sm" :icon="Share2" @click="showShareModal = true">
+          <UiButton
+            v-if="profile.ln_address || profile.spark_address"
+            :variant="subStatus.is_subscriber ? 'outline-error' : 'ghost'"
+            size="sm"
+            :icon="Heart"
+            @click="showSupportModal = true"
+          >
+            {{ subStatus.is_subscriber ? t('subscriptions.supporting') : t('subscriptions.support_monthly_btn') }}
+          </UiButton>
+          <UiButton variant="ghost" size="sm" :icon="Share2" @click="openShareModal()">
             {{ t('user_profile.share') }}
           </UiButton>
           <UiButton v-if="zenithStatus.can_ask" variant="ghost" size="sm" :icon="Bot" @click="showZenithModal = true">
@@ -250,6 +291,20 @@
             {{ t('user_profile.more') }}
           </button>
         </div>
+        <!-- Why the verify button is disabled: target hasn't uploaded a WoT verification photo yet -->
+        <p v-if="!profile.i_verified_them && canVerifyOthers && !profile.has_verification_photo" class="flex items-start gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+          <Info class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>{{ t('user_profile.verify_needs_photo') }}</span>
+        </p>
+        <!-- Why the verify button is disabled: the current user isn't allowed to verify others yet -->
+        <p v-if="!profile.i_verified_them && !canVerifyOthers && verifyBlockedReason" class="flex items-start gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+          <Info class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <i18n-t :keypath="verifyBlockedKey" tag="span">
+            <template #link>
+              <NuxtLink :to="localePath('/docs/wot')" class="text-primary hover:underline">{{ t('user_profile.verify_learn_more') }}</NuxtLink>
+            </template>
+          </i18n-t>
+        </p>
         <div v-if="showMoreActions" class="flex flex-wrap gap-2">
           <UiButton variant="ghost" size="sm" :icon="FileText" @click="navigateTo(localePath(`/contracts?partner=${profile.id}`))">
             {{ t('user_profile.create_contract') }}
@@ -265,17 +320,38 @@
             <span v-if="privateNote" class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full"></span>
           </UiButton>
         </div>
+
+        <!-- Recurring-support status: shown to an active subscriber, with renew date + opt-out -->
+        <div
+          v-if="subStatus.is_subscriber && subStatus.subscription"
+          class="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-neutral-600 dark:text-neutral-400 pt-1"
+        >
+          <HeartHandshake class="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+          <span v-if="subStatus.subscription.cancelled_at">
+            {{ t('subscriptions.access_until', { date: formatDateShort(subStatus.subscription.expires_at) }) }}
+          </span>
+          <span v-else>
+            {{ t('subscriptions.renews_on', { amount: subStatus.subscription.amount_sats, date: formatDateShort(subStatus.subscription.expires_at) }) }}
+          </span>
+          <button
+            v-if="!subStatus.subscription.cancelled_at"
+            @click="cancelSupport"
+            class="text-link hover:underline"
+          >
+            {{ t('subscriptions.cancel') }}
+          </button>
+        </div>
       </div>
 
-      <!-- Share only (non-authenticated or own profile) -->
-      <div v-else>
-        <UiButton variant="ghost" size="sm" :icon="Share2" @click="showShareModal = true">
+      <!-- Share — anonymous visitors only (own profile shares from the hero, members from the action row) -->
+      <div v-else-if="!authStore.isAuthenticated">
+        <UiButton variant="ghost" size="sm" :icon="Share2" @click="openShareModal()">
           {{ t('user_profile.share') }}
         </UiButton>
       </div>
 
       <!-- ========== Contact & Crypto ========== -->
-      <div v-if="profile.ln_address || profile.pgp_fingerprint" class="pt-4 border-t border-neutral-200 dark:border-neutral-700 space-y-2 text-xs">
+      <div v-if="profile.ln_address || profile.pgp_fingerprint" class="pt-4 border-t border-neutral-200 dark:border-neutral-700 space-y-3 text-xs">
         <!-- Lightning Address -->
         <div v-if="profile.ln_address" class="flex items-center gap-2">
           <Zap class="w-4 h-4 text-amber-500 flex-shrink-0" />
@@ -286,56 +362,80 @@
           </button>
         </div>
 
-        <!-- PGP -->
-        <div v-if="profile.pgp_fingerprint" class="flex items-center gap-2">
-          <Key class="w-4 h-4 text-neutral-500 dark:text-neutral-400 flex-shrink-0" />
-          <span class="text-sm text-neutral-600 dark:text-neutral-400">
+        <!-- PGP keys — current key + full rotation history, full fingerprints, always visible (no toggle) -->
+        <div v-if="profile.pgp_fingerprint" class="space-y-2">
+          <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+            <Key class="w-4 h-4 text-neutral-500 dark:text-neutral-400 flex-shrink-0" />
             <span v-if="profile.created_at">{{ t('user_profile.pgp_verified_since') }} {{ formatDateShort(profile.created_at) }}</span>
             <span v-else>{{ t('user_profile.pgp_key_active') }}</span>
-          </span>
-          <button @click="showPGPAdvanced = !showPGPAdvanced" class="text-link text-xs ml-1">
-            {{ showPGPAdvanced ? t('user_profile.hide_advanced') : t('user_profile.show_advanced') }}
-          </button>
-        </div>
-
-        <!-- PGP Advanced -->
-        <div v-if="showPGPAdvanced && profile.pgp_fingerprint" class="pl-6 space-y-2">
-          <div class="font-mono text-xs bg-neutral-200 dark:bg-neutral-700 rounded px-2 py-1 break-all">
-            {{ profile.pgp_fingerprint }}
           </div>
-          <button v-if="!showPublicPGPHistory" @click="loadPGPHistory" class="text-link text-xs">
-            {{ t('user_profile.view_history') }}
-          </button>
-          <div v-if="showPublicPGPHistory">
-            <div v-if="publicPGPHistoryLoading" class="text-center py-2">
-              <Loader2 class="w-4 h-4 animate-spin mx-auto" />
-            </div>
-            <div v-else-if="publicPGPHistory.length > 0" class="space-y-2">
+
+          <div class="pl-6 space-y-1.5">
+            <template v-if="visibleKeys.length">
               <div
-                v-for="key in publicPGPHistory"
+                v-for="key in visibleKeys"
                 :key="key.id"
-                class="p-2 rounded border text-xs"
+                class="rounded-lg border px-2.5 py-2"
                 :class="key.is_active
-                  ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
-                  : 'bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600'"
+                  ? 'bg-success-50 dark:bg-success-950/30 border-success-300 dark:border-success-700'
+                  : 'bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700'"
               >
-                <div class="flex items-center justify-between gap-2 mb-1">
-                  <span class="font-mono" :class="key.is_active ? 'text-green-700 dark:text-green-300' : 'text-neutral-600 dark:text-neutral-400'">
-                    {{ key.fingerprint.substring(0, 16) }}...
-                  </span>
-                  <UiBadge size="sm" :variant="{ CREATED: 'success', REVOKED: 'error', EXPIRED: 'warning' }[key.action] || 'neutral'">
-                    {{ key.action }}
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                  <UiBadge
+                    size="sm"
+                    :type="key.is_active ? 'soft' : 'outline'"
+                    :variant="key.is_active ? 'success' : ({ REVOKED: 'error', EXPIRED: 'neutral' }[key.action] || 'neutral')"
+                  >
+                    {{ key.is_active ? t('user_profile.pgp_current') : key.action }}
                   </UiBadge>
+                  <span class="text-neutral-500 dark:text-neutral-400 tabular-nums">
+                    {{ formatDateShort(key.valid_from) }}
+                    <span v-if="key.valid_until"> – {{ formatDateShort(key.valid_until) }}</span>
+                    <span v-else> – {{ t('user_profile.present') }}</span>
+                  </span>
                 </div>
-                <div class="text-neutral-600 dark:text-neutral-400">
-                  {{ formatDateShort(key.valid_from) }}
-                  <span v-if="key.valid_until"> - {{ formatDateShort(key.valid_until) }}</span>
-                  <span v-else> - {{ t('user_profile.present') }}</span>
-                  <span class="text-neutral-500"> ({{ key.validity_days }}d)</span>
+                <div
+                  class="font-mono break-all"
+                  :class="key.is_active ? 'text-neutral-800 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-400'"
+                >
+                  {{ key.fingerprint }}
                 </div>
               </div>
+            </template>
+            <!-- Until the history loads (or if there is none): the current fingerprint, in full -->
+            <div v-else class="font-mono bg-neutral-100 dark:bg-neutral-800 rounded-lg px-2.5 py-1.5 break-all">
+              {{ profile.pgp_fingerprint }}
             </div>
+
+            <!-- Expired/revoked keys collapse behind a toggle so they don't bury the listings below -->
+            <button
+              v-if="inactiveKeys.length"
+              @click="showKeyHistory = !showKeyHistory"
+              class="inline-flex items-center gap-1 text-link text-xs pt-0.5"
+            >
+              <ChevronDown class="w-3.5 h-3.5 transition-transform" :class="{ 'rotate-180': showKeyHistory }" />
+              {{ showKeyHistory ? t('user_profile.pgp_hide_history') : t('user_profile.pgp_show_history', { n: inactiveKeys.length }) }}
+            </button>
           </div>
+        </div>
+      </div>
+
+      <!-- ========== Listings (offers & seeks) — kept last so contact/crypto stays reachable without scrolling ========== -->
+      <div v-if="profileItems.length" class="pt-4 border-t border-neutral-200 dark:border-neutral-700">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+            {{ t('user_profile.listings') }}
+          </h2>
+          <NuxtLink
+            v-if="profileItemsTotal > profileItems.length"
+            :to="localePath(`/market?owner_id=${profile.id}`)"
+            class="text-xs text-secondary hover:underline shrink-0"
+          >
+            {{ t('user_profile.view_all_listings') }} ({{ profileItemsTotal }})
+          </NuxtLink>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <MarketItemCard v-for="it in profileItems" :key="it.id" :item="it" />
         </div>
       </div>
 
@@ -437,7 +537,7 @@
               </div>
               <div class="min-w-0">
                 <NuxtLink
-                  :to="`/u/${verificationDisplayHna(v)}`"
+                  :to="localePath(`/u/${verificationDisplayHna(v)}`)"
                   class="font-medium text-neutral-900 dark:text-neutral-100 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors truncate block"
                   @click="showVerificationsModalOpen = false"
                 >
@@ -445,9 +545,6 @@
                 </NuxtLink>
                 <div class="text-xs text-neutral-500 dark:text-neutral-400">
                   {{ formatDateShort(v.verified_at) }}
-                </div>
-                <div v-if="v.notes" class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
-                  {{ v.notes }}
                 </div>
               </div>
             </div>
@@ -483,8 +580,15 @@
 
       <!-- Extracted sub-components -->
       <UserLightningPayModal v-model="showLightningPayModal" :profile="profile" />
+      <UserLightningPayModal
+        v-model="showSupportModal"
+        :profile="profile"
+        mode="subscribe"
+        :preset-amount="subStatus.subscription?.amount_sats || 5000"
+        @paid="onSupportPaid"
+      />
       <UserCreateInvoiceModal v-model="showCreateInvoiceModal" :profile="profile" />
-      <UserShareModal v-model="showShareModal" :profile="profile" :profile-url="profileUrl" />
+      <UserShareModal v-model="showShareModal" :profile="profile" :profile-url="profileUrl" :initial-qr="shareModalInitialQr" />
       <UserPrivateNoteModal v-model="showNoteModal" :profile="profile" :cri="cri" @note-changed="privateNote = $event" />
       <UserVerifyModal v-model="showVerifyModal" :profile="profile" @verified="fetchProfile" />
       <UserZenithModal v-model="showZenithModal" :profile="profile" />
@@ -496,16 +600,17 @@
 
 <script setup lang="ts">
 import {
-  AlertTriangle, CheckCircle, Bitcoin, Heart, Loader2, Package, Shield, ShoppingBag, Star,
+  AlertTriangle, CheckCircle, Bitcoin, Heart, HeartHandshake, Loader2, Package, Shield, ShoppingBag, Star,
   UserPlus, UserMinus, Users, MessageCircle, UserCheck, Zap, FileText, Share2, MapPin, Flag,
-  Copy, Check, StickyNote, Key, Bot, Phone, ClipboardCopy,
-  ShieldCheck, Handshake, Gift, Vote, Scale, Sprout, ChevronDown
+  Copy, Check, StickyNote, Key, Bot, Phone,
+  ShieldCheck, Handshake, Gift, Vote, Scale, Sprout, ChevronDown, Info, CalendarClock
 } from 'lucide-vue-next'
 import QRCode from 'qrcode'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
+const subs = useSubscriptions()
 
 // Get CRI (Cryptographic Resource Identifier) from route params - can be ULID or local_name
 const route = useRoute()
@@ -518,6 +623,19 @@ const { data: profileData } = await useAsyncData(
   () => $fetch(`/api/v1/profiles/${cri}/`),
   { server: true }
 )
+
+// Public listings (offers & seeks) — shown inline so a visitor arriving from a
+// market listing (clicking the seller's name) sees what else they offer/seek
+// without re-running a search filter. SSR-rendered for SEO.
+const { data: profileItemsData } = await useAsyncData(
+  `profile-items-${cri}`,
+  () => profileData.value?.id
+    ? $fetch(`/api/v1/items/?owner_id=${profileData.value.id}&is_active=true&page_size=12`)
+    : Promise.resolve({ items: [], total: 0 }),
+  { server: true }
+)
+const profileItems = computed(() => profileItemsData.value?.items || [])
+const profileItemsTotal = computed(() => profileItemsData.value?.count || 0)
 
 // State
 const profile = ref(profileData.value)
@@ -562,11 +680,16 @@ const partnershipStatus = ref({
 const addingPartner = ref(false)
 const messagingLoading = ref(false)
 const callingLoading = ref(false)
-const showPGPAdvanced = ref(false)
-const showPublicPGPHistory = ref(false)
 const showIdPhoto = ref(false)
-const publicPGPHistory = ref([])
-const publicPGPHistoryLoading = ref(false)
+// id_photo is private — fetched as an authed blob (the API returns a gated
+// /id-photo/ endpoint URL only to the owner or WoT-verified viewers)
+const idPhotoObjectUrl = ref<string | null>(null)
+const publicPGPHistory = ref<any[]>([])
+// PGP key list: current key shown by default, expired/revoked keys collapsed behind a toggle
+const showKeyHistory = ref(false)
+const activeKey = computed(() => publicPGPHistory.value.find(k => k.is_active) || null)
+const inactiveKeys = computed(() => publicPGPHistory.value.filter(k => !k.is_active))
+const visibleKeys = computed(() => showKeyHistory.value ? publicPGPHistory.value : (activeKey.value ? [activeKey.value] : []))
 
 // Actions
 const showMoreActions = ref(false)
@@ -577,8 +700,16 @@ const showReputationModal = ref(false)
 const reputationBreakdown = ref<any>(null)
 const reputationLoading = ref(false)
 const showLightningPayModal = ref(false)
+const showSupportModal = ref(false)
 const showCreateInvoiceModal = ref(false)
 const showShareModal = ref(false)
+// When opened from the inline QR preview, the share sheet starts on the large QR;
+// every other trigger opens it copy-link-first.
+const shareModalInitialQr = ref(false)
+const openShareModal = (view?: 'qr') => {
+  shareModalInitialQr.value = view === 'qr'
+  showShareModal.value = true
+}
 const showNoteModal = ref(false)
 const showVerificationsModalOpen = ref(false)
 const verificationsModalType = ref<'received' | 'given'>('received')
@@ -586,11 +717,22 @@ const verificationsLoading = ref(false)
 const verificationsData = ref<any[]>([])
 const showZenithModal = ref(false)
 
+// Recurring support (subscription) status for this profile
+const subStatus = ref<any>({ subscriber_count: 0, is_subscriber: false, subscription: null })
+const subscribing = ref(false)
+
 // Private note (for button amber styling, updated via @note-changed)
 const privateNote = ref('')
 
 // Verification permissions (for v-if on button)
 const canVerifyOthers = ref(false)
+// Why the current user can't verify others ('not_personal' | 'no_pgp' | 'not_verified' | null)
+const verifyBlockedReason = ref<string | null>(null)
+const verifyBlockedKey = computed(() => {
+  if (verifyBlockedReason.value === 'not_personal') return 'user_profile.verify_blocked_not_personal'
+  if (verifyBlockedReason.value === 'no_pgp') return 'user_profile.verify_blocked_no_pgp'
+  return 'user_profile.verify_blocked_not_verified'
+})
 
 // Zenith status (for v-if on button)
 const zenithStatus = ref({
@@ -601,9 +743,6 @@ const zenithStatus = ref({
 
 // Lightning Address copy
 const lnAddressCopied = ref(false)
-
-// Own profile link copy
-const linkCopied = ref(false)
 
 // Own profile detection
 const isOwnProfile = computed(() => {
@@ -620,7 +759,8 @@ const hasAnyStats = computed(() => {
   return (p.items_credit_count > 0 || p.items_debit_count > 0 ||
     p.verifications_received_count > 0 || p.verifications_given_count > 0 ||
     p.invited_count > 0 || p.contracts_active_count > 0 || p.contracts_completed_count > 0 ||
-    p.debts_active_count > 0 || p.debts_settled_count > 0 || p.is_arbiter)
+    p.debts_active_count > 0 || p.debts_settled_count > 0 || p.is_arbiter ||
+    p.rentable_count > 0)
 })
 
 // Computed
@@ -658,6 +798,15 @@ onMounted(async () => {
   if (isOwnProfile.value) {
     await generateOwnQRCode()
   }
+
+  // PGP key history is public + short — load it eagerly so the current key
+  // and rotation history render in full without an extra click
+  if (profile.value?.pgp_fingerprint) {
+    loadPGPHistory()
+  }
+
+  // Recurring-support count (public) + viewer's own status (if signed in)
+  loadSubStatus()
 })
 
 const fetchProfile = async () => {
@@ -715,9 +864,11 @@ const checkVerificationPermissions = async () => {
       }
     })
     canVerifyOthers.value = response.can_verify_others
+    verifyBlockedReason.value = response.verify_blocked_reason ?? null
   } catch (err) {
     console.error('Failed to check verification permissions:', err)
     canVerifyOthers.value = false
+    verifyBlockedReason.value = null
   }
 }
 
@@ -767,6 +918,38 @@ const toggleAvatarFlip = () => {
   }
 }
 
+// Fetch the gated id_photo as an authed blob → object URL for <img>.
+// The endpoint re-checks auth server-side (owner or WoT-verified); on 403/404
+// we simply leave the flip empty.
+const loadIdPhoto = async (url: string) => {
+  if (!import.meta.client || !authStore.isAuthenticated) return
+  try {
+    await authStore.ensureToken()
+    const res = await fetch(url, {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    if (res.ok) {
+      if (idPhotoObjectUrl.value) URL.revokeObjectURL(idPhotoObjectUrl.value)
+      idPhotoObjectUrl.value = URL.createObjectURL(await res.blob())
+    }
+  } catch (err) {
+    console.error('Failed to load ID photo:', err)
+  }
+}
+
+watch(() => profile.value?.id_photo_url, (url) => {
+  if (url) loadIdPhoto(url)
+  else if (idPhotoObjectUrl.value) {
+    URL.revokeObjectURL(idPhotoObjectUrl.value)
+    idPhotoObjectUrl.value = null
+  }
+})
+
+onBeforeUnmount(() => {
+  if (idPhotoObjectUrl.value) URL.revokeObjectURL(idPhotoObjectUrl.value)
+})
+
 // Reputation breakdown dimensions config
 const reputationDimensions = [
   { key: 'identity', icon: ShieldCheck, max: 25 },
@@ -815,18 +998,14 @@ const formatDateShort = (dateString: string) => {
   }).format(date)
 }
 
-// Load public PGP key history
+// Load public PGP key history (auto-loaded on mount; fails silently — the
+// full current fingerprint stays visible as a fallback)
 const loadPGPHistory = async () => {
-  showPublicPGPHistory.value = true
-  publicPGPHistoryLoading.value = true
   try {
     const response = await $fetch(`/api/v1/profiles/${cri}/keys/history/`)
     publicPGPHistory.value = response || []
   } catch (error) {
     console.error('Failed to load PGP history:', error)
-    toastStore.error(t('user_profile.pgp_history_load_failed'))
-  } finally {
-    publicPGPHistoryLoading.value = false
   }
 }
 
@@ -939,20 +1118,7 @@ const copyLnAddress = async () => {
   }
 }
 
-// Own profile link copy
-const copyProfileLink = async () => {
-  try {
-    await navigator.clipboard.writeText(profileUrl.value)
-    linkCopied.value = true
-    toastStore.success(t('user_profile.link_copied'))
-    setTimeout(() => { linkCopied.value = false }, 2000)
-  } catch (err) {
-    console.error('Failed to copy:', err)
-    toastStore.error(t('user_profile.link_copy_failed'))
-  }
-}
-
-// Generate QR code for own profile (shown inline, not in modal)
+// Generate QR code for own profile (inline preview; the large scannable code lives in the share sheet)
 const generateOwnQRCode = async () => {
   await nextTick()
   if (ownQrCanvas.value) {
@@ -990,6 +1156,47 @@ const checkZenithStatus = async () => {
   }
 }
 
+// ===== Recurring support (subscription) =====
+
+// Public subscriber count + (if signed in) the viewer's own status. Non-fatal.
+const loadSubStatus = async () => {
+  if (!profile.value?.id) return
+  try {
+    subStatus.value = await subs.getStatus(profile.value.id)
+  } catch (err) {
+    console.error('Failed to load subscription status:', err)
+  }
+}
+
+// The pay modal reports a successful payment → record (or renew) the subscription.
+const onSupportPaid = async (e: { amountSats: number; paymentHash: string }) => {
+  if (subscribing.value || !profile.value?.id) return
+  subscribing.value = true
+  try {
+    await subs.subscribe(profile.value.id, e.amountSats, e.paymentHash)
+    toastStore.success(t('subscriptions.toast_subscribed', { name: profile.value.display_name || profile.value.hna }))
+    await loadSubStatus()
+  } catch (err: any) {
+    console.error('Failed to record subscription:', err)
+    toastStore.error(err.data?.detail || t('subscriptions.toast_failed'))
+  } finally {
+    subscribing.value = false
+  }
+}
+
+const cancelSupport = async () => {
+  const id = subStatus.value?.subscription?.id
+  if (!id) return
+  try {
+    await subs.cancel(id)
+    toastStore.success(t('subscriptions.toast_cancelled'))
+    await loadSubStatus()
+  } catch (err) {
+    console.error('Failed to cancel subscription:', err)
+    toastStore.error(t('subscriptions.toast_failed'))
+  }
+}
+
 // Generate own profile QR when isOwnProfile changes (e.g., login while viewing profile)
 watch(isOwnProfile, async (isOwn) => {
   if (isOwn) {
@@ -999,14 +1206,6 @@ watch(isOwnProfile, async (isOwn) => {
 </script>
 
 <style scoped>
-.btn-ghost {
-  @apply px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-transparent hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg transition-colors;
-}
-
-.btn-ghost:disabled {
-  @apply opacity-50 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent;
-}
-
 /* 3D Flip Animation */
 .perspective-500 {
   perspective: 500px;

@@ -522,7 +522,7 @@ class BarterGraphService:
                     item_ids.add(item['id'])
 
         # Batch load profiles
-        profiles = Profile.objects.filter(id__in=user_ids).values('id', 'display_name')
+        profiles = Profile.objects.filter(id__in=user_ids).values('id', 'display_name', 'local_name', 'instance__domain')
         profile_map = {p['id']: p for p in profiles}
 
         # Batch load items with all related data
@@ -546,7 +546,8 @@ class BarterGraphService:
                 profile = profile_map.get(user_id, {})
                 users_info.append({
                     'id': user_id,
-                    'display_name': profile.get('display_name', '')
+                    'display_name': profile.get('display_name', ''),
+                    'hna': f"{profile.get('local_name')}@{profile.get('instance__domain')}" if profile.get('local_name') else ''
                 })
 
             # Enrich swaps with full item details

@@ -5,7 +5,7 @@ from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.test import TestCase
 
-from geo.models import Agency, Stop, StopGroup, TransitDataSource
+from geo.models import Agency, Route, RouteStop, Stop, StopGroup, TransitDataSource
 from geo.services.stop_grouping import (
     edge_passes,
     normalize_tokens,
@@ -26,6 +26,22 @@ class NormalizeTokensTests(TestCase):
     def test_diacritics_and_stopwords(self):
         self.assertEqual(normalize_tokens('Cais do Sodré'), normalize_tokens('Cais Sodre'))
         self.assertEqual(normalize_tokens('Estação'), normalize_tokens('estacao'))
+
+    def test_saint_qualifier_canonicalization(self):
+        # «Sta.»/«Sto.» expand to santa/santo so an abbreviated station name
+        # contains its full-form metro counterpart (Sta. Apolónia ↔ Santa Apolónia).
+        self.assertEqual(normalize_tokens('Sta. Apolónia'), normalize_tokens('Santa Apolonia'))
+        self.assertEqual(normalize_tokens('R. Vale Sto. António'),
+                         normalize_tokens('Rua Vale Santo Antonio'))
+        self.assertTrue(edge_passes(normalize_tokens('Santa Apolónia'),
+                                    normalize_tokens('Estação Sta. Apolónia')))
+
+    def test_saint_qualifier_is_not_a_toponym_type(self):
+        # 'santa'/'santo' must NOT join TYPE_TOKENS — «Santa X» must still be able to
+        # share a cluster with «Praça X» (the type-conflict guard keys on TYPE_TOKENS).
+        from geo.services.stop_grouping import TYPE_TOKENS
+        self.assertNotIn('santa', TYPE_TOKENS)
+        self.assertNotIn('santo', TYPE_TOKENS)
 
     def test_containment_edge(self):
         self.assertTrue(edge_passes(normalize_tokens('Ленина'), normalize_tokens('площадь Ленина')))
@@ -55,6 +71,9 @@ class StopGroupingTests(TestCase):
                                          timezone='Europe/Lisbon', lang='pt', source_id='a1')
         self.ag2 = Agency.objects.create(data_source=self.ds2, name='A2',
                                          timezone='Europe/Lisbon', lang='pt', source_id='a2')
+        self.ds_metro = TransitDataSource.objects.create(name='Metro', format='gtfs', slug='metro')
+        self.ds_metro_ag = Agency.objects.create(data_source=self.ds_metro, name='M',
+                                                 timezone='Europe/Lisbon', lang='pt', source_id='m')
         self._seq = 0
 
     def stop(self, agency, name, north_m=0.0, lt=0, parent=None, lon_east_m=0.0):
@@ -64,6 +83,58 @@ class StopGroupingTests(TestCase):
             location=Point(BASE_LON + lon_east_m * M, BASE_LAT + north_m * M, srid=4326),
             location_type=lt, parent_station=parent,
         )
+
+    def make_rail(self, stop, route_type=1):
+        """Mark a stop rail-grade by giving it a metro/rail route (load_railgrade_stop_ids
+        keys on route_type), so it earns the wider STATION_RADIUS_M interchange tier."""
+        r = Route.objects.create(agency=stop.agency, source_id=f'rail-{stop.source_id}',
+                                 short_name='M', long_name='Metro', route_type=route_type)
+        RouteStop.objects.create(route=r, stop=stop, sequence=1, direction_id=0)
+        return r
+
+    def test_rail_grade_widens_radius_crossmode(self):
+        # metro station and a same-named bus pole 100m apart (> 50m, < 150m): the
+        # rail↔bus interchange tier merges them though 50m alone would not.
+        metro = self.stop(self.ds_metro_ag, 'Areeiro', 0)
+        self.make_rail(metro)
+        bus = self.stop(self.ag1, 'Areeiro', 100)
+        recompute_stop_groups()
+        metro.refresh_from_db(); bus.refresh_from_db()
+        self.assertIsNotNone(bus.group_id)
+        self.assertEqual(metro.group_id, bus.group_id)
+
+    def test_bus_bus_pair_not_widened(self):
+        # two bus poles 100m apart, same name, neither rail-grade: must STAY separate —
+        # the wide radius needs at least one rail/metro station, never bus↔bus.
+        a = self.stop(self.ag1, 'Areeiro', 0)
+        b = self.stop(self.ag2, 'Areeiro', 100)
+        recompute_stop_groups()
+        a.refresh_from_db(); b.refresh_from_db()
+        self.assertIsNone(a.group_id)
+        self.assertIsNone(b.group_id)
+
+    def test_rail_grade_widens_radius_same_grade(self):
+        # two rail/metro stations of DIFFERENT feeds, same interchange, 100m apart
+        # (CP «Lisboa Oriente» ↔ ML «Oriente» = 60m): the station tier widens when any
+        # side is rail-grade, not only cross-mode rail↔bus — so the train↔metro
+        # interchange groups. The old XOR tier excluded both-rail pairs and missed it.
+        metro = self.stop(self.ds_metro_ag, 'Oriente', 0)
+        self.make_rail(metro, route_type=1)
+        train = self.stop(self.ag1, 'Lisboa Oriente', 100)
+        self.make_rail(train, route_type=2)
+        recompute_stop_groups()
+        metro.refresh_from_db(); train.refresh_from_db()
+        self.assertIsNotNone(train.group_id)
+        self.assertEqual(metro.group_id, train.group_id)
+
+    def test_rail_grade_respects_distance_ceiling(self):
+        # even cross-mode, beyond 150m stays apart (route 735's far Cais Sodré pole).
+        metro = self.stop(self.ds_metro_ag, 'Saldanha', 0)
+        self.make_rail(metro)
+        bus = self.stop(self.ag1, 'Saldanha', 200)
+        recompute_stop_groups()
+        bus.refresh_from_db()
+        self.assertIsNone(bus.group_id)
 
     def test_same_feed_pole_pair(self):
         a = self.stop(self.ag1, 'Rua Alegria', 0)

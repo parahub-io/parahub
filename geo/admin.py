@@ -1,7 +1,7 @@
 from django.contrib import admin
-from .models import (TransitDataSource, OpenSkyMission, Agency, Stop, Route, Shape, Trip, StopTime, RouteStop,
-                     Vehicle, Place, WorldObject, Establishment, EstablishmentMembership, EstablishmentReview,
-                     CalendarDate, Event, EventParticipant)
+from .models import (TransitDataSource, OpenSkyMission, Agency, Stop, StopGroup, Route, Shape, Trip, StopTime,
+                     RouteStop, Vehicle, Place, WorldObject, Establishment, EstablishmentMembership,
+                     EstablishmentReview, CalendarDate, Event, EventParticipant, DriverShift, DroneZone)
 
 
 @admin.register(TransitDataSource)
@@ -32,19 +32,28 @@ class AgencyAdmin(admin.ModelAdmin):
     readonly_fields = ['id', 'created_at', 'updated_at']
 
 
+@admin.register(StopGroup)
+class StopGroupAdmin(admin.ModelAdmin):
+    list_display = ['name', 'member_count', 'place', 'created_at']
+    search_fields = ['name']
+    raw_id_fields = ['place']
+    readonly_fields = ['id', 'created_at', 'updated_at', 'member_count']
+
+
 @admin.register(Stop)
 class StopAdmin(admin.ModelAdmin):
-    list_display = ['name', 'agency', 'source_id', 'parent_station', 'created_at']
+    list_display = ['name', 'agency', 'source_id', 'group', 'parent_station', 'created_at']
     list_filter = ['agency', 'created_at']
     search_fields = ['name', 'source_id']
+    raw_id_fields = ['parent_station', 'group']
     readonly_fields = ['id', 'created_at', 'updated_at']
 
 
 @admin.register(Route)
 class RouteAdmin(admin.ModelAdmin):
-    list_display = ['short_name', 'long_name', 'agency', 'route_type', 'route_color', 'source_id', 'created_at']
+    list_display = ['short_name', 'long_name', 'line_id', 'agency', 'route_type', 'route_color', 'source_id', 'created_at']
     list_filter = ['agency', 'route_type', 'created_at']
-    search_fields = ['short_name', 'long_name', 'source_id']
+    search_fields = ['short_name', 'long_name', 'source_id', 'line_id']
     readonly_fields = ['id', 'created_at', 'updated_at']
 
 
@@ -160,4 +169,23 @@ class EventParticipantAdmin(admin.ModelAdmin):
     list_display = ['profile', 'event', 'status', 'created_at']
     list_filter = ['status', 'created_at']
     search_fields = ['profile__local_name', 'event__title']
+    readonly_fields = ['id', 'created_at', 'updated_at']
+
+
+@admin.register(DriverShift)
+class DriverShiftAdmin(admin.ModelAdmin):
+    list_display = ['profile', 'route', 'data_source', 'status', 'direction_id', 'vehicle_id',
+                    'position_count', 'started_at', 'ended_at']
+    list_filter = ['status', 'data_source', 'started_at']
+    search_fields = ['profile__local_name', 'route__short_name', 'vehicle_id']
+    raw_id_fields = ['profile', 'route', 'data_source']
+    readonly_fields = ['id', 'created_at', 'updated_at', 'started_at', 'ended_at', 'position_count']
+
+
+@admin.register(DroneZone)
+class DroneZoneAdmin(admin.ModelAdmin):
+    list_display = ['zone_identifier', 'name', 'restriction', 'source', 'source_version',
+                    'lower_limit_m', 'upper_limit_m', 'created_at']
+    list_filter = ['restriction', 'source', 'country_code']
+    search_fields = ['zone_identifier', 'name']
     readonly_fields = ['id', 'created_at', 'updated_at']

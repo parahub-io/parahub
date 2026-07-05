@@ -63,7 +63,7 @@
 
       <!-- Loading -->
       <div v-if="store.loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" />
       </div>
 
       <!-- Error -->
@@ -73,7 +73,7 @@
 
       <!-- Empty state -->
       <div v-else-if="filtered.length === 0" class="text-center py-12">
-        <img src="/images/para/shrug.png" alt="Para" class="mx-auto h-32 w-auto mb-3" />
+        <img src="/images/para/shrug.webp" alt="Para" class="mx-auto h-32 w-auto mb-3" />
         <p class="text-neutral-500 dark:text-neutral-400 text-sm">
           {{ tab === 'all' ? $t('dispatch.no_assignments') : tab === 'active' ? $t('dispatch.no_active') : $t('dispatch.no_completed') }}
         </p>

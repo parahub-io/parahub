@@ -1,0 +1,23 @@
+{
+  "subscriptions": {
+    "support_monthly": "Soutenir {name} chaque mois",
+    "monthly_hint": "Un paiement unique maintenant. Chaque mois, nous vous rappellerons de renouveler — aucun prélèvement automatique.",
+    "success_title": "Vous soutenez désormais {name}",
+    "success_hint": "Nous vous préviendrons avant l'expiration pour renouveler en un geste.",
+    "confirm_support": "Confirmer le soutien",
+    "support_monthly_btn": "Soutenir chaque mois",
+    "supporting": "Vous soutenez",
+    "supporters_tooltip": "Personnes qui soutiennent ce profil chaque mois",
+    "access_until": "Annulé · accès jusqu'au {date}",
+    "renews_on": "{amount} sats/mois · renouveler avant le {date}",
+    "cancel": "Annuler",
+    "toast_subscribed": "Vous soutenez désormais {name}",
+    "toast_failed": "Impossible d'enregistrer votre soutien. Réessayez.",
+    "toast_cancelled": "Soutien annulé — l'accès reste jusqu'à la fin de la période.",
+    "locked_title": "Réservé aux abonnés",
+    "locked_desc": "Soutenez {name} chaque mois pour lire ceci.",
+    "unlock_btn": "Soutenir pour débloquer",
+    "editor_label": "Abonnés uniquement",
+    "editor_hint": "Seules les personnes qui vous soutiennent chaque mois lisent le texte complet. Les autres voient l'extrait."
+  }
+}

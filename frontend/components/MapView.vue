@@ -13,33 +13,19 @@
       <div ref="mapRoot" class="mini-map-root" role="application" :aria-label="$t('map.aria_interactive_map')"></div>
 
       <!-- WebGL unavailable fallback -->
-      <div v-if="webglError" class="webgl-error-overlay" role="alert">
-        <div class="webgl-error-card">
-          <AlertTriangle class="webgl-error-icon" aria-hidden="true" />
-          <h2 class="webgl-error-title">{{ $t('map.webgl_error.title') }}</h2>
-          <p class="webgl-error-desc">{{ $t('map.webgl_error.description') }}</p>
-          <p class="webgl-error-fix-intro">{{ $t('map.webgl_error.fix_intro') }}</p>
-          <ol class="webgl-error-steps">
-            <li>
-              <i18n-t keypath="map.webgl_error.fix_settings" tag="span">
-                <template #settings>
-                  <code>chrome://settings/system</code>
-                </template>
-              </i18n-t>
-            </li>
-            <li>
-              <i18n-t keypath="map.webgl_error.fix_check" tag="span">
-                <template #gpu>
-                  <code>chrome://gpu</code>
-                </template>
-              </i18n-t>
-            </li>
-          </ol>
-          <button @click="reloadPage" class="webgl-error-retry">{{ $t('map.webgl_error.retry') }}</button>
-        </div>
-      </div>
+      <MapWebglErrorOverlay v-if="webglError" @retry="reloadPage" />
       <!-- Cached screenshot overlay for instant KeepAlive restore -->
       <img class="map-snapshot-overlay" style="display: none" alt="" aria-hidden="true">
+
+      <!-- Weather HUD: current conditions near the map centre (Open-Meteo).
+           Top-right, offset left of the zoom/layer controls strip so it never
+           sits under them. -->
+      <div
+        v-if="weatherHudVisible"
+        class="absolute top-[10px] right-16 z-[1000]"
+      >
+        <MapWeatherWidget :data="weatherData" />
+      </div>
 
       <!-- Back button + browse toggle row (when returnTo) -->
       <div
@@ -85,7 +71,7 @@
       />
 
       <!-- Unified Search bar with Browse + Directions buttons -->
-      <div class="search-with-directions" :class="{ 'panel-open': browseVisible || routingVisible, 'detail-panel-open': !!selectedFeature || activeAvatarPanel !== null || !!selectedVehicle || !!selectedIoTDevice || !!selectedCondominium || !!selectedEstablishment }">
+      <div class="search-with-directions" :class="{ 'panel-open': browseVisible || routingVisible, 'detail-panel-open': !!selectedFeature || activeAvatarPanel !== null || !!selectedVehicle || !!selectedIoTDevice || !!selectedCondominium || !!selectedEstablishment || (urbanActive && !!urbanResult) }">
         <button
           v-if="!route.query.returnTo"
           @click="openBrowsePanel"
@@ -141,6 +127,17 @@
         @osm-resolved="handleOsmResolved"
       />
 
+      <!-- Urban analysis result — rendered in the standard feature side panel
+           (rotating drawn-plot preview on top, framing + edificability below). -->
+      <MapFeaturePanel
+        content-type="urban"
+        :urban-result="urbanResult"
+        :urban-polygon="urban.urbanPoints.value"
+        :urban-formatted-area="urban.formattedArea.value"
+        @close="urban.stopUrban()"
+        @urban-redraw="urban.redraw()"
+      />
+
       <!-- Highlighted item marker with blinking animation -->
       <div
         v-if="mapStore.highlightedItem && mapStore.animationsEnabled"
@@ -164,432 +161,18 @@
         @avatar-click="handleAvatarClick"
       />
 
-      <!-- Map Layer Controls -->
-      <div class="map-layer-controls" :style="{ top: customControlsTop }">
-        <!-- Layers + Tools + IoT (single group) -->
-        <div class="map-ctrl-group">
-          <!-- Layers button (Aerial + Transit + Condo + Gov + Hubs + Mesh + Energy) -->
-          <div class="layers-control">
-            <button
-              @click.stop="layersPopoverOpen = !layersPopoverOpen; architectPopoverOpen = false; iotPopoverOpen = false; hideIoTPreview()"
-              class="opensky-btn"
-              :title="$t('map.layers.title')"
-            >
-              <Layers class="w-5 h-5" />
-            </button>
-            <div v-if="layersPopoverOpen" class="layers-popover" @click.stop>
-              <button
-                class="layers-popover-item"
-                :class="{ active: openSkyEnabled }"
-                :aria-pressed="openSkyEnabled"
-                @click="toggleOpenSkyLayer"
-              >
-                <Satellite class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.layers.aerial') }}</span>
-                <Eye v-if="openSkyEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-                <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: tiles3dEnabled }"
-                :aria-pressed="tiles3dEnabled"
-                @click="toggle3DTiles"
-              >
-                <Box class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.layers.aerial_3d') }}</span>
-                <Loader2 v-if="tiles3dLoading" class="w-3.5 h-3.5 flex-shrink-0 opacity-70 animate-spin" aria-hidden="true" />
-                <Eye v-else-if="tiles3dEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-                <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: transitEnabled }"
-                :aria-pressed="transitEnabled"
-                @click="toggleTransitLayer"
-              >
-                <Bus class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.layers.transit') }}</span>
-                <span v-if="transit.activeRouteFilter.value" class="w-2 h-2 bg-secondary-600 rounded-full flex-shrink-0" aria-hidden="true"></span>
-                <Eye v-if="transitEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-                <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: governmentEnabled }"
-                :aria-pressed="governmentEnabled"
-                @click="gov.toggleGovernment()"
-              >
-                <Landmark class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.layers.government') }}</span>
-                <Eye v-if="governmentEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-                <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: churchEnabled }"
-                :aria-pressed="churchEnabled"
-                @click="church.toggleChurches()"
-              >
-                <Cross class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.layers.churches') }}</span>
-                <Eye v-if="churchEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-                <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: condosEnabled }"
-                :aria-pressed="condosEnabled"
-                @click="condo.toggleCondos()"
-              >
-                <Building2 class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.layers.condominiums') }}</span>
-                <Eye v-if="condosEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-                <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: hubsEnabled }"
-                :aria-pressed="hubsEnabled"
-                @click="hub.toggleHubs()"
-              >
-                <Package class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.layers.hubs') }}</span>
-                <Eye v-if="hubsEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-                <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: meshEnabled }"
-                :aria-pressed="meshEnabled"
-                @click="mesh.toggleMesh()"
-              >
-                <Wifi class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.layers.mesh_network') }}</span>
-                <Eye v-if="meshEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-                <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: energyCellsEnabled }"
-                :aria-pressed="energyCellsEnabled"
-                @click="iot.toggleEnergyCells()"
-              >
-                <Zap class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.layers.energy') }}</span>
-                <Eye v-if="energyCellsEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-                <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-          <!-- Map Tools -->
-          <div class="architect-control">
-            <button
-              @click.stop="architectPopoverOpen = !architectPopoverOpen; layersPopoverOpen = false; iotPopoverOpen = false; hideIoTPreview()"
-              class="opensky-btn"
-              :class="{ active: measureActive || sunStudyActive || isochroneActive || droneReachActive }"
-              :title="$t('map.architect.title')"
-            >
-              <Ruler class="w-5 h-5" />
-            </button>
-            <div v-if="architectPopoverOpen" class="layers-popover" @click.stop>
-              <button
-                class="layers-popover-item"
-                :class="{ active: measureActive && measureMode === 'distance' }"
-                @click="if (sunStudyActive) sunStudy.stopSunStudy(); if (isochroneActive) isochrone.stopIsochrone(); if (droneReachActive) droneReach.stopDroneReach(); measure.toggleMeasure('distance'); architectPopoverOpen = false"
-              >
-                <Ruler class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.architect.measure') }}</span>
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: measureActive && measureMode === 'area' }"
-                @click="if (sunStudyActive) sunStudy.stopSunStudy(); if (isochroneActive) isochrone.stopIsochrone(); if (droneReachActive) droneReach.stopDroneReach(); measure.toggleMeasure('area'); architectPopoverOpen = false"
-              >
-                <Pentagon class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.architect.measure_area') }}</span>
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: sunStudyActive }"
-                @click="if (measureActive) measure.stopMeasure(); if (isochroneActive) isochrone.stopIsochrone(); if (droneReachActive) droneReach.stopDroneReach(); sunStudy.toggleSunStudy(); architectPopoverOpen = false"
-              >
-                <Sun class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.architect.sun_study') }}</span>
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: isochroneActive }"
-                @click="if (measureActive) measure.stopMeasure(); if (sunStudyActive) sunStudy.stopSunStudy(); if (droneReachActive) droneReach.stopDroneReach(); isochrone.toggleIsochrone(); architectPopoverOpen = false"
-              >
-                <Clock class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.architect.isochrone') }}</span>
-              </button>
-              <button
-                class="layers-popover-item"
-                :class="{ active: droneReachActive }"
-                @click="if (measureActive) measure.stopMeasure(); if (sunStudyActive) sunStudy.stopSunStudy(); if (isochroneActive) isochrone.stopIsochrone(); droneReach.toggleDroneReach(); architectPopoverOpen = false"
-              >
-                <Radio class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                <span class="layers-popover-label">{{ $t('map.architect.drone_reach') }}</span>
-              </button>
-            </div>
-          </div>
-          <!-- IoT Devices popover (Routers + Trackers) -->
-          <div v-if="authStore.isAuthenticated" class="tracker-control">
-            <button
-              @click.stop="iotPopoverOpen = !iotPopoverOpen; layersPopoverOpen = false; architectPopoverOpen = false; if (!iotPopoverOpen) hideIoTPreview()"
-              class="opensky-btn"
-              title="IoT Devices"
-            >
-              <Radar class="w-5 h-5" />
-            </button>
-          <div v-if="iotPopoverOpen" class="tracker-popover" @click.stop>
-            <!-- My Homes section -->
-            <div v-if="propertyStore.properties.length > 0" class="tracker-popover-header" @click="iotHomesExpanded = !iotHomesExpanded" @keydown.enter="iotHomesExpanded = !iotHomesExpanded" @keydown.space.prevent="iotHomesExpanded = !iotHomesExpanded" role="button" tabindex="0" style="cursor: pointer;">
-              <div class="iot-section-toggle">
-                <ChevronRight class="w-3 h-3 iot-chevron" :class="{ expanded: iotHomesExpanded }" />
-                <Home class="w-3.5 h-3.5" />
-                <span class="tracker-popover-title">{{ $t('property.my_homes') }}</span>
-              </div>
-            </div>
-            <template v-if="iotHomesExpanded && propertyStore.properties.length > 0">
-              <button
-                v-for="p in propertyStore.properties"
-                :key="p.id"
-                class="tracker-popover-item"
-                :disabled="!p.latitude"
-                @click="p.latitude && selectAndFlyToProperty(p)"
-                @mouseenter="p.latitude && showIoTPreview(p.latitude, p.longitude)"
-                @mouseleave="hideIoTPreview()"
-              >
-                <component :is="propertyTypeIcon(p.property_type)" class="w-3 h-3 opacity-60" />
-                <span class="tracker-item-name">{{ p.name }}</span>
-                <span v-if="p.device_count" class="tracker-item-speed">{{ p.device_count }} IoT</span>
-              </button>
-            </template>
-            <!-- GPS Trackers section -->
-            <div class="tracker-popover-header" @click="iotTrackersExpanded = !iotTrackersExpanded" @keydown.enter="iotTrackersExpanded = !iotTrackersExpanded" @keydown.space.prevent="iotTrackersExpanded = !iotTrackersExpanded" role="button" tabindex="0" style="cursor: pointer;">
-              <div class="iot-section-toggle">
-                <ChevronRight class="w-3 h-3 iot-chevron" :class="{ expanded: iotTrackersExpanded }" />
-                <Radar class="w-3.5 h-3.5" />
-                <span class="tracker-popover-title">GPS Trackers</span>
-              </div>
-              <button @click.stop="toggleTrackerLayer" class="tracker-eye-btn" :aria-label="trackersEnabled ? $t('map.toggle_hide_layer', { layer: 'GPS Trackers' }) : $t('map.toggle_show_layer', { layer: 'GPS Trackers' })">
-                <Eye v-if="trackersEnabled" class="w-3.5 h-3.5" />
-                <EyeOff v-else class="w-3.5 h-3.5 opacity-50" />
-              </button>
-            </div>
-            <template v-if="iotTrackersExpanded">
-              <div v-if="trackerPositionsList.length === 0" class="tracker-popover-empty">
-                No trackers
-              </div>
-              <button
-                v-for="t in trackerPositionsList"
-                :key="t.device_id"
-                class="tracker-popover-item"
-                @click="selectAndFlyToTracker(t)"
-                @mouseenter="showIoTPreview(t.latitude, t.longitude)"
-                @mouseleave="hideIoTPreview()"
-              >
-                <span class="tracker-status-dot" :class="t.traccar_status === 'online' ? 'online' : t.traccar_status === 'offline' ? 'offline' : 'unknown'"></span>
-                <span class="tracker-item-name">{{ t.name }}</span>
-                <span v-if="trackerSignalAge(t) >= 5" class="tracker-item-signal-lost" :title="t.last_update">{{ trackerSignalAgeText(t) }}</span>
-                <span v-else-if="t.speed && t.speed > 1" class="tracker-item-speed">{{ Math.round(t.speed) }} km/h</span>
-              </button>
-            </template>
-          </div>
-        </div>
-        </div>
-        <!-- OpenSky pilot tools (only when aerial mode active) -->
-        <div v-if="openSkyMode" class="map-ctrl-group">
-          <NuxtLink
-            :to="localePath('/opensky')"
-            class="opensky-btn"
-            title="OpenSky Dashboard"
-          >
-            <Plane class="w-5 h-5" />
-          </NuxtLink>
-          <button
-            v-if="authStore.isAuthenticated"
-            @click="toggleMissionArea"
-            class="opensky-btn"
-            :class="{ active: tileGridMode || missionGenerating }"
-            :disabled="missionGenerating"
-            :title="tileGridMode ? 'Exit mission planning' : 'Plan drone missions'"
-          >
-            <Grid3x3 class="w-5 h-5" :class="{ 'animate-pulse': missionGenerating }" />
-          </button>
-        </div>
-      </div>
+      <!-- Right control strip (layers / tools / IoT popovers, OpenSky group) + mission plan bar -->
+      <MapControls
+        :top="customControlsTop"
+        :open-sky="openSky" :satellite="satellite" :tiles3d="tiles3d" :transit="transit"
+        :gov="gov" :church="church" :condo="condo" :hub="hub" :mesh="mesh" :iot="iot"
+        :measure="measure" :sun-study="sunStudy" :isochrone="isochrone" :drone-reach="droneReach" :urban="urban"
+        @select-tracker="selectAndFlyToTracker"
+        @select-property="selectAndFlyToProperty"
+      />
 
-      <!-- OpenSky mission planning hint (top center, in grid mode) -->
-      <div v-if="tileGridMode" class="opensky-plan-bar">
-        <template v-if="hoveredTileBudget">
-          <span class="opensky-plan-tile">Z17/{{ hoveredTileBudget.x }}/{{ hoveredTileBudget.y }}</span>
-          <span class="opensky-plan-sep">·</span>
-          <span class="opensky-plan-budget">
-            <span class="opensky-plan-level">1 · ~{{ hoveredTileBudget.battery1 }} min</span>
-            <span class="opensky-plan-desc">ortho</span>
-          </span>
-          <span class="opensky-plan-sep">·</span>
-          <span class="opensky-plan-budget">
-            <span class="opensky-plan-level">3 · ~{{ hoveredTileBudget.battery3 }} min</span>
-            <span class="opensky-plan-desc">baseline 3D</span>
-          </span>
-          <span class="opensky-plan-sep">·</span>
-          <span class="opensky-plan-budget">
-            <span class="opensky-plan-level">5 · ~{{ hoveredTileBudget.battery5 }} min</span>
-            <span class="opensky-plan-desc">ultra 3D</span>
-          </span>
-          <span class="opensky-plan-hint">click to download 5 KMZ</span>
-        </template>
-        <template v-else>
-          <span class="opensky-plan-hint">Hover a tile — pick your budget (1 / 3 / 5 batteries)</span>
-        </template>
-      </div>
-
-      <!-- Measure bar (bottom center) -->
-      <div v-if="measureActive" class="measure-bar">
-        <span v-if="measure.measurePoints.value.length === 0" class="measure-bar-hint">{{ $t('map.architect.click_to_measure') }}</span>
-        <template v-else-if="measureMode === 'area'">
-          <span class="measure-bar-distance">{{ measure.formattedArea.value }}</span>
-          <span class="measure-bar-segments">{{ $t('map.architect.perimeter') }}: {{ measure.formattedPerimeter.value }}</span>
-        </template>
-        <template v-else>
-          <span class="measure-bar-distance">{{ measure.formattedTotal.value }}</span>
-          <span class="measure-bar-segments">{{ measure.measurePoints.value.length }} {{ $t('map.architect.points') }}</span>
-        </template>
-        <button @click="measure.undoLastPoint()" class="measure-bar-btn" :disabled="measure.measurePoints.value.length === 0">
-          {{ $t('map.architect.undo') }}
-        </button>
-        <button @click="measure.clearMeasure()" class="measure-bar-btn" :disabled="measure.measurePoints.value.length === 0">
-          {{ $t('map.architect.clear') }}
-        </button>
-        <button @click="measure.stopMeasure()" class="measure-bar-btn measure-bar-btn-close">
-          ×
-        </button>
-      </div>
-
-      <!-- Sun study panel (bottom center) -->
-      <div v-if="sunStudyActive" class="sun-study-panel">
-        <div class="sun-study-header">
-          <Sun class="w-4 h-4 flex-shrink-0 text-amber-500" />
-          <input type="date" v-model="sunDateISO" class="sun-study-date" />
-          <span class="sun-study-time-display">{{ formattedTime }}</span>
-          <div class="sun-study-badges">
-            <button
-              class="sun-study-badge"
-              :class="realtimeMode ? 'sun-live' : 'sun-live-off'"
-              @click="!realtimeMode && sunStudy.startSunStudy()"
-            >LIVE</button>
-            <span v-if="isGoldenHour" class="sun-study-badge sun-golden">{{ $t('map.architect.golden_hour') }}</span>
-            <span v-else-if="isNight" class="sun-study-badge sun-night">{{ $t('map.architect.night') }}</span>
-          </div>
-          <button @click="sunStudy.stopSunStudy()" class="sun-study-close">×</button>
-        </div>
-        <div class="sun-study-slider-wrap">
-          <input
-            type="range"
-            v-model.number="sunTimeMinutes"
-            min="0" max="1440" step="1"
-            class="sun-study-slider"
-            @input="realtimeMode = false"
-          />
-          <div class="sun-study-ticks">
-            <span v-for="h in [0, 3, 6, 9, 12, 15, 18, 21, 24]" :key="h"
-              class="sun-study-tick" :style="{ left: (h / 24 * 100) + '%' }">{{ h }}:00</span>
-          </div>
-        </div>
-        <div class="sun-study-info">
-          <span class="sun-study-stat">↑ {{ sunTimes?.sunrise }}</span>
-          <span class="sun-study-stat">
-            Az {{ sunPosition?.azimuthDeg?.toFixed(0) }}° · Alt {{ sunPosition?.altitudeDeg?.toFixed(1) }}°
-          </span>
-          <span
-            class="sun-study-stat sun-study-uv"
-            :title="$t('map.architect.uv_tooltip')"
-          >
-            <span class="sun-study-uv-dot" :style="{ background: uvCategory.color }"></span>
-            UV {{ uvIndex }} · {{ $t(`map.architect.uv_${uvCategory.tier}`) }}
-          </span>
-          <span class="sun-study-stat">↓ {{ sunTimes?.sunset }}</span>
-        </div>
-      </div>
-
-      <!-- Isochrone panel (bottom center) -->
-      <div v-if="isochroneActive" class="isochrone-bar">
-        <template v-if="!isochrone.isochroneCenter.value">
-          <span class="measure-bar-hint">{{ $t('map.architect.click_for_isochrone') }}</span>
-        </template>
-        <template v-else>
-          <span class="isochrone-bar-legend">
-            <span class="isochrone-dot" style="background: #22c55e"></span>5 min
-            <span class="isochrone-dot" style="background: #f59e0b"></span>10 min
-            <span class="isochrone-dot" style="background: #ef4444"></span>15 min
-          </span>
-        </template>
-        <div class="isochrone-mode-btns">
-          <button
-            class="isochrone-mode-btn" :class="{ active: costingMode === 'pedestrian' }"
-            @click="isochrone.setCostingMode('pedestrian')" :title="$t('map.architect.pedestrian')"
-          >🚶</button>
-          <button
-            class="isochrone-mode-btn" :class="{ active: costingMode === 'bicycle' }"
-            @click="isochrone.setCostingMode('bicycle')" :title="$t('map.architect.bicycle')"
-          >🚲</button>
-          <button
-            class="isochrone-mode-btn" :class="{ active: costingMode === 'auto' }"
-            @click="isochrone.setCostingMode('auto')" :title="$t('map.architect.car')"
-          >🚗</button>
-        </div>
-        <span v-if="isochroneLoading" class="isochrone-loading">⏳</span>
-        <button @click="isochrone.stopIsochrone()" class="measure-bar-btn measure-bar-btn-close">×</button>
-      </div>
-
-      <!-- Drone reachability panel (bottom center) -->
-      <div v-if="droneReachActive" class="dronereach-bar">
-        <template v-if="!droneReach.launchPoint.value">
-          <span class="measure-bar-hint">{{ $t('map.architect.drone_reach_hint') }}</span>
-        </template>
-        <template v-else>
-          <span class="isochrone-bar-legend">
-            <span class="isochrone-dot" style="background: #22c55e"></span>{{ $t('map.architect.dr_capturable') }}<span v-if="droneReach.stats.value"> {{ droneReach.stats.value.capturable }}</span>
-            <span class="isochrone-dot" style="background: #ef4444; margin-left: 8px"></span>{{ $t('map.architect.dr_terrain') }}<span v-if="droneReach.stats.value"> {{ droneReach.stats.value.terrain }}</span>
-            <span class="isochrone-dot" style="background: #f59e0b; margin-left: 8px"></span>{{ $t('map.architect.dr_los') }}<span v-if="droneReach.stats.value"> {{ droneReach.stats.value.los }}</span>
-            <span class="isochrone-dot" style="background: #7e22ce; margin-left: 8px"></span>{{ $t('map.architect.dr_restricted') }}<span v-if="droneReach.stats.value"> {{ droneReach.stats.value.restricted }}</span>
-          </span>
-        </template>
-        <span v-if="droneReachSelectedZone" class="dronereach-zoneinfo">
-          <span class="isochrone-dot" :style="{ background: '#dc2626' }"></span>
-          {{ droneReachSelectedZone.name || droneReachSelectedZone.id }} ·
-          {{ $t('map.architect.dr_zone_' + String(droneReachSelectedZone.restriction).toLowerCase(), String(droneReachSelectedZone.restriction)) }}
-          · {{ droneReachSelectedZone.lower_m }}–{{ droneReachSelectedZone.upper_m }}m {{ droneReachSelectedZone.upper_ref }}
-        </span>
-        <div class="dronereach-controls">
-          <label class="dronereach-ctl" :title="$t('map.architect.dr_agl_hint')">
-            <span>AGL</span>
-            <input type="range" min="30" max="120" step="10" :value="droneReachAgl"
-              @input="droneReach.setParam('agl', +($event.target as HTMLInputElement).value)" />
-            <span class="dronereach-val">{{ droneReachAgl }}m</span>
-          </label>
-          <label class="dronereach-ctl" :title="$t('map.architect.dr_margin_hint')">
-            <span>{{ $t('map.architect.dr_margin') }}</span>
-            <input type="range" min="0" max="100" step="10" :value="droneReachMargin"
-              @input="droneReach.setParam('margin', +($event.target as HTMLInputElement).value)" />
-            <span class="dronereach-val">{{ droneReachMargin }}m</span>
-          </label>
-          <div class="dronereach-radius">
-            <button v-for="r in [500, 2000, 5000]" :key="r"
-              class="isochrone-mode-btn" :class="{ active: droneReachRadius === r }"
-              @click="droneReach.setParam('radiusM', r)">{{ r < 1000 ? r + 'm' : (r / 1000) + 'km' }}</button>
-          </div>
-          <button class="isochrone-mode-btn dronereach-zonetoggle" :class="{ active: droneReachShowZones }"
-            :title="$t('map.architect.dr_zones_hint')"
-            @click="droneReach.setShowZones(!droneReachShowZones)">{{ $t('map.architect.dr_zones') }}</button>
-        </div>
-        <span v-if="droneReachLoading" class="isochrone-loading">⏳</span>
-        <button @click="droneReach.stopDroneReach()" class="measure-bar-btn measure-bar-btn-close">×</button>
-      </div>
+      <!-- Bottom-center tool bars (measure / sun study / isochrone / drone reach / urban) -->
+      <MapToolbars :measure="measure" :sun-study="sunStudy" :isochrone="isochrone" :drone-reach="droneReach" :urban="urban" />
 
     </div>
   </div>
@@ -598,7 +181,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { MapPin, Map as MapIcon, ArrowLeft, Layers, Grid3x3, Plane, Radar, Radio, Eye, EyeOff, Building2, ChevronRight, Bus, Route, Zap, Home, Warehouse, LandPlot, Landmark, Package, Wifi, Satellite, Cross, Ruler, Sun, Pentagon, Clock, Box, Loader2, AlertTriangle } from 'lucide-vue-next'
+import { ArrowLeft, Building2, Route } from 'lucide-vue-next'
 import { createGeolocationControl } from '~/composables/useGeolocationControl'
 import { useMapKeyboard } from '~/composables/useMapKeyboard'
 import { useMapHighlight } from '~/composables/useMapHighlight'
@@ -610,17 +193,18 @@ import { useMapRouting } from '~/composables/useMapRouting'
 import { useMapAvatarPanel } from '~/composables/useMapAvatarPanel'
 import { useMapCondoLayers } from '~/composables/useMapCondoLayers'
 import { useMapMeshLayer } from '~/composables/useMapMeshLayer'
+import { useMapSatelliteLayer } from '~/composables/useMapSatelliteLayer'
 import { useMapGovernmentLayer } from '~/composables/useMapGovernmentLayer'
 import { useMapChurchLayer } from '~/composables/useMapChurchLayer'
 import { useMapMeasure } from '~/composables/useMapMeasure'
 import { useMapSunStudy } from '~/composables/useMapSunStudy'
 import { useMapIsochrone } from '~/composables/useMapIsochrone'
 import { useMapDroneReach } from '~/composables/useMapDroneReach'
+import { useMapUrbanAnalysis } from '~/composables/useMapUrbanAnalysis'
 
 const router = useRouter()
 const localePath = useLocalePath()
 const route = useRoute()
-const { t } = useI18n()
 const mapStore = useMapStore()
 const authStore = useAuthStore()
 
@@ -637,7 +221,6 @@ const { mapCenter, mapZoom } = useMapState()
 const {
   currentMarker, selectedFeature, clickedFeatures, clickCoordinates,
   setCurrentMarker, setSelectedFeature, setClickedFeatures, setClickCoordinates,
-  setMapCenter, setMapZoom
 } = useMapState()
 
 // Search language from profile
@@ -662,10 +245,7 @@ const {
 } = browse
 
 const routing = useMapRouting({ browseVisible, animationEnabled })
-const {
-  routingVisible, routeGeoJSON, routeBounds,
-  awaitingMapClick, routingOrigin, routingDest,
-} = routing
+const { routingVisible } = routing
 
 const avatar = useMapAvatarPanel({
   browseVisible,
@@ -677,7 +257,7 @@ const avatar = useMapAvatarPanel({
 const {
   mapPresenceEnabled, currentAvatarType, currentSpeechBubble, currentAvatarState,
   activeAvatarPanel, nearbyAvatars, isMapPresenceConnected,
-  panelContentType, panelAvatarData,
+  panelAvatarData,
   wrappedSetState, wrappedSetSpeechBubble,
 } = avatar
 
@@ -685,374 +265,87 @@ const {
 const currentOpenSkyMission = computed(() => route.query.opensky_mission as string | undefined)
 
 const openSky = useMapOpenSky(currentOpenSkyMission)
-const { openSkyEnabled, openSkyMode, missionGenerating, tileGridMode, hoveredTileBudget } = openSky
-
-// Layers popover state
-const layersPopoverOpen = ref(false)
 
 const iot = useMapIoTLayers()
-const {
-  trackersEnabled, trackerPositionsList,
-  energyCellsEnabled,
-  iotPopoverOpen, iotTrackersExpanded,
-  showIoTPreview, hideIoTPreview,
-} = iot
 
 const transit = useMapTransitLayers()
-const { transitEnabled } = transit
 
 const mesh = useMapMeshLayer()
-const { meshEnabled } = mesh
-
+const satellite = useMapSatelliteLayer()
 const condo = useMapCondoLayers()
-const { condosEnabled } = condo
-
 const hub = useMapHubLayers()
-const { hubsEnabled } = hub
-
 const gov = useMapGovernmentLayer()
-const { governmentEnabled } = gov
-
 const church = useMapChurchLayer()
-const { churchEnabled } = church
-
 const tiles3d = useMap3DTiles()
-const { tiles3dEnabled, tiles3dLoading } = tiles3d
+
+// KeepAlive active state (needed by the panel/weather composables below)
+const isActive = ref(true)
+
+// ======== Entity panels (vehicle / IoT / condo / hub / establishment) ========
+
+const panels = useMapEntityPanels({ avatar, routing, browse, iot, openSky, isActive })
+const {
+  selectedVehicle, selectedIoTDevice, selectedCondominium, selectedHub, selectedEstablishment,
+  panelContentTypeWithVehicle, entityPanelOpen,
+  clearEntityPanels, closeFeaturePanel, handleFeaturePanelBack,
+} = panels
+
+// Wire vehicle click → panel (mutual exclusion via the shared clear)
+transit.setVehicleClickHandler((vehicle: any) => {
+  clearEntityPanels()
+  selectedVehicle.value = vehicle
+})
+
+const iotBridge = useMapIoTBridge({ selectedIoTDevice, clearEntityPanels, iot, animationEnabled })
+const {
+  selectAndFlyToTracker, selectAndFlyToProperty,
+  handleShowTrail, handleClearTrail, handleTrailCursor, handleRecenterIoT,
+} = iotBridge
+
+const trackerPanelWs = useMapTrackerPanelWs({ selectedIoTDevice, iot })
 
 // ======== Map Tools ========
 
 const measure = useMapMeasure()
-const { measureActive, measureMode } = measure
+const { measureActive } = measure
 
 const sunStudy = useMapSunStudy()
-const { sunStudyActive, sunTimeMinutes, sunDateISO, realtimeMode, sunPosition, sunTimes, formattedTime, isGoldenHour, isNight, uvIndex, uvCategory } = sunStudy
+const { sunStudyActive } = sunStudy
 
 const isochrone = useMapIsochrone()
-const { isochroneActive, isochroneLoading, costingMode, costingLabel } = isochrone
+const { isochroneActive } = isochrone
 
 const droneReach = useMapDroneReach()
-const { droneReachActive, droneReachLoading } = droneReach
-const { agl: droneReachAgl, margin: droneReachMargin, radiusM: droneReachRadius } = droneReach
-const { showZones: droneReachShowZones, selectedZone: droneReachSelectedZone } = droneReach
+const { droneReachActive } = droneReach
 
-const architectPopoverOpen = ref(false)
+const urban = useMapUrbanAnalysis()
+const { urbanActive } = urban
+const urbanResult = urban.result
+
+// Weather HUD — current conditions near the map centre (Open-Meteo, cached).
+// Hidden while any panel is open (the HUD sits where panels overlap).
+const weatherHud = useMapWeatherHud({
+  isActive,
+  blocked: computed(() =>
+    browseVisible.value || routingVisible.value || !!selectedFeature.value || entityPanelOpen.value
+  ),
+})
+const { weatherData, weatherHudVisible } = weatherHud
+
 const customControlsTop = ref('250px') // updated dynamically after map init
-/** Sky + atmosphere config adapted to current theme */
-function _applySky(map: any) {
-  const dark = colorMode.value === 'dark'
-  map.setSky({
-    'sky-color': dark ? '#0a0a1a' : '#88c0ec',
-    'fog-color': dark ? '#0a0a1a' : '#88c0ec',
-    'sky-horizon-blend': 0.4,
-    'horizon-fog-blend': 0,
-    'fog-ground-blend': 0,
-    'atmosphere-blend': 0,
-  })
-}
 
-// ======== My Homes (properties) in IoT popover ========
+// ======== Layer stack (initial registration + style-reload re-registration) ========
 
-const propertyStore = usePropertyStore()
-const iotHomesExpanded = ref(true)
-const propertiesLoaded = ref(false)
-
-watch(iotPopoverOpen, async (open) => {
-  if (open && !propertiesLoaded.value && authStore.isAuthenticated) {
-    await propertyStore.fetchProperties()
-    propertiesLoaded.value = true
-  }
-})
-
-const propertyTypeIcon = (type: string) => {
-  switch (type) {
-    case 'apartment': return Building2
-    case 'garage': return Warehouse
-    case 'land': return LandPlot
-    default: return Home
-  }
-}
-
-// ======== Vehicle panel state ========
-
-const selectedVehicle = ref<any>(null)
-
-// ======== IoT device panel state ========
-
-const selectedIoTDevice = ref<any>(null)
-
-// ======== Condominium panel state ========
-
-const selectedCondominium = ref<any>(null)
-
-// ======== Hub panel state ========
-
-const selectedHub = ref<any>(null)
-
-// ======== Establishment panel state (government, churches, etc.) ========
-
-const selectedEstablishment = ref<any>(null)
-
-// Override panelContentType to include vehicle, IoT device, condominium, hub, and establishment
-const panelContentTypeWithVehicle = computed(() => {
-  if (selectedVehicle.value) return 'vehicle'
-  if (selectedIoTDevice.value) return 'iot_device'
-  if (selectedCondominium.value) return 'condominium'
-  if (selectedHub.value) return 'hub'
-  if (selectedEstablishment.value) return 'establishment'
-  return panelContentType.value
-})
-
-// Wire vehicle click → panel
-transit.setVehicleClickHandler((vehicle: any) => {
-  // Clear other panel states (mutual exclusion)
-  setSelectedFeature(null)
-  setClickedFeatures([])
-  setClickCoordinates(null)
-  avatar.clearAvatarPanel()
-  selectedIoTDevice.value = null
-  selectedCondominium.value = null
-  selectedHub.value = null
-  selectedEstablishment.value = null
-  if (routingVisible.value) routingVisible.value = false
-  if (browseVisible.value) {
-    browseWasOpen.value = true
-    browseVisible.value = false
-  }
-  selectedVehicle.value = vehicle
-})
-
-// ======== IoT popover → panel bridge ========
-
-const selectIoTDevice = (deviceType: string, data: any) => {
-  // Clear other panel states
-  setSelectedFeature(null)
-  setClickedFeatures([])
-  setClickCoordinates(null)
-  avatar.clearAvatarPanel()
-  selectedVehicle.value = null
-  if (routingVisible.value) routingVisible.value = false
-  if (browseVisible.value) { browseWasOpen.value = true; browseVisible.value = false }
-
-  selectedIoTDevice.value = {
-    deviceType,
-    device_id: data.device_id || data.id || '',
-    name: data.name || '',
-    status: data.status || 'unknown',
-    speed: data.speed ? `${Math.round(data.speed)} km/h` : '',
-    firmware_role: data.firmware_role || '',
-    hardware_profile: data.hardware_profile || '',
-    price: data.price || '',
-    lngLat: data.latitude != null ? { lat: data.latitude, lng: data.longitude } : null,
-    last_update: data.last_update || null,
-  }
-
-  // Show lock-on animation
-  if (data.latitude != null) iot.showIoTLockOn(data.latitude, data.longitude)
-}
-
-/** Returns age in minutes since last tracker update, or 0 if fresh/unavailable. */
-const trackerSignalAge = (t: any): number => {
-  if (!t.last_update) return 0
-  return Math.floor((Date.now() - new Date(t.last_update).getTime()) / 60_000)
-}
-
-const trackerSignalAgeText = (t: any): string => {
-  const min = trackerSignalAge(t)
-  if (min < 60) return `${min}m`
-  const h = Math.floor(min / 60)
-  const rem = min % 60
-  return rem > 0 ? `${h}h${rem}m` : `${h}h`
-}
-
-const selectAndFlyToTracker = (t: any) => {
-  selectIoTDevice('tracker', { ...t, status: t.traccar_status })
-  iot.flyToTracker(t.latitude, t.longitude, t.name)
-  iot.enableFollow()
-}
-
-const handleShowTrail = (geojson: any) => {
-  const map = mapStore.mapInstance
-  if (!map) return
-  iot.showTrail(map, geojson)
-  const coords = geojson?.features?.find((f: any) => f.properties?.role === 'trail')?.geometry?.coordinates
-  if (coords && coords.length >= 2) {
-    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity
-    for (const [lng, lat] of coords) {
-      if (lng < minLng) minLng = lng
-      if (lng > maxLng) maxLng = lng
-      if (lat < minLat) minLat = lat
-      if (lat > maxLat) maxLat = lat
-    }
-    map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 80, maxZoom: 16 })
-  }
-}
-
-const handleClearTrail = () => {
-  const map = mapStore.mapInstance
-  if (map) iot.clearTrail(map)
-}
-
-const handleTrailCursor = (data: { lng: number; lat: number; heading: number | null }) => {
-  const map = mapStore.mapInstance
-  if (map) iot.updateTrailCursor(map, data.lng, data.lat, data.heading)
-}
-
-const handleRecenterIoT = () => {
-  const dev = selectedIoTDevice.value
-  if (!dev?.lngLat) return
-  iot.enableFollow()
-  iot.flyToTracker(dev.lngLat.lat, dev.lngLat.lng, dev.name || '')
-  iot.replayIoTLockOn(dev.lngLat.lat, dev.lngLat.lng)
-}
-
-const selectAndFlyToProperty = (p: any) => {
-  // Clear panel states + fly to property location with lock-on
-  setSelectedFeature(null)
-  setClickedFeatures([])
-  setClickCoordinates(null)
-  avatar.clearAvatarPanel()
-  selectedVehicle.value = null
-  selectedIoTDevice.value = null
-  selectedCondominium.value = null
-  selectedHub.value = null
-  selectedEstablishment.value = null
-  if (routingVisible.value) routingVisible.value = false
-  if (browseVisible.value) { browseWasOpen.value = true; browseVisible.value = false }
-
-  iot.showIoTLockOn(p.latitude, p.longitude)
-  iot.hideIoTPreview()
-  const map = mapStore.mapInstance
-  if (map) {
-    const animEnabled = useLocalPref('animation_enabled', true)
-    const padding = iot.getPanelPadding()
-    if (animEnabled.value !== false) {
-      map.flyTo({ center: [p.longitude, p.latitude], zoom: 17, essential: true, speed: 4.5, padding })
-    } else {
-      map.jumpTo({ center: [p.longitude, p.latitude], zoom: 17, padding })
-    }
-  }
-  iotPopoverOpen.value = false
-  layersPopoverOpen.value = false
-}
-
-// ======== Tracker WS real-time updates ========
-
-const trackerWs = useTrackerDeviceWs()
-let lastLockOnTime = 0
-let lastLockOnLat = 0
-let lastLockOnLon = 0
-const LOCK_ON_MIN_INTERVAL = 30000 // 30s between animations
-const LOCK_ON_MIN_DISTANCE = 0.0001 // ~11m — skip if barely moved
-const PANEL_UPDATE_INTERVAL = 2000 // min ms between panel reactive updates
-let panelUpdateTimer: ReturnType<typeof setTimeout> | null = null
-let pendingPanelUpdate: { speed: string; lat: number; lon: number; status: string; last_update: string | null } | null = null
-let lastPanelFlush = 0
-
-function flushPanelUpdate() {
-  if (pendingPanelUpdate && selectedIoTDevice.value) {
-    selectedIoTDevice.value = {
-      ...selectedIoTDevice.value,
-      speed: pendingPanelUpdate.speed,
-      status: pendingPanelUpdate.status,
-      lngLat: { lat: pendingPanelUpdate.lat, lng: pendingPanelUpdate.lon },
-      last_update: pendingPanelUpdate.last_update,
-    }
-    pendingPanelUpdate = null
-  }
-}
-
-// Watch only device_id changes — NOT every position update from WS callback.
-// Without this, the WS callback setting selectedIoTDevice.value triggers
-// the watcher, which re-subscribes, which gets an update, which triggers
-// the watcher again → infinite loop (2-5MB/s memory growth, 130% CPU).
-watch(() => selectedIoTDevice.value?.device_id, (newId, oldId) => {
-  // Unsubscribe from previous
-  if (oldId) {
-    trackerWs.unsubscribe()
-    if (panelUpdateTimer) { clearTimeout(panelUpdateTimer); panelUpdateTimer = null }
-    pendingPanelUpdate = null
-  }
-  // Subscribe to new tracker
-  const dev = selectedIoTDevice.value
-  if (dev?.deviceType === 'tracker' && newId) {
-    lastLockOnTime = Date.now()
-    lastLockOnLat = dev.lngLat?.lat || 0
-    lastLockOnLon = dev.lngLat?.lng || 0
-
-    lastPanelFlush = 0
-
-    trackerWs.subscribeDevice(newId, (tracker) => {
-      // tracker: { dev, name, lat, lon, spd, hdg, bat, t, owner }
-      if (!selectedIoTDevice.value || selectedIoTDevice.value.device_id !== tracker.dev) return
-      const newLat = tracker.lat
-      const newLon = tracker.lon
-      const newSpeed = tracker.spd || 0
-      // Derive status from tracker timestamp age
-      const trackerEpoch = tracker.t || 0
-      const ageSec = Math.floor(Date.now() / 1000) - trackerEpoch
-      const wsStatus = ageSec < 120 ? 'online' : ageSec < 600 ? 'unknown' : 'offline'
-      const wsLastUpdate = trackerEpoch ? new Date(trackerEpoch * 1000).toISOString() : null
-      // Throttled panel update — only trigger Vue reactivity at most every PANEL_UPDATE_INTERVAL
-      pendingPanelUpdate = {
-        speed: newSpeed > 1 ? `${Math.round(newSpeed)} km/h` : '',
-        lat: newLat,
-        lon: newLon,
-        status: wsStatus,
-        last_update: wsLastUpdate,
-      }
-      const now2 = Date.now()
-      if (now2 - lastPanelFlush >= PANEL_UPDATE_INTERVAL) {
-        flushPanelUpdate()
-        lastPanelFlush = now2
-      } else if (!panelUpdateTimer) {
-        panelUpdateTimer = setTimeout(() => {
-          flushPanelUpdate()
-          lastPanelFlush = Date.now()
-          panelUpdateTimer = null
-        }, PANEL_UPDATE_INTERVAL - (now2 - lastPanelFlush))
-      }
-      // Update map dot (immediate, no reactivity cost)
-      iot.updateSingleTracker(tracker.dev, newLat, newLon, newSpeed, wsStatus)
-      // Move lock-on marker (immediate, just setLngLat)
-      iot.moveIoTLockOn(newLat, newLon)
-      // Follow mode: smoothly pan camera to new position
-      iot.followToPosition(newLat, newLon)
-      // Replay full lock-on animation only if moved significantly AND throttle interval passed
-      const now = Date.now()
-      const moved = Math.abs(newLat - lastLockOnLat) + Math.abs(newLon - lastLockOnLon) > LOCK_ON_MIN_DISTANCE
-      if (moved && now - lastLockOnTime >= LOCK_ON_MIN_INTERVAL) {
-        iot.replayIoTLockOn(newLat, newLon)
-        lastLockOnTime = now
-        lastLockOnLat = newLat
-        lastLockOnLon = newLon
-      }
-    })
-  } else if (!newId) {
-    trackerWs.unsubscribe()
-    if (panelUpdateTimer) { clearTimeout(panelUpdateTimer); panelUpdateTimer = null }
-    pendingPanelUpdate = null
-  }
+const layerStack = useMapLayerStack({
+  highlight, openSky, satellite, iot, mesh, condo, hub, gov, church,
+  transit, browse,
+  // Draw tools in z-order; one list feeds both registration paths
+  drawTools: [measure, sunStudy, isochrone, droneReach, urban],
+  routing, currentOpenSkyMission,
 })
 
 // ======== Template aliases ========
 
-const toggleOpenSkyLayer = () => {
-  // Mutual exclusion: disable 3D tiles when enabling 2D aerial
-  if (!openSky.openSkyEnabled.value && tiles3d.tiles3dEnabled.value) {
-    tiles3d.toggle()
-  }
-  openSky.toggleLayer()
-}
-const toggle3DTiles = () => {
-  // Mutual exclusion: disable 2D aerial when enabling 3D tiles
-  if (!tiles3d.tiles3dEnabled.value && openSky.openSkyEnabled.value) {
-    openSky.toggleLayer()
-  }
-  tiles3d.toggle()
-}
-const toggleMissionArea = () => openSky.toggleMissionArea()
-const toggleTrackerLayer = () => iot.toggleTrackers()
-const toggleTransitLayer = () => transit.toggleLayer()
 const toggleRoutingPanel = () => {
   if (!routingVisible.value) {
     // Opening routing → close other panels (mutual exclusion)
@@ -1076,17 +369,10 @@ const openBrowsePanel = () => {
     closeBrowsePanel()
     return
   }
-  // Clear other panels (mutual exclusion)
-  setSelectedFeature(null)
-  setClickedFeatures([])
-  setClickCoordinates(null)
-  avatar.clearAvatarPanel()
-  selectedVehicle.value = null
-  selectedIoTDevice.value = null
-  selectedCondominium.value = null
-  selectedHub.value = null
-  selectedEstablishment.value = null
+  // Mutual exclusion: routing closes fully (route cleared off the map),
+  // entity panels clear via the shared reset.
   if (routingVisible.value) routing.closePanel()
+  clearEntityPanels()
   browseVisible.value = true
 }
 
@@ -1100,20 +386,15 @@ const webglError = ref(false)
 const reloadPage = () => { if (typeof window !== 'undefined') window.location.reload() }
 let miniMap: any = null
 
-// KeepAlive active state
-const isActive = ref(true)
+// KeepAlive snapshot state (isActive is declared above, before the composables)
 let snapshotImgEl: HTMLImageElement | null = null
 let cachedCanvasSnapshot: string | null = null
-let transitStopMarker: any = null
 
 // Highlighted item marker positioning
 const highlightMarkerStyle = computed(() => {
   if (!mapStore.highlightedItem || !mapStore.userLocation) return {}
   return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
 })
-
-// Close popovers on outside click
-const onDocumentClick = () => { iotPopoverOpen.value = false; hideIoTPreview(); layersPopoverOpen.value = false; architectPopoverOpen.value = false }
 
 // ======== Keyboard ========
 
@@ -1134,32 +415,35 @@ const keyboard = useMapKeyboard({
   featurePanelRef,
 })
 
-// ======== URL helpers ========
+// ======== URL ⇄ map sync (query building, deep-link pendings, position saves) ========
 
-const buildMapQuery = (lat: number, lng: number, zoom: number, feature?: any) => {
-  const query: any = { lat: lat.toFixed(6), lng: lng.toFixed(6), zoom: zoom.toFixed(2) }
-  if (feature?.sourceLayer) query.layer = feature.sourceLayer
-  if (feature?.id) query.featureId = feature.id
-  // Preserve osmId: from feature props, or keep existing URL value (set by handleOsmResolved)
-  const osmId = feature?.properties?.osm_id || (feature ? route.query.osmId : undefined)
-  if (osmId) query.osmId = String(osmId)
-  // Preserve establishmentId while panel is open
-  if (feature && route.query.establishmentId) query.establishmentId = route.query.establishmentId
-  if (currentOpenSkyMission.value) query.opensky_mission = currentOpenSkyMission.value
-  if (route.query.returnTo) query.returnTo = route.query.returnTo
-  return query
-}
+const urlSync = useMapUrlSync({
+  getMap: () => miniMap,
+  isActive,
+  currentOpenSkyMission,
+  transit,
+  routing,
+  browse,
+  closeFeaturePanel,
+})
+const handleOsmResolved = urlSync.handleOsmResolved
+const handleEstablishmentSelected = urlSync.handleEstablishmentSelected
 
-const updateUrlWithMapState = (lat: number, lng: number, feature: any = null) => {
-  if (!miniMap || !isActive.value) return
-  router.replace({ path: localePath('/map'), query: buildMapQuery(lat, lng, miniMap.getZoom(), feature) })
-}
+// ======== Map click dispatch (priority chain in useMapClickDispatcher) ========
 
-const handleOsmResolved = ({ osmId }: { osmId: number }) => {
-  if (!miniMap || !isActive.value || !osmId) return
-  const query = { ...route.query, osmId: String(osmId) }
-  router.replace({ path: localePath('/map'), query })
-}
+const clickDispatcher = useMapClickDispatcher({
+  animationEnabled,
+  searchLanguage,
+  // Tools that own map clicks while active (sun study is slider-driven)
+  interceptWhenActive: [measureActive, isochroneActive, droneReachActive, urbanActive],
+  routing,
+  browse,
+  panels,
+  iot,
+  avatar,
+  highlight,
+  updateUrlWithMapState: urlSync.updateUrlWithMapState,
+})
 
 // ======== Search handlers ========
 
@@ -1211,17 +495,6 @@ const onSearchCleared = () => {
   }
 }
 
-// ======== Establishment selection from panel ========
-
-const handleEstablishmentSelected = (establishmentId: string | null) => {
-  if (!miniMap || !isActive.value) return
-  const center = miniMap.getCenter()
-  const query = buildMapQuery(center.lat, center.lng, miniMap.getZoom(), selectedFeature.value)
-  if (establishmentId) query.establishmentId = establishmentId
-  else delete query.establishmentId
-  router.replace({ path: localePath('/map'), query })
-}
-
 // ======== Unified search handlers ========
 
 const handleUnifiedCategorySelect = (cat: any) => {
@@ -1231,53 +504,6 @@ const handleUnifiedCategorySelect = (cat: any) => {
 
 const handleUnifiedEstablishmentSelect = (est: any) => {
   browse.handleSelect(est)
-}
-
-// ======== Feature panel ========
-
-const closeFeaturePanel = () => {
-  setSelectedFeature(null)
-  setClickedFeatures([])
-  setClickCoordinates(null)
-  avatar.clearAvatarPanel()
-  selectedVehicle.value = null
-  selectedIoTDevice.value = null
-  selectedCondominium.value = null
-  selectedHub.value = null
-  selectedEstablishment.value = null
-  // Remove search marker
-  if (currentMarker.value && typeof currentMarker.value.remove === 'function') {
-    currentMarker.value.remove()
-    setCurrentMarker(null)
-  }
-  iot.hideIoTLockOn()
-  iot.disableFollow()
-  if (mapStore.mapInstance) iot.clearTrail(mapStore.mapInstance)
-  browseWasOpen.value = false
-  if (tileGridMode.value) openSky.toggleMissionArea()
-  if (isActive.value) {
-    const center = mapStore.mapInstance?.getCenter()
-    if (center) {
-      const query: any = { lat: center.lat.toFixed(6), lng: center.lng.toFixed(6), zoom: mapStore.mapInstance?.getZoom().toFixed(2) }
-      if (route.query.returnTo) query.returnTo = route.query.returnTo
-      router.replace({ path: localePath('/map'), query })
-    }
-  }
-}
-
-const handleFeaturePanelBack = () => {
-  setSelectedFeature(null)
-  setClickedFeatures([])
-  setClickCoordinates(null)
-  avatar.clearAvatarPanel()
-  selectedVehicle.value = null
-  selectedIoTDevice.value = null
-  selectedCondominium.value = null
-  selectedHub.value = null
-  selectedEstablishment.value = null
-  iot.hideIoTLockOn()
-  browseVisible.value = true
-  browseWasOpen.value = false
 }
 
 // ======== Escape key — close topmost panel ========
@@ -1305,6 +531,8 @@ const onEscapeKey = (e: KeyboardEvent) => {
     isochrone.stopIsochrone()
   } else if (droneReachActive.value) {
     droneReach.stopDroneReach()
+  } else if (urbanActive.value) {
+    urban.stopUrban()
   } else {
     return // nothing to close
   }
@@ -1318,31 +546,12 @@ transit.syncVehicleData()
 
 onMounted(async () => {
   await nextTick()
-  document.addEventListener('click', onDocumentClick)
   document.addEventListener('keydown', onEscapeKey)
 
   if (!mapRoot.value) { console.error('[MapView] No map root element'); return }
 
-  // Parse query params for initial map position and feature
-  if (route.query) {
-    const lat = parseFloat(route.query.lat as string)
-    const lng = parseFloat(route.query.lng as string)
-    const zoom = parseFloat(route.query.zoom as string)
-    if (!isNaN(lat) && !isNaN(lng)) {
-      setMapCenter([lng, lat])
-      if (!isNaN(zoom)) setMapZoom(zoom)
-      if (route.query.transit === '1') {
-        transitEnabled.value = true
-        window._pendingTransitMarker = { lat, lng, routeCity: route.query.routeCity as string, routeSlug: route.query.routeSlug as string }
-      }
-      if (route.query.layer || route.query.featureId || route.query.osmId || route.query.establishmentId) {
-        window._pendingFeatureRestore = { lat, lng, layer: route.query.layer, featureId: route.query.featureId, osmId: route.query.osmId, establishmentId: route.query.establishmentId }
-      }
-    }
-  }
-
-  let isUpdatingFromUser = false
-  let isUpdatingFromCode = false
+  // Parse query params for initial map position, deep-link pendings
+  urlSync.parseInitialQuery()
 
   try {
     const maplibreModule = await import('maplibre-gl')
@@ -1361,7 +570,7 @@ onMounted(async () => {
       attributionControl: false,
       trackResize: true,
       canvasContextAttributes: { preserveDrawingBuffer: true },
-      fadeDuration: animationEnabled.value ? 300 : 0
+      fadeDuration: animationEnabled.value ? 150 : 0
     })
 
     miniMap.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
@@ -1394,7 +603,10 @@ onMounted(async () => {
       }
     }
 
-    const attributionControl = new maplibregl.AttributionControl({ compact: true })
+    const attributionControl = new maplibregl.AttributionControl({
+      compact: true,
+      customAttribution: 'Weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>',
+    })
     miniMap.addControl(attributionControl, 'bottom-right')
 
     const scaleControl = new maplibregl.ScaleControl({ maxWidth: 200 })
@@ -1421,27 +633,8 @@ onMounted(async () => {
       mapStore.setMapInstance(miniMap)
       if (typeof window !== 'undefined') (window as any).mapInstance = miniMap
 
-      // Globe projection + atmosphere
-      miniMap.setProjection({ type: 'globe' })
-      _applySky(miniMap)
-
-      // Layer order: highlight → markers → OpenSky → IoT → gov/church → transit → interactive (last, needs all layers)
-      highlight.setupLayers(miniMap)
-      highlight.syncMarkers(miniMap, mapStore)
-      openSky.setupLayers(miniMap, currentOpenSkyMission.value)
-      iot.setupLayers(miniMap)
-      mesh.setupLayers(miniMap)
-      condo.setupLayers(miniMap)
-      hub.setupLayers(miniMap)
-      const reRegister = () => highlight.setupInteractiveFeatures(miniMap)
-      gov.setupLayers(miniMap, reRegister)
-      church.setupLayers(miniMap, reRegister)
-      transit.setupLayers(miniMap)
-      measure.setupLayers(miniMap)
-      sunStudy.setupLayers(miniMap)
-      isochrone.setupLayers(miniMap)
-      droneReach.setupLayers(miniMap)
-      highlight.setupInteractiveFeatures(miniMap) // after all sync layers exist; async layers re-register via callback
+      // Globe + sky, then the full layer stack (ordering documented in useMapLayerStack)
+      layerStack.setupInitial(miniMap)
 
       // Frame the OpenSky mission tile centered in the viewport (fitBounds + padding),
       // overriding the raw query center/zoom so the whole tile is framed on any screen.
@@ -1450,27 +643,8 @@ onMounted(async () => {
       }
 
       // Auto-enable transit + marker/route from /transit "Show on map"
-      if (window._pendingTransitMarker) {
-        const { lat, lng, routeCity, routeSlug } = window._pendingTransitMarker
-        delete window._pendingTransitMarker
-        transit.connectWs()
-        if (transitStopMarker) { transitStopMarker.remove(); transitStopMarker = null }
-        if (routeCity && routeSlug) {
-          transit.showRouteOnMap(miniMap, routeCity, routeSlug)
-        } else {
-          import('~/utils/lockOnMarker').then(({ createLockOnElement, flashCrosshair }) => {
-            const el = createLockOnElement({ iconUrl: '/img/bus-stop.png', clickable: true })
-            el.addEventListener('click', () => { marker.remove(); transitStopMarker = null })
-            const marker = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(miniMap)
-            transitStopMarker = marker
-            setTimeout(() => {
-              if (!transitStopMarker) return
-              const pt = miniMap.project([lng, lat])
-              flashCrosshair(miniMap.getContainer(), Math.round(pt.x), Math.round(pt.y))
-            }, 450)
-          })
-        }
-      }
+      // (fresh mount: parseInitialQuery already centered the map → no recenter)
+      urlSync.applyPendingTransitMarker({ recenter: false })
 
       browse.setupLayers(miniMap)
 
@@ -1479,24 +653,9 @@ onMounted(async () => {
         avatar.initializeMapPresence(miniMap)
       }
 
-      // Restore feature panel from URL
-      if (window._pendingFeatureRestore) {
-        const pending = window._pendingFeatureRestore
-        setTimeout(() => {
-          const point = miniMap.project([pending.lng, pending.lat])
-          const features = miniMap.queryRenderedFeatures(point)
-          if (features && features.length > 0) {
-            let targetFeature = features[0]
-            if (pending.layer) targetFeature = features.find((f: any) => f.sourceLayer === pending.layer) || features[0]
-            if (pending.featureId) targetFeature = features.find((f: any) => f.id == pending.featureId) || targetFeature
-            setClickedFeatures(features)
-            setSelectedFeature(targetFeature)
-            setClickCoordinates({ lat: pending.lat, lng: pending.lng })
-            if (pending.establishmentId) window._pendingEstablishmentId = pending.establishmentId
-          }
-          delete window._pendingFeatureRestore
-        }, 500)
-      }
+      // Restore feature panel / open directions from URL
+      urlSync.restorePendingFeature()
+      urlSync.applyDirectionsFromQuery()
 
       // Dynamic 2D/3D building switching based on pitch
       miniMap.on('pitch', () => {
@@ -1520,34 +679,7 @@ onMounted(async () => {
       const styleMap: Record<string, string> = { 'osm-liberty': '/map-styles/liberty-parahub.json', 'dark-liberty': '/map-styles/dark-liberty-parahub.json' }
       const newStyleUrl = styleMap[newStyle] || styleMap['osm-liberty']
       miniMap.once('style.load', () => {
-        // Restore globe projection and atmosphere after style reload
-        miniMap.setProjection({ type: 'globe' })
-        _applySky(miniMap)
-
-        highlight.setupLayers(miniMap)
-        openSky.setupLayers(miniMap, currentOpenSkyMission.value)
-        // Re-enable tile grid if it was active before style change
-        if (tileGridMode.value) {
-          tileGridMode.value = false
-          openSky.toggleTileGrid()
-        }
-        iot.setupLayersOnly(miniMap)
-        mesh.setupLayersOnly(miniMap)
-        condo.setupLayersOnly(miniMap)
-        hub.setupLayersOnly(miniMap)
-        gov.setupLayersOnly(miniMap)
-        church.setupLayersOnly(miniMap)
-        transit.resetDataLoaded()
-        transit.setupLayers(miniMap)
-        transit.redrawActiveRoute(miniMap)  // setStyle wiped the single-route overlay
-        browse.setupLayers(miniMap)
-        measure.setupLayers(miniMap)
-        sunStudy.setupLayers(miniMap)
-        highlight.setupInteractiveFeatures(miniMap) // after all layers
-        highlight.syncMarkers(miniMap, mapStore)
-        if (routingVisible.value && routeGeoJSON.value && routeBounds.value) {
-          showRouteOnMap(routeGeoJSON.value, routeBounds.value)
-        }
+        layerStack.reapplyAfterStyleChange(miniMap)
       })
       miniMap.setStyle(newStyleUrl)
     }, { flush: 'post' })
@@ -1571,340 +703,18 @@ onMounted(async () => {
       }
     })
 
-    // Save map position changes (debounced)
-    const { debounce } = await import('~/utils/debounce')
-    const saveMapPosition = debounce(() => {
-      if (!miniMap || isUpdatingFromCode || !isActive.value) return
-      isUpdatingFromUser = true
-      const center = miniMap.getCenter()
-      const currentZoom = miniMap.getZoom()
-      const { setMapCenter, setMapZoom } = useMapState()
-      setMapCenter([center.lng, center.lat])
-      setMapZoom(currentZoom)
-      const query = buildMapQuery(center.lat, center.lng, currentZoom, selectedFeature.value)
-      router.replace({ path: localePath('/map'), query })
-      setTimeout(() => { isUpdatingFromUser = false }, 100)
-    }, 500)
+    // Save map position changes to store+URL (debounced) + sync store → map
+    urlSync.attachPositionSync(miniMap)
 
-    miniMap.on('moveend', saveMapPosition)
-    miniMap.on('zoomend', saveMapPosition)
+    // Weather HUD: moveend-driven refresh (debounced, cell-deduped) + initial reading.
+    weatherHud.attach(miniMap)
 
     // WASD keyboard
     keyboard.attach()
 
-    // Handle map clicks
-    miniMap.on('click', (event: any) => {
-      // Intercept click for architect tools (handled by composable's own handlers)
-      if (measureActive.value) return
-      if (isochroneActive.value) return
-      if (droneReachActive.value) return
-
-      // Intercept click for routing waypoints
-      if (awaitingMapClick.value) {
-        const which = awaitingMapClick.value
-        const lngLat = event.lngLat
-        $fetch<any>(`/api/v1/geo/geocode/search?q=${lngLat.lat.toFixed(6)},${lngLat.lng.toFixed(6)}&limit=1&lang=${searchLanguage.value}`)
-          .then((data: any) => {
-            const label = data?.features?.[0]?.properties?.label || `${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}`
-            const point = { lat: lngLat.lat, lon: lngLat.lng, name: label }
-            if (which === 'origin') routingOrigin.value = point
-            else routingDest.value = point
-          })
-          .catch(() => {
-            const point = { lat: lngLat.lat, lon: lngLat.lng, name: `${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}` }
-            if (which === 'origin') routingOrigin.value = point
-            else routingDest.value = point
-          })
-        awaitingMapClick.value = null
-        return
-      }
-
-      // If clicked on a transit vehicle, let the vehicle handler handle it (skip OSM panel)
-      const vehicleHit = miniMap.queryRenderedFeatures(event.point, { layers: ['transit-vehicles-circle', 'transit-vehicles-icon', 'transit-vehicles-heading', 'transit-vehicles-bar'].filter(id => miniMap.getLayer(id)) })
-      if (vehicleHit?.length > 0) return
-
-      // If clicked on an IoT device, open IoT panel (before avatar check — IoT uses exact pixel hit, avatars use radius)
-      const iotLayers = ['trackers-circle', 'mesh-routers-circle', 'energy-cells-circle'].filter(id => miniMap.getLayer(id))
-      if (iotLayers.length > 0) {
-        const iotHit = miniMap.queryRenderedFeatures(event.point, { layers: iotLayers })
-        if (iotHit?.length > 0) {
-          const f = iotHit[0]
-          const layerId = f.layer?.id || ''
-          const coords = (f.geometry as any)?.coordinates
-          const deviceType = layerId.startsWith('trackers') ? 'tracker' : layerId.startsWith('mesh-routers') ? 'mesh_router' : 'energy_cell'
-          // Clear other panel states
-          setSelectedFeature(null)
-          setClickedFeatures([])
-          setClickCoordinates(null)
-          avatar.clearAvatarPanel()
-          selectedVehicle.value = null
-          if (routingVisible.value) routingVisible.value = false
-          if (browseVisible.value) { browseWasOpen.value = true; browseVisible.value = false }
-          // Look up last_update from tracker positions list
-          const trackerEntry = deviceType === 'tracker'
-            ? trackerPositionsList.value.find((tp: any) => tp.device_id === f.properties?.device_id)
-            : null
-          selectedIoTDevice.value = {
-            deviceType,
-            device_id: f.properties?.device_id || '',
-            name: f.properties?.name || '',
-            status: f.properties?.status || 'unknown',
-            speed: f.properties?.speed || '',
-            firmware_role: f.properties?.firmware_role || '',
-            hardware_profile: f.properties?.hardware_profile || '',
-            price: f.properties?.price || '',
-            lngLat: coords ? { lng: coords[0], lat: coords[1] } : null,
-            last_update: trackerEntry?.last_update || null,
-          }
-          // Show lock-on animation
-          if (coords) iot.showIoTLockOn(coords[1], coords[0])
-          // Fly to device
-          if (coords) {
-            const currentZoom = miniMap.getZoom()
-            const targetZoom = 17
-            const zoom = Math.max(currentZoom, targetZoom)
-            if (animationEnabled.value !== false) {
-              miniMap.flyTo({ center: coords, zoom, essential: true, speed: 4.5 })
-            } else {
-              miniMap.jumpTo({ center: coords, zoom })
-            }
-          }
-          return
-        }
-      }
-
-      // If clicked on a condominium marker, open condominium panel
-      const condoLayers = ['condos-circle'].filter(id => miniMap.getLayer(id))
-      if (condoLayers.length > 0) {
-        const condoHit = miniMap.queryRenderedFeatures(event.point, { layers: condoLayers })
-        if (condoHit?.length > 0) {
-          const f = condoHit[0]
-          const coords = (f.geometry as any)?.coordinates
-          // Clear other panel states
-          setSelectedFeature(null)
-          setClickedFeatures([])
-          setClickCoordinates(null)
-          avatar.clearAvatarPanel()
-          selectedVehicle.value = null
-          selectedIoTDevice.value = null
-          selectedHub.value = null
-  selectedEstablishment.value = null
-          if (routingVisible.value) routingVisible.value = false
-          if (browseVisible.value) { browseWasOpen.value = true; browseVisible.value = false }
-          selectedCondominium.value = {
-            id: f.properties?.id || '',
-            name: f.properties?.name || '',
-            slug: f.properties?.slug || '',
-            full_address: f.properties?.full_address || '',
-            fraction_count: f.properties?.fraction_count || 0,
-            member_count: f.properties?.member_count || 0,
-            lngLat: coords ? { lng: coords[0], lat: coords[1] } : null,
-          }
-          // Fly to building
-          if (coords) {
-            const currentZoom = miniMap.getZoom()
-            const targetZoom = 17
-            const zoom = Math.max(currentZoom, targetZoom)
-            if (animationEnabled.value !== false) {
-              miniMap.flyTo({ center: coords, zoom, essential: true, speed: 4.5 })
-            } else {
-              miniMap.jumpTo({ center: coords, zoom })
-            }
-          }
-          return
-        }
-      }
-
-      // If clicked on a hub marker, open hub panel
-      const hubLayers = ['hubs-circle'].filter(id => miniMap.getLayer(id))
-      if (hubLayers.length > 0) {
-        const hubHit = miniMap.queryRenderedFeatures(event.point, { layers: hubLayers })
-        if (hubHit?.length > 0) {
-          const f = hubHit[0]
-          const coords = (f.geometry as any)?.coordinates
-          // Clear other panel states
-          setSelectedFeature(null)
-          setClickedFeatures([])
-          setClickCoordinates(null)
-          avatar.clearAvatarPanel()
-          selectedVehicle.value = null
-          selectedIoTDevice.value = null
-          selectedCondominium.value = null
-          if (routingVisible.value) routingVisible.value = false
-          if (browseVisible.value) { browseWasOpen.value = true; browseVisible.value = false }
-          selectedHub.value = {
-            id: f.properties?.id || '',
-            name: f.properties?.name || '',
-            slug: f.properties?.slug || '',
-            hub_capacity: f.properties?.hub_capacity || 0,
-            hub_accepted_sizes: f.properties?.hub_accepted_sizes || '',
-            hub_storage_fee_daily: f.properties?.hub_storage_fee_daily || '0',
-            opening_hours: f.properties?.opening_hours || '',
-            phone: f.properties?.phone || '',
-            lngLat: coords ? { lng: coords[0], lat: coords[1] } : null,
-          }
-          // Fly to hub
-          if (coords) {
-            const currentZoom = miniMap.getZoom()
-            const targetZoom = 17
-            const zoom = Math.max(currentZoom, targetZoom)
-            if (animationEnabled.value !== false) {
-              miniMap.flyTo({ center: coords, zoom, essential: true, speed: 4.5 })
-            } else {
-              miniMap.jumpTo({ center: coords, zoom })
-            }
-          }
-          return
-        }
-      }
-
-      // Check if click was on a government or church marker → open establishment panel
-      const establishmentLayers = ['government-icon', 'churches-icon'].filter(id => miniMap.getLayer(id))
-      if (establishmentLayers.length > 0) {
-        const estHit = miniMap.queryRenderedFeatures(event.point, { layers: establishmentLayers })
-        if (estHit?.length > 0) {
-          const f = estHit[0]
-          const coords = (f.geometry as any)?.coordinates
-          const layerId = f.layer?.id || ''
-          setSelectedFeature(null)
-          setClickedFeatures([])
-          setClickCoordinates(null)
-          avatar.clearAvatarPanel()
-          selectedVehicle.value = null
-          selectedIoTDevice.value = null
-          selectedCondominium.value = null
-          selectedHub.value = null
-          selectedEstablishment.value = null
-          if (routingVisible.value) routingVisible.value = false
-          if (browseVisible.value) { browseWasOpen.value = true; browseVisible.value = false }
-          selectedEstablishment.value = {
-            id: f.properties?.id || '',
-            name: f.properties?.name || '',
-            slug: f.properties?.slug || '',
-            category_label: layerId === 'churches-icon' ? t('map.layers.churches') : t('map.layers.government'),
-            municipality: f.properties?.municipality || '',
-            lngLat: coords ? { lng: coords[0], lat: coords[1] } : null,
-          }
-          if (coords) {
-            const currentZoom = miniMap.getZoom()
-            const targetZoom = 16
-            const zoom = Math.max(currentZoom, targetZoom)
-            if (animationEnabled.value !== false) {
-              miniMap.flyTo({ center: coords, zoom, essential: true, speed: 4.5 })
-            } else {
-              miniMap.jumpTo({ center: coords, zoom })
-            }
-          }
-          return
-        }
-      }
-
-      // Check if click was on avatar (after IoT — IoT uses exact pixel hit, avatars use radius)
-      const clickRadius = 32
-      const ownClickRadius = 48
-      if (authStore.activeProfile?.id && mapPresenceEnabled.value) {
-        const center = miniMap.getCenter()
-        const centerPoint = miniMap.project([center.lng, center.lat])
-        const dx = event.point.x - centerPoint.x
-        const dy = event.point.y - centerPoint.y
-        if (Math.sqrt(dx * dx + dy * dy) <= ownClickRadius) {
-          handleAvatarClick({
-            profile_id: authStore.activeProfile.id, lat: center.lat, lon: center.lng,
-            zoom: 14, avatar_type: currentAvatarType.value, avatar_state: 'idle',
-            speech_bubble: '', profile_hna: '', profile_name: 'You'
-          }, true)
-          return
-        }
-      }
-
-      for (const av of nearbyAvatars.value) {
-        if (!av.lat || !av.lon) continue
-        if (av.profile_id === authStore.activeProfile?.id) continue
-        const avatarPoint = miniMap.project([av.lon, av.lat])
-        const dx = event.point.x - avatarPoint.x
-        const dy = event.point.y - avatarPoint.y
-        if (Math.sqrt(dx * dx + dy * dy) <= clickRadius) {
-          handleAvatarClick(av, false)
-          return
-        }
-      }
-
-      // Query all features at click point
-      const allFeatures = miniMap.queryRenderedFeatures(event.point)
-      highlight.clearActiveFeature(miniMap)
-
-      let features = allFeatures?.filter((f: any) => {
-        const layerId = f.layer?.id || ''
-        if (layerId.endsWith('-hover') || layerId.endsWith('-active')) return false
-        if (layerId.includes('_casing')) return false
-        if (layerId === 'map-presence-layer' || layerId === 'map-presence-bubbles') return false
-        if (layerId === 'poi-hover-hex-layer') return false
-        if (layerId.startsWith('transit-vehicles')) return false
-        if (layerId.startsWith('trackers-') || layerId.startsWith('mesh-routers-') || layerId.startsWith('energy-cells-') || layerId.startsWith('condos-')) return false
-        return true
-      }) || []
-
-      const seen = new Set()
-      features = features.filter((f: any) => {
-        const key = `${f.sourceLayer || 'unknown'}_${f.id || Math.random()}`
-        if (seen.has(key)) return false
-        seen.add(key)
-        return true
-      })
-
-      // Mobile: a deliberately-selected entity panel (IoT / vehicle / avatar / condo / hub /
-      // establishment) must be DISMISSED by tapping the map, not hijacked by an OSM feature
-      // underneath it (e.g. tapping near a tracker at z17 lands on a forest landcover polygon).
-      // The bottom sheet slides away as expected. OSM→OSM swap (selectedFeature open) is preserved.
-      const entityPanelOpen = !!selectedVehicle.value || !!selectedIoTDevice.value
-        || !!selectedCondominium.value || !!selectedHub.value || !!selectedEstablishment.value
-        || avatar.activeAvatarPanel.value !== null
-      if (entityPanelOpen && typeof window !== 'undefined' && window.innerWidth < 768) {
-        closeFeaturePanel()
-        return
-      }
-
-      if (features.length > 0) {
-        let feature = features[0]
-        if (feature.sourceLayer === 'housenumber') {
-          const buildingFeature = features.find((f: any) => f.sourceLayer === 'building')
-          if (buildingFeature) feature = buildingFeature
-        }
-        selectedVehicle.value = null
-        selectedIoTDevice.value = null
-        selectedCondominium.value = null
-        selectedHub.value = null
-  selectedEstablishment.value = null
-        highlight.setActiveFeature(miniMap, feature)
-        if (routingVisible.value) routingVisible.value = false
-        if (browseVisible.value) { browseWasOpen.value = true; browseVisible.value = false }
-        setClickedFeatures(features)
-        setSelectedFeature(feature)
-        setClickCoordinates({ lat: event.lngLat.lat, lng: event.lngLat.lng })
-        updateUrlWithMapState(event.lngLat.lat, event.lngLat.lng, feature)
-      } else {
-        closeFeaturePanel()
-      }
-    })
-
-    // Sync center/zoom watchers
-    watch(mapCenter, (center) => {
-      if (miniMap && center && !isUpdatingFromUser) {
-        isUpdatingFromCode = true
-        miniMap.setCenter(center)
-        setTimeout(() => { isUpdatingFromCode = false }, 100)
-      }
-    })
-    watch(mapZoom, (zoom) => {
-      if (miniMap && zoom != null && !isUpdatingFromUser) {
-        const currentZoom = miniMap.getZoom()
-        if (Math.abs(currentZoom - zoom) > 0.01) {
-          isUpdatingFromCode = true
-          miniMap.setZoom(zoom)
-          setTimeout(() => { isUpdatingFromCode = false }, 100)
-        }
-      }
-    })
+    // Handle map clicks (priority chain: tools → routing pick → vehicles →
+    // marker panels → avatars → OSM feature panel)
+    clickDispatcher.attach(miniMap)
 
     // Watch for marker changes in store
     watch(() => mapStore.markers, () => { highlight.syncMarkers(miniMap, mapStore) }, { deep: true })
@@ -1943,58 +753,29 @@ onActivated(() => {
       })
       miniMap.triggerRepaint()
     }
-    // Handle pending transit marker
-    if (miniMap && (window as any)._pendingTransitMarker) {
-      const pending = (window as any)._pendingTransitMarker
-      delete (window as any)._pendingTransitMarker
-      const { lat, lng, zoom, routeCity, routeSlug } = pending
-      if (transitStopMarker) { transitStopMarker.remove(); transitStopMarker = null }
-      transit.enableLayerVisibility(miniMap)
-      miniMap.jumpTo({ center: [lng, lat], zoom: !isNaN(zoom) ? zoom : 16 })
-      transit.connectWs()
-      if (routeCity && routeSlug) {
-        transit.showRouteOnMap(miniMap, routeCity, routeSlug)
-      } else {
-        Promise.all([import('~/utils/lockOnMarker'), import('maplibre-gl')]).then(([{ createLockOnElement, flashCrosshair }, mod]) => {
-          const maplibregl = mod.default || mod
-          const el = createLockOnElement({ iconUrl: '/img/bus-stop.png', clickable: true })
-          el.addEventListener('click', () => { marker.remove(); transitStopMarker = null })
-          const marker = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]).addTo(miniMap)
-          transitStopMarker = marker
-          setTimeout(() => {
-            if (!transitStopMarker) return
-            const pt = miniMap.project([lng, lat])
-            flashCrosshair(miniMap.getContainer(), Math.round(pt.x), Math.round(pt.y))
-          }, 450)
-        })
-      }
-    }
+    // Handle pending transit marker (set by reapplyQueryNavigation below or
+    // left over from a mount whose 'load' never consumed it); the kept-alive
+    // map sits wherever the user left it → recenter
+    urlSync.applyPendingTransitMarker({ recenter: true })
   })
 
   iot.resumeRefresh()
   mesh.resumeRefresh()
   sunStudy.resumeSunStudy()
   keyboard.attach()
-  document.addEventListener('click', onDocumentClick)
   document.addEventListener('keydown', onEscapeKey)
 
-  // Handle transit=1 query param
-  if (route.query.transit === '1') {
-    const lat = parseFloat(route.query.lat as string)
-    const lng = parseFloat(route.query.lng as string)
-    if (!isNaN(lat) && !isNaN(lng)) {
-      transitEnabled.value = true
-      if (miniMap) transit.removeRouteOverlay(miniMap)
-      ;(window as any)._pendingTransitMarker = { lat, lng, zoom: parseFloat(route.query.zoom as string), routeCity: route.query.routeCity as string, routeSlug: route.query.routeSlug as string }
-      transit.resetDataLoaded()
-    }
-  } else if (transitEnabled.value && miniMap) {
-    transit.connectWs()
-  }
+  // Re-apply query-driven navigation when re-entering the kept-alive map
+  // (onMounted parses the query only on the first mount) — see useMapUrlSync.
+  urlSync.reapplyQueryNavigation()
 
   if (authStore.isAuthenticated && mapPresenceEnabled.value) {
     avatar.initializeMapPresence(miniMap)
   }
+
+  // Refresh weather for wherever the kept-alive map now sits (cell-deduped) and
+  // resume the periodic re-poll.
+  weatherHud.resume()
 })
 
 onDeactivated(() => {
@@ -2008,15 +789,16 @@ onDeactivated(() => {
   }
   isActive.value = false
   keyboard.detach()
-  document.removeEventListener('click', onDocumentClick)
   document.removeEventListener('keydown', onEscapeKey)
   iot.pauseRefresh()
   mesh.pauseRefresh()
   sunStudy.pauseSunStudy()
   if (droneReachActive.value) droneReach.stopDroneReach()
+  if (urbanActive.value) urban.stopUrban()
   transit.disconnectWs()
-  trackerWs.disconnect()
+  trackerPanelWs.disconnect()
   avatar.disconnectMapPresence?.()
+  weatherHud.stopTimer()
 })
 
 // React to avatar toggle changes (from preferences or other pages)
@@ -2032,12 +814,11 @@ watch(mapPresenceEnabled, (enabled) => {
 onBeforeUnmount(() => {
   highlight.cleanupMarkers()
   keyboard.detach()
-  document.removeEventListener('click', onDocumentClick)
   document.removeEventListener('keydown', onEscapeKey)
   iot.cleanup()
   mesh.pauseRefresh()
   transit.disconnectWs()
-  trackerWs.disconnect()
+  trackerPanelWs.disconnect()
   tiles3d.dispose()
   if (isMapPresenceConnected.value) avatar.disconnectMapPresence()
   miniMap = null
@@ -2107,86 +888,6 @@ onBeforeUnmount(() => {
 }
 :root.dark .mini-map-root {
   background: #0d0d1f;
-}
-
-.webgl-error-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  background: rgba(13, 13, 31, 0.78);
-  backdrop-filter: blur(4px);
-}
-.webgl-error-card {
-  max-width: 32rem;
-  width: 100%;
-  padding: 1.75rem;
-  border-radius: 0.75rem;
-  background: rgb(255 255 255);
-  color: rgb(23 23 23);
-  box-shadow: 0 20px 50px -12px rgba(0,0,0,0.45);
-  border: 1px solid rgb(229 229 229);
-}
-:root.dark .webgl-error-card {
-  background: rgb(38 38 38);
-  color: rgb(245 245 245);
-  border-color: rgb(64 64 64);
-}
-.webgl-error-icon {
-  width: 2rem;
-  height: 2rem;
-  color: rgb(234 88 12);
-  margin-bottom: 0.5rem;
-}
-.webgl-error-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-.webgl-error-desc {
-  font-size: 0.95rem;
-  line-height: 1.5;
-  margin-bottom: 1rem;
-  color: rgb(82 82 82);
-}
-:root.dark .webgl-error-desc {
-  color: rgb(212 212 212);
-}
-.webgl-error-fix-intro {
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-}
-.webgl-error-steps {
-  list-style: decimal;
-  padding-left: 1.25rem;
-  margin-bottom: 1.25rem;
-  font-size: 0.9rem;
-  line-height: 1.6;
-}
-.webgl-error-steps code {
-  padding: 0.1rem 0.35rem;
-  border-radius: 0.25rem;
-  background: rgb(245 245 245);
-  font-size: 0.85em;
-}
-:root.dark .webgl-error-steps code {
-  background: rgb(64 64 64);
-}
-.webgl-error-retry {
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  background: rgb(234 88 12);
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-  border: 0;
-  transition: background 0.15s;
-}
-.webgl-error-retry:hover {
-  background: rgb(194 65 12);
 }
 
 .map-snapshot-overlay {
@@ -2425,742 +1126,4 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Layer Controls — stacked groups like maplibregl-ctrl */
-.map-layer-controls {
-  position: absolute;
-  right: 10px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.map-ctrl-group {
-  display: flex;
-  flex-direction: column;
-  border-radius: 4px;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
-  background: var(--color-surface);
-}
-:root.dark .map-ctrl-group {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
-  background: rgba(30, 30, 30, 0.75);
-  backdrop-filter: blur(8px);
-}
-
-.map-ctrl-group > * + * {
-  border-top: 1px solid rgba(0, 0, 0, 0.12);
-}
-:root.dark .map-ctrl-group > * + * {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.opensky-btn {
-  width: 44px;
-  height: 44px;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text);
-  transition: background 0.2s, color 0.2s;
-}
-
-/* Round corners on first/last elements in the group */
-.map-ctrl-group > :first-child,
-.map-ctrl-group > :first-child > .opensky-btn {
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
-}
-
-.map-ctrl-group > :last-child,
-.map-ctrl-group > :last-child > .opensky-btn {
-  border-bottom-left-radius: 4px;
-  border-bottom-right-radius: 4px;
-}
-
-.opensky-btn:hover {
-  background: var(--color-primary-100, #fef9c3);
-}
-:root.dark .opensky-btn:hover {
-  background: var(--color-primary-900, #422006);
-}
-
-.opensky-btn.active {
-  background: var(--color-secondary);
-  color: white;
-}
-
-/* Layers popover */
-.layers-control {
-  position: relative;
-}
-
-.layers-popover {
-  position: absolute;
-  right: 48px;
-  top: 0;
-  width: 190px;
-  background: var(--color-surface);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  z-index: 1001;
-}
-
-.layers-popover-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 10px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-  font-size: 13px;
-  color: var(--color-text);
-  transition: background 0.15s;
-}
-
-.layers-popover-item + .layers-popover-item {
-  border-top: 1px solid var(--color-border);
-}
-
-.layers-popover-item:hover {
-  background: var(--color-primary-100, #fef9c3);
-}
-:root.dark .layers-popover-item:hover {
-  background: var(--color-primary-900, #422006);
-}
-
-.layers-popover-item.active {
-  background: var(--color-secondary-50, #eff6ff);
-}
-:root.dark .layers-popover-item.active {
-  background: rgba(59, 130, 246, 0.15);
-}
-
-.layers-popover-label {
-  flex: 1;
-  white-space: nowrap;
-}
-
-/* Tracker popover */
-.tracker-control {
-  position: relative;
-}
-
-.iot-section-toggle {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.iot-chevron {
-  transition: transform 0.15s;
-  flex-shrink: 0;
-}
-
-.iot-chevron.expanded {
-  transform: rotate(90deg);
-}
-
-.tracker-popover {
-  position: absolute;
-  right: 48px;
-  top: 0;
-  width: 210px;
-  /* dvh + safe-area так, чтобы хвост списка не уходил под Android nav bar */
-  max-height: calc(100dvh - 300px - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
-  overflow-y: auto;
-  background: var(--color-surface);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1001;
-}
-
-.tracker-popover-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.tracker-popover-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.tracker-eye-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-}
-
-.tracker-eye-btn:hover {
-  color: var(--color-secondary);
-}
-
-.tracker-popover-empty {
-  padding: 12px 10px;
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: 12px;
-}
-
-.tracker-popover-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-  font-size: 12px;
-  color: var(--color-text);
-  transition: background 0.15s;
-}
-
-.tracker-popover-item:hover {
-  background: var(--color-primary-100, #fef9c3);
-}
-:root.dark .tracker-popover-item:hover {
-  background: var(--color-primary-900, #422006);
-}
-
-.tracker-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.tracker-status-dot.online { background: var(--color-success); }
-.tracker-status-dot.offline { background: var(--color-error); }
-.tracker-status-dot.unknown { background: var(--color-text-muted); }
-
-.tracker-item-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tracker-item-speed {
-  color: var(--color-text-muted);
-  font-size: 11px;
-  flex-shrink: 0;
-}
-
-.tracker-item-signal-lost {
-  color: var(--color-error);
-  font-size: 10px;
-  flex-shrink: 0;
-  opacity: 0.8;
-}
-
-/* Map Tools */
-.architect-control {
-  position: relative;
-}
-
-/* Measure distance bar */
-.measure-bar {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  background: var(--color-surface);
-  border-radius: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  white-space: nowrap;
-}
-:root.dark .measure-bar {
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(8px);
-}
-
-.opensky-plan-bar {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  background: var(--color-surface);
-  border-radius: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  white-space: nowrap;
-  pointer-events: none;
-  font-size: 13px;
-}
-:root.dark .opensky-plan-bar {
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(8px);
-}
-.opensky-plan-tile {
-  font-weight: 700;
-  color: #3b82f6;
-  font-variant-numeric: tabular-nums;
-}
-.opensky-plan-sep {
-  color: var(--color-text-muted);
-  opacity: 0.5;
-}
-.opensky-plan-budget {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-}
-.opensky-plan-level {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.opensky-plan-desc {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-.opensky-plan-hint {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
-.measure-bar-distance {
-  font-size: 16px;
-  font-weight: 700;
-  color: #3b82f6;
-}
-
-.measure-bar-segments {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.measure-bar-hint {
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-.measure-bar-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: none;
-  color: var(--color-text);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.measure-bar-btn:hover:not(:disabled) {
-  background: var(--color-primary-100, #fef9c3);
-}
-:root.dark .measure-bar-btn:hover:not(:disabled) {
-  background: var(--color-primary-900, #422006);
-}
-.measure-bar-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.measure-bar-btn-close {
-  border: none;
-  font-size: 18px;
-  padding: 2px 6px;
-  line-height: 1;
-}
-
-/* Sun study panel */
-.sun-study-panel {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
-  width: 600px;
-  max-width: calc(100vw - 20px);
-  padding: 12px 16px;
-  background: var(--color-surface);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-}
-:root.dark .sun-study-panel {
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(8px);
-}
-
-.sun-study-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  min-width: 0;
-}
-
-.sun-study-date {
-  flex: 0 0 auto;
-  padding: 3px 6px;
-  font-size: 13px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-text);
-  cursor: pointer;
-}
-
-.sun-study-time-display {
-  font-size: 18px;
-  font-weight: 700;
-  color: #f59e0b;
-  flex: 0 0 auto;
-}
-
-.sun-study-badges {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
-
-.sun-study-close {
-  border: none;
-  background: none;
-  font-size: 20px;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.sun-study-close:hover {
-  color: var(--color-text);
-}
-
-.sun-study-slider-wrap {
-  position: relative;
-  padding-bottom: 18px;
-}
-
-.sun-study-slider {
-  width: 100%;
-  height: 6px;
-  -webkit-appearance: none;
-  appearance: none;
-  border-radius: 3px;
-  background: linear-gradient(to right, #1e3a5f, #3b82f6, #f59e0b, #f59e0b, #3b82f6, #1e3a5f);
-  outline: none;
-  margin: 4px 0 0;
-}
-.sun-study-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #f59e0b;
-  border: 2px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  cursor: grab;
-}
-.sun-study-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #f59e0b;
-  border: 2px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  cursor: grab;
-}
-
-.sun-study-ticks {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 16px;
-  pointer-events: none;
-}
-.sun-study-tick {
-  position: absolute;
-  transform: translateX(-50%);
-  font-size: 9px;
-  color: var(--color-text-muted);
-  opacity: 0.7;
-  &::before {
-    content: '';
-    position: absolute;
-    top: -4px;
-    left: 50%;
-    width: 1px;
-    height: 4px;
-    background: var(--color-text-muted);
-    opacity: 0.4;
-  }
-}
-
-.sun-study-info {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 4px;
-}
-
-.sun-study-stat {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.sun-study-uv {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: help;
-}
-
-.sun-study-uv-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.sun-study-badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.sun-golden {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
-}
-
-.sun-night {
-  background: rgba(30, 58, 95, 0.3);
-  color: #60a5fa;
-}
-
-.sun-live {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  cursor: default;
-  letter-spacing: 0.05em;
-}
-
-.sun-live-off {
-  background: rgba(107, 114, 128, 0.15);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  letter-spacing: 0.05em;
-  opacity: 0.6;
-  &:hover { opacity: 1; }
-}
-
-@media (max-width: 640px) {
-  .measure-bar {
-    left: 10px;
-    right: 10px;
-    transform: none;
-    justify-content: center;
-  }
-  .opensky-plan-bar {
-    left: 10px;
-    right: 10px;
-    transform: none;
-    justify-content: center;
-    flex-wrap: wrap;
-    font-size: 11px;
-    padding: 6px 10px;
-  }
-  .sun-study-panel {
-    left: 10px;
-    right: 10px;
-    width: auto;
-    transform: none;
-  }
-  .isochrone-bar {
-    left: 10px;
-    right: 10px;
-    transform: none;
-    justify-content: center;
-  }
-  .dronereach-bar {
-    left: 10px;
-    right: 10px;
-    transform: none;
-    justify-content: center;
-    flex-wrap: wrap;
-    font-size: 11px;
-  }
-}
-
-/* Isochrone bar */
-.isochrone-bar {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  background: var(--color-surface);
-  border-radius: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  white-space: nowrap;
-}
-:root.dark .isochrone-bar {
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(8px);
-}
-
-.isochrone-bar-legend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.isochrone-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-left: 4px;
-}
-
-.isochrone-mode-btns {
-  display: flex;
-  gap: 2px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.isochrone-mode-btn {
-  padding: 4px 8px;
-  font-size: 14px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  transition: background 0.15s;
-  line-height: 1;
-}
-.isochrone-mode-btn:hover {
-  background: var(--color-primary-100, #fef9c3);
-}
-:root.dark .isochrone-mode-btn:hover {
-  background: var(--color-primary-900, #422006);
-}
-.isochrone-mode-btn.active {
-  background: var(--color-secondary-50, #eff6ff);
-}
-:root.dark .isochrone-mode-btn.active {
-  background: rgba(59, 130, 246, 0.2);
-}
-
-.isochrone-loading {
-  font-size: 14px;
-  animation: pulse 1s infinite;
-}
-
-/* Drone reachability bar (reuses isochrone-bar look) */
-.dronereach-bar {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  background: var(--color-surface);
-  border-radius: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  white-space: nowrap;
-}
-:root.dark .dronereach-bar {
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(8px);
-}
-.dronereach-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.dronereach-ctl {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-.dronereach-ctl input[type="range"] {
-  width: 64px;
-  accent-color: #2563eb;
-  cursor: pointer;
-}
-.dronereach-val {
-  min-width: 30px;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text);
-}
-.dronereach-radius {
-  display: flex;
-  gap: 2px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.dronereach-radius .isochrone-mode-btn {
-  font-size: 11px;
-  padding: 4px 7px;
-}
-.dronereach-zonetoggle {
-  font-size: 11px;
-  padding: 4px 9px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-}
-.dronereach-zoneinfo {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--color-text);
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-</style>
-
-<style>
 </style>

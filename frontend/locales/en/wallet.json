@@ -38,7 +38,8 @@
     "registerLnAddress": "Register",
     "copyLnAddress": "Copy Lightning address",
     "lnAddressRegisterFailed": "Failed to register address",
-    "walletOpenInAnotherTab": "Wallet is already open in another tab. Please close it first.",
+    "walletOpenInAnotherTab": "This wallet is active in another tab or window of this browser.",
+    "openHere": "Open here",
     "initError": "Failed to connect wallet",
     "lnurlDetected": "LNURL-pay detected. Enter amount.",
     "amountlessInvoice": "Invoice has no amount. Enter amount.",
@@ -99,11 +100,11 @@
   "seedRestore": {
     "title": "Restore Wallet",
     "subtitle": "Enter your 12-word seed phrase",
-    "wordPlaceholder": "word",
     "pasteAllWords": "Paste all 12 words",
     "pasteAllWordsPlaceholder": "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12",
-    "pasteWords": "Paste from clipboard",
     "invalidMnemonic": "Invalid seed phrase. Please check your words.",
+    "wordCount": "{count} / 12 words",
+    "validPhrase": "Valid seed phrase",
     "restoring": "Restoring your wallet...",
     "restoreFailed": "Failed to restore. Please try again."
   }

@@ -16,6 +16,7 @@ const advertiserWalletConfigured = ref(false)
 const walletProvider = ref('')
 const profileLoaded = ref(false)
 const feedCount = ref(0)
+const totalEarned = ref(0)
 
 export const useAdsState = () => {
   const authStore = useAuthStore()
@@ -33,6 +34,7 @@ export const useAdsState = () => {
         walletConfigured.value = !!profile.ln_address
         advertiserWalletConfigured.value = profile.has_wallet_config || false
         walletProvider.value = profile.wallet_provider || ''
+        totalEarned.value = profile.total_earned_sats || 0
         profileLoaded.value = true
       }
       return profile
@@ -82,6 +84,7 @@ export const useAdsState = () => {
     walletProvider,
     profileLoaded,
     feedCount,
+    totalEarned,
     feedItems,
     feedViewedIds,
     feedEarnedMap,

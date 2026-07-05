@@ -1,7 +1,7 @@
 <template>
   <transition :name="animationsEnabled ? 'slide' : ''" :duration="animationsEnabled ? 300 : 0">
     <div
-      v-if="feature || contentType === 'own_avatar' || contentType === 'other_avatar' || contentType === 'vehicle' || contentType === 'iot_device' || contentType === 'condominium' || contentType === 'hub' || contentType === 'establishment'"
+      v-if="feature || contentType === 'own_avatar' || contentType === 'other_avatar' || contentType === 'vehicle' || contentType === 'iot_device' || contentType === 'condominium' || contentType === 'hub' || contentType === 'establishment' || (contentType === 'urban' && urbanResult)"
       class="fixed bottom-0 left-0 right-0 w-full md:absolute md:top-0 md:bottom-0 md:right-auto md:left-0 md:h-full md:w-96 bg-white dark:bg-neutral-900 shadow-2xl z-50 flex flex-col rounded-t-2xl md:rounded-none"
       :style="isMobile ? sheetStyle : {}"
     >
@@ -48,7 +48,7 @@
           class="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 text-sm font-medium transition"
         >
           <ChevronRight :size="16" class="rotate-180" />
-          {{ $t('map.panel.back_to_list') }}
+          {{ osmBackToPage ? $t('map.back_to_page') : $t('map.panel.back_to_list') }}
         </button>
         <button
           @click="emit('close')"
@@ -110,6 +110,15 @@
           @close="emit('close')"
         />
 
+        <!-- Urban analysis result (drawn plot framing + edificability) -->
+        <MapPanelUrban
+          v-else-if="contentType === 'urban'"
+          :result="urbanResult"
+          :polygon="urbanPolygon"
+          :formatted-area="urbanFormattedArea"
+          @redraw="emit('urban-redraw')"
+        />
+
         <!-- OSM features (buildings, roads, POIs, etc.) -->
         <MapPanelOsm
           v-else
@@ -123,6 +132,7 @@
           @update:title="osmTitle = $event"
           @update:subtitle="osmSubtitle = $event"
           @update:has-selected-establishment="osmHasSelectedEstablishment = $event"
+          @update:back-to-page="osmBackToPage = $event"
         />
 
       </div>
@@ -142,6 +152,8 @@ import MapPanelCondominium from '~/components/MapPanelCondominium.vue'
 import MapPanelHub from '~/components/MapPanelHub.vue'
 import MapPanelEstablishmentPoi from '~/components/MapPanelEstablishmentPoi.vue'
 import MapPanelOsm from '~/components/MapPanelOsm.vue'
+import MapPanelUrban from '~/components/MapPanelUrban.vue'
+import type { UrbanResult } from '~/composables/useMapUrbanAnalysis'
 
 const { t } = useI18n()
 
@@ -161,7 +173,7 @@ const props = defineProps({
   allFeatures: { type: Array, default: () => [] },
   clickCoordinates: { type: Object, default: null },
   contentType: {
-    type: String as PropType<'osm' | 'own_avatar' | 'other_avatar' | 'vehicle' | 'iot_device' | 'condominium' | 'hub' | 'establishment'>,
+    type: String as PropType<'osm' | 'own_avatar' | 'other_avatar' | 'vehicle' | 'iot_device' | 'condominium' | 'hub' | 'establishment' | 'urban'>,
     default: 'osm'
   },
   avatarData: { type: Object, default: null },
@@ -171,10 +183,13 @@ const props = defineProps({
   condominiumData: { type: Object, default: null },
   hubData: { type: Object, default: null },
   establishmentData: { type: Object, default: null },
+  urbanResult: { type: Object as PropType<UrbanResult | null>, default: null },
+  urbanPolygon: { type: Array as PropType<[number, number][]>, default: () => [] },
+  urbanFormattedArea: { type: String, default: '' },
   showBackToBrowse: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['close', 'back', 'feature-selected', 'search-location', 'establishment-selected', 'avatar-type-change', 'show-trail', 'clear-trail', 'trail-cursor', 'recenter-iot', 'osm-resolved'])
+const emit = defineEmits(['close', 'back', 'feature-selected', 'search-location', 'establishment-selected', 'avatar-type-change', 'show-trail', 'clear-trail', 'trail-cursor', 'recenter-iot', 'osm-resolved', 'urban-redraw'])
 
 // Bottom sheet drag
 const { sheetStyle, dragHandleAttrs, snapTo } = useBottomSheet({
@@ -190,6 +205,7 @@ const osmPanelRef = ref<InstanceType<typeof MapPanelOsm> | null>(null)
 const osmTitle = ref('')
 const osmSubtitle = ref('')
 const osmHasSelectedEstablishment = ref(false)
+const osmBackToPage = ref(false)
 
 // ======== Panel title/subtitle ========
 
@@ -215,6 +231,11 @@ const panelTitle = computed(() => {
   if (props.contentType === 'establishment') {
     return props.establishmentData?.name || ''
   }
+  if (props.contentType === 'urban') {
+    const r = props.urbanResult
+    if (r?.covered && r.municipio) return r.municipio.charAt(0).toUpperCase() + r.municipio.slice(1)
+    return t('map.urban.no_coverage_title')
+  }
   // OSM — title comes from sub-panel
   return osmTitle.value
 })
@@ -236,6 +257,11 @@ const panelSubtitle = computed(() => {
   if (props.contentType === 'condominium') return t('map.condo.subtitle')
   if (props.contentType === 'hub') return t('map.hub.subtitle')
   if (props.contentType === 'establishment') return props.establishmentData?.category_label || ''
+  if (props.contentType === 'urban') {
+    const r = props.urbanResult
+    if (!r) return ''
+    return r.covered ? `${r.level} · ${props.urbanFormattedArea}` : ''
+  }
   // OSM
   return osmSubtitle.value
 })

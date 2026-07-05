@@ -253,6 +253,10 @@ class Property(ULIDModel):
     address = models.CharField(max_length=500, blank=True)
     property_type = models.CharField(max_length=20, choices=PropertyType.choices, default=PropertyType.HOUSE)
     photo = models.ImageField(upload_to='properties/', null=True, blank=True)
+    household_invite_token = models.CharField(
+        max_length=64, null=True, blank=True, unique=True,
+        help_text="Invite link token for household members (civic polls audience); rotate to revoke"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -270,6 +274,29 @@ class Property(ULIDModel):
 
     def __str__(self):
         return f"{self.name} ({self.property_type})"
+
+
+class PropertyMember(ULIDModel):
+    """Household member of a Property — the audience of household civic polls
+    (PK/civic-polls-system.md). The owner is implicit; rows are invited residents."""
+
+    class Role(models.TextChoices):
+        MEMBER = 'member', 'Member'
+
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='household_members')
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='property_memberships')
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.MEMBER)
+    invited_by = models.ForeignKey(Profile, null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name='household_invites_sent')
+
+    class Meta:
+        unique_together = [['property', 'profile']]
+        indexes = [
+            models.Index(fields=['profile']),
+        ]
+
+    def __str__(self):
+        return f"{self.profile_id[:8]} @ {self.property.name}"
 
 
 class HAHome(ULIDModel):

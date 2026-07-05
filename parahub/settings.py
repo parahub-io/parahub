@@ -54,9 +54,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
+    'django.contrib.postgres',
 
     # Third party apps
-    'rest_framework',
     'corsheaders',
     'channels',
     'ninja_jwt.token_blacklist',  # JWT token blacklist for logout
@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     'parahub',
     'core',
     'identity',
+    'contracts',
     'taxonomy',
     'market',
     'barter',
@@ -98,6 +99,7 @@ INSTALLED_APPS = [
     'tickets',
     'parasos',
     'cms',
+    'rental',
 ]
 
 MIDDLEWARE = [
@@ -112,6 +114,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    'parahub.middleware.SessionRenewalMiddleware',  # sliding expiry, must be after SessionMiddleware
 ]
 
 ROOT_URLCONF = 'parahub.urls'
@@ -141,6 +144,21 @@ ASGI_APPLICATION = 'parahub.asgi.application'
 REDIS_HOST = env('REDIS_HOST', default='127.0.0.1')
 REDIS_PORT = env.int('REDIS_PORT', default=6379)
 
+# Civic polls (PK/civic-polls-system.md)
+# Dedicated HMAC key for pseudonymous opinion-vote tokens. Stable by design:
+# rotation breaks re-vote linkage and erasure lookup (rotate only on compromise,
+# together with aggregate-and-purge of raw opinion votes).
+CIVIC_VOTE_SECRET = env('CIVIC_VOTE_SECRET', default='')
+# Below this vote count: no live distribution broadcast, quantized display
+# (timing-deanonymization guard for small-n polls).
+CIVIC_LIVE_THRESHOLD = env.int('CIVIC_LIVE_THRESHOLD', default=20)
+# Minimum account age for voting on country-level territory polls (brigading friction).
+CIVIC_COUNTRY_MIN_ACCOUNT_AGE_DAYS = env.int('CIVIC_COUNTRY_MIN_ACCOUNT_AGE_DAYS', default=7)
+# Residency change cooldown (poll-shopping guard).
+CIVIC_RESIDENCY_COOLDOWN_DAYS = env.int('CIVIC_RESIDENCY_COOLDOWN_DAYS', default=30)
+# Supports needed before a citizen idea enters staff review (formulation pass).
+CIVIC_IDEA_SUPPORT_THRESHOLD = env.int('CIVIC_IDEA_SUPPORT_THRESHOLD', default=10)
+
 # Channels (kept for ASGI routing, channels_redis removed)
 CHANNEL_LAYERS = {
     'default': {
@@ -166,6 +184,17 @@ if 'postgres' in DATABASES['default']['ENGINE']:
 # For connection reuse, deploy pgbouncer in front of PostgreSQL.
 DATABASES['default']['CONN_MAX_AGE'] = 0
 DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+
+# Web tier connects through pgbouncer (transaction pooling, :6432) when
+# DB_POOL=1 — set only in the parahub-uvicorn* systemd units. Daemons and
+# management commands keep the direct :5432 connection: transaction pooling
+# breaks session-level state they rely on (pg_advisory_lock in
+# geo/opensky_processor/common.py, unrestricted QuerySet.iterator()).
+if env.bool('DB_POOL', default=False):
+    DATABASES['default']['PORT'] = env('DB_POOL_PORT', default='6432')
+    # Server-side cursors are unsafe behind a transaction pooler:
+    # DECLARE and FETCH may land on different server connections.
+    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 
 # Custom User Model
 AUTH_USER_MODEL = 'identity.Account'
@@ -303,7 +332,12 @@ SESSION_COOKIE_NAME = 'sessionid'
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'  # Allow OAuth redirects
-SESSION_SAVE_EVERY_REQUEST = True  # Keep session alive
+# Session reads come from Redis cache with write-through to PostgreSQL
+# (durable across cache eviction/restarts). Sliding expiry is provided by
+# SessionRenewalMiddleware (≤1 DB write per day per session) instead of
+# SESSION_SAVE_EVERY_REQUEST, which issued SELECT+UPDATE on every request.
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+SESSION_SAVE_EVERY_REQUEST = False
 
 # CSRF settings
 CSRF_COOKIE_NAME = 'csrftoken'
@@ -455,6 +489,10 @@ OPENTIMESTAMPS_ENABLED = env('OPENTIMESTAMPS_ENABLED', default=True, cast=bool)
 
 # CMS Git Mirror
 CMS_GIT_ROOT = BASE_DIR / 'cms-repos'
+
+# Contract Git Mirror — private per-contract proof bundles (DB → git, local-only,
+# never pushed/federated). Drained by contract_mirror_drain on a systemd timer.
+CONTRACTS_GIT_ROOT = BASE_DIR / 'contracts-repos'
 
 # Federation Settings
 FEDERATION_ENABLED = env('FEDERATION_ENABLED', default=False, cast=bool)

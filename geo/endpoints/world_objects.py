@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 import logging
 
-from parahub.auth import ProfileAuth
+from parahub.auth import ProfileAuth, OptionalProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 
 logger = logging.getLogger(__name__)
@@ -179,21 +179,32 @@ def transfer_world_object(request, world_object_id: str, data: TransferInput):
     )
 
 
-@router.get("/{world_object_id}/contracts/", auth=None, response={200: list, 404: dict})
-@ratelimit(group='geo:world_object_contracts', key='ip', rate='30/m')
+@router.get("/{world_object_id}/contracts/", auth=OptionalProfileAuth(), response={200: list, 404: dict})
+@ratelimit(group='geo:world_object_contracts', key=user_or_ip, rate='30/m')
 def list_world_object_contracts(request, world_object_id: str):
-    """List contracts linked to a WorldObject (public metadata only)."""
+    """List contracts linked to a WorldObject — private to each contract's own
+    parties (creator/partner), plus staff. A P2P contract is a private commercial
+    relationship, so anonymous/non-party callers get an empty list. The object's
+    public ownership/transfer provenance is served separately by /activity/."""
+    from django.db.models import Q
     from geo.models import WorldObject
-    from identity.models import Contract
+    from contracts.models import Contract
 
     try:
         WorldObject.objects.get(id=world_object_id)
     except WorldObject.DoesNotExist:
         return 404, {"error": "Not found"}
 
+    viewer = getattr(request, 'auth_profile', None)
+    if viewer is None:
+        return 200, []
+
     contracts = Contract.objects.select_related('creator', 'partner').filter(
         world_object_id=world_object_id
-    ).order_by('-created_at')[:50]
+    )
+    if not viewer.account.is_staff:
+        contracts = contracts.filter(Q(creator=viewer) | Q(partner=viewer))
+    contracts = contracts.order_by('-created_at')[:50]
 
     return 200, [
         {

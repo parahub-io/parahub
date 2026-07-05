@@ -32,7 +32,11 @@
     "group_advanced": "Avancé",
     "prev": "Précédent",
     "next": "Suivant",
-    "parasos_desc": "Appuyez sur un bouton — vos voisins arrivent en 2 minutes"
+    "parasos_desc": "Appuyez sur un bouton — vos voisins arrivent en 2 minutes",
+    "subscriptions_desc": "Soutenez un créateur chaque mois — direct, non dépositaire, sans commission",
+    "rental_desc": "Réservez à la journée ou au créneau — disponibilité sans double réservation",
+    "marketplace_desc": "Proposez ou recherchez n'importe quoi — échange P2P direct, sans commission",
+    "directory_desc": "Trouvez les entreprises et organisations locales sur la carte"
   },
   "common": {
     "save": "Enregistrer",
@@ -59,6 +63,7 @@
     "saved": "Enregistré"
   },
   "nav": {
+    "notifications": "Notifications",
     "messages": "Messages",
     "market": "Marché",
     "map": "Carte",
@@ -68,6 +73,7 @@
     "iot": "Appareils",
     "directory": "Répertoire",
     "contracts": "Contrats",
+    "bookings": "Réservations",
     "projects": "Projets",
     "debts": "Dettes",
     "wallet": "Portefeuille",
@@ -163,6 +169,7 @@
     "start": "C'est parti"
   },
   "register": {
+    "email_taken": "Cet e-mail a déjà un compte. Connectez-vous — ou via Google, si c'est ainsi que vous vous êtes inscrit.",
     "title": "Créer un compte",
     "subtitle": "Sans Google — votre identité, vos règles",
     "create_account": "Créer",
@@ -217,6 +224,8 @@
     "pulse_listings": "annonces",
     "pulse_events": "événements",
     "pulse_polls": "votes ouverts",
+    "online_people": "{count} en ligne",
+    "online_guests": "{count} invités",
     "top_partners": "Meilleurs Partenaires",
     "recent_listings": "Annonces Récentes",
     "upcoming_events": "Événements à Venir",
@@ -234,5 +243,8 @@
   "unlike": "Je n'aime plus",
   "go_home": "Retour à l'accueil",
   "error_not_found": "Page non trouvée",
-  "error_server": "Une erreur est survenue"
+  "error_server": "Une erreur est survenue",
+  "about": {
+    "title": "À propos"
+  }
 }

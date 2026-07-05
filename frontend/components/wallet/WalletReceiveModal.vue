@@ -4,85 +4,90 @@
     <div class="space-y-3">
       <UiTabs v-model="receiveMethod" :tabs="receiveMethods" variant="pills" full-width @update:model-value="switchReceiveMethod" />
 
-      <!-- Lightning Invoice (with amount input) -->
-      <div v-if="receiveMethod === 'lightningInvoice' && !receivePaymentRequest">
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            {{ $t('wallet.amount') }} (sats)
-          </label>
-          <input
-            v-model="invoiceAmount"
-            type="text"
-            inputmode="numeric"
-            placeholder="1000"
-            class="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-mono"
-          />
-          <p v-if="userCurrency !== 'BTC'" class="mt-1 text-sm text-neutral-500 font-mono">
-            ≈ {{ formatFiat((invoiceAmount && parseInt(invoiceAmount) > 0 ? satsToFiat(parseInt(invoiceAmount)) : null) ?? 0) }}
-          </p>
-        </div>
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            {{ $t('wallet.description') }}
-          </label>
-          <input
-            v-model="invoiceDescription"
-            type="text"
-            :placeholder="$t('wallet.invoiceDescPlaceholder')"
-            class="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          />
-        </div>
-        <UiButton
-          variant="primary"
-          class="w-full"
-          :disabled="!invoiceAmount || parseInt(invoiceAmount) <= 0"
-          :loading="generatingReceive"
-          @click="generateLightningInvoice"
-        >
-          {{ $t('wallet.generateInvoice') }}
-        </UiButton>
-      </div>
-
-      <!-- Loading spinner for Spark/Bitcoin address generation -->
-      <div v-if="receiveMethod !== 'lightningInvoice' && generatingReceive" class="text-center py-6">
-        <div class="animate-spin w-8 h-8 border-4 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100 rounded-full mx-auto" role="status">
-          <span class="sr-only">Loading...</span>
-        </div>
-        <p class="mt-4 text-neutral-500">{{ $t('wallet.generating') }}</p>
-      </div>
-
-      <!-- QR + Address display (shared for all methods after generation) -->
-      <div v-if="receivePaymentRequest && !generatingReceive" class="text-center">
-        <!-- Fee info -->
-        <div v-if="receiveFee > 0n" class="mb-2 text-sm text-neutral-500">
-          {{ $t('wallet.fee') }}: {{ Number(receiveFee) }} sats
-          <span v-if="satsToFiat(Number(receiveFee)) !== null && userCurrency !== 'BTC'" class="text-neutral-400 font-mono">(≈ {{ formatFiat(satsToFiat(Number(receiveFee))!) }})</span>
+      <!-- Stable-height region for ALL generation states (input form / spinner / QR)
+           so switching payment type never resizes the modal body — that resize is
+           what makes the centered modal jump vertically between methods. -->
+      <div class="min-h-[400px] flex flex-col justify-center">
+        <!-- Lightning Invoice (with amount input) -->
+        <div v-if="receiveMethod === 'lightningInvoice' && !receivePaymentRequest">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              {{ $t('wallet.amount') }} (sats)
+            </label>
+            <input
+              v-model="invoiceAmount"
+              type="text"
+              inputmode="numeric"
+              placeholder="1000"
+              class="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-mono"
+            />
+            <p v-if="userCurrency !== 'BTC'" class="mt-1 text-sm text-neutral-500 font-mono">
+              ≈ {{ formatFiat((invoiceAmount && parseInt(invoiceAmount) > 0 ? satsToFiat(parseInt(invoiceAmount)) : null) ?? 0) }}
+            </p>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              {{ $t('wallet.description') }}
+            </label>
+            <input
+              v-model="invoiceDescription"
+              type="text"
+              :placeholder="$t('wallet.invoiceDescPlaceholder')"
+              class="w-full px-4 py-3 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
+          <UiButton
+            variant="primary"
+            class="w-full"
+            :disabled="!invoiceAmount || parseInt(invoiceAmount) <= 0"
+            :loading="generatingReceive"
+            @click="generateLightningInvoice"
+          >
+            {{ $t('wallet.generateInvoice') }}
+          </UiButton>
         </div>
 
-        <!-- QR Code -->
-        <div class="bg-white p-2 rounded-lg inline-block mb-2">
-          <img
-            v-if="qrCodeDataUrl"
-            :src="qrCodeDataUrl"
-            :alt="$t('wallet.invoice_qr_aria_label')"
-            class="w-64 h-64"
-          />
+        <!-- Loading spinner for Spark/Bitcoin address generation -->
+        <div v-if="receiveMethod !== 'lightningInvoice' && generatingReceive" class="text-center">
+          <div class="animate-spin w-8 h-8 border-4 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100 rounded-full mx-auto" role="status">
+            <span class="sr-only">Loading...</span>
+          </div>
+          <p class="mt-4 text-neutral-500">{{ $t('wallet.generating') }}</p>
         </div>
 
-        <!-- Payment request string -->
-        <div class="bg-neutral-100 dark:bg-neutral-700 rounded-lg p-2 mb-2">
-          <p class="font-mono text-xs break-all">{{ receivePaymentRequest }}</p>
-        </div>
+        <!-- QR + Address display (shared for all methods after generation) -->
+        <div v-if="receivePaymentRequest && !generatingReceive" class="text-center">
+          <!-- Fee info -->
+          <div v-if="receiveFee > 0n" class="mb-2 text-sm text-neutral-500">
+            {{ $t('wallet.fee') }}: {{ Number(receiveFee) }} sats
+            <span v-if="satsToFiat(Number(receiveFee)) !== null && userCurrency !== 'BTC'" class="text-neutral-400 font-mono">(≈ {{ formatFiat(satsToFiat(Number(receiveFee))!) }})</span>
+          </div>
 
-        <!-- Copy button -->
-        <UiButton
-          variant="primary"
-          :icon="Copy"
-          class="w-full"
-          @click="copyPaymentRequest"
-        >
-          {{ addressCopied ? $t('common.copied') : $t('wallet.copyAddress') }}
-        </UiButton>
+          <!-- QR Code -->
+          <div class="bg-white p-2 rounded-lg inline-block mb-2">
+            <img
+              v-if="qrCodeDataUrl"
+              :src="qrCodeDataUrl"
+              :alt="$t('wallet.invoice_qr_aria_label')"
+              class="w-64 h-64"
+            />
+          </div>
+
+          <!-- Payment request string -->
+          <div class="bg-neutral-100 dark:bg-neutral-700 rounded-lg p-2 mb-2">
+            <p class="font-mono text-xs break-all">{{ receivePaymentRequest }}</p>
+          </div>
+
+          <!-- Copy button -->
+          <UiButton
+            variant="primary"
+            :icon="Copy"
+            class="w-full"
+            @click="copyPaymentRequest"
+          >
+            {{ addressCopied ? $t('common.copied') : $t('wallet.copyAddress') }}
+          </UiButton>
+        </div>
       </div>
     </div>
   </Modal>

@@ -65,6 +65,33 @@
     "errors": {
       "load_failed": "Falha ao carregar oportunidades de troca",
       "chat_failed": "Falha ao criar sala de chat. Tente novamente."
+    },
+    "diagnosis": {
+      "stat_offers": "Ofertas",
+      "stat_requests": "Pedidos",
+      "stat_chains": "Cadeias",
+      "explainer": "Uma cadeia fecha apenas quando o seu pedido corresponde à oferta de alguém — e a sua oferta ao pedido dele. Quanto mais publicar dos dois lados, maiores as hipóteses.",
+      "your_offers": "O que você oferece",
+      "your_requests": "O que você procura",
+      "seekers": "{n} à procura | {n} à procura",
+      "no_seekers": "ainda ninguém procura",
+      "offerers": "{n} a oferecer | {n} a oferecer",
+      "no_offerers": "ainda ninguém oferece",
+      "no_offers_hint": "Ainda não tem nada para oferecer.",
+      "no_requests_hint": "Não indicou o que procura — sem isso a troca não fecha.",
+      "add_offer": "Adicionar oferta",
+      "add_request": "Adicionar pedido"
+    },
+    "create_nudge": {
+      "published": "Anúncio publicado",
+      "heading": "O que quer em troca?",
+      "explainer": "Diga o que procura — o sistema encontra uma cadeia de troca. Sem um pedido, a sua oferta não pode entrar no escambo.",
+      "category_label": "Categoria do que procura",
+      "title_label": "O quê exatamente?",
+      "title_placeholder": "ex.: um portátil, uma hora de design, tomates",
+      "add": "Adicionar pedido",
+      "skip": "Ignorar, ir para o anúncio",
+      "added": "Pedido adicionado — à procura de correspondências"
     }
   }
 }

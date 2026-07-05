@@ -12,9 +12,31 @@
  *     render() → 100% CPU loop. Replaced with deck.gl 2026-04-07.
  */
 
-import { MapboxOverlay } from '@deck.gl/mapbox'
-import { Tile3DLayer } from '@deck.gl/geo-layers'
-import { Tiles3DLoader } from '@loaders.gl/3d-tiles'
+// deck.gl + loaders.gl are ~500 KB of the map chunk while the 3D toggle is a
+// niche feature — loaded dynamically on first activation instead of welding
+// them into every map visitor's bundle.
+type DeckMods = {
+  MapboxOverlay: any
+  Tile3DLayer: any
+  Tiles3DLoader: any
+}
+let deckMods: DeckMods | null = null
+
+const _loadDeck = async (): Promise<DeckMods> => {
+  if (!deckMods) {
+    const [mapbox, geoLayers, tiles3d] = await Promise.all([
+      import('@deck.gl/mapbox'),
+      import('@deck.gl/geo-layers'),
+      import('@loaders.gl/3d-tiles'),
+    ])
+    deckMods = {
+      MapboxOverlay: mapbox.MapboxOverlay,
+      Tile3DLayer: geoLayers.Tile3DLayer,
+      Tiles3DLoader: tiles3d.Tiles3DLoader,
+    }
+  }
+  return deckMods
+}
 
 // Bump `?v=` whenever the per-mission tileset.json schema changes (LOD chain
 // edits etc.). Old responses had max-age=604800 so existing browser disk
@@ -101,7 +123,7 @@ export function useMap3DTiles() {
   // mission, and starts fetching 50–80 MB GLBs per mission *before* any
   // onTilesetLoad mutation can take effect. At z22 with 5 missions that
   // becomes 350+ MB and freezes the tab.
-  const TunedTiles3DLoader = {
+  const _tunedLoader = ({ Tiles3DLoader }: DeckMods) => ({
     ...Tiles3DLoader,
     async preload() {
       return {
@@ -117,13 +139,13 @@ export function useMap3DTiles() {
         maxRequests: 6,
       }
     },
-  }
+  })
 
-  const _buildLayer = () =>
-    new Tile3DLayer({
+  const _buildLayer = (mods: DeckMods) =>
+    new mods.Tile3DLayer({
       id: 'opensky-3d-tiles',
       data: TILESET_URL,
-      loader: TunedTiles3DLoader as any,
+      loader: _tunedLoader(mods) as any,
       loadOptions: {
         '3d-tiles': {
           loadGLTF: true,
@@ -165,7 +187,7 @@ export function useMap3DTiles() {
       },
     })
 
-  const toggle = () => {
+  const toggle = async () => {
     const map = mapStore.mapInstance
     if (!map) return
 
@@ -176,6 +198,22 @@ export function useMap3DTiles() {
       maxPitchBefore = map.getMaxPitch()
       tiles3dLoading.value = true
 
+      let mods: DeckMods
+      try {
+        mods = await _loadDeck()
+      } catch (e) {
+        console.error('[3dtiles] failed to load deck.gl modules', e)
+        tiles3dEnabled.value = false
+        tiles3dLoading.value = false
+        return
+      }
+      // Toggled off / map torn down while the chunk was downloading — nothing
+      // map-mutating has happened yet, so just stand down.
+      if (!tiles3dEnabled.value || mapStore.mapInstance !== map) {
+        tiles3dLoading.value = false
+        return
+      }
+
       // Dim the OpenSky orthomosaic underneath — it covers the same ground as
       // the 3D mesh, so full-opacity raster + mesh just doubles GPU work and
       // mutes the 3D look. Restored verbatim on toggle off.
@@ -185,17 +223,17 @@ export function useMap3DTiles() {
       }
 
       if (!overlay) {
-        overlay = new MapboxOverlay({
+        overlay = new mods.MapboxOverlay({
           // interleaved: true → deck.gl shares MapLibre's depth buffer, so
           // mesh respects OSM occlusion AND lets the rendered geometry
           // appear at low/medium zooms with any pitch (with interleaved=false
           // mesh became invisible at pitch >40° at almost ALL zooms).
           interleaved: true,
-          layers: [_buildLayer()],
+          layers: [_buildLayer(mods)],
         })
         map.addControl(overlay as any)
       } else {
-        overlay.setProps({ layers: [_buildLayer()] })
+        overlay.setProps({ layers: [_buildLayer(mods)] })
       }
 
       // Re-run the governor on every settle — tile load/unload events alone

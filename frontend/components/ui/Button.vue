@@ -3,7 +3,7 @@ import { computed, type Component } from 'vue'
 import { Loader2 } from 'lucide-vue-next'
 
 interface Props {
-  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'outline' | 'outline-warning' | 'outline-error' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'outline' | 'outline-success' | 'outline-warning' | 'outline-error' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   icon?: Component
   iconOnly?: boolean

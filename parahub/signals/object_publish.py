@@ -9,6 +9,7 @@ import logging
 from datetime import date, datetime
 from decimal import Decimal
 
+from django.db.models.expressions import Combinable
 from django.db.models.signals import post_save
 
 logger = logging.getLogger(__name__)
@@ -76,9 +77,25 @@ def _object_post_save(sender, instance, created, raw, **kwargs):
             return
 
     changes = {}
+    # Fields still holding an unresolved F()-expression on the in-memory instance.
+    # This signal fires inside Model.save(), before any refresh_from_db(), so e.g.
+    # Item.save()'s `self.version = F('version') + 1` is a CombinedExpression here —
+    # not JSON-serializable. Left in the payload it would make orjson.dumps throw and
+    # drop the whole broadcast. Collect them and read the materialized values back.
+    deferred = []
     for field in fields:
         val = getattr(instance, field, None)
-        changes[field] = _serialize_value(val)
+        if isinstance(val, Combinable):
+            deferred.append(field)
+        else:
+            changes[field] = _serialize_value(val)
+
+    if deferred:
+        # Same transaction as the UPDATE → read-your-writes returns the new values.
+        fresh = sender.objects.filter(pk=instance.pk).values(*deferred).first()
+        if fresh:
+            for field in deferred:
+                changes[field] = _serialize_value(fresh[field])
 
     if not changes:
         return

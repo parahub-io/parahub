@@ -20,6 +20,13 @@ from django.db import connection, transaction
 from geo.models import Stop, StopGroup
 
 RADIUS_M = 50              # candidate edge radius between unit roots
+STATION_RADIUS_M = 150     # wider radius when AT LEAST ONE side is a rail/metro
+                           # station (interchange tier): a station is one centroid
+                           # sitting 60–170m both from the on-street bus poles serving
+                           # it AND from a neighbouring station of another feed (Cais
+                           # Sodré 167m, Areeiro 74m, CP↔ML Oriente 60m), so the 50m
+                           # gate misses nearly every bus↔metro AND rail↔metro transfer.
+                           # Bus↔bus pairs (neither rail) never get it (see cluster_units).
 MAX_CLUSTER_WARN = 40      # warn loudly above this — never truncate silently
 MAX_PARENT_DEPTH = 5       # parent_station chain guard (GTFS allows 2 levels)
 UPDATE_BATCH = 10_000
@@ -45,6 +52,16 @@ ABBREVIATIONS = {
 # toponym types — bare «Ленина» must not glue «улица Ленина» to «площадь Ленина».
 TYPE_TOKENS = frozenset(ABBREVIATIONS.values())
 
+# Non-type token expansions: saint-name qualifiers (pt/es/it «Sta.»/«Sto.»). Kept
+# OUT of ABBREVIATIONS deliberately so 'santa'/'santo' never join TYPE_TOKENS —
+# they are name qualifiers, not toponym types, so «Santa X» must not type-conflict
+# with «Praça X». Without this, «Estação Sta. Apolónia» {estacao,sta,apolonia} fails
+# to contain «Santa Apolónia» {santa,apolonia} (sta ≠ santa) even at 3m apart.
+QUALIFIER_ABBREVIATIONS = {'sta': 'santa', 'sto': 'santo'}
+
+# Single lookup used during normalization (types + qualifiers).
+_TOKEN_CANON = {**ABBREVIATIONS, **QUALIFIER_ABBREVIATIONS}
+
 # Pure connectives carry no identity («Cais do Sodré» = «Cais Sodré»).
 STOPWORDS = frozenset({'de', 'do', 'da', 'dos', 'das', 'del', 'e', 'of', 'the', 'and', 'и'})
 
@@ -57,7 +74,7 @@ def normalize_tokens(name: str) -> frozenset:
     s = unicodedata.normalize('NFKD', (name or '').casefold())
     s = ''.join(ch for ch in s if not unicodedata.combining(ch))
     s = _PUNCT_RE.sub(' ', s)
-    tokens = [ABBREVIATIONS.get(t, t) for t in s.split()]
+    tokens = [_TOKEN_CANON.get(t, t) for t in s.split()]
     significant = frozenset(t for t in tokens if t not in STOPWORDS)
     return significant if significant else frozenset(tokens)
 
@@ -84,6 +101,7 @@ class Unit:
     lat: float
     is_station: bool
     ds_id: str
+    is_rail: bool = False   # any member served by a metro/rail route → interchange tier
     member_ids: list = field(default_factory=list)
     place_ids: list = field(default_factory=list)
     lt0_count: int = 0
@@ -93,9 +111,32 @@ class Unit:
         return self.norm & TYPE_TOKENS
 
 
-def load_units():
+def load_railgrade_stop_ids():
+    """Stop ids served by a metro/rail route on any active feed. These are the
+    fixed-infrastructure stations whose single centroid sits far from the curbside
+    poles they interchange with → they (and only they) get STATION_RADIUS_M.
+    Buckets: subway/metro (1), rail (2), extended rail (100–199), extended urban
+    rail/metro (400–499). Coach (200–299) is long-distance BUS — excluded; tram,
+    trolleybus, funicular and ferry are curbside/short and stay on the 50m tier."""
+    with connection.cursor() as cur:
+        cur.execute("""
+            SELECT DISTINCT rs.stop_id
+            FROM geo_routestop rs
+            JOIN geo_route r ON r.id = rs.route_id
+            JOIN geo_agency a ON a.id = r.agency_id
+            JOIN geo_transitdatasource ds ON ds.id = a.data_source_id AND ds.is_active
+            WHERE r.route_type IN (1, 2)
+               OR (r.route_type BETWEEN 100 AND 199)
+               OR (r.route_type BETWEEN 400 AND 499)
+        """)
+        return frozenset(row[0] for row in cur.fetchall())
+
+
+def load_units(railgrade_ids=frozenset()):
     """All stops of active TransitDataSources (managed included), lt ≤ 1,
-    folded into parent_station trees. Returns {root_id: Unit}."""
+    folded into parent_station trees. Returns {root_id: Unit}.
+    A unit is rail-grade if ANY of its member stops is served by metro/rail
+    (the flag propagates to the parent-station root)."""
     with connection.cursor() as cur:
         cur.execute("""
             SELECT s.id, s.name, s.location_type, s.parent_station_id, s.place_id,
@@ -130,6 +171,8 @@ def load_units():
                 lon=root[5], lat=root[6], is_station=(root[2] == 1), ds_id=root[7],
             )
         unit.member_ids.append(r[0])
+        if r[0] in railgrade_ids:
+            unit.is_rail = True
         if r[4]:
             unit.place_ids.append(r[4])
         if r[2] == 0:
@@ -138,8 +181,10 @@ def load_units():
 
 
 def load_candidate_edges():
-    """Root pairs within RADIUS_M across all active feeds. Returns
-    [(root_a, root_b, distance_m)] sorted by (distance, ids) — deterministic."""
+    """Root pairs within STATION_RADIUS_M across all active feeds. Returns
+    [(root_a, root_b, distance_m)] sorted by (distance, ids) — deterministic.
+    The wide radius is fetched here; cluster_units applies the per-pair tier
+    (50m default, 150m only for a cross-mode rail↔street pair)."""
     with connection.cursor() as cur:
         cur.execute("""
             SELECT a.id, b.id, ST_Distance(a.location, b.location)
@@ -151,7 +196,7 @@ def load_candidate_edges():
             JOIN geo_transitdatasource db ON db.id = gb.data_source_id AND db.is_active
             WHERE a.location_type <= 1 AND b.location_type <= 1
               AND a.parent_station_id IS NULL AND b.parent_station_id IS NULL
-        """, [RADIUS_M])
+        """, [STATION_RADIUS_M])
         edges = cur.fetchall()
     edges.sort(key=lambda e: (e[2], e[0], e[1]))
     return edges
@@ -179,9 +224,17 @@ def cluster_units(units, edges, warn=None):
         cluster_types[uid] = set(u.type_tokens)
         cluster_stations[uid] = {u.ds_id} if u.is_station else set()
 
-    for a_id, b_id, _dist in edges:
+    for a_id, b_id, dist in edges:
         ua, ub = units.get(a_id), units.get(b_id)
         if ua is None or ub is None or not edge_passes(ua.norm, ub.norm):
+            continue
+        # Distance tier: 50m for street/same-mode pairs; widen to 150m when AT LEAST
+        # ONE side is a rail/metro station (the interchange case) — covers bus↔metro
+        # AND rail↔metro/rail↔rail across feeds (CP «Lisboa Oriente» ↔ ML «Oriente»,
+        # 60m). Bus↔bus chains (neither rail) never get the wide radius. The name gate
+        # already demands same/containment names, so genuinely distinct stations (km
+        # apart) never merge; a same-name rail neighbour within 150m is one interchange.
+        if dist > RADIUS_M and not (dist <= STATION_RADIUS_M and (ua.is_rail or ub.is_rail)):
             continue
         ra, rb = find(a_id), find(b_id)
         if ra == rb:
@@ -237,7 +290,7 @@ def build_cluster_attrs(cluster):
 
 
 def compute_desired_groups(warn=None):
-    units = load_units()
+    units = load_units(load_railgrade_stop_ids())
     edges = load_candidate_edges()
     clusters = cluster_units(units, edges, warn=warn)
     return [build_cluster_attrs(c) for c in clusters]

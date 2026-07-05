@@ -3,13 +3,13 @@
     <div class="text-center max-w-md">
       <img
         v-if="is404"
-        src="/images/para/puzzled.png"
+        src="/images/para/puzzled.webp"
         alt="Para"
         class="mx-auto h-48 w-auto mb-6"
       >
       <img
         v-else
-        src="/images/para/alert.png"
+        src="/images/para/alert.webp"
         alt="Para"
         class="mx-auto h-48 w-auto mb-6"
       >

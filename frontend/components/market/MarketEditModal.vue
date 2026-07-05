@@ -123,16 +123,13 @@
                       </select>
                     </div>
 
-                    <!-- Unit (e.g. kg, hour, day, pcs) -->
+                    <!-- Unit (e.g. kg, hour, day, pcs) — localized labels, canonical value -->
                     <div v-if="opt.type !== 'free'" class="mb-2">
-                      <input
+                      <MarketUnitSelect
                         v-model="opt.unit"
-                        type="text"
-                        list="market-edit-unit-presets"
-                        :placeholder="$t('market.edit_modal.unit_placeholder')"
-                        maxlength="50"
-                        class="w-full px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700"
-                      >
+                        select-class="w-full px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700"
+                        input-class="w-full px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700"
+                      />
                     </div>
 
                     <!-- Note -->
@@ -152,14 +149,6 @@
                   >
                     {{ $t('market.edit_modal.add_pricing_option') }}
                   </button>
-                  <datalist id="market-edit-unit-presets">
-                    <option value="kg" /><option value="g" /><option value="t" />
-                    <option value="l" /><option value="ml" />
-                    <option value="m" /><option value="m²" /><option value="m³" />
-                    <option value="pcs" /><option value="шт" /><option value="pair" /><option value="box" /><option value="set" />
-                    <option value="hour" /><option value="day" /><option value="week" /><option value="month" /><option value="year" />
-                    <option value="session" /><option value="project" /><option value="page" /><option value="consultation" />
-                  </datalist>
                 </div>
               </div>
 

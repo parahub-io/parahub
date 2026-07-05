@@ -28,13 +28,14 @@ def get_profile_by_id_or_username(profile_id: str) -> Profile:
     ULIDs are 26 chars uppercase alphanumeric starting with 01.
     """
     from core.models import Instance
+    from django.conf import settings
 
     # Check if it looks like ULID (26 chars, starts with 01)
     if len(profile_id) == 26 and profile_id.startswith('01'):
         return get_object_or_404(Profile, id=profile_id)
 
     # Otherwise treat as username (local_name)
-    instance = Instance.objects.get(domain='parahub.io')
+    instance = Instance.objects.get(domain=settings.FEDERATION_DOMAIN)
     return get_object_or_404(Profile, instance=instance, local_name=profile_id.lower())
 
 
@@ -189,6 +190,7 @@ def quick_signup_via_invite(request, data: QuickSignupRequest):
         from django.contrib.auth import get_user_model
         from identity.models import Account, Profile
         from core.models import Instance
+        from django.conf import settings
         from parahub.endpoints.auth import _check_username_available_in_matrix, _is_username_valid
         import secrets
         import string
@@ -202,7 +204,7 @@ def quick_signup_via_invite(request, data: QuickSignupRequest):
         except Profile.DoesNotExist:
             return 400, {"error": "Invalid or inactive invite token"}
 
-        instance = Instance.objects.get(domain='parahub.io')
+        instance = Instance.objects.get(domain=settings.FEDERATION_DOMAIN)
 
         # Validate custom username if provided
         if data.local_name:

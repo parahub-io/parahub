@@ -98,7 +98,15 @@ import { isNative } from '~/utils/capacitor'
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const localePath = useLocalePath()
+
+// Post-login destination: honor ?redirect= (must be an internal path to avoid
+// open-redirect), e.g. a shared rental link sends anonymous bookers here and back.
+const redirectTarget = computed(() => {
+  const r = route.query.redirect
+  return typeof r === 'string' && r.startsWith('/') ? r : localePath('/')
+})
 
 const username = ref('')
 const password = ref('')
@@ -115,7 +123,7 @@ const errorMessageMap: Record<string, string> = {
 // Check if already authenticated and redirect
 onMounted(async () => {
   if (authStore.isAuthenticated) {
-    await navigateTo(localePath('/'))
+    await navigateTo(redirectTarget.value)
   }
 })
 
@@ -129,7 +137,7 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(username.value, password.value)
-    await navigateTo(localePath('/'))
+    await navigateTo(redirectTarget.value)
   } catch (err: any) {
     const code = err.data?.detail
     const i18nKey = errorMessageMap[code]

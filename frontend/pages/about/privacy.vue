@@ -21,7 +21,7 @@
         <strong>Parahub - Associação</strong><br>
         NIPC: 519046161<br>
         Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal<br>
-        {{ $t('privacy.sections.controller.email_label') }}: <a href="mailto:support@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">support@parahub.io</a>
+        {{ $t('privacy.sections.controller.email_label') }}: <a href="mailto:info@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">info@parahub.io</a>
       </address>
 
       <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">2. {{ $t('privacy.sections.data_collected.title') }}</h2>
@@ -106,7 +106,7 @@
         <strong>Parahub - Associação</strong><br>
         NIPC: 519046161<br>
         Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal<br>
-        {{ $t('privacy.sections.contact.email_label') }}: <a href="mailto:support@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">support@parahub.io</a>
+        {{ $t('privacy.sections.contact.email_label') }}: <a href="mailto:info@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">info@parahub.io</a>
       </address>
     </div>
   </div>
@@ -151,7 +151,7 @@ const matrixData = computed(() => {
 
 const rightsContact = computed(() => {
   const text = t('privacy.sections.rights.contact')
-  return text.replace('{email}', '<a href="mailto:support@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">support@parahub.io</a>')
+  return text.replace('{email}', '<a href="mailto:info@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">info@parahub.io</a>')
 })
 
 // Get purposes array

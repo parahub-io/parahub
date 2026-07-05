@@ -72,6 +72,7 @@ CONFIGS=(
     "plausible.conf.template:plausible.${DOMAIN}"
     "mail.conf.template:mail.${DOMAIN}"
     "sites.conf.template:sites.${DOMAIN}"
+    "default-443.conf.template:default-443"
 )
 
 echo -e "${BOLD}Parahub Nginx Setup${NC}"
@@ -160,6 +161,19 @@ for entry in "${CONFIGS[@]}"; do
 
     link_cmd ln -s "$target" "$link"
     ok "$output → $target"
+done
+
+# http-context includes (log_format etc. — not allowed inside server blocks)
+for conf in "$PROJECT_DIR"/nginx/conf.d/*.conf; do
+    [[ -f "$conf" ]] || continue
+    link="/etc/nginx/conf.d/$(basename "$conf")"
+    if [[ -L "$link" ]] && [[ "$(readlink -f "$link")" == "$(readlink -f "$conf")" ]]; then
+        info "conf.d/$(basename "$conf") — already linked"
+        continue
+    fi
+    link_cmd rm -f "$link"
+    link_cmd ln -s "$conf" "$link"
+    ok "conf.d/$(basename "$conf") → $conf"
 done
 
 # Also link landing page configs if they exist

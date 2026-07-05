@@ -85,7 +85,7 @@
         <strong>Parahub - Associação</strong><br>
         NIPC: 519046161<br>
         Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal<br>
-        Email: <a href="mailto:support@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">support@parahub.io</a>
+        Email: <a href="mailto:info@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">info@parahub.io</a>
       </address>
     </div>
   </div>
@@ -113,9 +113,9 @@ const importantNoticeText = computed(() => {
   // Manual string replacement (not using t() parameters to avoid SSR issues)
   return text
     .replace('__OPERATOR__', `<strong>${t('terms.important_notice.operator')}</strong>`)
-    .replace('__MANIFESTO__', `<a href="/manifest" class="underline">${t('terms.important_notice.manifesto')}</a>`)
-    .replace('__CODE_OF_CONDUCT__', `<a href="/about/code-of-conduct" class="underline">${t('terms.important_notice.code_of_conduct')}</a>`)
-    .replace('__ESTATUTOS__', `<a href="/estatutos" class="underline">${t('terms.important_notice.estatutos')}</a>`)
+    .replace('__MANIFESTO__', `<a href="${localePath('/manifest')}" class="underline">${t('terms.important_notice.manifesto')}</a>`)
+    .replace('__CODE_OF_CONDUCT__', `<a href="${localePath('/about/code-of-conduct')}" class="underline">${t('terms.important_notice.code_of_conduct')}</a>`)
+    .replace('__ESTATUTOS__', `<a href="${localePath('/estatutos')}" class="underline">${t('terms.important_notice.estatutos')}</a>`)
 })
 
 const keysResponsibilityText = computed(() => {

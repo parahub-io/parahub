@@ -81,9 +81,9 @@
             <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('codeOfConduct.contact.organization') }}</strong><br>
             <span class="text-neutral-600 dark:text-neutral-400">{{ $t('codeOfConduct.contact.location') }}</span><br>
             <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('codeOfConduct.contact.reportTo') }}</strong>
-            <a href="mailto:support@parahub.io" class="text-link">support&#64;parahub.io</a><br>
+            <a href="mailto:info@parahub.io" class="text-link">info&#64;parahub.io</a><br>
             <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('codeOfConduct.contact.generalInquiries') }}</strong>
-            <a href="mailto:support@parahub.io" class="text-link">support&#64;parahub.io</a>
+            <a href="mailto:info@parahub.io" class="text-link">info&#64;parahub.io</a>
           </address>
         </section>
       </div>

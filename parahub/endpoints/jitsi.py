@@ -139,7 +139,7 @@ def create_room(request, payload: CreateRoomRequest = None):
     room_name = generate_room_name(profile.id, target_id)
 
     # Get display name
-    display_name = profile.display_name or profile.hna or profile.local_name or "User"
+    display_name = (profile.display_name if profile.name_public else '') or profile.hna or profile.local_name or "User"
 
     # Generate JWT (creator is always moderator)
     jwt_token = generate_jitsi_jwt(
@@ -221,7 +221,7 @@ def join_room(request, room_name: str):
         return JoinRoomResponse(success=False, error="Invalid room name")
 
     # Get display name
-    display_name = profile.display_name or profile.hna or profile.local_name or "User"
+    display_name = (profile.display_name if profile.name_public else '') or profile.hna or profile.local_name or "User"
 
     # Generate JWT (joiner is not moderator by default)
     jwt_token = generate_jitsi_jwt(

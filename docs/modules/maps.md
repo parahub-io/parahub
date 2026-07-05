@@ -32,7 +32,7 @@ The map displays multiple data layers controlled via a unified **Layers** button
 
 ## Business Directory
 
-2GIS-style organization directory integrated with the map:
+Detailed local business and organization directory integrated with the map:
 
 - **WorldObject** -- universal real-world entity (building, landmark, public space) with OSM/OpenAddresses provenance (`xeno_source`); supports photo/comment/ownership-log attachments, claim/transfer flow
 - **Establishments** -- businesses, organizations, cooperatives anchored to a WorldObject (FK `world_object`)
@@ -69,6 +69,10 @@ Directions panel with three modes (Car, Walk, Bike):
 - **Edge distance indicator**: off-screen search results shown with distance arc on viewport edge
 - **Lock-on bracket animation**: preview markers for search/routing results on hover
 - **Map state persistence**: `useMapState()` composable reads last position/zoom from localStorage
+
+## Weather
+
+Live local weather (temperature and current conditions) shown as a compact overlay in a corner of the map, following the map's center. The same compact weather indicator also appears on transit stop pages.
 
 ## Performance
 

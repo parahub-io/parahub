@@ -13,8 +13,8 @@ from typing import Dict, Optional, List
 from pydantic import BaseModel, Field
 from datetime import datetime
 import logging
-import threading
 
+from parahub.background import spawn, PRIORITY_URGENT
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.contrib.gis.geos import Point
@@ -372,7 +372,8 @@ def _send_matrix_sos_notice(group, alert):
         except Exception as e:
             logger.warning(f"Failed to send Matrix SOS notice: {e}")
 
-    threading.Thread(target=_send, daemon=True).start()
+    # SOS is latency-sensitive — jump ahead of bulk background work
+    spawn(_send, priority=PRIORITY_URGENT)
 
 
 def _notify_group_members(group, alert):
@@ -438,7 +439,7 @@ def _notify_group_members(group, alert):
             except Exception as e:
                 logger.warning(f"Push failed for member {member.profile_id}: {e}")
 
-    threading.Thread(target=_send_all, daemon=True).start()
+    spawn(_send_all, priority=PRIORITY_URGENT)
 
 
 def _ws_broadcast_alert(group, alert, event_type='sos.new'):

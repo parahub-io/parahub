@@ -3,7 +3,7 @@
     <div class="max-w-lg mx-auto">
       <!-- Header -->
       <div class="text-center mb-8">
-        <img src="/images/para/pointing.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+        <img src="/images/para/pointing.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
         <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
           {{ $t('seed.title') }}
         </h1>

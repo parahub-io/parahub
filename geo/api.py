@@ -13,6 +13,9 @@ from geo.endpoints.driver import router as driver_router
 from geo.endpoints.transit_manage import router as transit_manage_router
 from geo.endpoints.condominium import router as condominium_router
 from geo.endpoints.world_objects import router as world_objects_router
+from geo.endpoints.weather import router as weather_router
+from geo.endpoints.urban import router as urban_router
+from geo.endpoints.territories import router as territories_router
 
 router = Router(tags=["Geo"])
 
@@ -25,3 +28,6 @@ router.add_router("driver", driver_router)
 router.add_router("transit/manage", transit_manage_router)
 router.add_router("", condominium_router)
 router.add_router("world-objects", world_objects_router)
+router.add_router("", weather_router)
+router.add_router("", urban_router)
+router.add_router("", territories_router)

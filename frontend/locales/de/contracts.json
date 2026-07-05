@@ -58,6 +58,7 @@
     "sign_modal": {
       "title": "Vertrag signieren",
       "from": "Von",
+      "read_terms": "Bedingungen — vor dem Signieren lesen",
       "verify_file": "1. Überprüfen Sie zuerst Ihre Datei",
       "verify_hint": "Laden Sie Ihre Kopie der Vertragsdatei hoch, um zu überprüfen, ob der SHA256-Hash übereinstimmt",
       "hash_mismatch_warning": "WARNUNG: Datei-Hashes stimmen nicht überein! Dies ist NICHT dieselbe Datei. Nicht signieren!",
@@ -115,6 +116,8 @@
     "items": "Artikel",
     "export_proof": "Beweis für Gericht exportieren",
     "created": "Erstellt",
+    "terms_label": "Vertragsbedingungen",
+    "rental_title": "Miete — {item}",
     "signatures": "Signaturen",
     "completion": "Abschluss",
     "arbitration": {

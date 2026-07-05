@@ -16,7 +16,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex-1 flex items-center justify-center" role="status" aria-live="polite">
       <div class="text-center">
-        <div class="rounded-full h-12 w-12 border-b-2 border-primary mx-auto animate-spin" aria-hidden="true"></div>
+        <div class="rounded-full h-12 w-12 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100 mx-auto animate-spin" aria-hidden="true"></div>
         <p class="mt-4 text-neutral-500 dark:text-neutral-400">{{ $t('dashboard.loading', 'Loading dashboard...') }}</p>
       </div>
     </div>
@@ -119,10 +119,10 @@
                   {{ $t('dashboard.wot_hint') }}
                 </p>
                 <div class="flex gap-3 mt-2">
-                  <NuxtLink :to="localePath('/docs/wot')" class="text-xs font-medium text-secondary hover:underline">
+                  <NuxtLink :to="localePath('/docs/wot')" class="text-xs font-medium text-link">
                     {{ $t('dashboard.wot_learn_how') }}
                   </NuxtLink>
-                  <NuxtLink :to="localePath('/directory')" class="text-xs font-medium text-secondary hover:underline">
+                  <NuxtLink :to="localePath('/directory')" class="text-xs font-medium text-link">
                     {{ $t('dashboard.wot_find_people') }}
                   </NuxtLink>
                 </div>
@@ -151,45 +151,42 @@
         <!-- Activity Feed -->
         <div v-if="hasFeedContent" class="w-full max-w-4xl">
 
-          <!-- Recent Listings -->
+          <!-- Recent Listings (compact list) -->
           <div v-if="dashboardData.recent_items.length > 0" class="mb-4 sm:mb-6">
             <div class="flex items-center justify-between mb-2 sm:mb-3">
               <h2 class="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100">
                 {{ $t('dashboard.recent_listings') }}
               </h2>
-              <NuxtLink :to="localePath('/market')" class="text-xs text-secondary hover:underline">
+              <NuxtLink :to="localePath('/market')" class="text-xs text-link">
                 {{ $t('dashboard.view_all') }}
               </NuxtLink>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+            <div class="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
               <NuxtLink
                 v-for="item in dashboardData.recent_items"
                 :key="item.id"
                 :to="localePath(`/market/${item.slug}`)"
-                class="card overflow-hidden hover:border-primary transition-colors group"
+                class="flex items-center gap-3 px-3 py-2 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
               >
-                <div v-if="item.thumbnail_url" class="aspect-[4/3] bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                <div class="w-10 h-10 flex-shrink-0 rounded bg-neutral-100 dark:bg-neutral-800 overflow-hidden flex items-center justify-center">
                   <img
+                    v-if="item.thumbnail_url"
                     :src="item.thumbnail_url"
                     :alt="item.title"
-                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    class="w-full h-full object-cover"
                     loading="lazy"
                   />
+                  <ShoppingBag v-else class="w-4 h-4 text-neutral-300 dark:text-neutral-600" />
                 </div>
-                <div v-else class="aspect-[4/3] bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                  <ShoppingBag class="w-8 h-8 text-neutral-300 dark:text-neutral-600" />
-                </div>
-                <div class="p-2 sm:p-3">
-                  <p class="text-xs sm:text-sm font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-tight">
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                     {{ item.title }}
                   </p>
-                  <div class="flex items-center justify-between mt-1">
-                    <span class="text-xs font-semibold text-secondary">{{ item.pricing_display }}</span>
-                  </div>
-                  <p class="text-[10px] sm:text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                  <p class="text-xs text-neutral-400 dark:text-neutral-500 truncate">
                     {{ item.owner_name }}
                   </p>
                 </div>
+                <span class="text-xs font-semibold text-secondary flex-shrink-0">{{ item.pricing_display }}</span>
               </NuxtLink>
             </div>
           </div>
@@ -200,7 +197,7 @@
               <h2 class="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100">
                 {{ $t('dashboard.upcoming_events') }}
               </h2>
-              <NuxtLink :to="localePath('/events')" class="text-xs text-secondary hover:underline">
+              <NuxtLink :to="localePath('/events')" class="text-xs text-link">
                 {{ $t('dashboard.view_all') }}
               </NuxtLink>
             </div>
@@ -243,7 +240,7 @@
               <h2 class="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100">
                 {{ $t('dashboard.active_polls') }}
               </h2>
-              <NuxtLink :to="localePath('/governance')" class="text-xs text-secondary hover:underline">
+              <NuxtLink :to="localePath('/governance')" class="text-xs text-link">
                 {{ $t('dashboard.view_all') }}
               </NuxtLink>
             </div>
@@ -304,29 +301,24 @@
           </div>
         </div>
 
-        <!-- Admin Quick Access (staff only) -->
+        <!-- Online Now (staff only) — live presence -->
+        <DashboardOnlineNow v-if="isStaff" />
+
+        <!-- Admin Quick Access (staff only) — unified bento grid, nav-menu style -->
         <div v-if="isStaff" class="w-full max-w-4xl mt-2 sm:mt-4">
-          <div v-for="group in adminSections" :key="group.label" class="mb-4 sm:mb-6">
-            <h3 class="text-xs sm:text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2 sm:mb-3 px-1">
-              {{ group.label }}
-            </h3>
-            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
-              <NuxtLink
-                v-for="item in group.items"
-                :key="item.path"
-                :to="localePath(item.path)"
-                class="card flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4
-                  hover:border-primary transition-colors cursor-pointer group"
-              >
-                <component
-                  :is="item.icon"
-                  class="w-5 h-5 sm:w-6 sm:h-6 text-neutral-600 dark:text-neutral-300 group-hover:text-secondary transition-colors"
-                />
-                <span class="text-xs sm:text-sm font-medium text-neutral-700 dark:text-neutral-200 text-center leading-tight">
-                  {{ item.label }}
-                </span>
-              </NuxtLink>
-            </div>
+          <h3 class="text-xs sm:text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2 sm:mb-3 px-1">
+            Admin
+          </h3>
+          <div class="grid grid-cols-4 sm:grid-cols-8 gap-px rounded-xl overflow-hidden border border-neutral-300/70 dark:border-neutral-600/70 bg-neutral-300/70 dark:bg-neutral-600/70">
+            <NavItem
+              v-for="item in adminLinks"
+              :key="item.path"
+              :to="item.path"
+              :icon="item.icon"
+              :label="item.label"
+              size="grid"
+              flush
+            />
           </div>
         </div>
       </div>
@@ -342,18 +334,12 @@
       <div class="text-center text-neutral-500 dark:text-neutral-400 max-w-sm">
         <p>{{ error || $t('dashboard.load_error', 'Failed to load dashboard') }}</p>
         <div class="flex gap-3 justify-center mt-4">
-          <button
-            @click="fetchDashboard"
-            class="btn-primary"
-          >
+          <UiButton variant="primary" @click="fetchDashboard">
             {{ $t('common.retry', 'Retry') }}
-          </button>
-          <NuxtLink
-            :to="localePath('/login')"
-            class="btn-secondary"
-          >
+          </UiButton>
+          <UiButton variant="secondary" :to="localePath('/login')">
             {{ $t('nav.login', 'Log in') }}
-          </NuxtLink>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -366,7 +352,7 @@ import {
   Users, CarFront, LayoutDashboard, ScanLine,
   Sparkles, ShieldCheck, User, ShoppingBag, Map,
   Globe, Video, Building2, Building, CalendarDays,
-  Vote, Plus, FileText, MapPin, Check,
+  Vote, Plus, FileText, MapPin, Check, Share2,
 } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import { useToastStore } from '~/stores/toast'
@@ -421,6 +407,7 @@ interface Partner {
   is_verified_wot: boolean
   verifications_count: number
   items_count: number
+  avatar_url?: string | null
 }
 
 interface DashboardStats {
@@ -497,29 +484,15 @@ const hasFeedContent = computed(() => {
     || dashboardData.value.active_polls.length > 0
 })
 
-const adminSections = [
-  {
-    label: 'Transport',
-    items: [
-      { path: '/driver', icon: CarFront, label: 'Driver Mode' },
-      { path: '/dispatch', icon: LayoutDashboard, label: 'Dispatch' },
-      { path: '/tickets/scan', icon: ScanLine, label: 'Tickets' },
-    ],
-  },
-  {
-    label: 'AI',
-    items: [
-      { path: '/zenith', icon: Sparkles, label: 'Zenith' },
-    ],
-  },
-  {
-    label: 'Infrastructure',
-    items: [
-      { path: '/federation', icon: Globe, label: 'Federation' },
-      { path: '/call', icon: Video, label: 'Calls' },
-      { path: '/condo/create', icon: Building2, label: 'Condo' },
-    ],
-  },
+const adminLinks = [
+  { path: '/driver', icon: CarFront, label: 'Driver Mode' },
+  { path: '/dispatch', icon: LayoutDashboard, label: 'Dispatch' },
+  { path: '/tickets/scan', icon: ScanLine, label: 'Tickets' },
+  { path: '/zenith', icon: Sparkles, label: 'Zenith' },
+  { path: '/federation', icon: Globe, label: 'Federation' },
+  { path: '/wot/graph', icon: Share2, label: 'WoT Graph' },
+  { path: '/call', icon: Video, label: 'Calls' },
+  { path: '/condo/create', icon: Building2, label: 'Condo' },
 ]
 
 // Onboarding completion: combine server steps with localStorage for map/condo

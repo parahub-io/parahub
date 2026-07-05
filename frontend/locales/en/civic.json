@@ -1,0 +1,175 @@
+{
+  "civic": {
+    "badge": "Opinion",
+    "badgeHint": "Non-binding barometer of resident opinion",
+    "level": {
+      "all": "All",
+      "parish": "Parish",
+      "municipality": "Municipality",
+      "region": "Region",
+      "country": "Country",
+      "groups": "Groups",
+      "household": "Home",
+      "condominium": "Condominium"
+    },
+    "feed": {
+      "participation": "{n} votes",
+      "voted": "You voted",
+      "commentsEnabled": "Comments open",
+      "emptyScope": "No polls at this level yet",
+      "emptyScopeHint": "Polls appear here when they are created for your area",
+      "needResidency": "Set your parish to see local polls",
+      "needResidencyAction": "Choose location",
+      "loginToSee": "Sign in to see polls for your area"
+    },
+    "destination": "Where this goes",
+    "outcome": "Outcome",
+    "vote": {
+      "title": "Your voice",
+      "changeHint": "You can change your vote at any time",
+      "changed": "Vote updated",
+      "cooldown": "Please wait a minute before changing your vote again",
+      "loginCta": "Sign in to vote",
+      "outOfScope": "This poll is for residents of {name}",
+      "notActive": "Voting is closed"
+    },
+    "consent": {
+      "title": "Before your first vote",
+      "p1": "Your choice is not published anywhere. It is stored in a depersonalized form: the vote record contains no link to your profile.",
+      "p2": "You can change your vote, delete all your votes, or withdraw this consent at any time in settings. Aggregated results (totals only) are public.",
+      "p3": "Honest limits: the server operator could technically re-link votes using a protected server key. This requires a deliberate act and is never done in normal operation. Political opinions are sensitive data (GDPR Art. 9) — we ask for your explicit consent to store them this way.",
+      "accept": "I understand — proceed to vote",
+      "decline": "Not now"
+    },
+    "results": {
+      "title": "Results",
+      "hiddenTitle": "Vote to see the results",
+      "hiddenHint": "The live picture opens after your own vote — so it does not sway you",
+      "participation": "Participation",
+      "fewVotes": "Few votes so far — figures are approximate and update with a delay",
+      "all": "All",
+      "verified": "Verified",
+      "verifiedHint": "WoT-verified accounts (3+ confirmations)",
+      "byTerritory": "By municipality",
+      "ended": "Poll ended",
+      "frozen": "Raw votes were deleted after the poll ended (data minimization); these are the frozen aggregates"
+    },
+    "receipt": {
+      "check": "Verify my vote is counted",
+      "ok": "Your vote is in the audit chain and the chain is intact",
+      "fail": "Receipt not found in the audit chain — contact support",
+      "chainBroken": "Audit chain verification failed"
+    },
+    "residency": {
+      "title": "My location (civic)",
+      "hint": "Used only to show polls for your area. Not visible on your public profile.",
+      "country": "Country",
+      "municipality": "Municipality",
+      "parish": "Parish",
+      "search": "Search…",
+      "save": "Save location",
+      "saved": "Location saved",
+      "cooldown": "Location can be changed again after {date}",
+      "notSet": "Not set"
+    },
+    "privacy": {
+      "title": "My civic data",
+      "consentGiven": "Consent to depersonalized vote storage: given {date}",
+      "consentNone": "Consent not given",
+      "erase": "Delete all my votes",
+      "eraseTitle": "Delete civic votes",
+      "eraseMessage": "All your opinion votes will be deleted from all polls and your consent will be withdrawn. Aggregate totals will be recalculated. This cannot be undone.",
+      "eraseConfirm": "Delete everything",
+      "erased": "Deleted your votes from {n} polls"
+    },
+    "create": {
+      "territory": "Territory (civic opinion poll)",
+      "territoryHint": "Staff only for now: creates a non-binding opinion barometer for residents of the selected territory",
+      "destination": "Where the result goes",
+      "destinationHint": "e.g. \"Junta de Freguesia de X, 1 Sep 2026\" — polls with a stated recipient get real participation",
+      "selectTerritory": "Select territory",
+      "typeChoice": "Choice (options)",
+      "typeSliders": "Sliders (more/less vs today)"
+    },
+    "comments": {
+      "title": "Comments",
+      "placeholder": "Share your view (this never reveals your vote)",
+      "submit": "Post",
+      "empty": "No comments yet",
+      "login": "Sign in to comment"
+    },
+    "household": {
+      "title": "Household",
+      "members": "Household members",
+      "invite": "Invite to household",
+      "inviteHint": "Share this link with family/flatmates — they join your household and can take part in home polls. Generating a new link revokes the old one.",
+      "copyLink": "Copy invite link",
+      "linkCopied": "Link copied",
+      "remove": "Remove",
+      "leave": "Leave household",
+      "joinTitle": "Join household",
+      "joinSuccess": "You joined «{name}». Home polls are now in your feed.",
+      "joinAlready": "You are already a member of «{name}».",
+      "joinFail": "Invite not found or revoked",
+      "toPolls": "Open polls"
+    },
+    "openBallots": {
+      "title": "Who voted how",
+      "empty": "No votes yet",
+      "onBehalf": "+{n} delegated"
+    },
+    "sliders": {
+      "a_m2": "much less",
+      "a_m1": "less",
+      "a_0": "as now",
+      "a_p1": "more",
+      "a_p2": "much more",
+      "submit": "Submit my positions",
+      "median": "Median",
+      "hint": "Relative to today’s status quo"
+    },
+    "delegations": {
+      "title": "My delegations",
+      "voiceUsed": "Your voice is currently cast in {n} polls via delegation",
+      "lockedTitle": "Delegated to {name}",
+      "lockedCast": "voted, {date}",
+      "lockedNotCast": "has not voted yet",
+      "override": "Vote myself",
+      "given": "Given",
+      "receivedPending": "Requests to you",
+      "receivedActive": "You represent",
+      "accept": "Accept",
+      "decline": "Decline",
+      "revoke": "Revoke",
+      "revokeSure": "Sure?",
+      "create": "Delegate my voice",
+      "delegatePlaceholder": "Delegate (name or {'@'}handle)",
+      "scopeTopic": "By topic",
+      "scopeTerritory": "By territory (all polls inside)",
+      "created": "Delegation request sent — waiting for acceptance",
+      "acceptHint": "By accepting you agree that people who delegated to you see your votes in this scope",
+      "empty": "No delegations yet",
+      "hint": "Trust someone on a topic or your area — their vote becomes yours until you override it. You can always vote yourself on any specific poll."
+    },
+    "ideas": {
+      "title": "Ideas",
+      "hint": "Propose a poll for your area. At {threshold} supporters it goes to neutral formulation review and becomes a live poll.",
+      "create": "Propose an idea",
+      "formTitle": "Idea title",
+      "formBody": "What and why (the wording will be neutralized at review)",
+      "submit": "Submit idea",
+      "support": "Support",
+      "supported": "Supported",
+      "supporters": "{n} of {threshold}",
+      "statusReview": "In review",
+      "statusPromoted": "Became a poll",
+      "statusRejected": "Not promoted",
+      "openPoll": "Open the poll",
+      "promote": "Promote to poll",
+      "reject": "Reject",
+      "rejectSure": "Sure?",
+      "empty": "No ideas yet — propose the first one",
+      "report": "Report"
+    }
+  }
+}

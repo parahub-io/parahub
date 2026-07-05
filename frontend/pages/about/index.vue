@@ -48,12 +48,12 @@
         <div class="space-y-4 text-sm text-neutral-700 dark:text-neutral-300">
           <div>
             <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{{ $t('imprint.operator.title') }}</h3>
-            <p class="font-mono">Parahub - Associação, Portugal</p>
+            <p class="font-mono"><NuxtLink :to="localePath('/org/parahub-associacao')" class="text-link">Parahub - Associação</NuxtLink>, Portugal</p>
           </div>
 
           <div>
             <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{{ $t('imprint.responsible.title') }}</h3>
-            <p>{{ $t('imprint.responsible.text') }}</p>
+            <p><NuxtLink :to="localePath('/org/parahub-associacao')" class="text-link">Parahub - Associação</NuxtLink>, {{ $t('imprint.responsible.country') }}</p>
           </div>
 
           <div>
@@ -83,7 +83,7 @@
         <div class="space-y-2 text-sm">
           <div class="flex gap-3">
             <span class="text-neutral-500 dark:text-neutral-400 w-28 flex-shrink-0">{{ $t('about.contact.email') }}</span>
-            <a href="mailto:support@parahub.io" class="text-link font-mono">support&#64;parahub.io</a>
+            <a href="mailto:info@parahub.io" class="text-link font-mono">info&#64;parahub.io</a>
           </div>
           <div class="flex gap-3">
             <span class="text-neutral-500 dark:text-neutral-400 w-28 flex-shrink-0">{{ $t('about.cta.github') }}</span>
@@ -123,6 +123,24 @@
         </div>
       </section>
 
+      <!-- Cryptographic Proofs / Transparency -->
+      <section class="card p-6">
+        <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
+          <ShieldCheck class="w-5 h-5 text-neutral-400" />
+          {{ $t('about.cryptoProofs.title') }}
+        </h2>
+        <p class="text-sm text-neutral-700 dark:text-neutral-300 mb-4">{{ $t('about.cryptoProofs.short') }}</p>
+        <div class="flex flex-wrap items-center gap-4">
+          <UiButton variant="secondary" size="sm" :to="localePath('/docs/crypto')" :icon="ShieldCheck">
+            {{ $t('about.cryptoProofs.verify.title') }}
+          </UiButton>
+          <a href="https://git.parahub.io/audit/parahub-registry" target="_blank" rel="noopener" class="text-link text-sm font-mono inline-flex items-center gap-1">
+            {{ $t('about.cryptoProofs.repo.cta') }}
+            <ExternalLink class="w-3.5 h-3.5 opacity-50" />
+          </a>
+        </div>
+      </section>
+
       <!-- Legal links -->
       <section class="card p-6">
         <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
@@ -156,7 +174,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
-import { BookOpen, Smartphone, Headphones, FileText, Mail, Scale, ChevronRight, Server, ExternalLink, Video, FolderGit, MessageCircle, Activity } from 'lucide-vue-next'
+import { BookOpen, Smartphone, Headphones, FileText, Mail, Scale, ChevronRight, Server, ExternalLink, Video, Activity, ShieldCheck } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -176,8 +194,6 @@ useSeoMeta({
 
 const platformServices = computed(() => [
   { name: t('about.services.video'), url: 'https://video.parahub.io', icon: Video, desc: t('about.services.video_desc') },
-  { name: t('about.services.git'), url: 'https://git.parahub.io', icon: FolderGit, desc: t('about.services.git_desc') },
-  { name: t('about.services.chat'), url: 'https://parahub.io/element/', icon: MessageCircle, desc: t('about.services.chat_desc') },
   { name: t('about.services.status'), url: 'https://status.parahub.io', icon: Activity, desc: t('about.services.status_desc') },
 ])
 

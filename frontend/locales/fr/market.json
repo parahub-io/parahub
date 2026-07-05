@@ -5,10 +5,6 @@
     "search_placeholder": "Rechercher des articles...",
     "create_listing": "Créer une annonce",
     "barter_button": "Troc",
-    "type": {
-      "credit": "Offre",
-      "debit": "Demande"
-    },
     "pricing_type": {
       "sale": "Vente",
       "rent": "Location",
@@ -39,10 +35,7 @@
       "matches_i_want": "Correspondances: je veux recevoir",
       "all_categories": "Toutes les catégories",
       "barter_possible": "Troc possible",
-      "owner_label": "Propriétaire",
-      "all_owners": "Tous",
       "only_mine": "Les miens",
-      "loading_partners": "Chargement des partenaires...",
       "reset_category_title": "Réinitialiser la catégorie",
       "filtered_by_user": "Filtré par utilisateur",
       "clear_user_filter": "Effacer le filtre utilisateur",
@@ -56,7 +49,8 @@
       "price_range": "Fourchette de prix",
       "min_price": "Min",
       "max_price": "Max",
-      "include_barter": "Inclure troc uniquement"
+      "include_barter": "Inclure les articles en troc",
+      "self_made_only": "Uniquement par le producteur"
     },
     "empty": {
       "title": "Aucun article trouvé",
@@ -82,6 +76,8 @@
       "image_n": "Image {n} sur {total}",
       "barter": "Troc",
       "mine_badge": "Mien",
+      "self_made_badge": "Par le producteur",
+      "registered_badge": "Inscrits seulement",
       "match_badge": "Correspondance",
       "demand_need": "{n} besoin | {n} besoins",
       "demand_offers": "{n} offre | {n} offres",
@@ -107,7 +103,20 @@
     "pricing": {
       "free": "Gratuit",
       "negotiable": "Prix à négocier",
-      "converted_from": "de {currency}"
+      "converted_from": "de {currency}",
+      "sale": "Vente",
+      "rent": "Location",
+      "unit_none": "Aucune unité",
+      "unit_custom": "Autre…",
+      "unit_custom_placeholder": "Unité (ex: kg, heure, pcs)",
+      "units": {
+        "kg": "kg", "g": "g", "t": "t", "l": "l", "ml": "ml",
+        "m": "m", "m²": "m²", "m³": "m³",
+        "pcs": "pièce", "pair": "paire", "box": "boîte", "set": "lot",
+        "hour": "heure", "day": "jour", "week": "semaine", "month": "mois", "year": "an",
+        "half_day": "demi-journée", "weekend": "week-end",
+        "session": "séance", "project": "projet", "page": "page", "consultation": "consultation"
+      }
     },
     "time": {
       "just_now": "à l'instant",
@@ -163,6 +172,10 @@
       "submitting": "Création...",
       "international_label": "Annonce internationale",
       "international_desc": "Visible pour tous les utilisateurs quelle que soit leur langue (ex: services à distance, souvenirs)",
+      "self_made_label": "Par le producteur",
+      "self_made_desc": "Cochez si vous l'avez produit, cultivé ou préparé vous-même au lieu de le revendre. Les pièces et ingrédients achetés sont normaux ; ne cochez pas si vous l'avez acheté fini pour le revendre.",
+      "visibility_label": "Réservé aux utilisateurs inscrits",
+      "visibility_desc": "Masquer cette annonce aux visiteurs anonymes et aux moteurs de recherche — seuls les utilisateurs parahub connectés la verront. Laissez décoché pour rester public (visible par tous).",
       "voice_dictate": "Dicter l'annonce",
       "voice_recording": "Écoute... appuyez pour arrêter",
       "voice_processing": "Traitement...",
@@ -188,7 +201,13 @@
       "longitude_placeholder": "Longitude",
       "cancel": "Annuler",
       "save": "Enregistrer",
-      "saving": "Enregistrement..."
+      "saving": "Enregistrement...",
+      "photos_help": "Les photos sont enregistrées immédiatement.",
+      "media_label": "Photos et vidéo",
+      "media_help": "Le premier élément est la couverture. Faites glisser les vignettes (ou utilisez les flèches) pour réorganiser. Les photos et la vidéo sont enregistrées immédiatement.",
+      "add_video": "Ajouter une vidéo",
+      "move_earlier": "Déplacer avant",
+      "move_later": "Déplacer après"
     },
     "delete_modal": {
       "title": "Supprimer l'annonce ?",
@@ -204,7 +223,8 @@
       "listed_by": "Publié par",
       "posted": "Publié",
       "contact_seller": "Contacter le vendeur",
-      "make_deal": "Faire une offre"
+      "make_deal": "Faire une offre",
+      "tap_to_close": "Touchez n'importe où pour fermer"
     },
     "notifications": {
       "created": "Annonce créée avec succès !",
@@ -248,7 +268,13 @@
       "ai_error_401": "Authentification requise",
       "ai_error_unknown": "Erreur",
       "ai_quota_exceeded": "Quota quotidien d'analyses IA dépassé ({limit}/{limit}). Réessayez demain ou remplissez manuellement.",
-      "ai_quota_exhausted": "Quota d'analyses IA épuisé. Veuillez remplir le formulaire manuellement."
+      "ai_quota_exhausted": "Quota d'analyses IA épuisé. Veuillez remplir le formulaire manuellement.",
+      "photo_deleted": "Photo supprimée",
+      "photo_add_error": "Échec de l'ajout de la photo.",
+      "photo_delete_error": "Échec de la suppression de la photo.",
+      "order_save_error": "Impossible d'enregistrer l'ordre.",
+      "video_deleted": "Vidéo supprimée",
+      "video_delete_error": "Impossible de supprimer la vidéo."
     },
     "ai_quota_label": "IA: {remaining}/{limit}",
     "propose_deal": {
@@ -292,15 +318,23 @@
     "no_image": "Pas d'image",
     "zoom_image": "Voir en taille réelle",
     "my_items": {
-      "title": "Mes annonces",
-      "subtitle": "Gérez vos annonces du marché",
+      "tab_listings": "Annonces",
+      "title": "Mon marché",
+      "subtitle": "Vos annonces, demandes et réservations",
       "filter_all": "Toutes",
       "filter_active": "Actives",
       "filter_inactive": "Inactives",
       "status_active": "Active",
       "status_hidden": "Masquée",
       "empty_title": "Aucune annonce pour le moment",
-      "empty_description": "Créez votre première annonce"
+      "empty_description": "Créez votre première annonce",
+      "tab_barter": "Troc"
+    },
+    "error_codes": {
+      "item_delete_forbidden": "Vous n'avez pas la permission de supprimer cette annonce",
+      "item_delete_failed": "Échec de la suppression de l'annonce",
+      "item_deactivate_forbidden": "Vous n'avez pas la permission de masquer cette annonce",
+      "item_activate_forbidden": "Vous n'avez pas la permission d'activer cette annonce"
     }
   }
 }

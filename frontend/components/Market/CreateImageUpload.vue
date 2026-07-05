@@ -84,12 +84,14 @@
           {{ modelValue.length === 0 ? $t('market.create_modal.add_first_photo_ai') : $t('market.create_modal.add_photo', { current: modelValue.length }) }}
         </button>
 
-        <!-- Mobile: Two buttons (Camera + Gallery) -->
+        <!-- Mobile: Two buttons (Camera + Gallery). type="button" is REQUIRED — UiButton
+             renders a bare <button> which, with no type, defaults to submit and would
+             post the surrounding create form once required fields are filled. -->
         <div class="md:hidden grid grid-cols-2 gap-2">
-          <UiButton variant="outline" :icon="Camera" :disabled="aiAnalyzing" class="border-dashed border-2 hover:border-primary hover:bg-primary/5" @click="cameraInput?.click()">
+          <UiButton type="button" variant="outline" :icon="Camera" :disabled="aiAnalyzing" class="border-dashed border-2 hover:border-primary hover:bg-primary/5" @click="cameraInput?.click()">
             {{ $t('market.create_modal.take_photo') }}
           </UiButton>
-          <UiButton variant="outline" :icon="ImageIcon" :disabled="aiAnalyzing" class="border-dashed border-2 hover:border-primary hover:bg-primary/5" @click="imageInput?.click()">
+          <UiButton type="button" variant="outline" :icon="ImageIcon" :disabled="aiAnalyzing" class="border-dashed border-2 hover:border-primary hover:bg-primary/5" @click="imageInput?.click()">
             {{ $t('market.create_modal.from_gallery') }}
           </UiButton>
         </div>
@@ -121,6 +123,12 @@ const props = defineProps({
   visible: {
     type: Boolean,
     default: true
+  },
+  // 'CREDIT' (user sells) or 'DEBIT' (user is looking to buy) — flips the AI's
+  // framing from a seller's listing to a "wanted"/buy-request listing.
+  itemType: {
+    type: String,
+    default: 'CREDIT'
   }
 })
 
@@ -291,6 +299,8 @@ const analyzeImageWithAI = async (file) => {
 
     const formData = new FormData()
     formData.append('image', file)
+    // Tell the AI whether this is a sell offer (CREDIT) or a buy request (DEBIT)
+    formData.append('item_type', props.itemType || 'CREDIT')
 
     const result = await $fetch('/api/v1/ai/analyze-image/', {
       method: 'POST',

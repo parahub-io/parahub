@@ -1,9 +1,9 @@
 <template>
   <Modal
     v-model="visible"
-    :title="t('user_profile.send_lightning_to', { name: profile.display_name || profile.hna })"
-    :icon="Zap"
-    icon-class="text-orange-600"
+    :title="modalTitle"
+    :icon="isSubscribe ? Heart : Zap"
+    :icon-class="isSubscribe ? 'text-rose-500' : 'text-orange-600'"
     size="md"
   >
     <div class="space-y-4">
@@ -65,6 +65,10 @@
             <span v-else>{{ t('user_profile.ln_sending_to') }}: <strong class="text-amber-600 dark:text-amber-400">{{ profile.ln_address }}</strong></span>
           </div>
         </div>
+        <div v-if="isSubscribe" class="flex items-start gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+          <Info class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span>{{ t('subscriptions.monthly_hint') }}</span>
+        </div>
       </div>
 
       <!-- Resolving/Preparing -->
@@ -110,10 +114,15 @@
 
       <!-- Success -->
       <div v-else-if="sendStep === 'success'" class="text-center py-4">
-        <CheckCircle class="w-12 h-12 text-green-500 mx-auto mb-3" />
-        <p class="text-lg font-semibold text-green-700 dark:text-green-300 mb-1">{{ t('user_profile.ln_sent_success') }}</p>
+        <component :is="isSubscribe ? Heart : CheckCircle" class="w-12 h-12 mx-auto mb-3" :class="isSubscribe ? 'text-rose-500' : 'text-green-500'" />
+        <p class="text-lg font-semibold text-green-700 dark:text-green-300 mb-1">
+          {{ isSubscribe ? t('subscriptions.success_title', { name: profile.display_name || profile.hna }) : t('user_profile.ln_sent_success') }}
+        </p>
         <p class="text-sm text-neutral-600 dark:text-neutral-400">
           {{ lightning.formatSats(parseInt(sendAmount)) }} sats → {{ profile.display_name || profile.hna }}
+        </p>
+        <p v-if="isSubscribe" class="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+          {{ t('subscriptions.success_hint') }}
         </p>
       </div>
 
@@ -131,7 +140,7 @@
           {{ t('user_profile.cancel') }}
         </UiButton>
         <UiButton
-          variant="warning"
+          :variant="isSubscribe ? 'primary' : 'warning'"
           :disabled="!sendAmount || parseInt(sendAmount) < 1"
           @click="initSendLightning"
         >
@@ -140,10 +149,10 @@
       </template>
       <template v-else-if="sendStep === 'confirm'">
         <UiButton variant="outline" @click="sendStep = 'input'">
-          {{ t('back') }}
+          {{ t('common.back') }}
         </UiButton>
-        <UiButton variant="warning" @click="executeSendLightning">
-          {{ t('user_profile.send_payment') }}
+        <UiButton :variant="isSubscribe ? 'primary' : 'warning'" @click="executeSendLightning">
+          {{ isSubscribe ? t('subscriptions.confirm_support') : t('user_profile.send_payment') }}
         </UiButton>
       </template>
       <template v-else-if="sendStep === 'success' || sendStep === 'error' || sendStep === 'sdk_error' || sendStep === 'no_ln' || sendStep === 'no_wallet'">
@@ -157,14 +166,29 @@
 
 <script setup lang="ts">
 const localePath = useLocalePath()
-import { Zap, AlertTriangle, Loader2, CheckCircle } from 'lucide-vue-next'
+import { Zap, AlertTriangle, Loader2, CheckCircle, Heart, Info } from 'lucide-vue-next'
 
-const props = defineProps<{ profile: any; modelValue: boolean }>()
-const emit = defineEmits<{ 'update:modelValue': [boolean] }>()
+const props = withDefaults(defineProps<{
+  profile: any
+  modelValue: boolean
+  mode?: 'tip' | 'subscribe'
+  presetAmount?: number
+}>(), { mode: 'tip', presetAmount: 0 })
+const emit = defineEmits<{
+  'update:modelValue': [boolean]
+  // Fires once on a successful payment with the amount + best-effort LN hash, so a
+  // parent can record a recurring subscription. Ignored by plain tip callers.
+  'paid': [{ amountSats: number; paymentHash: string }]
+}>()
 
 const { t } = useI18n()
 const lightning = useLightning()
 const { satsToFiat, formatFiat, fetchBtcPrice } = useBtcPrice()
+
+const isSubscribe = computed(() => props.mode === 'subscribe')
+const modalTitle = computed(() => isSubscribe.value
+  ? t('subscriptions.support_monthly', { name: props.profile.display_name || props.profile.hna })
+  : t('user_profile.send_lightning_to', { name: props.profile.display_name || props.profile.hna }))
 
 const visible = computed({
   get: () => props.modelValue,
@@ -203,7 +227,7 @@ const confirmFeeSats = computed(() => {
 
 const resetSendState = () => {
   sendStep.value = (props.profile?.ln_address || props.profile?.spark_address) ? 'input' : 'no_ln'
-  sendAmount.value = ''
+  sendAmount.value = props.presetAmount > 0 ? String(props.presetAmount) : ''
   sendComment.value = ''
   sendError.value = ''
   sendParsed.value = null
@@ -297,6 +321,10 @@ const executeSendLightning = async () => {
     }
     sendResult.value = payment
     sendStep.value = 'success'
+    // Best-effort payment hash for idempotent server-side recording (subscriptions).
+    const hash = payment?.paymentHash || payment?.payment?.paymentHash
+      || payment?.details?.paymentHash || ''
+    emit('paid', { amountSats: parseInt(sendAmount.value), paymentHash: hash })
   } catch (e: any) {
     console.error('Execute payment error:', e)
     sendStep.value = 'error'

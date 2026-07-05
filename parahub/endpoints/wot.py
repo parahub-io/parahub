@@ -15,6 +15,7 @@ from decimal import Decimal
 import logging
 
 from parahub.auth import ProfileAuth
+from parahub.errors import LocalizedHttpError
 from parahub.ratelimit import ratelimit, user_or_ip
 from identity.models import Profile, Verification, ProfileVerificationPhoto
 from identity.reputation import calculate_reputation
@@ -41,7 +42,6 @@ class VerificationInfo(BaseModel):
     verified_user_id: Optional[str] = None
     verified_user_hna: Optional[str] = None
     verification_method: str
-    notes: str
     verified_at: datetime
     has_signed: bool = True
 
@@ -54,6 +54,7 @@ class MyWoTStatusResponse(BaseModel):
     is_verified: bool
     verification_count: int
     can_verify_others: bool
+    verify_blocked_reason: Optional[str] = None
     received_verifications: List[VerificationInfo]
     given_verifications: List[VerificationInfo]
 
@@ -75,7 +76,6 @@ class CreateVerificationRequest(BaseModel):
     timestamp: str = Field(..., description="ISO timestamp when statement was created")
     statement: str = Field(..., description="Machine-readable JSON statement that was signed")
     signature: str = Field(..., description="PGP signature of the statement (armored)")
-    notes: Optional[str] = Field("", description="Optional notes about verification (not part of signature)")
 
 
 @wot_router.get("/my-status/", response=MyWoTStatusResponse, auth=ProfileAuth())
@@ -119,7 +119,6 @@ def get_my_wot_status(request):
                 verifier_cri=v.verifier.id,
                 verifier_hna=v.verifier.hna,
                 verification_method=v.verification_method,
-                notes=v.notes,
                 verified_at=v.verified_at,
                 has_signed=True
             ))
@@ -139,7 +138,6 @@ def get_my_wot_status(request):
                 verifier_cri=v.verifier.id,
                 verifier_hna=v.verifier.hna,
                 verification_method=v.verification_method,
-                notes=v.notes,
                 verified_at=v.verified_at,
                 has_signed=True
             ))
@@ -150,6 +148,7 @@ def get_my_wot_status(request):
             is_verified=profile.is_verified_wot,
             verification_count=received_count,
             can_verify_others=profile.can_verify_others(),
+            verify_blocked_reason=profile.verify_block_reason(),
             received_verifications=received_list,
             given_verifications=given_list
         )
@@ -259,20 +258,20 @@ def create_verification(request, data: CreateVerificationRequest):
         # Check if verifier has permission to verify others
         if not verifier.can_verify_others():
             if verifier.profile_type != Profile.ProfileType.PERSONAL:
-                raise HttpError(403, "Only personal profiles can verify other users. Pseudonymous profiles cannot participate in WoT verification.")
+                raise LocalizedHttpError(403, "not_personal_profile", "Only personal profiles can verify other users. Pseudonymous profiles cannot participate in WoT verification.")
             if not verifier.pgp_public_key:
-                raise HttpError(403, "You must have a PGP key to verify other users. Please create one in your profile settings.")
-            raise HttpError(403, "You do not have permission to verify other users. Standard users need 3+ verifications and WoT verified status. Foundation members can verify immediately.")
+                raise LocalizedHttpError(403, "verifier_no_pgp", "You must have a PGP key to verify other users. Please create one in your profile settings.")
+            raise LocalizedHttpError(403, "not_authorized", "You do not have permission to verify other users. Standard users need 3+ verifications and WoT verified status. Foundation members can verify immediately.")
 
         # Get target profile
         try:
             target_profile = Profile.objects.get(id=data.verified_user_id)
         except Profile.DoesNotExist:
-            raise HttpError(404, "User not found")
+            raise LocalizedHttpError(404, "target_not_found", "User not found")
 
         # Prevent self-verification
         if verifier.id == target_profile.id:
-            raise HttpError(400, "Cannot verify yourself")
+            raise LocalizedHttpError(400, "self_verification", "Cannot verify yourself")
 
         # Target must have verification photo with valid face embedding
         try:
@@ -281,36 +280,38 @@ def create_verification(request, data: CreateVerificationRequest):
                 biometric_consent=True,
             )
         except ProfileVerificationPhoto.DoesNotExist:
-            raise HttpError(400, "Target user must upload a verification photo with biometric consent before WoT verification")
+            raise LocalizedHttpError(400, "no_verification_photo", "Target user must upload a verification photo with biometric consent before WoT verification")
 
         if not ver_photo.face_embedding:
-            raise HttpError(400, "Target user's verification photo has no face embedding. Please re-upload the photo.")
+            raise LocalizedHttpError(400, "no_face_embedding", "Target user's verification photo has no face embedding. Please re-upload the photo.")
 
         # Block if re-confirmation in progress and not enough confirmations
         if ver_photo.reconfirmation_needed and ver_photo.reconfirmation_count < 3:
-            raise HttpError(400, "Target user's photo was recently changed. Awaiting re-confirmations (need 3).")
+            raise LocalizedHttpError(400, "reconfirmation_pending", "Target user's photo was recently changed. Awaiting re-confirmations (need 3).")
 
         # Face dedup check
         from identity.services.face_dedup import check_duplicate
         duplicate = check_duplicate(bytes(ver_photo.face_embedding), exclude_profile_id=target_profile.id)
         if duplicate:
             logger.warning(f"Face dedup blocked verification: {target_profile.id} matches {duplicate['profile_id']}, distance={duplicate['distance']:.4f}")
-            raise HttpError(400, "Verification blocked: this face matches an already-verified profile")
+            raise LocalizedHttpError(400, "face_duplicate", "Verification blocked: this face matches an already-verified profile")
 
-        # Check if verification already exists
+        # Check if verification already exists (active OR previously revoked).
+        # The (verifier, verified_profile) pair is unique, so a revoked/inactive
+        # row must be re-affirmed rather than re-created (a plain create() would
+        # hit the unique constraint and 500).
         existing = Verification.objects.filter(
             verifier=verifier,
             verified_profile=target_profile,
-            is_active=True
-        ).exists()
+        ).first()
 
-        if existing:
-            raise HttpError(400, "You have already verified this user")
+        if existing and existing.is_active:
+            raise LocalizedHttpError(400, "already_verified", "You have already verified this user")
 
         # Validate verification method
         valid_methods = ['IN_PERSON', 'VIDEO_CALL', 'DOCUMENTS', 'VOUCHED']
         if data.verification_method not in valid_methods:
-            raise HttpError(400, f"Invalid verification method. Must be one of: {', '.join(valid_methods)}")
+            raise LocalizedHttpError(400, "invalid_method", f"Invalid verification method. Must be one of: {', '.join(valid_methods)}")
 
         # Validate timestamp (not older than 5 minutes)
         try:
@@ -320,11 +321,11 @@ def create_verification(request, data: CreateVerificationRequest):
             age = (now - timestamp_dt).total_seconds()
 
             if age > 300:  # 5 minutes
-                raise HttpError(400, "Verification statement expired (older than 5 minutes). Please try again.")
+                raise LocalizedHttpError(400, "statement_expired", "Verification statement expired (older than 5 minutes). Please try again.")
             if age < -60:  # Allow 1 minute clock drift into future
-                raise HttpError(400, "Verification timestamp is in the future. Check your system clock.")
+                raise LocalizedHttpError(400, "timestamp_future", "Verification timestamp is in the future. Check your system clock.")
         except (ValueError, AttributeError) as e:
-            raise HttpError(400, f"Invalid timestamp format: {e}")
+            raise LocalizedHttpError(400, "invalid_timestamp", f"Invalid timestamp format: {e}")
 
         # Reconstruct expected statement (machine-readable JSON)
         expected_statement = {
@@ -342,9 +343,9 @@ def create_verification(request, data: CreateVerificationRequest):
         try:
             submitted_statement = json.loads(data.statement)
             if submitted_statement != expected_statement:
-                raise HttpError(400, "Statement does not match expected verification data")
+                raise LocalizedHttpError(400, "statement_mismatch", "Statement does not match expected verification data")
         except json.JSONDecodeError:
-            raise HttpError(400, "Invalid statement JSON")
+            raise LocalizedHttpError(400, "invalid_statement_json", "Invalid statement JSON")
 
         # Verify PGP signature
         # Use the statement as submitted by frontend (data.statement) for verification
@@ -358,22 +359,35 @@ def create_verification(request, data: CreateVerificationRequest):
             )
 
             if not is_valid:
-                raise HttpError(400, "Invalid PGP signature. Please ensure you signed with your registered PGP key.")
+                raise LocalizedHttpError(400, "invalid_signature", "Invalid PGP signature. Please ensure you signed with your registered PGP key.")
 
+        except LocalizedHttpError:
+            raise
         except Exception as e:
             logger.error(f"PGP signature verification failed: {e}", exc_info=True)
-            raise HttpError(400, f"PGP signature verification error: {str(e)}")
+            raise LocalizedHttpError(400, "signature_error", f"PGP signature verification error: {str(e)}")
 
         with transaction.atomic():
-            # Create verification (post_save signal auto-updates is_verified_wot)
-            verification = Verification.objects.create(
-                verifier=verifier,
-                verified_profile=target_profile,
-                verification_method=data.verification_method,
-                notes=data.notes or "",
-                signature=data.signature,  # Store PGP signature
-                is_active=True
-            )
+            from django.utils import timezone
+            # post_save signal auto-updates is_verified_wot
+            if existing:
+                # Re-affirm a previously revoked verification: the unique
+                # (verifier, verified_profile) constraint forbids a second row,
+                # so update the existing one with the new signed statement.
+                existing.verification_method = data.verification_method
+                existing.signature = data.signature
+                existing.is_active = True
+                existing.verified_at = timezone.now()
+                existing.save()
+                verification = existing
+            else:
+                verification = Verification.objects.create(
+                    verifier=verifier,
+                    verified_profile=target_profile,
+                    verification_method=data.verification_method,
+                    signature=data.signature,  # Store PGP signature
+                    is_active=True
+                )
 
             # Count toward photo re-confirmation if needed
             if ver_photo.reconfirmation_needed and ver_photo.reconfirmation_count < 3:
@@ -394,6 +408,13 @@ def create_verification(request, data: CreateVerificationRequest):
 
         logger.info(f"Verification created: {verifier.id} verified {target_profile.id} via {data.verification_method}")
 
+        # Notify the verified user (fire-and-forget; never fail the verification)
+        try:
+            from notifications.services import notify_verification_received
+            notify_verification_received(target_profile.account, verifier)
+        except Exception as e:
+            logger.warning(f"Failed to send verification notification: {e}")
+
         return {
             "success": True,
             "message": "User verified successfully",
@@ -402,11 +423,11 @@ def create_verification(request, data: CreateVerificationRequest):
         }
 
     except HttpError:
-        # Re-raise HttpError as-is (400, 403, 404 errors)
+        # Re-raise HttpError (incl. LocalizedHttpError) as-is (400, 403, 404 errors)
         raise
     except Exception as e:
         logger.error(f"Error creating verification: {e}", exc_info=True)
-        raise HttpError(500, f"Internal server error: {str(e)}")
+        raise LocalizedHttpError(500, "internal_error", f"Internal server error: {str(e)}")
 
 
 class ProfileVerificationsResponse(BaseModel):
@@ -436,7 +457,6 @@ def get_profile_verifications(request, profile_id: str):
             verifier_cri=v.verifier.id,
             verifier_hna=v.verifier.hna,
             verification_method=v.verification_method,
-            notes=v.notes,
             verified_at=v.verified_at,
             has_signed=bool(v.signature),
         )
@@ -455,7 +475,6 @@ def get_profile_verifications(request, profile_id: str):
             verified_user_id=v.verified_profile.id,
             verified_user_hna=v.verified_profile.hna,
             verification_method=v.verification_method,
-            notes=v.notes,
             verified_at=v.verified_at,
             has_signed=bool(v.signature),
         )
@@ -531,3 +550,115 @@ def get_reputation_breakdown(request, profile_id: str):
     """Public breakdown of a profile's 6-dimension reputation score."""
     profile = get_object_or_404(Profile, id=profile_id)
     return calculate_reputation(profile)
+
+
+# ── Staff: full trust-graph for Sybil-cluster audit ────────────────────
+
+def _trust_level_for(received: int) -> str:
+    if received >= 10:
+        return "HIGH"
+    if received >= 5:
+        return "MEDIUM"
+    if received >= 3:
+        return "BASIC"
+    if received >= 1:
+        return "LOW"
+    return "NONE"
+
+
+class GraphNode(BaseModel):
+    id: str
+    hna: Optional[str] = None
+    reputation: float
+    received: int
+    given: int
+    trust_level: str
+    is_verified: bool
+    profile_type: str
+    account_id: str = ""        # same-account clustering signal (staff-only)
+    joined: Optional[datetime] = None
+
+
+class GraphEdge(BaseModel):
+    source: str                 # verifier id
+    target: str                 # verified profile id
+    method: str
+    verified_at: Optional[datetime] = None
+    mutual: bool = False        # A↔B reciprocal verification (collusion signal)
+
+
+class WoTGraphResponse(BaseModel):
+    nodes: List[GraphNode]
+    edges: List[GraphEdge]
+    total_profiles: int         # all profiles on this node
+    verified_profiles: int      # is_verified_wot=True count
+    connected_profiles: int     # profiles participating in >=1 active verification
+
+
+@wot_router.get("/graph/", response={200: WoTGraphResponse, 403: dict}, auth=ProfileAuth())
+@ratelimit(group='wot:graph', key=user_or_ip, rate='30/m')
+def get_wot_graph(request):
+    """
+    Full Web-of-Trust graph (nodes = profiles, edges = verifications).
+
+    Staff only — exposes the raw "who verified whom" edge list of the whole
+    network, intended for Sybil-cluster / collusion-ring audit. Public surfaces
+    only ever show per-profile verification counts, never the global graph.
+    """
+    profile = request.auth_profile
+    if not profile.account.is_staff:
+        raise HttpError(403, "Staff only")
+
+    edges_qs = Verification.objects.filter(is_active=True).select_related(
+        'verifier', 'verified_profile'
+    ).only(
+        'verifier_id', 'verified_profile_id', 'verification_method', 'verified_at'
+    )
+
+    pair_set = set()
+    raw = list(edges_qs)
+    for v in raw:
+        pair_set.add((v.verifier_id, v.verified_profile_id))
+
+    edges: List[GraphEdge] = []
+    node_ids = set()
+    for v in raw:
+        edges.append(GraphEdge(
+            source=v.verifier_id,
+            target=v.verified_profile_id,
+            method=v.verification_method,
+            verified_at=v.verified_at,
+            mutual=(v.verified_profile_id, v.verifier_id) in pair_set,
+        ))
+        node_ids.add(v.verifier_id)
+        node_ids.add(v.verified_profile_id)
+
+    profiles = Profile.objects.filter(id__in=node_ids).select_related('account').annotate(
+        _received=Count('received_verifications',
+                        filter=Q(received_verifications__is_active=True), distinct=True),
+        _given=Count('given_verifications',
+                     filter=Q(given_verifications__is_active=True), distinct=True),
+    )
+
+    nodes: List[GraphNode] = []
+    for p in profiles:
+        nodes.append(GraphNode(
+            id=p.id,
+            hna=p.hna,
+            reputation=float(p.reputation_score),
+            received=p._received,
+            given=p._given,
+            trust_level=_trust_level_for(p._received),
+            is_verified=p.is_verified_wot,
+            profile_type=p.profile_type,
+            account_id=str(p.account_id) if p.account_id else "",
+            joined=getattr(p.account, 'date_joined', None),
+        ))
+
+    return WoTGraphResponse(
+        nodes=nodes,
+        edges=edges,
+        total_profiles=Profile.objects.count(),
+        verified_profiles=Profile.objects.filter(is_verified_wot=True).count(),
+        connected_profiles=len(node_ids),
+    )

@@ -31,6 +31,15 @@ Universal listing model. **Credit** = "I'm offering" (goods, services, skills). 
 ### Multi-Party Barter
 Neo4j graph database for cycle detection. Automatic discovery of barter chains with 2-5 participants (configurable). A needs what B has, B needs what C has, C needs what A has -- the system finds these cycles automatically.
 
+### Per-Item Visibility
+Each listing chooses its audience: **public** (visible to everyone, including search engines) or **registered-only** (visible only to signed-in members). Sensitive offers can stay inside the community while public ones reach the whole web.
+
+### Self-Made Mark
+A listing can be marked **made by hand** to signal it is the seller's own craft, produce, or work -- not resale. A badge highlights it and a filter surfaces local makers and "your own and nearby" offers.
+
+### Rentals and Booking
+Any item listed for rent can be made bookable, with a live availability calendar and database-enforced no-double-booking. Two modes: a date range (pickup/return) or fixed time slots generated from opening hours (split shifts supported). Instant-confirm or approve-each-request, recurring weekly/monthly bookings, owner-entered walk-in bookings for offline clients, and a live manager inbox. A lightweight layer beneath the signed-contract system -- a booking can be formalized into a PGP-signed rental contract when needed. See [Rentals & Booking](modules/rental.md).
+
 ---
 
 ## Communication
@@ -49,7 +58,7 @@ Dual-channel: WebSocket (real-time, browser open) + Web Push (browser closed). P
 ## Maps and Geography
 
 ### Interactive Map
-MapLibre GL JS with self-hosted OpenStreetMap vector tiles (Martin). Self-hosted font glyphs (no external CDN). KeepAlive for instant tab switching without tile reload. Canvas snapshot restore for instant map redraw.
+MapLibre GL JS with self-hosted OpenStreetMap vector tiles (Martin). Self-hosted font glyphs (no external CDN). KeepAlive for instant tab switching without tile reload. Canvas snapshot restore for instant map redraw. Live local weather overlay (temperature and conditions) in the map corner.
 
 ### Geocoding
 Pelias with 213M documents, planet-wide coverage. Geographic bias via focus.point. Reverse geocoding for coordinates to addresses.
@@ -127,7 +136,7 @@ Community events and meetups. Online, offline, or hybrid. Auto-created Matrix ch
 ## Blog & Mini-sites
 
 ### Blog
-Built-in blogging for users and organizations. Markdown editor with visual WYSIWYG mode. Personal blogs (`/u/{name}/blog/`) and organization blogs (`/org/{slug}/blog/`). PDF/document attachments (critical for official minutes, regulations, budgets). Photo galleries with lightbox. Video embedding via `::video[uuid]` syntax (PeerTube). Comments. Pinned posts. Taxonomy tags for categorization (News, Announcements, Minutes). Multi-language posts with translation linking. RSS feeds. Full SEO (meta tags, Open Graph, JSON-LD Article). WoT level 2+ required to publish.
+Built-in blogging for users and organizations. Markdown editor with visual WYSIWYG mode. Personal blogs (`/u/{name}/blog/`) and organization blogs (`/org/{slug}/blog/`). PDF/document attachments (critical for official minutes, regulations, budgets). Photo galleries with lightbox. Video embedding via `::video[uuid]` syntax (PeerTube). Comments. Pinned posts. Taxonomy tags for categorization (News, Announcements, Minutes). Multi-language posts with translation linking. RSS feeds. Subscribers-only posts (body gated to a profile's monthly supporters; title and teaser stay public). Full SEO (meta tags, Open Graph, JSON-LD Article). WoT level 2+ required to publish.
 
 ### Mini-sites
 Custom-branded websites for organizations on subdomains (`{slug}.org.parahub.io`). Custom accent color, hero section with image and text, configurable navigation. Create unlimited custom pages (History, Services, Contacts, Regulations). Automatic SSL with wildcard certificates. Optional custom domain support (`my-organization.pt`) with CNAME validation and automatic Let's Encrypt certificates.
@@ -145,6 +154,9 @@ Self-hosted video platform at [video.parahub.io](https://video.parahub.io). Uplo
 
 ### Lightning Wallet
 Breez SDK Spark (client-side WASM, non-custodial). The wallet runs entirely in the browser. On-chain and Lightning transactions. QR scanner. Fiat equivalents displayed. Spark addresses for receiving. **The platform never holds funds.**
+
+### Recurring Support (Subscriptions)
+Commit to support a profile every month with a fixed Lightning amount -- a non-custodial, no-escrow recurring-support primitive. Because Lightning is push-only, each cycle is a one-tap re-payment from a reminder, sent directly to the recipient (**no auto-pull, no platform cut** -- the recipient keeps ~100%). An active subscription can unlock the recipient's subscribers-only blog posts. "Support monthly" button on any profile; cancel anytime, with access lasting until the paid period ends. Daily background job handles lapsing and renewal reminders.
 
 ### Para-Ads
 P2P advertising system. Advertisers pay users directly via Lightning micropayments. Banner image upload (auto-resized 1200x630, JPEG 85%). Rich text content via TipTap editor. Linked content: campaigns can reference a marketplace Item or Establishment. Geo-targeting, interest targeting (18 interests, 26 skills), and demographic targeting. Users control which ad categories they see. Yellow reward badge on feed cards. Only verified users earn rewards.
@@ -197,6 +209,9 @@ Form 5 "Deep Self-Analysis Questionnaire" -- voluntary self-analysis questionnai
 
 ### Unified Tickets
 Ticketing for events and transit. Lightning payment directly from buyer to operator (**no escrow**). QR code validation. PGP-signed tickets for cryptographic proof. Purchase flow: Breez SDK pay -> server verifies SHA256(preimage) -> ticket activated. Camera-based QR scanner for operators.
+
+### Operator Tools and Fares
+Establishment operators (not just staff) sell and validate tickets. EUR pricing with a live sats quote at purchase. Concession fares (student, senior, child) and validity windows (single-use, time-limited). Network-wide agency tickets valid across every route, not just one line. Offline validation via signed QR -- a ticket verifies without a live server check. Refunds for unused tickets issued directly back to the buyer. Operator sales dashboard with tickets sold, revenue, and validations in real time.
 
 ---
 

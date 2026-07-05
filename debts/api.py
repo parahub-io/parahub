@@ -49,8 +49,10 @@ class DebtResponse(Schema):
     object_type: str = 'debt'
     creditor_id: str
     creditor_display_name: str
+    creditor_hna: str = ''
     debtor_id: str
     debtor_display_name: str
+    debtor_hna: str = ''
     amount: Decimal
     remaining_amount: Decimal
     currency: str
@@ -157,8 +159,10 @@ def create_debt(request, data: DebtCreateRequest):
         id=debt.id,
         creditor_id=debt.creditor_id,
         creditor_display_name=debt.creditor.display_name or debt.creditor.hna or '',
+        creditor_hna=debt.creditor.hna or '',
         debtor_id=debt.debtor_id,
         debtor_display_name=debt.debtor.display_name or debt.debtor.hna or '',
+        debtor_hna=debt.debtor.hna or '',
         amount=debt.amount,
         remaining_amount=debt.remaining_amount,
         currency=debt.currency,
@@ -214,8 +218,10 @@ def list_debts(request, status: Optional[str] = None, mine_only: bool = False):
             id=debt.id,
             creditor_id=debt.creditor_id,
             creditor_display_name=debt.creditor.display_name or debt.creditor.hna or '',
+            creditor_hna=debt.creditor.hna or '',
             debtor_id=debt.debtor_id,
             debtor_display_name=debt.debtor.display_name or debt.debtor.hna or '',
+            debtor_hna=debt.debtor.hna or '',
             amount=debt.amount,
             remaining_amount=debt.remaining_amount,
             currency=debt.currency,
@@ -262,8 +268,10 @@ def get_debt(request, debt_id: str):
         id=debt.id,
         creditor_id=debt.creditor_id,
         creditor_display_name=debt.creditor.display_name or debt.creditor.hna or '',
+        creditor_hna=debt.creditor.hna or '',
         debtor_id=debt.debtor_id,
         debtor_display_name=debt.debtor.display_name or debt.debtor.hna or '',
+        debtor_hna=debt.debtor.hna or '',
         amount=debt.amount,
         remaining_amount=debt.remaining_amount,
         currency=debt.currency,
@@ -345,8 +353,10 @@ def confirm_debt(request, debt_id: str, data: ConfirmDebtRequest):
         id=debt.id,
         creditor_id=debt.creditor_id,
         creditor_display_name=debt.creditor.display_name or debt.creditor.hna or '',
+        creditor_hna=debt.creditor.hna or '',
         debtor_id=debt.debtor_id,
         debtor_display_name=debt.debtor.display_name or debt.debtor.hna or '',
+        debtor_hna=debt.debtor.hna or '',
         amount=debt.amount,
         remaining_amount=debt.remaining_amount,
         currency=debt.currency,

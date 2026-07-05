@@ -19,7 +19,7 @@ from parahub.models import AISettings
 
 MODEL = "gemini-3-pro-image-preview"  # Nano Banana Pro
 OUT_DIR = Path("frontend/public/images/landing-preview")
-REF_PATH = Path("frontend/public/images/para/sitting.png")
+REF_PATH = Path("frontend/public/images/para/sitting.webp")
 
 # Identity-lock trait tokens — verbatim in every prompt so Para stays the same creature.
 PARA = (
@@ -78,7 +78,7 @@ def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     key = AISettings.objects.first().google_api_key
     client = genai.Client(api_key=key)
-    ref_part = types.Part.from_bytes(data=REF_PATH.read_bytes(), mime_type="image/png")
+    ref_part = types.Part.from_bytes(data=REF_PATH.read_bytes(), mime_type="image/webp")
 
     for name, prompt in VARIANTS:
         print(f"\n=== generating {name} ===")

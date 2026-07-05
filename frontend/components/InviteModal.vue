@@ -178,7 +178,7 @@ async function copyLink() {
         </div>
 
         <div v-else class="text-center py-8">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100 mx-auto"></div>
         </div>
       </div>
     </div>

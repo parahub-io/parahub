@@ -256,7 +256,7 @@
     },
     "responsible": {
       "title": "Responsable du Contenu",
-      "text": "Parahub - Associação, Portugal"
+      "country": "Portugal"
     },
     "disclaimer": {
       "title": "Clause de non-responsabilité",
@@ -279,7 +279,6 @@
     }
   },
   "about": {
-    "title": "À propos",
     "android_app": "Android",
     "meta": {
       "description": "Parahub — plateforme fédérée open-source pour la coopération P2P, le commerce et les communications. Sans frais, sans intermédiaires, chiffrement côté client."
@@ -453,6 +452,14 @@
       "sos": {
         "title": "ParaSOS",
         "desc": "Entraide d'urgence entre voisins. Alertes SOS en un clic à votre groupe de sécurité avec push, sirène et localisation."
+      },
+      "subscriptions": {
+        "title": "Soutien Récurrent",
+        "desc": "Soutenez un profil chaque mois avec un montant fixe en Lightning. Non dépositaire, par rappel, sans commission de plateforme. Débloque les articles réservés aux soutiens."
+      },
+      "rental": {
+        "title": "Locations et Réservations",
+        "desc": "Rendez toute annonce réservable par plage de dates ou créneau horaire. Calendrier en temps réel, jamais en double, confirmation immédiate ou sur demande."
       }
     },
     "principles": {
@@ -762,6 +769,21 @@
       "noEscrow": {
         "title": "Paiements directs",
         "text": "Votre paiement va directement à l'organisateur de l'événement ou à l'opérateur de transport. La plateforme ne détient jamais de fonds — c'est un principe fondamental."
+      },
+      "offline": {
+        "title": "Fonctionne hors ligne",
+        "text": "Les billets portent un QR signé cryptographiquement. Les opérateurs peuvent les valider même sans réseau — la signature prouve qu'un billet est authentique sans vérification auprès d'un serveur."
+      },
+      "fares": {
+        "title": "Tarifs et validité",
+        "text": "Les opérateurs peuvent proposer des tarifs réduits (étudiant, senior, enfant) et définir des périodes de validité — usage unique, limité dans le temps, ou un abonnement valable sur tout un réseau. Les prix peuvent s'afficher en euros avec une conversion en direct en sats à l'achat."
+      },
+      "operator": {
+        "title": "Outils de l'opérateur",
+        "point1": "Un tableau de bord des ventes avec billets vendus, recettes et validations en temps réel.",
+        "point2": "Des billets valables sur tout le réseau d'un opérateur de transport, pas seulement sur une ligne.",
+        "point3": "Remboursements des billets non utilisés, reversés directement à l'acheteur.",
+        "point4": "Ajoutez du personnel de confiance comme opérateurs de votre établissement pour vendre et valider en votre nom."
       }
     },
     "driverMode": {
@@ -1057,6 +1079,130 @@
       "chat_desc": "Messagerie chiffrée via Matrix",
       "status": "État",
       "status_desc": "Surveillance de la disponibilité"
+    },
+    "subscriptionsSystem": {
+      "title": "Soutien Récurrent",
+      "intro": "Soutenez un profil chaque mois avec un montant fixe en Lightning — une manière non dépositaire et guidée par rappel de soutenir les personnes et projets qui comptent pour vous. La plateforme ne détient jamais de fonds et ne prélève aucune commission : chaque paiement va directement de vous au destinataire.",
+      "flow": {
+        "title": "Comment ça marche",
+        "step1": "Sur n'importe quel profil, appuyez sur « Soutenir chaque mois », choisissez un montant et payez depuis votre portefeuille Lightning. Vous devenez soutien et le destinataire est notifié.",
+        "step2": "Quelques jours avant la fin du mois, vous recevez un rappel. Un appui repaie et prolonge votre soutien — il n'y a jamais de prélèvement automatique.",
+        "step3": "Vous ne souhaitez pas continuer ? Ne renouvelez pas, ou annulez à tout moment. Votre accès reste actif jusqu'à la fin de la période déjà payée."
+      },
+      "subscribersOnly": {
+        "title": "Contenu réservé aux soutiens",
+        "text": "Les créateurs peuvent marquer des articles de blog comme réservés aux soutiens. Le titre, l'aperçu et la couverture restent publics en guise d'aperçu ; le texte complet se débloque pour les soutiens actifs. Les autres voient une invitation « Soutenez pour débloquer »."
+      },
+      "whyPush": {
+        "title": "Pourquoi mensuel et non automatique",
+        "text": "Lightning fonctionne en envoi, pas en prélèvement — un portefeuille non dépositaire ne peut jamais être débité en silence. Le compromis est délibéré : sans facturation automatique, pas de rétrofacturation, le destinataire garde ~100 % et vos clés ne quittent jamais votre appareil."
+      },
+      "flatAmount": {
+        "title": "N'importe quel montant débloque",
+        "text": "Le soutien est un montant mensuel fixe que vous choisissez — sans paliers ni avantages par palier. Tout soutien actif débloque le contenu du créateur réservé aux soutiens."
+      },
+      "cancelAnytime": {
+        "title": "Annulez à tout moment",
+        "text": "Annuler signifie « ne pas renouveler », pas « révoquer maintenant ». Vous gardez l'accès jusqu'à la fin de la période déjà payée, et le destinataire voit son nombre de soutiens et votre date de renouvellement."
+      },
+      "noCut": {
+        "title": "Sans séquestre, sans commission de plateforme",
+        "text": "La plateforme ne détient ni n'achemine jamais votre argent et ne prélève aucun frais. Le paiement de chaque mois est un virement Lightning direct du soutien au destinataire — le même principe sans séquestre que tout paiement sur Parahub."
+      }
+    },
+    "rentalSystem": {
+      "title": "Locations et Réservations",
+      "intro": "Louez des objets à la journée ou au créneau — vélos, salles, outils, équipement, temps de studio. Toute annonce du marché peut devenir réservable, avec un calendrier de disponibilité en temps réel où la double réservation est impossible. La réservation est une couche légère : la plupart des locations n'ont jamais besoin d'un contrat signé.",
+      "flow": {
+        "title": "Comment réserver",
+        "step1": "Parcourez une annonce disponible à la location — tout ce qu'une personne ou une organisation loue affiche un calendrier de disponibilité en temps réel.",
+        "step2": "Choisissez une plage de dates (pour les séjours et locations de plusieurs jours) ou un créneau horaire (pour les réservations à l'heure, comme une salle ou un court). Les réservations récurrentes hebdomadaires ou mensuelles sont aussi possibles.",
+        "step3": "Envoyez votre réservation. Selon les réglages du propriétaire, elle est confirmée immédiatement ou envoyée comme demande à approuver — et le calendrier se met à jour en temps réel pour tous."
+      },
+      "noDoubleBooking": {
+        "title": "Jamais en double",
+        "text": "Les réservations qui se chevauchent sont bloquées au niveau de la base de données, pas seulement dans l'interface. Deux personnes ne peuvent pas prendre le même créneau en même temps, et une réservation annulée libère aussitôt le créneau."
+      },
+      "twoModes": {
+        "title": "Par plage ou par créneau",
+        "text": "Deux styles : une plage de dates avec retrait et retour (séjours, matériel à la journée) ou des créneaux fixes générés à partir des horaires (une salle à l'heure, un court, un rendez-vous). Les services coupés et les pauses sont pris en charge."
+      },
+      "recurring": {
+        "title": "Récurrentes et sans compte",
+        "text": "Réservez un créneau chaque semaine ou chaque mois en une fois. Le propriétaire peut aussi saisir une réservation à la main pour un client présent qui n'est pas sur Parahub, gardant le calendrier exact."
+      },
+      "ownerControls": {
+        "title": "Pour les propriétaires",
+        "text": "Rendez n'importe quelle annonce réservable : choisissez plage ou créneaux, définissez les horaires, confirmation immédiate ou approbation de chaque demande, marges et anticipation. Une boîte de réception en temps réel montre les demandes avec confirmer, terminer ou annuler en un geste."
+      },
+      "lightweight": {
+        "title": "Léger par conception",
+        "text": "Une réservation se place sous la couche plus lourde des contrats signés — la plupart des locations s'arrêtent à la réservation et n'ont besoin de rien de plus. Pour les locations de grande valeur, vous pouvez toujours formaliser la réservation en un contrat de location signé en PGP. Comme toujours, la plateforme ne détient ni fonds ni caution."
+      }
+    },
+    "directorySystem": {
+      "title": "Annuaire d'Entreprises",
+      "intro": "Une carte communautaire des entreprises locales, coopératives, associations et services. Cliquez sur un bâtiment de la carte pour voir ce qu'il abrite, ou parcourez le catalogue avec recherche et filtres. Chacun peut trouver un lieu ; les membres vérifiés le tiennent à jour.",
+      "buildings": {
+        "title": "Bâtiments et lieux",
+        "text": "Chaque fiche est rattachée à un lieu réel — un bâtiment, un local ou une organisation uniquement en ligne. Un bâtiment peut abriter plusieurs établissements, comme un centre commercial, et les lieux importés d'OpenStreetMap peuvent être revendiqués par leur propriétaire."
+      },
+      "orgTypes": {
+        "title": "Entreprises et organisations",
+        "text": "Entreprises, ONG, coopératives, associations, copropriétés, communautés et organismes publics. Chaque type sert son objectif — une association, par exemple, affiche une direction publique (président, trésorier, commissaire aux comptes) pour la transparence."
+      },
+      "openNow": {
+        "title": "Ouvert maintenant",
+        "text": "Les horaires figurent sur chaque fiche, avec un badge en direct indiquant si un lieu est ouvert ou fermé en ce moment."
+      },
+      "reviews": {
+        "title": "Avis et notes",
+        "text": "Les membres vérifiés peuvent laisser des notes en étoiles et des avis écrits. Les propriétaires peuvent répondre. Les moyennes et le nombre d'avis apparaissent sur chaque fiche."
+      },
+      "membership": {
+        "title": "Adhésion",
+        "text": "Les organisations peuvent gérer membres et rôles, accepter les demandes d'adhésion et désigner un trésorier (qui reçoit les paiements) et un commissaire aux comptes pour le contrôle financier."
+      },
+      "actAs": {
+        "title": "Publier au nom de l'organisation",
+        "text": "Les membres autorisés peuvent publier des annonces, événements et publicités au nom de leur organisation — et rendre ses articles réservables à la location."
+      },
+      "access": {
+        "title": "Qui peut quoi",
+        "text": "La consultation et la recherche sont ouvertes à tous, sans compte. Créer un lieu ou une organisation et écrire des avis nécessite un profil vérifié (réseau de confiance). Seuls les propriétaires et administrateurs peuvent modifier une fiche ou gérer les membres."
+      }
+    },
+    "marketplaceSystem": {
+      "title": "Marché",
+      "intro": "Le cœur de Parahub : un lieu pour proposer ou rechercher n'importe quoi — biens, services, compétences ou aide. Aucune commission de plateforme, aucun classement algorithmique, aucun intermédiaire. Juste des personnes qui échangent directement, sur une carte, dans leur langue.",
+      "creditDebit": {
+        "title": "Proposer ou rechercher",
+        "text": "Chaque annonce a un sens. « Je propose » couvre les biens, services, compétences ou objets à donner. « Je recherche » couvre les demandes, besoins et objets recherchés — ainsi la demande est aussi visible que l'offre."
+      },
+      "pricing": {
+        "title": "Vendre, louer ou donner",
+        "text": "Fixez un prix de vente, un tarif de location par jour ou par mois, ou marquez-le gratuit pour l'économie du don. Une seule annonce peut porter plusieurs options à la fois — la vendre, la louer ou la donner aux voisins."
+      },
+      "visibility": {
+        "title": "Public ou réservé aux membres",
+        "text": "Choisissez qui voit chaque annonce : public (visible par tous, moteurs de recherche compris) ou réservé aux inscrits (visible uniquement par les membres connectés). Gardez les offres sensibles dans la communauté tandis que les publiques atteignent tout le web."
+      },
+      "selfMade": {
+        "title": "Fait main",
+        "text": "Marquez une annonce comme faite par vous pour montrer qu'il s'agit de votre artisanat, production ou travail — pas de la revente. Un badge la met en avant, et un filtre aide les acheteurs à trouver les créateurs locaux et les offres « du vôtre et du proche »."
+      },
+      "matching": {
+        "title": "Un marché des besoins",
+        "text": "Les catégories relient l'offre et la demande automatiquement. Le système suggère les demandes qui correspondent à ce que vous proposez, et les offres qui correspondent à ce dont vous avez besoin — transformant un catalogue en un moteur d'appariement à double sens."
+      },
+      "barterLink": {
+        "title": "Troquer sans argent",
+        "text": "Vous ne voulez pas payer en espèces ? Les objets peuvent rejoindre le graphe de troc, qui trouve automatiquement des chaînes d'échange à plusieurs parties — vous donnez ce que vous avez et obtenez ce que vous voulez, même sans correspondance directe."
+      },
+      "noFees": {
+        "title": "Aucune commission de plateforme",
+        "text": "Parahub ne prélève jamais une part de votre échange et ne détient jamais votre argent. Les paiements — en Lightning ou sous toute forme convenue — vont directement entre acheteur et vendeur. Aucun fil algorithmique ne décide qui est vu."
+      }
     }
   }
 }

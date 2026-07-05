@@ -133,13 +133,8 @@ const result = ref<ScanResult | null>(null)
 const queueCount = ref(0)
 const syncBanner = ref<{ synced: number; rejected: number } | null>(null)
 
-let stream: MediaStream | null = null
-let canvas: HTMLCanvasElement | null = null
-let ctx: CanvasRenderingContext2D | null = null
-let scanInterval: ReturnType<typeof setInterval> | null = null
-
-// Dynamic import of jsQR
-let jsQR: any = null
+// qr-scanner instance (same lib as WalletSendModal — worker-based decode)
+let qrScanner: any = null
 
 // ── Offline support ──────────────────────────────────────────────────
 // QR format `PHT1.<b64url payload>.<b64url sig>` is server-signed (Ed25519),
@@ -233,38 +228,27 @@ async function syncQueue() {
 
 async function startCamera() {
   try {
-    const { default: jsQRLib } = await import('jsqr')
-    jsQR = jsQRLib
-
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 640 } },
-    })
-    if (videoEl.value) {
-      videoEl.value.srcObject = stream
-    }
-
-    canvas = document.createElement('canvas')
-    ctx = canvas.getContext('2d')
-
-    // Start scanning loop
-    scanInterval = setInterval(scanFrame, 250)
+    const QrScanner = (await import('qr-scanner')).default
+    await nextTick() // the <video> re-renders when state flips back to 'scanning'
+    if (!videoEl.value) return
+    qrScanner = new QrScanner(
+      videoEl.value,
+      (res: any) => onDecoded(res.data ?? ''),
+      {
+        preferredCamera: 'environment',
+        returnDetailedScanResult: true,
+        maxScansPerSecond: 4,
+        highlightScanRegion: false, // the template draws its own overlay
+      },
+    )
+    await qrScanner.start()
   } catch {
     state.value = 'denied'
   }
 }
 
-function scanFrame() {
-  if (!videoEl.value || !canvas || !ctx || !jsQR) return
-  if (videoEl.value.readyState !== videoEl.value.HAVE_ENOUGH_DATA) return
-
-  canvas.width = videoEl.value.videoWidth
-  canvas.height = videoEl.value.videoHeight
-  ctx.drawImage(videoEl.value, 0, 0, canvas.width, canvas.height)
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const code = jsQR(imageData.data, imageData.width, imageData.height)
-
-  const data = code?.data
-  if (!data) return
+function onDecoded(data: string) {
+  if (state.value !== 'scanning' || !data) return
   const isLegacy = data.length === 64 && /^[0-9a-f]{64}$/.test(data)
   const isSigned = data.startsWith(QR_PREFIX + '.') && data.split('.').length === 3
   if (isLegacy || isSigned) {
@@ -274,13 +258,9 @@ function scanFrame() {
 }
 
 function stopCamera() {
-  if (scanInterval) {
-    clearInterval(scanInterval)
-    scanInterval = null
-  }
-  if (stream) {
-    stream.getTracks().forEach(t => t.stop())
-    stream = null
+  if (qrScanner) {
+    qrScanner.destroy()
+    qrScanner = null
   }
 }
 

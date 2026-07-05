@@ -11,7 +11,7 @@ from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in
 import logging
 
-from identity.models import Contract, ContractReview, Profile, Verification
+from identity.models import Profile, Verification
 from geo.models import EstablishmentMembership
 
 
@@ -157,40 +157,6 @@ def sync_wot_status_on_verification_delete(sender, instance, **kwargs):
         logger.error(f"Failed to sync WoT status on verification delete: {e}")
 
 
-@receiver(post_save, sender=Contract)
-def notify_contract_update(sender, instance, created, **kwargs):
-    """
-    Send WebSocket notifications to both parties when contract is created/updated
-    """
-    # Build contract data for WebSocket
-    contract_data = {
-        'id': instance.id,
-        'object_type': 'contract',
-        'creator_id': instance.creator_id,
-        'creator_display_name': instance.creator.display_name or instance.creator.hna or '',
-        'partner_id': instance.partner_id,
-        'partner_display_name': instance.partner.display_name or instance.partner.hna or '',
-        'arbiter_id': instance.arbiter_id,
-        'arbiter_display_name': instance.arbiter.display_name or instance.arbiter.hna or '' if instance.arbiter else None,
-        'title': instance.title,
-        'file_sha256': instance.file_sha256,
-        'status': instance.status,
-        'creator_signed_at': instance.creator_signed_at.isoformat() if instance.creator_signed_at else None,
-        'partner_signed_at': instance.partner_signed_at.isoformat() if instance.partner_signed_at else None,
-        'creator_completed_at': instance.creator_completed_at.isoformat() if instance.creator_completed_at else None,
-        'partner_completed_at': instance.partner_completed_at.isoformat() if instance.partner_completed_at else None,
-        'created_at': instance.created_at.isoformat(),
-        'updated_at': instance.updated_at.isoformat(),
-    }
-
-    from parahub.services.ws_publish import ws_publish
-    event_type = "contract.updated" if not created else "contract.created"
-    payload = {"type": event_type, "contract": contract_data}
-
-    ws_publish(f"user:{instance.creator.account_id}", payload)
-    ws_publish(f"user:{instance.partner.account_id}", payload)
-
-
 mailcow_logger = logging.getLogger('parahub.mailcow')
 
 
@@ -206,6 +172,12 @@ def create_mailbox_on_registration(sender, instance, created, **kwargs):
 
     from constance import config
     if not getattr(config, 'MAILCOW_ENABLED', False):
+        return
+
+    # Skip throwaway test/E2E accounts. They never read mail, and their mailboxes
+    # would orphan in Mailcow: seed --reset / E2E teardown drop the Account but not
+    # the Mailcow mailbox, so each run leaks a real mailbox. See PK/mail-system.md.
+    if instance.username.startswith('e2etest') or (instance.email or '').endswith('@test.parahub.io'):
         return
 
     from threading import Thread
@@ -250,8 +222,8 @@ def _schedule_recalc(profile_id):
     transaction.on_commit(lambda: _recalc_reputation(profile_id))
 
 
-@receiver(post_save, sender=ContractReview)
-@receiver(post_delete, sender=ContractReview)
+@receiver(post_save, sender='contracts.ContractReview')
+@receiver(post_delete, sender='contracts.ContractReview')
 def recalc_reputation_on_review(sender, instance, **kwargs):
     _schedule_recalc(instance.reviewed_id)
 
@@ -280,7 +252,7 @@ def recalc_reputation_on_delegation(sender, instance, **kwargs):
     _schedule_recalc(instance.delegate_id)
 
 
-@receiver(post_save, sender=Contract)
+@receiver(post_save, sender='contracts.Contract')
 def recalc_reputation_on_contract(sender, instance, **kwargs):
     _schedule_recalc(instance.creator_id)
     _schedule_recalc(instance.partner_id)

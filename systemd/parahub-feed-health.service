@@ -1,0 +1,17 @@
+[Unit]
+Description=Parahub GTFS-RT feed health sampler (downtime evidence)
+After=network.target redis.service postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=norn
+WorkingDirectory=/opt/parahub
+Environment=DJANGO_SETTINGS_MODULE=parahub.settings
+ExecStart=/opt/parahub/venv/bin/python manage.py sample_feed_health --interval 60
+Restart=always
+RestartSec=10
+SyslogIdentifier=feed-health
+
+[Install]
+WantedBy=multi-user.target

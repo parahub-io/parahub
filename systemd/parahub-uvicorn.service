@@ -10,10 +10,13 @@ Group=norn
 WorkingDirectory=/opt/parahub
 Environment="PATH=/opt/parahub/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="DJANGO_SETTINGS_MODULE=parahub.settings"
+# Route ORM through pgbouncer (transaction pooling, :6432) — web tier only
+Environment="DB_POOL=1"
 ExecStart=/opt/parahub/venv/bin/uvicorn parahub.asgi:application \
     --host 0.0.0.0 \
     --port 8000 \
-    --workers 12 \
+    --workers 24 \
+    --limit-max-requests 10000 \
     --loop uvloop \
     --access-log \
     --use-colors \

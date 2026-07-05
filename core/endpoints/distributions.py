@@ -128,7 +128,7 @@ def list_lines(request, dist_id: str):
     from core.models import DistributionLine
 
     return [
-        _format_line(line)
+        _format_line(line, viewer=request.auth)
         for line in DistributionLine.objects.filter(distribution_id=dist_id)
         .select_related('profile')
     ]
@@ -159,7 +159,7 @@ def mark_line_paid(request, dist_id: str, line_id: str):
         dist.status = ObjectDistribution.Status.DISTRIBUTED
         dist.save(update_fields=['status', 'updated_at'])
 
-    return 200, _format_line(line)
+    return 200, _format_line(line, viewer=request.auth)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -188,12 +188,12 @@ def _format_dist(dist) -> DistributionResponse:
     )
 
 
-def _format_line(line) -> LineResponse:
+def _format_line(line, viewer=None) -> LineResponse:
     p = getattr(line, 'profile', None)
     return LineResponse(
         id=line.id,
         profile_id=line.profile_id,
-        profile_name=p.display_name if p else '',
+        profile_name=(p.display_name if p.name_visible_to(viewer) else p.hna) if p else '',
         share_percent=line.share_percent,
         amount=line.amount,
         status=line.status,

@@ -2,16 +2,17 @@
 """
 Regenerate a Para mascot pose via Gemini 3 Pro Image Preview.
 
-Uses sitting.png as a known-good canonical reference, applies a pose-specific
-prompt, post-processes to transparent PNG matching sibling dimensions (705px
-height), and writes to frontend/public/images/para-preview/<name>.png for
-visual review on /design/mascot before overwriting production.
+Uses sitting.webp as a known-good canonical reference, applies a pose-specific
+prompt, post-processes to a transparent image matching sibling dimensions
+(705px height), and writes to frontend/public/images/para-preview/<name>.png
+for visual review on /design/mascot before overwriting production.
 
 Usage:
     python3 scripts/regen_para_pose.py <pose_name>
 
-After approval: cp para-preview/<name>.png para/<name>.png, then clear the
-`candidates` array in frontend/pages/design/mascot.vue.
+After approval (production poses are webp since 2026-07):
+    python3 -c "from PIL import Image; Image.open('frontend/public/images/para-preview/<name>.png').save('frontend/public/images/para/<name>.webp', 'WEBP', quality=90, method=6)"
+then clear the `candidates` array in frontend/pages/design/mascot.vue.
 
 Add new pose prompts to POSE_PROMPTS following the pattern. See PK/mascot.md
 iteration lessons for prompt constraints (AI drifts aggressive — explicitly
@@ -31,7 +32,7 @@ from parahub.models import AISettings
 from google import genai
 from google.genai import types
 
-REF = Path('/opt/parahub/frontend/public/images/para/sitting.png')
+REF = Path('/opt/parahub/frontend/public/images/para/sitting.webp')
 PREVIEW_DIR = Path('/opt/parahub/frontend/public/images/para-preview')
 PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
 

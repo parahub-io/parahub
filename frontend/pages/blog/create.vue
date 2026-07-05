@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ArrowLeft, Upload, X, FileText, Download, Trash2, Video, Tag, Eye, Sparkles
+  ArrowLeft, Upload, X, FileText, Download, Trash2, Video, Tag, Eye, Sparkles, HeartHandshake
 } from 'lucide-vue-next'
 import { marked } from 'marked'
 import { useToastStore } from '~/stores/toast'
@@ -44,6 +44,7 @@ const form = reactive({
   is_pinned: false,
   allow_comments: true,
   allow_tips: true,
+  subscribers_only: false,
   tag_ids: [] as string[],
   translation_of_id: '' as string,
 })
@@ -102,6 +103,7 @@ async function loadPost(id: string) {
     form.is_pinned = post.is_pinned
     form.allow_comments = post.allow_comments
     form.allow_tips = post.allow_tips
+    form.subscribers_only = post.subscribers_only
     form.tag_ids = (post.tags || []).map((t: any) => t.id)
     form.translation_of_id = post.translation_of_id || ''
     postFiles.value = post.files || []
@@ -135,6 +137,7 @@ function resetForm() {
   form.is_pinned = false
   form.allow_comments = true
   form.allow_tips = true
+  form.subscribers_only = false
   form.tag_ids = []
   form.translation_of_id = ''
   postFiles.value = []
@@ -192,6 +195,7 @@ onMounted(async () => {
       form.is_pinned = orig.is_pinned
       form.allow_comments = orig.allow_comments
       form.allow_tips = orig.allow_tips
+      form.subscribers_only = orig.subscribers_only
       form.tag_ids = (orig.tags || []).map((t: any) => t.id)
       selectedOriginal.value = orig.translation_of_id ? { id: orig.translation_of_id, title: '...' } : orig
 
@@ -734,7 +738,15 @@ useHead({ title: isEdit.value ? t('cms.editPost') : t('cms.createPost') })
             <input type="checkbox" v-model="form.is_pinned" class="rounded" />
             {{ t('cms.isPinned') }}
           </label>
+          <label class="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+            <input type="checkbox" v-model="form.subscribers_only" class="rounded" />
+            {{ t('subscriptions.editor_label') }}
+          </label>
         </div>
+        <p v-if="form.subscribers_only" class="flex items-start gap-1.5 text-xs text-rose-600 dark:text-rose-400 -mt-2">
+          <HeartHandshake class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>{{ t('subscriptions.editor_hint') }}</span>
+        </p>
 
         <!-- Files (only in edit mode) -->
         <div v-if="isEdit" class="card p-4">

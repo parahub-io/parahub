@@ -6,9 +6,16 @@
         <div class="flex items-center justify-between h-14 sm:h-16">
           <!-- Site name / logo -->
           <NuxtLink :to="siteHomeUrl" class="flex items-center gap-2 min-w-0">
+            <img
+              v-if="site?.logo_url"
+              :src="site.logo_url"
+              alt=""
+              class="w-8 h-8 rounded-full object-cover shrink-0"
+            />
             <div
-              class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-              :style="{ background: site?.accent_color || '#F5C518' }"
+              v-else
+              class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
+              :style="{ background: site?.accent_color || '#F5C518', color: accentTextColor }"
             >
               {{ siteInitial }}
             </div>
@@ -22,11 +29,10 @@
             <NuxtLink
               v-for="item in navItems"
               :key="item.slug"
-              :to="item.to"
+              :to="localePath(item.to)"
               class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
-              :class="isNavActive(item.to)
-                ? 'bg-site-accent/10 text-site-accent'
-                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+              :class="isNavActive(item.to) ? '' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+              :style="isNavActive(item.to) ? { background: 'var(--site-accent)', color: accentTextColor } : {}"
             >
               {{ item.label }}
             </NuxtLink>
@@ -47,12 +53,11 @@
         <NuxtLink
           v-for="item in navItems"
           :key="item.slug"
-          :to="item.to"
+          :to="localePath(item.to)"
           @click="mobileNav = false"
           class="block px-3 py-2 text-sm font-medium rounded-lg"
-          :class="isNavActive(item.to)
-            ? 'bg-site-accent/10 text-site-accent'
-            : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+          :class="isNavActive(item.to) ? '' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+          :style="isNavActive(item.to) ? { background: 'var(--site-accent)', color: accentTextColor } : {}"
         >
           {{ item.label }}
         </NuxtLink>
@@ -92,6 +97,7 @@ import { Menu as MenuIcon, X as XIcon } from 'lucide-vue-next'
 
 const { t, te } = useI18n()
 const route = useRoute()
+const localePath = useLocalePath()
 
 const siteCtx = useSiteContext()
 
@@ -129,12 +135,24 @@ const siteInitial = computed(() => {
   return name ? name[0].toUpperCase() : '?'
 })
 
+// Pick readable text color (black/white) against the site's accent background —
+// raw accent color as text (or as a light background tint) is unreadable for
+// light accents, same "text-primary is unreadable" rule as PK/design-system.md
+const accentTextColor = computed(() => {
+  const hex = (site.value?.accent_color || '#F5C518').replace('#', '')
+  const r = parseInt(hex.substring(0, 2), 16)
+  const g = parseInt(hex.substring(2, 4), 16)
+  const b = parseInt(hex.substring(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.5 ? '#000000' : '#ffffff'
+})
+
 // Set page title to site/org name
 useHead(computed(() => ({
   title: siteName.value || undefined,
 })))
 
-const siteHomeUrl = computed(() => '/')
+const siteHomeUrl = computed(() => localePath('/'))
 
 // Build nav items from nav_sections + pages
 interface NavItem {
@@ -171,8 +189,8 @@ const navItems = computed<NavItem[]>(() => {
     }
   }
 
-  // Custom pages with show_in_nav
-  const pages = site.value.nav_pages || []
+  // Custom pages with show_in_nav (homepage is reachable via "Home" already, exclude it here)
+  const pages = (site.value.nav_pages || []).filter((p: any) => !p.is_homepage)
   for (const p of pages) {
     items.push({ slug: p.slug, label: p.title, to: `/${p.slug}` })
   }
@@ -182,10 +200,11 @@ const navItems = computed<NavItem[]>(() => {
 })
 
 function isNavActive(to: string) {
-  if (to === '/') return route.path === '/'
+  const localizedTo = localePath(to)
+  if (to === '/') return route.path === localizedTo
   // Strip trailing slash for comparison
-  const base = to.endsWith('/') ? to.slice(0, -1) : to
-  return route.path === to || route.path === base || route.path.startsWith(base + '/')
+  const base = localizedTo.endsWith('/') ? localizedTo.slice(0, -1) : localizedTo
+  return route.path === localizedTo || route.path === base || route.path.startsWith(base + '/')
 }
 
 // CSS custom properties for accent color
@@ -193,8 +212,3 @@ const cssVars = computed(() => ({
   '--site-accent': site.value?.accent_color || '#F5C518',
 }))
 </script>
-
-<style>
-.text-site-accent { color: var(--site-accent); }
-.bg-site-accent\/10 { background: color-mix(in srgb, var(--site-accent) 10%, transparent); }
-</style>

@@ -1,5 +1,8 @@
 <template>
   <div class="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+    <!-- Top progress bar: instant feedback on navigation while the next page's
+         data resolves (pairs with useListData's Suspense-blocking fetch). -->
+    <NuxtLoadingIndicator color="#4E4EC8" :height="3" />
     <NuxtLayout>
       <!-- This prop OVERRIDES definePageMeta keepalive (Nuxt: props.keepalive ?? route.meta.keepalive),
            so ALL pages are KeepAlive-cached (LRU max 10). Per-page keepalive:true/false in definePageMeta
@@ -96,8 +99,10 @@ useSeoMeta({
   ogImage: 'https://parahub.io/og-image.jpg',
   ogSiteName: 'Parahub',
   twitterCard: 'summary_large_image',
-  twitterTitle: 'Parahub — open-source civic platform without middlemen',
-  twitterDescription: 'Open-source civic platform for P2P trade, Lightning payments, encrypted messaging, governance, and transit maps. Zero commissions. Join free.',
+  // No twitterTitle/twitterDescription here: they would pin every sub-page's X
+  // card to the generic site copy (X does NOT fall back to og: when present).
+  // Omitting them lets each page's ogTitle/ogDescription drive the X card; the
+  // homepage still gets correct copy via its own ogTitle/ogDescription above.
   twitterImage: 'https://parahub.io/og-image.jpg',
   ogType: 'website',
   ogUrl: computed(() => `https://parahub.io${route.path}`),

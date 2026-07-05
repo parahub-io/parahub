@@ -8,8 +8,6 @@
       "subtitle": "Alles für Leben und Arbeit — direkt, offen, ohne Gebühren.",
       "tagline": "Markt, Finanzen, Kommunikation und Logistik — in einer App.",
       "cta_start": "Loslegen",
-      "cta_philosophy": "Philosophie entdecken",
-      "badge": "P2P ohne Zwischenhändler",
       "cta_docs": "Wo anfangen"
     },
     "problem": {
@@ -47,10 +45,9 @@
       "learn_more": "Mehr erfahren"
     },
     "tech": {
-      "title": "Unter der Haube — Unabhängigkeit.",
       "decentralization": {
         "title": "Dezentralisierung",
-        "desc": "Zahlungen, Nachrichten und Reputation funktionieren ohne zentralen Server. Kein einzelner Kontroll- oder Ausfallpunkt."
+        "desc": "Zahlungen fließen direkt zwischen Menschen, Nachrichten sind Ende-zu-Ende-verschlüsselt. Der Code gehört Ihnen — niemand kann Sie aussperren oder festhalten."
       },
       "opensource": {
         "title": "Open Source",
@@ -59,8 +56,7 @@
       "offline": {
         "title": "Offline-bereit",
         "desc": "Gemeinschaftliche Mesh-Netzwerke halten die Nachbarschaft verbunden, auch wenn das Internet ausfällt."
-      },
-      "link": "Vollständige Technik-Stack-Details"
+      }
     },
     "mission": {
       "title": "Kooperation ohne Konzerne.",

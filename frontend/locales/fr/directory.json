@@ -1,7 +1,27 @@
 {
   "directory": {
+    "my_orgs": {
+      "title": "Mes organisations",
+      "subtitle": "Organisations dont vous faites partie, regroupées par votre rôle.",
+      "group_manage": "Je gère",
+      "group_member": "Je suis membre",
+      "group_work": "Je collabore",
+      "empty_title": "Aucune organisation pour l'instant",
+      "empty_desc": "Vous n'appartenez encore à aucune organisation. Créez la vôtre ou trouvez-en une dans l'annuaire.",
+      "browse_directory": "Ouvrir l'annuaire",
+      "treasurer": "Trésorier",
+      "auditor": "Auditeur",
+      "role": {
+        "owner": "Propriétaire",
+        "admin": "Administrateur",
+        "member": "Membre",
+        "employee": "Employé",
+        "contractor": "Prestataire"
+      }
+    },
     "title": "Annuaire",
     "meta_description": "Partenaires, utilisateurs, organisations et réseau de confiance",
+    "intro": "Trouvez des personnes et des organisations sur Parahub — ajoutez des partenaires, rejoignez des organisations et laissez des avis.",
     "tabs": {
       "partners": "Partenaires",
       "users": "Utilisateurs",
@@ -22,7 +42,9 @@
       "reputation_short": "rép",
       "open_now": "Ouvert maintenant",
       "no_results": "Aucun résultat trouvé",
-      "no_results_desc": "Essayez d'ajuster votre recherche ou vos filtres."
+      "no_results_desc": "Essayez d'ajuster votre recherche ou vos filtres.",
+      "type_all": "Tout",
+      "refine_label": "Filtres"
     },
     "people": {
       "type_filter_all": "Tous",
@@ -127,9 +149,13 @@
         "efetivo": "Membre à Part Entière",
         "honorario": "Membre Honoraire",
         "apoiante": "Membre de Soutien"
-      }
+      },
+      "create_button": "Nouvelle organisation",
+      "type_government": "Gouvernement"
     },
     "act_as": {
+      "manage_menu": "Gérer",
+      "new_post": "Nouvel article de blog",
       "post_as": "Publier en tant que",
       "personal": "Personnel",
       "pay": "Payer",
@@ -177,6 +203,12 @@
       "share_copied": "Lien copié"
     },
     "form": {
+      "danger_zone": "Zone de danger",
+      "delete_org": "Supprimer l'organisation",
+      "delete_org_hint": "Retire cette organisation de l'annuaire et de la carte. Les annonces, publications et membres sont conservés ; contactez le support pour la restaurer.",
+      "delete_confirm_title": "Supprimer cette organisation ?",
+      "delete_confirm_msg": "« {name} » sera masquée de l'annuaire et de la carte. Cette action est irréversible ici.",
+      "deleted": "Organisation supprimée",
       "name": "Nom",
       "description": "Description",
       "phone": "Téléphone",
@@ -192,7 +224,23 @@
       "building_unlink": "Dissocier",
       "building_or_point": "Ou cliquez sur la carte pour définir un point manuellement",
       "detecting_address": "Détection de l'adresse...",
-      "click_map_to_detect": "Cliquez sur la carte pour détecter le bâtiment automatiquement"
+      "click_map_to_detect": "Cliquez sur la carte pour détecter le bâtiment automatiquement",
+      "logo": "Logo",
+      "logo_upload": "Téléverser un logo",
+      "logo_replace": "Remplacer le logo",
+      "logo_hint": "Une image carrée est idéale — PNG ou JPG, jusqu’à 10 Mo.",
+      "days": {
+        "mon": "Lun",
+        "tue": "Mar",
+        "wed": "Mer",
+        "thu": "Jeu",
+        "fri": "Ven",
+        "sat": "Sam",
+        "sun": "Dim"
+      },
+      "hours_open": "Ouvert",
+      "hours_closed": "Fermé",
+      "hours_advanced_note": "Certaines entrées utilisent un format avancé et ont été conservées telles quelles."
     },
     "photos": {
       "title": "Photos",
@@ -265,7 +313,20 @@
       "card": "Carte",
       "crypto": "Crypto",
       "mbway": "MBWay"
-    }
+    },
+    "create": {
+      "title": "Nouvelle organisation",
+      "subtitle": "Créez une association, coopérative, entreprise ou communauté — avec ou sans emplacement physique.",
+      "type_label": "Type",
+      "category_label": "Catégorie (facultatif)",
+      "has_location_hint": "Cette organisation a une adresse physique sur la carte.",
+      "online_hint": "Organisation en ligne — sans emplacement physique.",
+      "submit": "Créer l'organisation",
+      "success": "Organisation créée",
+      "wot_required_title": "Vérification requise",
+      "wot_required": "La création d'organisations nécessite un niveau Web-of-Trust 3+ (3 vérifications) ou être membre de la fondation."
+    },
+    "anon_hint": "Connectez-vous pour rechercher des personnes et ajouter des partenaires."
   },
   "wot": {
     "status_title": "Votre Statut de Vérification",
@@ -312,8 +373,6 @@
       "method_video_call": "Appel Vidéo",
       "method_documents": "Documents",
       "method_vouched": "Recommandé par Personne de Confiance",
-      "notes_label": "Notes (Optionnel)",
-      "notes_placeholder": "Ajoutez des notes supplémentaires sur la vérification...",
       "warning": "En vérifiant cette personne, vous assumez la responsabilité de son identité. Les fausses vérifications peuvent nuire à votre réputation.",
       "cancel_button": "Annuler",
       "confirm_button": "Confirmer la Vérification",
@@ -340,9 +399,6 @@
     "method_documents_desc": "Passeport, carte d'identité ou documents notariés vérifiés",
     "method_vouched": "Recommandé",
     "method_vouched_desc": "Recommandé par quelqu'un de confiance qui l'a rencontré",
-    "notes_label": "Notes",
-    "notes_optional": "optionnel",
-    "notes_placeholder": "Ex: 'Rencontré au Lisbon Web Summit 2025'",
     "next_review": "Suivant: Réviser la Déclaration",
     "statement_review_title": "Vous signez la déclaration suivante:",
     "signature_info_title": "Signature Numérique PGP",
@@ -358,6 +414,27 @@
     "photo_confirm_match": "Je confirme que cette photo correspond à la personne que je vérifie",
     "no_verification_photo": "Cet utilisateur n'a pas encore téléchargé de photo de vérification. Elle est nécessaire pour le WoT.",
     "photo_reconfirmation": "La photo de cet utilisateur a été modifiée récemment. {count}/3 reconfirmations reçues.",
-    "error_no_verification_photo": "L'utilisateur doit télécharger une photo de vérification avant la vérification WoT"
+    "error_no_verification_photo": "L'utilisateur doit télécharger une photo de vérification avant la vérification WoT",
+    "error_codes": {
+      "not_personal_profile": "Seuls les profils personnels peuvent vérifier d'autres utilisateurs. Les profils pseudonymes ne participent pas à la Toile de confiance.",
+      "verifier_no_pgp": "Vous avez besoin d'une clé PGP pour vérifier d'autres utilisateurs. Créez-en une dans les paramètres de votre profil.",
+      "not_authorized": "Vous ne pouvez pas encore vérifier d'autres personnes. Les utilisateurs standard ont besoin de 3+ vérifications et du statut vérifié WoT ; les membres de la Fondation peuvent vérifier immédiatement.",
+      "target_not_found": "Utilisateur introuvable.",
+      "self_verification": "Vous ne pouvez pas vous vérifier vous-même.",
+      "no_verification_photo": "Cet utilisateur doit téléverser une photo de vérification (avec consentement biométrique) avant de pouvoir être vérifié.",
+      "no_face_embedding": "La photo de vérification de cet utilisateur ne contient aucun visage détecté. Demandez-lui de la téléverser à nouveau.",
+      "reconfirmation_pending": "La photo de cet utilisateur a été modifiée récemment et attend une reconfirmation (3 nécessaires).",
+      "face_duplicate": "Vérification bloquée : ce visage correspond à un profil déjà vérifié.",
+      "already_verified": "Vous avez déjà vérifié cet utilisateur.",
+      "invalid_method": "Méthode de vérification non valide.",
+      "statement_expired": "La déclaration de vérification a expiré (plus de 5 minutes). Veuillez réessayer.",
+      "timestamp_future": "L'horodatage est dans le futur. Vérifiez l'horloge de votre appareil.",
+      "invalid_timestamp": "Format d'horodatage non valide.",
+      "statement_mismatch": "La déclaration ne correspond pas aux données de vérification attendues. Veuillez réessayer.",
+      "invalid_statement_json": "Déclaration de vérification mal formée. Veuillez réessayer.",
+      "invalid_signature": "Signature PGP non valide. Assurez-vous d'avoir signé avec votre clé PGP enregistrée.",
+      "signature_error": "Impossible de vérifier votre signature PGP. Veuillez réessayer.",
+      "internal_error": "Une erreur s'est produite de notre côté. Veuillez réessayer plus tard."
+    }
   }
 }

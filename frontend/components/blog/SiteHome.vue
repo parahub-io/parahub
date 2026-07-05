@@ -63,8 +63,8 @@ const manageUrl = computed(() => {
   <div class="py-8">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
-      <!-- Site name (when no hero) -->
-      <div v-if="!site?.hero_text_html" class="text-center mb-8">
+      <!-- Site name (when no hero and no custom homepage — both already carry their own title) -->
+      <div v-if="!site?.hero_text_html && !homePage" class="text-center mb-8">
         <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
           {{ siteName }}
         </h1>
@@ -117,21 +117,20 @@ const manageUrl = computed(() => {
 
       <!-- Empty state: no pages, no posts, no homepage -->
       <div v-if="!loading && !homePage && navPages.length === 0 && posts.length === 0" class="text-center py-12">
-        <img src="/images/para/welcome.png" alt="" aria-hidden="true" class="mx-auto h-32 w-auto mb-4" />
+        <img src="/images/para/welcome.webp" alt="" aria-hidden="true" class="mx-auto h-32 w-auto mb-4" />
         <h3 class="text-lg font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
           {{ t('cms.site.emptyTitle') }}
         </h3>
         <p class="text-neutral-500 dark:text-neutral-400 mb-4">
           {{ t('cms.site.emptyDesc') }}
         </p>
-        <NuxtLink
+        <UiButton
           v-if="manageUrl"
           :to="manageUrl"
-          class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+          :icon="Settings"
         >
-          <Settings class="w-4 h-4" />
           {{ t('cms.site.configure') }}
-        </NuxtLink>
+        </UiButton>
       </div>
 
     </div>

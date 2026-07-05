@@ -48,6 +48,20 @@ HTTP_HEADERS = {'User-Agent': 'Mozilla/5.0 (parahub GTFS updater)'}
 SYNTHESIZE_LINE_ID_FEEDS = {"carris-lisboa", "carris-metropolitana"}
 _VARIANT_ROUTE_ID_RE = re.compile(r"^(.+)_(\d+)$")
 
+# Rail feeds that ship no line_id and no usable route_id grouping, but whose
+# route_short_name IS the public line name shared across O-D path-variants
+# (CP: "Linha de Cascais" on 9 direction/short-turn route_ids like
+# 25-94_69005-94_69260). line_id is synthesized from short_name so percursos
+# collapse. path_type can't come from the feed (all 0) → it's ranked
+# post-import by geometry length so the FULL line (longest) is canonical, not a
+# lexically-first short-turn (Cais do Sodré→Algés over Cascais); see
+# _rank_synth_path_type. Gated to route_type 109 (Suburban Railway): CP's
+# long-distance services share a short_name that is a service CLASS
+# (AP/IC/IR/R), not a line — grouping those would fabricate one nationwide "R"
+# line. PK/gtfs-feed-quirks.md "Line grouping ext".
+SYNTHESIZE_LINE_ID_FROM_SHORTNAME = {"cp-rail"}
+_SUBURBAN_RAIL_ROUTE_TYPE = 109
+
 
 # Primary key fields for GTFS deduplication during multi-ZIP merge
 _GTFS_PK = {
@@ -255,6 +269,49 @@ def _count_gtfs_entities(zip_path):
     return counts
 
 
+def backfill_empty_headsigns(agency_ids=None, batch_size=5000):
+    """Fill empty Trip.headsign with the trip's terminus (its last stop's name).
+
+    GTFS permits a blank trip_headsign; some operators (Carris Lisboa: 165 968/
+    165 968) leave it empty feed-wide, which erases the (route, direction) label
+    everywhere it's derived from headsign — the stop-page direction subtitle, the
+    sibling-pole list, the live "at stop"/"approaching" rows (via RouteCache's
+    headsign_info) and the schedule. The GTFS-standard fallback is the trip's final
+    stop, so two same-name opposite-direction poles read e.g. "→ Cidade
+    Universitária" vs "→ Damaia Cima". The route page stays header-free (that's a
+    deliberate 2026-06-12 owner decision, enforced in the frontend — it renders no
+    direction header element, so this backfill never revives one there).
+
+    Derives the terminus from StopTimes already in the DB, so it must run AFTER
+    stop_times import (a no-op under fast/skip-stop_times mode — nothing to read).
+    Only touches still-empty headsigns. Returns the number of trips updated.
+    """
+    st = StopTime.objects.filter(trip__headsign="")
+    if agency_ids is not None:
+        st = st.filter(trip__route__agency_id__in=agency_ids)
+    # Terminus = stop at the highest stop_sequence of each trip (Postgres DISTINCT ON).
+    # Materialized (one row per empty-headsign trip) so the bulk_update writes below
+    # don't run against an open server-side cursor on the same connection.
+    term_rows = list(
+        st.order_by("trip_id", "-stop_sequence")
+        .distinct("trip_id")
+        .values_list("trip_id", "stop__name")
+    )
+    buf, updated = [], 0
+    for trip_id, name in term_rows:
+        if not name:
+            continue
+        buf.append(Trip(id=trip_id, headsign=name[:255]))
+        if len(buf) >= batch_size:
+            Trip.objects.bulk_update(buf, ["headsign"])
+            updated += len(buf)
+            buf = []
+    if buf:
+        Trip.objects.bulk_update(buf, ["headsign"])
+        updated += len(buf)
+    return updated
+
+
 class Command(BaseCommand):
     help = "Import GTFS static feed from ZIP (URL or local file)"
 
@@ -351,6 +408,12 @@ class Command(BaseCommand):
                     if not options["skip_stop_times"] and "stop_times.txt" in available:
                         # 8. StopTimes + RouteStops
                         self._import_stop_times(zf, trip_map, stop_map, route_map)
+                        # 8b. Fill blank trip_headsign with the trip terminus so
+                        #     direction labels work even for feeds that ship empty
+                        #     headsigns (Carris). Needs the StopTimes just imported.
+                        n_hs = backfill_empty_headsigns(all_agencies)
+                        if n_hs:
+                            self.stdout.write(f"  Backfilled {n_hs} blank trip headsigns from terminus")
                     elif "stop_times.txt" in available:
                         # Build RouteStops from stop_times without importing all rows
                         self._build_route_stops_fast(zf, trip_map, stop_map, route_map)
@@ -358,6 +421,13 @@ class Command(BaseCommand):
                     # 9. Route geometry from shapes
                     for ag in all_agencies:
                         self._assign_route_geometry(ag, shape_map, route_map)
+
+                    # 9b. Feeds whose line_id is synthesized from short_name carry
+                    #     no native path_type (all variants 0) → rank by geometry
+                    #     length so the full line (longest) is the canonical
+                    #     path_type=0, not a lexically-first short-turn.
+                    if agency.data_source and agency.data_source.slug in SYNTHESIZE_LINE_ID_FROM_SHORTNAME:
+                        self._rank_synth_path_type(all_agencies)
 
                     # 10. Conditional place assignment
                     has_place_changes = (
@@ -749,6 +819,7 @@ class Command(BaseCommand):
         agency_map = getattr(self, '_agency_map', {})
         ds = agency.data_source
         synthesize_line_id = ds is not None and ds.slug in SYNTHESIZE_LINE_ID_FEEDS
+        synth_line_from_name = ds is not None and ds.slug in SYNTHESIZE_LINE_ID_FROM_SHORTNAME
 
         routes_data = []
         feed_source_ids = set()
@@ -774,6 +845,11 @@ class Command(BaseCommand):
                 if m:
                     rd["line_id"] = m.group(1)[:100]
                     rd["path_type"] = int(m.group(2))
+            elif (synth_line_from_name and not rd["line_id"]
+                  and rd["route_type"] == _SUBURBAN_RAIL_ROUTE_TYPE and rd["short_name"]):
+                # Group O-D variants by the line name. path_type stays 0 here;
+                # _rank_synth_path_type ranks it by geometry length post-import.
+                rd["line_id"] = rd["short_name"][:100]
             routes_data.append(rd)
             feed_source_ids.add(gtfs_id)
 
@@ -1325,6 +1401,36 @@ class Command(BaseCommand):
             updated = cursor.rowcount
 
         self.stdout.write(f"  Assigned geometry to {updated} routes")
+
+    def _rank_synth_path_type(self, agencies):
+        """Rank path_type by descending geometry length within each synthesized
+        line group (agency, line_id, short_name): longest variant → 0 (canonical).
+
+        For feeds whose line_id is synthesized from short_name (SYNTHESIZE_LINE_ID_
+        FROM_SHORTNAME) and which ship no native path_type. All canonical pickers
+        (search / discover / sitemap / route-detail) key on LINE_CANONICAL_ORDER
+        = (path_type, source_id), so this makes the full line — not a lexically
+        smallest short-turn — the representative everywhere. Geometry-less
+        variants sort last; ties broken by source_id for a stable order."""
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE geo_route r
+                SET path_type = ranked.rn
+                FROM (
+                    SELECT id, ROW_NUMBER() OVER (
+                        PARTITION BY agency_id, line_id, short_name
+                        ORDER BY ST_Length(geometry::geography) DESC NULLS LAST, source_id
+                    ) - 1 AS rn
+                    FROM geo_route
+                    WHERE agency_id = ANY(%s) AND line_id <> ''
+                ) ranked
+                WHERE r.id = ranked.id AND r.path_type IS DISTINCT FROM ranked.rn
+                """,
+                [[str(a.id) for a in agencies]],
+            )
+            self.stdout.write(f"  Ranked path_type for {cursor.rowcount} synthesized-line routes")
 
     def _assign_place_fks(self, agency):
         """Assign Stop.place and Route.place FKs via spatial query, update Place cached counts."""

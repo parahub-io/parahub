@@ -26,27 +26,39 @@ from .feed_pubsub import FeedPubSubManager
 
 logger = logging.getLogger(__name__)
 
-# Module-level singleton RouteCache + StopSnapper (shared by all driver consumers)
-_route_cache = None
-_stop_snapper = None
+# Per-data-source RouteCache + StopSnapper, shared by all driver consumers in
+# this worker. Filtered caches only: an unfiltered RouteCache.refresh() loads
+# EVERY feed's shapes/stop sequences (plus a ~17s full geo_stoptime scan for
+# rep-trip selection) into each uvicorn worker that ever served a driver WS —
+# the main source of unbounded worker RSS growth before 2026-07. A driver
+# only ever needs their shift's own data source.
+_route_caches: dict = {}   # ds_id → RouteCache (single feed)
+_stop_snappers: dict = {}  # ds_id → StopSnapper bound to that cache
 _cache_lock = asyncio.Lock()
+_MAX_CACHED_SOURCES = 8  # safety valve; concurrent driver feeds are ~1-2
 
 POSITION_INTERVAL_MIN_S = 5  # Reject positions faster than 5s apart
 HEARTBEAT_TTL = 45  # Redis heartbeat key TTL
 
 
-async def _ensure_route_cache():
-    """Lazy-load and periodically refresh the shared RouteCache."""
-    global _route_cache, _stop_snapper
+async def _ensure_route_cache(ds_id: str):
+    """Lazy-load and periodically refresh the RouteCache for one data source."""
     async with _cache_lock:
-        if _route_cache is None:
+        rc = _route_caches.get(ds_id)
+        if rc is None:
             from parahub.services.transit_rt import RouteCache, StopSnapper
-            _route_cache = RouteCache()
-            await _route_cache.refresh()
-            _stop_snapper = StopSnapper(_route_cache)
-        elif _route_cache.is_stale():
-            await _route_cache.refresh()
-    return _route_cache, _stop_snapper
+            if len(_route_caches) >= _MAX_CACHED_SOURCES:
+                # Evict the stalest cache; its drivers rebuild on next use
+                oldest = min(_route_caches, key=lambda k: _route_caches[k]._last_refresh)
+                _route_caches.pop(oldest, None)
+                _stop_snappers.pop(oldest, None)
+            rc = RouteCache()
+            await rc.refresh(data_source_ids=[ds_id])
+            _route_caches[ds_id] = rc
+            _stop_snappers[ds_id] = StopSnapper(rc)
+        elif rc.is_stale():
+            await rc.refresh(data_source_ids=[ds_id])
+    return rc, _stop_snappers[ds_id]
 
 
 class DriverConsumer(AsyncWebsocketConsumer):
@@ -139,8 +151,9 @@ class DriverConsumer(AsyncWebsocketConsumer):
         self._route_type = shift['route_type']
         self._direction_id = shift['direction_id']
 
-        # Load headsign from RouteCache
-        cache, _ = await _ensure_route_cache()
+        # Load headsign from this feed's RouteCache
+        cache, _ = await _ensure_route_cache(self._ds_id)
+        self._cache = cache
         hs = cache.headsign_info.get((self._route_source_id, self._direction_id), '')
         self._headsign = hs
 
@@ -186,7 +199,7 @@ class DriverConsumer(AsyncWebsocketConsumer):
             return
 
         # Snap to nearest stop
-        _, snapper = await _ensure_route_cache()
+        _, snapper = await _ensure_route_cache(self._ds_id)
         snap_result = snapper.snap(lat, lon, self._route_source_id, self._direction_id)
         stop_id = snap_result[0] if snap_result else ''
 
@@ -282,7 +295,8 @@ class DriverConsumer(AsyncWebsocketConsumer):
         self._last_stop_id = ''  # Reset stop tracking
 
         # Update headsign + stop sequence
-        cache, _ = await _ensure_route_cache()
+        cache, _ = await _ensure_route_cache(self._ds_id)
+        self._cache = cache
         self._headsign = cache.headsign_info.get(
             (self._route_source_id, new_dir), ''
         )
@@ -322,9 +336,10 @@ class DriverConsumer(AsyncWebsocketConsumer):
 
     def _get_stop_name(self, stop_source_id: str) -> str:
         """Get stop name from cached shape data."""
-        if not _route_cache:
+        cache = getattr(self, '_cache', None)
+        if cache is None:
             return stop_source_id
-        shape = _route_cache.shapes.get((self._route_source_id, self._direction_id))
+        shape = cache.shapes.get((self._route_source_id, self._direction_id))
         if shape:
             for s in shape.stops:
                 if s.source_id == stop_source_id:

@@ -4,7 +4,7 @@
     <div class="w-full px-4 sm:px-6 lg:px-8">
       <div class="max-w-7xl lg:min-w-[1024px] xl:min-w-[1280px] mx-auto w-full">
       <div class="mb-6">
-        <UiTabs v-model="activeTab" :tabs="adsTabs" variant="nav" />
+        <UiRouteTabs :tabs="adsTabs" />
       </div>
 
       <div class="mt-6 w-full">
@@ -25,7 +25,6 @@ definePageMeta({
 })
 
 const { t } = useI18n()
-const route = useRoute()
 const localePath = useLocalePath()
 
 const adsTabs = computed(() => [
@@ -37,13 +36,6 @@ const adsTabs = computed(() => [
 useSeoMeta({
   title: t('ads.title') + ' - Parahub',
   ogTitle: t('ads.title') + ' - Parahub',
-})
-
-const activeTab = computed(() => {
-  const path = route.path
-  if (path.includes('/ads/campaigns')) return 'campaigns'
-  if (path.includes('/ads/settings')) return 'settings'
-  return 'feed'
 })
 
 // Load shared ads profile on mount

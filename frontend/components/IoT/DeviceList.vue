@@ -47,7 +47,7 @@
 
     <!-- Loading state -->
     <div v-if="loading" class="flex justify-center items-center py-12">
-      <div class=" rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
       <span class="ml-3 text-neutral-600 dark:text-neutral-400">{{ $t('iot.loading') }}</span>
     </div>
 

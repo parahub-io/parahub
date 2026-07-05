@@ -298,14 +298,23 @@ const saveBio = async () => {
   if (trimmed === (authStore.profile?.bio || '')) return
   try {
     await authStore.ensureToken()
-    await $fetch('/api/v1/profiles/me/', {
-      method: 'PUT',
+    // PATCH /me/preferences/ (JWT-auth) — bio is public low-stakes text and does
+    // not need the PGP-signed PUT /me/ path, which would 401 the unsigned request
+    await $fetch('/api/v1/profiles/me/preferences/', {
+      method: 'PATCH',
       credentials: 'include',
-      headers: { Authorization: `Bearer ${authStore.token}` },
-      body: { bio: trimmed },
+      headers: {
+        Authorization: `Bearer ${authStore.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ bio: trimmed }),
     })
     if (authStore.profile) (authStore.profile as any).bio = trimmed
-  } catch { /* silent */ }
+    showSuccess(t('profile.bio_updated'))
+  } catch (error) {
+    console.error('Failed to update bio:', error)
+    showError(t('profile.bio_update_failed'))
+  }
 }
 
 // Avatar modal state

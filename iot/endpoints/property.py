@@ -277,3 +277,100 @@ def delete_property(request, property_id: str):
         raise HttpError(403, "Not your property")
     prop.delete()
     return {"ok": True}
+
+
+# ---------- Household members (civic polls audience — PK/civic-polls-system.md) ----------
+
+class HouseholdMemberOut(Schema):
+    profile_id: str
+    hna: str
+    display_name: str = ''
+    role: str
+    is_owner: bool = False
+    created_at: Optional[datetime] = None
+
+
+def _require_household_access(prop: Property, profile) -> bool:
+    """Owner or member."""
+    if prop.owner_id == profile.id:
+        return True
+    from iot.models import PropertyMember
+    return PropertyMember.objects.filter(property=prop, profile=profile).exists()
+
+
+@router.get("/{property_id}/household/", response=List[HouseholdMemberOut], auth=ProfileAuth())
+@ratelimit(group='property:household', key=user_or_ip, rate='30/m')
+def list_household(request, property_id: str):
+    from iot.models import PropertyMember
+    prop = get_object_or_404(Property, id=property_id)
+    if not _require_household_access(prop, request.auth_profile):
+        raise HttpError(403, "Not a member of this household")
+    out = [HouseholdMemberOut(
+        profile_id=prop.owner.id, hna=prop.owner.hna,
+        display_name=prop.owner.display_name or '', role='owner', is_owner=True,
+        created_at=prop.created_at,
+    )]
+    for m in PropertyMember.objects.filter(property=prop).select_related('profile'):
+        out.append(HouseholdMemberOut(
+            profile_id=m.profile.id, hna=m.profile.hna,
+            display_name=m.profile.display_name or '', role=m.role,
+            created_at=m.created_at,
+        ))
+    return out
+
+
+@router.post("/{property_id}/household/invite/", auth=ProfileAuth())
+@ratelimit(group='property:household_invite', key=user_or_ip, rate='10/m', method='POST')
+def create_household_invite(request, property_id: str):
+    """Generate (or rotate) the household invite token. Owner only.
+    Rotating invalidates previously shared links."""
+    import secrets
+    prop = get_object_or_404(Property, id=property_id)
+    if prop.owner_id != request.auth_profile.id:
+        raise HttpError(403, "Only the owner can invite household members")
+    prop.household_invite_token = secrets.token_urlsafe(32)
+    prop.save(update_fields=['household_invite_token'])
+    return {"token": prop.household_invite_token}
+
+
+@router.post("/household/join/", auth=ProfileAuth())
+@ratelimit(group='property:household_join', key=user_or_ip, rate='10/m', method='POST')
+def join_household(request, token: str):
+    """Join a household via invite token."""
+    from iot.models import PropertyMember
+    profile = request.auth_profile
+    prop = Property.objects.filter(household_invite_token=token).select_related('owner').first()
+    if not prop or not token:
+        raise HttpError(404, "Invite not found or revoked")
+    if prop.owner_id == profile.id:
+        return {"property_id": prop.id, "property_name": prop.name, "joined": False, "already": True}
+    _, created = PropertyMember.objects.get_or_create(
+        property=prop, profile=profile,
+        defaults={'invited_by': prop.owner},
+    )
+    # Keep active household polls' audience in sync immediately
+    try:
+        from governance.civic import sync_context_audience_polls
+        sync_context_audience_polls('household', prop.id)
+    except Exception:
+        pass
+    return {"property_id": prop.id, "property_name": prop.name, "joined": True, "already": not created}
+
+
+@router.delete("/{property_id}/household/{profile_id}/", auth=ProfileAuth())
+@ratelimit(group='property:household_remove', key=user_or_ip, rate='20/m', method='DELETE')
+def remove_household_member(request, property_id: str, profile_id: str):
+    """Owner removes a member, or a member leaves (profile_id == own id)."""
+    from iot.models import PropertyMember
+    prop = get_object_or_404(Property, id=property_id)
+    requester = request.auth_profile
+    if requester.id != profile_id and prop.owner_id != requester.id:
+        raise HttpError(403, "Only the owner can remove other members")
+    deleted, _ = PropertyMember.objects.filter(property=prop, profile_id=profile_id).delete()
+    if deleted:
+        try:
+            from governance.civic import sync_context_audience_polls
+            sync_context_audience_polls('household', prop.id)
+        except Exception:
+            pass
+    return {"removed": bool(deleted)}

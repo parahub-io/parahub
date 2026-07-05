@@ -175,7 +175,7 @@ def _format_event_response(event, current_profile=None) -> EventResponse:
     organizer_info = OrganizerInfo(
         id=organizer.id,
         hna=organizer.hna,
-        display_name=organizer.display_name,
+        display_name=organizer.display_name if organizer.name_visible_to(current_profile) else '',
         avatar_url=organizer.avatar.url if organizer.avatar else None
     )
 
@@ -227,7 +227,7 @@ def _format_event_response(event, current_profile=None) -> EventResponse:
     )
 
 
-def _format_event_list_item(event) -> EventListItem:
+def _format_event_list_item(event, viewer=None) -> EventListItem:
     """Helper to format Event for list views"""
     location_data = None
     location_display = None
@@ -247,7 +247,7 @@ def _format_event_list_item(event) -> EventListItem:
         id=event.id,
         title=event.title,
         organizer_hna=event.organizer.hna if event.organizer else None,
-        organizer_display_name=event.organizer.display_name if event.organizer else None,
+        organizer_display_name=event.organizer.display_name if event.organizer and event.organizer.name_visible_to(viewer) else None,
         organizer_avatar_url=event.organizer.avatar.url if event.organizer and event.organizer.avatar else None,
         category_name=event.category.name if event.category else None,
         category_icon=event.category.icon if event.category else None,
@@ -673,8 +673,8 @@ def get_my_events(request):
     ).select_related('organizer', 'organizer__instance', 'world_object', 'category', 'establishment').order_by('starts_at')
 
     return {
-        "organizing": [_format_event_list_item(e) for e in organizing],
-        "participating": [_format_event_list_item(e) for e in participating]
+        "organizing": [_format_event_list_item(e, viewer=profile) for e in organizing],
+        "participating": [_format_event_list_item(e, viewer=profile) for e in participating]
     }
 
 
@@ -747,7 +747,7 @@ def cancel_event(request, event_id: str):
 
     # Notify participants via Matrix room
     if event.matrix_room_id:
-        import threading
+        from parahub.background import spawn
         def _send_cancel_notice(room_id, event_title):
             try:
                 from django.conf import settings
@@ -767,7 +767,7 @@ def cancel_event(request, event_id: str):
                     )
             except Exception as e:
                 logger.warning(f"Failed to send Matrix cancellation notice: {e}")
-        threading.Thread(target=_send_cancel_notice, args=(event.matrix_room_id, event.title), daemon=True).start()
+        spawn(_send_cancel_notice, event.matrix_room_id, event.title)
 
     return {"success": True, "message": "Event cancelled"}
 
@@ -871,7 +871,7 @@ def get_event_participants(request, event_id: str, status: Optional[str] = None)
             id=p.id,
             profile_id=p.profile_id,
             profile_hna=p.profile.hna,
-            profile_display_name=p.profile.display_name,
+            profile_display_name=p.profile.display_name if p.profile.name_visible_to(getattr(request, 'auth_profile', None)) else '',
             profile_avatar_url=p.profile.avatar.url if p.profile.avatar else None,
             status=p.status,
             joined_at=p.created_at

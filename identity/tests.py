@@ -167,7 +167,7 @@ class ProfileCreationTest(TestCase):
 
         request = _make_auth_request(self.factory, self.account, self.primary, 'post')
         # Bypass rate limiter
-        with patch('parahub.endpoints.profiles.ratelimit', lambda **kw: lambda fn: fn):
+        with patch('parahub.endpoints.profiles.core.ratelimit', lambda **kw: lambda fn: fn):
             response = create_profile(request, data)
 
         self.assertEqual(response.profile_type, 'PSEUDONYMOUS')
@@ -189,7 +189,7 @@ class ProfileCreationTest(TestCase):
         )
 
         request = _make_auth_request(self.factory, self.account, self.primary, 'post')
-        with patch('parahub.endpoints.profiles.ratelimit', lambda **kw: lambda fn: fn):
+        with patch('parahub.endpoints.profiles.core.ratelimit', lambda **kw: lambda fn: fn):
             with self.assertRaises(HttpError) as ctx:
                 create_profile(request, data)
             self.assertEqual(ctx.exception.status_code, 403)
@@ -217,7 +217,7 @@ class ProfileCreationTest(TestCase):
         )
 
         request = _make_auth_request(self.factory, self.account, self.primary, 'post')
-        with patch('parahub.endpoints.profiles.ratelimit', lambda **kw: lambda fn: fn):
+        with patch('parahub.endpoints.profiles.core.ratelimit', lambda **kw: lambda fn: fn):
             with self.assertRaises(HttpError) as ctx:
                 create_profile(request, data)
             self.assertEqual(ctx.exception.status_code, 403)
@@ -235,7 +235,7 @@ class ProfileCreationTest(TestCase):
         )
 
         request = _make_auth_request(self.factory, self.account, self.primary, 'post')
-        with patch('parahub.endpoints.profiles.ratelimit', lambda **kw: lambda fn: fn):
+        with patch('parahub.endpoints.profiles.core.ratelimit', lambda **kw: lambda fn: fn):
             with self.assertRaises(HttpError) as ctx:
                 create_profile(request, data)
             self.assertEqual(ctx.exception.status_code, 400)
@@ -311,7 +311,7 @@ class ProfileUpdateTest(TestCase):
         request = _make_auth_request(self.factory, self.alice_account, self.alice, 'patch')
 
         # update_my_preferences calls get_my_profile internally which needs location logic
-        with patch('parahub.endpoints.profiles.get_my_profile') as mock_get:
+        with patch('parahub.endpoints.profiles.core.get_my_profile') as mock_get:
             mock_get.return_value = MagicMock(display_name='Alice Updated')
             response = update_my_preferences(request, data)
 
@@ -794,7 +794,7 @@ class ManageableProfilesTest(TestCase):
 
 import math
 from identity.reputation import calculate_reputation
-from identity.models import Contract, ContractReview, Verification
+from contracts.models import Contract, ContractReview
 from geo.models import (
     Event, EventParticipant, Establishment, EstablishmentMembership,
 )

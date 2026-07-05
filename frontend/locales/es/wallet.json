@@ -38,7 +38,8 @@
     "registerLnAddress": "Registrar",
     "copyLnAddress": "Copiar dirección Lightning",
     "lnAddressRegisterFailed": "No se pudo registrar la dirección",
-    "walletOpenInAnotherTab": "La cartera ya está abierta en otra pestaña. Ciérrela primero.",
+    "walletOpenInAnotherTab": "La cartera está activa en otra pestaña o ventana de este navegador.",
+    "openHere": "Abrir aquí",
     "initError": "No se pudo conectar la cartera",
     "lnurlDetected": "LNURL-pay detectado. Ingrese la cantidad.",
     "amountlessInvoice": "Factura sin cantidad. Ingrese la cantidad.",
@@ -99,11 +100,11 @@
   "seedRestore": {
     "title": "Restaurar cartera",
     "subtitle": "Ingrese su frase semilla de 12 palabras",
-    "wordPlaceholder": "palabra",
     "pasteAllWords": "Pegar las 12 palabras",
     "pasteAllWordsPlaceholder": "palabra1 palabra2 palabra3 palabra4 palabra5 palabra6 palabra7 palabra8 palabra9 palabra10 palabra11 palabra12",
-    "pasteWords": "Pegar del portapapeles",
     "invalidMnemonic": "Frase semilla inválida. Verifique sus palabras.",
+    "wordCount": "{count} / 12 palabras",
+    "validPhrase": "Frase semilla válida",
     "restoring": "Restaurando su cartera...",
     "restoreFailed": "Error al restaurar. Intente de nuevo."
   }

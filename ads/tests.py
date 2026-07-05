@@ -885,6 +885,12 @@ class RecordAdViewTest(TestCase):
         self.campaign.refresh_from_db()
         self.assertEqual(self.campaign.total_views, 1)
         self.assertEqual(self.campaign.spent_sats, 10)
+        # A successful payout is shown inline on the claim screen — it must NOT
+        # spam the notification feed (only failures alert).
+        from notifications.models import Notification
+        self.assertFalse(
+            Notification.objects.filter(type='ad_payment_issue').exists()
+        )
 
     @patch('parahub.endpoints.ads.send_payment_via_lnurl')
     def test_record_view_updates_viewer_stats(self, mock_pay):
@@ -946,6 +952,15 @@ class RecordAdViewTest(TestCase):
         self.assertTrue(result['success'])
         self.assertFalse(result['payment_sent'])
         self.assertEqual(result['payment_error'], 'Connection timeout')
+        # A failed payout must leave a persistent notification (the claim toast
+        # is ephemeral) — money alert, type kept out of the mutable categories.
+        from notifications.models import Notification
+        notif = Notification.objects.filter(
+            recipient=self.viewer_account, type='ad_payment_issue'
+        ).first()
+        self.assertIsNotNone(notif)
+        self.assertEqual(notif.category, 'ads')
+        self.assertEqual(notif.data.get('error'), 'Connection timeout')
 
     @patch('parahub.endpoints.ads.send_payment_via_lnurl')
     def test_no_wallet_graceful(self, mock_pay):

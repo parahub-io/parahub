@@ -1,0 +1,51 @@
+{
+  "wotGraph": {
+    "pageTitle": "WoT Graph — Sybil Audit",
+    "staffOnly": "Staff only.",
+    "title": "Web of Trust — Graph",
+    "subtitle": "Full verification network for Sybil-cluster & collusion-ring audit",
+    "reload": "Reload",
+    "relayout": "Re-layout",
+    "stats": {
+      "profilesTotal": "{n} profile total | {n} profiles total",
+      "verified": "{n} WoT-verified | {n} WoT-verified",
+      "inGraph": "{n} in graph | {n} in graph",
+      "verifications": "{n} verification | {n} verifications",
+      "mutualPairs": "{n} mutual pair | {n} mutual pairs",
+      "sameAccount": "{n} same-account link | {n} same-account links"
+    },
+    "loadError": "Failed to load graph",
+    "emptyTitle": "No verifications yet",
+    "emptyText": "The trust graph is empty — no active verifications on this node.",
+    "legend": {
+      "title": "Legend",
+      "high": "High (10+)",
+      "medium": "Medium (5+)",
+      "basic": "Basic (3+)",
+      "low": "Low (1–2)",
+      "none": "None (0)",
+      "verified": "verified (3+)",
+      "pseudonymous": "pseudonymous",
+      "oneway": "one-way",
+      "mutual": "mutual",
+      "sameAccount": "same account"
+    },
+    "tooltip": {
+      "rep": "rep",
+      "in": "in",
+      "out": "out"
+    },
+    "detail": {
+      "reputation": "Reputation",
+      "received": "Received",
+      "given": "Given",
+      "trust": "Trust",
+      "type": "Type",
+      "joined": "Joined",
+      "account": "Account",
+      "sharesAccount": "Shares account with: {names}",
+      "openProfile": "Open profile"
+    },
+    "hint": "Click a node for details. Drag to rearrange."
+  }
+}

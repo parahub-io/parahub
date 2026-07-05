@@ -1,7 +1,18 @@
 <template>
   <div class="w-full">
-    <!-- Subtitle -->
-    <p class="mb-4 text-sm text-neutral-600 dark:text-neutral-400">{{ $t('ads.subtitle') }}</p>
+    <!-- Subtitle + earnings glance -->
+    <div class="mb-4 flex items-center justify-between gap-3">
+      <p class="text-sm text-neutral-600 dark:text-neutral-400">{{ $t('ads.subtitle') }}</p>
+      <NuxtLink
+        v-if="totalEarned > 0"
+        :to="localePath('/ads/settings')"
+        class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-primary transition-colors"
+        :title="$t('ads.profile.total_earned')"
+      >
+        <Zap class="w-3.5 h-3.5 text-primary" />
+        {{ totalEarned }} sat
+      </NuxtLink>
+    </div>
 
     <!-- Wallet not configured warning -->
     <UiAlert v-if="!showHistory && !walletConfigured" variant="warning" :title="$t('ads.feed.wallet_not_configured')" class="mb-6">
@@ -83,7 +94,7 @@
 
       <!-- Empty state -->
       <div v-if="ads.length === 0" class="text-center py-12">
-        <img src="/images/para/shrug.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+        <img src="/images/para/shrug.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
         <p class="text-neutral-500 dark:text-neutral-400 font-medium">{{ $t('ads.feed.empty') }}</p>
         <p class="text-sm text-neutral-400 dark:text-neutral-500 mt-2 max-w-sm mx-auto">{{ $t('ads.feed.empty_desc') }}</p>
       </div>
@@ -161,7 +172,7 @@ import { Inbox, Zap, CheckCircle, Loader2, ArrowUpDown, History, Search, Clock, 
 
 const authStore = useAuthStore()
 const localePath = useLocalePath()
-const { walletConfigured, feedItems, feedViewedIds, feedEarnedMap, loadHistory } = useAdsState()
+const { walletConfigured, totalEarned, feedItems, feedViewedIds, feedEarnedMap, loadHistory } = useAdsState()
 const realtimeStore = useRealtimeStore()
 
 const isActive = ref(false)
@@ -298,11 +309,9 @@ async function loadMore() {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   isActive.value = true
   realtimeStore.on('ads.new_ad', handleNewAd)
-  await loadFeed()
-  loading.value = false
 })
 
 onActivated(() => {
@@ -321,4 +330,16 @@ onUnmounted(() => {
 definePageMeta({
   middleware: 'auth',
 })
+
+// Client-side fetch behind Suspense (token-authed → no SSR): client-side
+// navigation holds the previous page until the feed is ready instead of
+// flashing an empty shell (was inside onMounted). Must stay after all
+// lifecycle hooks above so they register before setup suspends.
+const bootstrap = useAsyncData('ads-bootstrap', async () => {
+  await loadFeed()
+  loading.value = false
+  return true
+}, { server: false })
+
+await bootstrap
 </script>

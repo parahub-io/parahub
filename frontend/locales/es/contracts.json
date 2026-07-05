@@ -58,6 +58,7 @@
     "sign_modal": {
       "title": "Firmar contrato",
       "from": "De",
+      "read_terms": "Términos — lea antes de firmar",
       "verify_file": "1. Verifique su archivo primero",
       "verify_hint": "Cargue su copia del archivo del contrato para verificar que el hash SHA256 coincida",
       "hash_mismatch_warning": "ADVERTENCIA: Los hashes de archivos no coinciden! Este NO es el mismo archivo. No firme!",
@@ -115,6 +116,8 @@
     "items": "Artículos",
     "export_proof": "Exportar Prueba para Tribunal",
     "created": "Creado",
+    "terms_label": "Términos del contrato",
+    "rental_title": "Alquiler — {item}",
     "signatures": "Firmas",
     "completion": "Finalización",
     "arbitration": {

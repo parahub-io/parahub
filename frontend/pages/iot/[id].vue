@@ -214,6 +214,9 @@
             </NuxtLink>
           </section>
 
+          <!-- Household members (civic polls audience — PK/civic-polls-system.md) -->
+          <CivicHouseholdSection v-if="prop" :property-id="prop.id" />
+
         </div>
       </template>
     </div>

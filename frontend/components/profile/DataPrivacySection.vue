@@ -145,6 +145,7 @@ const emit = defineEmits<{
 }>()
 
 const { t: $t } = useI18n()
+const localePath = useLocalePath()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 
@@ -262,7 +263,7 @@ async function deleteAccount() {
 
     // Clear auth store and redirect
     authStore.logout()
-    window.location.href = '/about'
+    window.location.href = localePath('/about')
 
   } catch (err) {
     deleteError.value = err?.data?.detail || $t('profile.data_privacy.delete_failed')

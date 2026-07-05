@@ -25,6 +25,7 @@ graph_service = BarterGraphService()
 class UserInfoSchema(Schema):
     id: str
     display_name: str
+    hna: str = ''
 
 
 class BarterChainSchema(Schema):

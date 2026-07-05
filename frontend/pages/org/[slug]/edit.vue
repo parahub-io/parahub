@@ -40,6 +40,36 @@
               {{ $t('directory.form.basic_info') }}
             </h2>
 
+            <!-- Logo -->
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                {{ $t('directory.form.logo') }}
+              </label>
+              <div class="flex items-center gap-3">
+                <div class="w-16 h-16 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800 overflow-hidden flex items-center justify-center shrink-0">
+                  <img v-if="form.logo_url" :src="form.logo_url" alt="" class="w-full h-full object-cover" />
+                  <ImagePlus v-else class="w-6 h-6 text-neutral-400" />
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <label class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 cursor-pointer" :class="{ 'opacity-60 pointer-events-none': logoUploading }">
+                    <Loader2 v-if="logoUploading" class="w-4 h-4 animate-spin" />
+                    <ImagePlus v-else class="w-4 h-4" />
+                    {{ form.logo_url ? $t('directory.form.logo_replace') : $t('directory.form.logo_upload') }}
+                    <input type="file" accept="image/*" class="hidden" :disabled="logoUploading" @change="handleLogoUpload" />
+                  </label>
+                  <button
+                    v-if="form.logo_url"
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    @click="removeLogo"
+                  >
+                    <Trash2 class="w-4 h-4" /> {{ $t('common.delete') }}
+                  </button>
+                </div>
+              </div>
+              <p class="text-xs text-neutral-400 mt-1.5">{{ $t('directory.form.logo_hint') }}</p>
+            </div>
+
             <div>
               <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 {{ $t('directory.form.name') }} *
@@ -61,6 +91,35 @@
                 rows="4"
                 class="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
+            </div>
+
+            <!-- Category -->
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                {{ $t('directory.create.category_label') }}
+              </label>
+              <CategorySelect v-model="form.category_id" domain="directory" mode="filter" />
+            </div>
+
+            <!-- Organization type -->
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                {{ $t('directory.create.type_label') }}
+              </label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button
+                  v-for="type in ORG_TYPES"
+                  :key="type"
+                  type="button"
+                  @click="form.organization_type = type"
+                  class="px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors"
+                  :class="form.organization_type === type
+                    ? 'bg-primary/15 border-primary/40 text-neutral-900 dark:text-neutral-100'
+                    : 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
+                >
+                  {{ $t(`directory.organizations.type_${type.toLowerCase()}`) }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -105,6 +164,33 @@
                 class="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
+          </div>
+
+          <!-- Opening hours -->
+          <div class="card p-4 space-y-3">
+            <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+              <Clock class="w-4 h-4 text-neutral-400" />
+              {{ $t('directory.establishments.opening_hours') }}
+            </h2>
+            <div v-for="d in HOURS_DAYS" :key="d" class="flex items-center gap-3 flex-wrap">
+              <span class="w-9 text-sm font-medium text-neutral-600 dark:text-neutral-400">{{ $t(`directory.form.days.${d}`) }}</span>
+              <label class="inline-flex items-center gap-1.5 text-sm cursor-pointer select-none w-24">
+                <input v-model="hoursForm[d].open" type="checkbox" class="rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary" />
+                <span :class="hoursForm[d].open ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-400'">
+                  {{ hoursForm[d].open ? $t('directory.form.hours_open') : $t('directory.form.hours_closed') }}
+                </span>
+              </label>
+              <template v-if="hoursForm[d].open">
+                <input v-model="hoursForm[d].from" type="time"
+                  class="px-2 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <span class="text-neutral-400">–</span>
+                <input v-model="hoursForm[d].to" type="time"
+                  class="px-2 py-1.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </template>
+            </div>
+            <p v-if="Object.keys(hoursExtra).length" class="text-xs text-neutral-400 mt-1">
+              {{ $t('directory.form.hours_advanced_note') }}
+            </p>
           </div>
 
           <!-- Location -->
@@ -212,13 +298,39 @@
             {{ $t('common.save') }}
           </UiButton>
         </form>
+
+        <!-- Danger zone -->
+        <div class="card p-4 mt-6 space-y-3 border-error/40">
+          <h2 class="text-sm font-semibold text-error flex items-center gap-2">
+            <AlertTriangle class="w-4 h-4" />
+            {{ $t('directory.form.danger_zone') }}
+          </h2>
+          <p class="text-sm text-neutral-600 dark:text-neutral-400">
+            {{ $t('directory.form.delete_org_hint') }}
+          </p>
+          <UiButton variant="outline-error" :icon="Trash2" type="button" @click="showDeleteConfirm = true">
+            {{ $t('directory.form.delete_org') }}
+          </UiButton>
+        </div>
+
+        <!-- Delete confirmation -->
+        <UiConfirmModal
+          v-model="showDeleteConfirm"
+          :title="$t('directory.form.delete_confirm_title')"
+          :message="$t('directory.form.delete_confirm_msg', { name: establishment.name })"
+          :icon="Trash2"
+          variant="error"
+          :confirm-label="$t('directory.form.delete_org')"
+          :loading="deleting"
+          @confirm="deleteOrg"
+        />
       </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, AlertCircle, FileText, Phone, MapPin, Building2, Search, X } from 'lucide-vue-next'
+import { ArrowLeft, AlertCircle, AlertTriangle, FileText, Phone, MapPin, Building2, Search, X, ImagePlus, Trash2, Loader2, Clock } from 'lucide-vue-next'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -241,11 +353,86 @@ const form = reactive({
   phone: '',
   email: '',
   website: '',
+  logo_url: '',
+  category_id: null as string | null,
+  organization_type: '',
   floor: '',
   office_number: '',
   latitude: null as number | null,
   longitude: null as number | null,
 })
+
+const logoUploading = ref(false)
+
+// Organization types — same set as the create form (CONDOMINIUM is created via
+// its own flow and preserved untouched when absent from this picker).
+const ORG_TYPES = ['ASSOCIATION', 'COOPERATIVE', 'COMPANY', 'NGO', 'COMMUNITY', 'GOVERNMENT']
+
+// ---- Opening hours editor (OSM-style {day|range: 'HH:MM-HH:MM'|'closed'}) ----
+// A per-day open/close editor for the common case. Anything it can't represent
+// losslessly (the `{raw: ...}` import form, split hours like '09:00-13:00,14:00-19:00')
+// is preserved verbatim in `hoursExtra` and merged back on save — never destroyed.
+const HOURS_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+const DAY_INDEX: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
+const INDEX_DAY: Record<number, string> = { 0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat' }
+
+const hoursForm = reactive<Record<string, { open: boolean; from: string; to: string }>>(
+  Object.fromEntries(HOURS_DAYS.map(d => [d, { open: false, from: '09:00', to: '18:00' }]))
+)
+const hoursExtra = ref<Record<string, string>>({})
+
+function expandDayRange(key: string): string[] {
+  const out: string[] = []
+  for (const part of key.toLowerCase().split(',').map(s => s.trim())) {
+    if (part.includes('-')) {
+      const [a, b] = part.split('-').map(s => s.trim())
+      let i = DAY_INDEX[a]; const end = DAY_INDEX[b]
+      if (i === undefined || end === undefined) return []
+      while (true) { out.push(INDEX_DAY[i]); if (i === end) break; i = (i + 1) % 7 }
+    } else {
+      if (DAY_INDEX[part] === undefined) return []
+      out.push(part)
+    }
+  }
+  return out
+}
+
+function parseOpeningHours(oh: Record<string, string> | null | undefined) {
+  for (const d of HOURS_DAYS) { hoursForm[d].open = false; hoursForm[d].from = '09:00'; hoursForm[d].to = '18:00' }
+  hoursExtra.value = {}
+  if (!oh) return
+  for (const [key, val] of Object.entries(oh)) {
+    const days = expandDayRange(key)
+    const closed = String(val).toLowerCase() === 'closed'
+    const m = String(val).match(/^(\d{1,2}:\d{2})-(\d{1,2}:\d{2})$/)
+    if (days.length && (closed || m)) {
+      for (const d of days) {
+        if (closed) hoursForm[d].open = false
+        else { hoursForm[d].open = true; hoursForm[d].from = m![1]; hoursForm[d].to = m![2] }
+      }
+    } else {
+      hoursExtra.value[key] = val  // raw / split / multi-range → keep as-is
+    }
+  }
+}
+
+function buildOpeningHours(): Record<string, string> {
+  const out: Record<string, string> = { ...hoursExtra.value }
+  let anyOpen = false
+  for (const d of HOURS_DAYS) {
+    const g = hoursForm[d]
+    if (g.open && g.from && g.to) { out[d] = `${g.from}-${g.to}`; anyOpen = true }
+  }
+  // Only once a per-day schedule actually exists do unchecked days mean an
+  // explicit "closed" (so a never-set establishment stays {} rather than
+  // "closed all week", and a preserved `{raw: …}` import isn't polluted).
+  if (anyOpen) {
+    for (const d of HOURS_DAYS) {
+      if (!hoursForm[d].open && !(d in out)) out[d] = 'closed'
+    }
+  }
+  return out
+}
 
 // Building (WorldObject) search
 const linkedBuilding = ref<any>(null)
@@ -438,6 +625,83 @@ watch(() => colorMode.value, () => {
   if (map) map.setStyle(getStyleUrl())
 })
 
+const handleLogoUpload = async (ev: Event) => {
+  const input = ev.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  logoUploading.value = true
+  try {
+    await authStore.ensureToken()
+    // Client-side compress to keep uploads small (best-effort).
+    let processed: File = file
+    try {
+      const imageCompression = (await import('browser-image-compression')).default
+      processed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 512 })
+    } catch { /* upload raw if compression unavailable */ }
+
+    const fd = new FormData()
+    fd.append('image', processed)
+    const res = await $fetch<{ logo_url: string }>(`/api/v1/geo/establishments/${establishment.value.id}/logo/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
+      body: fd,
+    })
+    form.logo_url = res.logo_url
+  } catch (err: any) {
+    const { useToastStore } = await import('~/stores/toast')
+    useToastStore().error(err.data?.error || err.data?.detail || t('common.error_server'))
+  } finally {
+    logoUploading.value = false
+    input.value = ''
+  }
+}
+
+// Delete (deactivate) the whole organization — owner only, soft delete on the
+// backend (sets is_active=False; data is kept, support can restore).
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
+
+const deleteOrg = async () => {
+  deleting.value = true
+  try {
+    await authStore.ensureToken()
+    await $fetch(`/api/v1/geo/establishments/${establishment.value.id}/`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
+    })
+    const { useToastStore } = await import('~/stores/toast')
+    useToastStore().success(t('directory.form.deleted'))
+    // Close the modal (and stop the spinner) BEFORE navigating: it renders via
+    // <Teleport to="body">, and navigating away while it's still open orphans
+    // the teleported node in <body> — leaving the loader hung over /directory.
+    deleting.value = false
+    showDeleteConfirm.value = false
+    await nextTick()
+    router.push(localePath('/directory'))
+  } catch (err: any) {
+    const { useToastStore } = await import('~/stores/toast')
+    useToastStore().error(err.data?.detail || err.data?.message || t('common.error_server'))
+    deleting.value = false
+  }
+}
+
+const removeLogo = async () => {
+  try {
+    await authStore.ensureToken()
+    await $fetch(`/api/v1/geo/establishments/${establishment.value.id}/logo/`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
+    })
+    form.logo_url = ''
+  } catch (err: any) {
+    const { useToastStore } = await import('~/stores/toast')
+    useToastStore().error(err.data?.error || err.data?.detail || t('common.error_server'))
+  }
+}
+
 const save = async () => {
   saving.value = true
   try {
@@ -449,15 +713,22 @@ const save = async () => {
       phone: form.phone,
       email: form.email,
       website: form.website,
+      logo_url: form.logo_url,
       floor: form.floor,
       office_number: form.office_number,
+      opening_hours: buildOpeningHours(),
       slug: e.slug,
       is_online: e.is_online ?? false,
-      organization_type: e.organization_type,
+      organization_type: form.organization_type,
       requires_terms_acceptance: e.requires_terms_acceptance ?? false,
       member_visibility: e.member_visibility || 'PUBLIC',
       world_object_id: linkedBuilding.value?.id || null,
-      category_id: e.category_id || null,
+      category_id: form.category_id || null,
+      // Round-trip fields the form has no editor for — PUT resets these to empty
+      // when omitted (`= payload.x or {}`), so echoing them prevents silent wipe.
+      social_links: e.social_links || {},
+      attributes: e.attributes || {},
+      photos: e.photos || [],
     }
     if (form.latitude !== null && form.longitude !== null) {
       body.location = { latitude: form.latitude, longitude: form.longitude }
@@ -490,8 +761,12 @@ onMounted(async () => {
     form.phone = e.phone || ''
     form.email = e.email || ''
     form.website = e.website || ''
+    form.logo_url = e.logo_url || ''
+    form.category_id = e.category_id || null
+    form.organization_type = e.organization_type || ''
     form.floor = e.floor || ''
     form.office_number = e.office_number || ''
+    parseOpeningHours(e.opening_hours)
     if (e.world_object) {
       linkedBuilding.value = e.world_object
     }

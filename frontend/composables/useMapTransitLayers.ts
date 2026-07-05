@@ -6,6 +6,7 @@
 
 import { ref, onScopeDispose } from 'vue'
 import { attachHoverHex } from '~/composables/useMapHighlight'
+import { createVehicleAnimator } from '~/utils/vehicleAnimator'
 
 export function useMapTransitLayers() {
   const mapStore = useMapStore()
@@ -26,6 +27,11 @@ export function useMapTransitLayers() {
   // Stored handler refs for cleanup on re-init (prevents accumulation on style change)
   let _moveendHandler: (() => void) | null = null
   let _imageMissingHandler: ((e: any) => void) | null = null
+  let _vehicleClickHandler: ((e: any) => void) | null = null
+  const VEHICLE_CLICK_LAYERS = [
+    'transit-vehicles-circle', 'transit-vehicles-icon',
+    'transit-vehicles-heading', 'transit-vehicles-bar',
+  ]
 
   // Vehicle click callback — set by MapView to dispatch to panel
   let onVehicleClick: ((vehicle: any) => void) | null = null
@@ -43,6 +49,16 @@ export function useMapTransitLayers() {
     isConnected: isTransitWsConnected,
     onUpdate: onTransitUpdate,
   } = useTransitVehicles()
+
+  // Glide vehicle icons to each new WS position over 1s instead of snapping.
+  const vehicleAnimator = createVehicleAnimator({
+    getKey: (f: any) => f.properties.vehicle_id,
+    apply: (fc: any) => {
+      const map = mapStore.mapInstance
+      const source = map?.getSource('transit-vehicles')
+      if (source) (source as any).setData(fc)
+    },
+  })
 
   // ======== Static layers (stops) ========
 
@@ -524,8 +540,14 @@ export function useMapTransitLayers() {
       applyVehicleIconZoomRange(map)
     })
 
-    // Click handler → dispatch to panel callback (no popup)
-    const vehicleClickHandler = (e: any) => {
+    // Click handler → dispatch to panel callback (no popup).
+    // Named ref + off-before-on (same as _moveendHandler below): setupLayers
+    // re-runs on style reloads, and the KeepAlive'd map would otherwise
+    // accumulate a duplicate handler — and open N panels — per re-run.
+    if (_vehicleClickHandler) {
+      for (const layer of VEHICLE_CLICK_LAYERS) map.off('click', layer, _vehicleClickHandler)
+    }
+    _vehicleClickHandler = (e: any) => {
       if (!e.features || !e.features.length) return
       const p = e.features[0].properties
       if (onVehicleClick) {
@@ -535,10 +557,7 @@ export function useMapTransitLayers() {
         })
       }
     }
-    map.on('click', 'transit-vehicles-circle', vehicleClickHandler)
-    map.on('click', 'transit-vehicles-icon', vehicleClickHandler)
-    map.on('click', 'transit-vehicles-heading', vehicleClickHandler)
-    map.on('click', 'transit-vehicles-bar', vehicleClickHandler)
+    for (const layer of VEHICLE_CLICK_LAYERS) map.on('click', layer, _vehicleClickHandler)
 
     attachHoverHex(map, 'transit-vehicles-circle', 1.9)
     attachHoverHex(map, 'transit-vehicles-icon', 1.9)
@@ -599,8 +618,15 @@ export function useMapTransitLayers() {
         subscribeTransitBbox([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
       }
     } else {
-      disconnectTransitWs()
+      disconnectWs()
     }
+  }
+
+  // Disconnect + forget shown positions, so a later reconnect appears in place
+  // (real positions) rather than sliding from stale coords.
+  function disconnectWs() {
+    disconnectTransitWs()
+    vehicleAnimator.stop()
   }
 
   function resetDataLoaded() {
@@ -608,28 +634,20 @@ export function useMapTransitLayers() {
     lastStopsBbox = null
   }
 
-  /** Sync vehicle data from WS to map source via plain callback (bypasses Vue watch). */
+  /** Sync vehicle data from WS to map source via plain callback (bypasses Vue watch).
+   * The animator owns its own rAF loop (1s glide per tick), so no manual rAF gate. */
   function syncVehicleData() {
-    let pendingTransitRaf = false
     const unsub = onTransitUpdate(() => {
-      if (pendingTransitRaf) return
-      pendingTransitRaf = true
-      requestAnimationFrame(() => {
-        pendingTransitRaf = false
-        const map = mapStore.mapInstance
-        if (!map || !transitEnabled.value) return
-        const source = map.getSource('transit-vehicles')
-        if (source) {
-          const geojson = transitToGeoJSON()
-          // Filter by active route if set
-          if (activeRouteFilter.value && geojson.features) {
-            geojson.features = geojson.features.filter(
-              (f: any) => f.properties?.route_id === activeRouteFilter.value
-            )
-          }
-          ;(source as any).setData(geojson)
-        }
-      })
+      const map = mapStore.mapInstance
+      if (!map || !transitEnabled.value) return
+      const geojson = transitToGeoJSON()
+      // Filter by active route if set
+      if (activeRouteFilter.value && geojson.features) {
+        geojson.features = geojson.features.filter(
+          (f: any) => f.properties?.route_id === activeRouteFilter.value
+        )
+      }
+      vehicleAnimator.setTarget(geojson)
     })
     onScopeDispose(unsub)
   }
@@ -655,7 +673,7 @@ export function useMapTransitLayers() {
     removeRouteOverlay,
     resetDataLoaded,
     connectWs: connectTransitWs,
-    disconnectWs: disconnectTransitWs,
+    disconnectWs,
     isWsConnected: isTransitWsConnected,
     syncVehicleData,
     enableLayerVisibility,

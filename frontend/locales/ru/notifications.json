@@ -1,0 +1,17 @@
+{
+  "notifications": {
+    "title": "Уведомления",
+    "mark_all_read": "Отметить все",
+    "empty": "Пока нет уведомлений",
+    "empty_unread": "Всё прочитано",
+    "empty_mine": "Пока нет действий",
+    "empty_incoming": "Нет входящих уведомлений",
+    "filter_all": "Все",
+    "filter_incoming": "Входящие",
+    "filter_mine": "Мои действия",
+    "unread_only": "Только непрочитанные",
+    "today": "Сегодня",
+    "yesterday": "Вчера",
+    "load_more": "Показать ещё"
+  }
+}

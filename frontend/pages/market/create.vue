@@ -17,6 +17,68 @@
         <span class="sr-only">{{ $t('common.loading') }}</span>
       </div>
 
+      <!-- Published: nudge to declare a want (barter demand generation) -->
+      <div v-else-if="justCreated" class="space-y-6">
+        <div class="flex items-center gap-2 text-green-600 dark:text-green-400">
+          <CheckCircle2 class="w-5 h-5 shrink-0" />
+          <span class="text-sm font-medium">{{ $t('barter.create_nudge.published') }}</span>
+        </div>
+
+        <div class="card p-5 space-y-4 border-2 border-primary/30">
+          <div class="flex items-start gap-3">
+            <RefreshCw class="w-6 h-6 text-secondary shrink-0 mt-0.5" />
+            <div>
+              <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                {{ $t('barter.create_nudge.heading') }}
+              </h2>
+              <p class="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                {{ $t('barter.create_nudge.explainer') }}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              {{ $t('barter.create_nudge.category_label') }}
+            </label>
+            <CategorySelect
+              v-model="wantCategoryId"
+              :placeholder="$t('market.create_modal.category_placeholder')"
+              mode="create"
+              domain="market"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              {{ $t('barter.create_nudge.title_label') }}
+            </label>
+            <input
+              v-model="wantTitle"
+              type="text"
+              maxlength="255"
+              class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              :placeholder="$t('barter.create_nudge.title_placeholder')"
+              @keydown.enter.prevent="addWant"
+            >
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-3 pt-1">
+            <UiButton
+              :loading="creatingWant"
+              :disabled="creatingWant || !wantCategoryId || !wantTitle.trim()"
+              class="flex-1"
+              @click="addWant"
+            >
+              {{ $t('barter.create_nudge.add') }}
+            </UiButton>
+            <UiButton variant="outline" class="flex-1" :disabled="creatingWant" @click="skipWant">
+              {{ $t('barter.create_nudge.skip') }}
+            </UiButton>
+          </div>
+        </div>
+      </div>
+
       <!-- Form -->
       <form v-else @submit.prevent="submitForm" class="space-y-6">
         <!-- Type selection -->
@@ -82,8 +144,8 @@
           </p>
         </div>
 
-        <!-- Post as establishment (create mode only) -->
-        <EstablishmentSelector v-if="!isEditMode" v-model="newItem.establishment_id" />
+        <!-- Post as establishment (create + edit) -->
+        <EstablishmentSelector v-model="newItem.establishment_id" />
 
         <!-- Images (AI-powered analysis, create mode only) -->
         <MarketCreateImageUpload
@@ -91,8 +153,16 @@
           v-model="newItem.images"
           :is-authenticated="authStore.isAuthenticated"
           :visible="!!newItem.type"
+          :item-type="newItem.type"
           @location-detected="onLocationDetected"
           @ai-result="onAIResult"
+        />
+
+        <!-- Media (edit mode: photos + video in one orderable strip, saved immediately) -->
+        <MarketMediaManager
+          v-else-if="loadedEditId"
+          :item-id="editItemId"
+          :initial-photos="editImages"
         />
 
         <!-- Category -->
@@ -154,6 +224,21 @@
           v-model="newItem.location"
         />
 
+        <!-- Made by hand (own production) — offers only; you can't "make" a request -->
+        <div v-if="newItem.type === 'CREDIT'">
+          <label class="flex items-start gap-3 cursor-pointer p-3 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+            <input
+              type="checkbox"
+              v-model="newItem.self_made"
+              class="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary shrink-0"
+            >
+            <div>
+              <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ $t('market.create_modal.self_made_label') }}</div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ $t('market.create_modal.self_made_desc') }}</div>
+            </div>
+          </label>
+        </div>
+
         <!-- International listing toggle -->
         <div>
           <label class="flex items-start gap-3 cursor-pointer p-3 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
@@ -165,6 +250,21 @@
             <div>
               <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ $t('market.create_modal.international_label') }}</div>
               <div class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ $t('market.create_modal.international_desc') }}</div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Audience scope: public by default, or registered-only (hidden from anonymous + search) -->
+        <div>
+          <label class="flex items-start gap-3 cursor-pointer p-3 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+            <input
+              type="checkbox"
+              v-model="registeredOnly"
+              class="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary shrink-0"
+            >
+            <div>
+              <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ $t('market.create_modal.visibility_label') }}</div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ $t('market.create_modal.visibility_desc') }}</div>
             </div>
           </label>
         </div>
@@ -190,7 +290,7 @@
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useMapStore } from '~/stores/map'
-import { X, Mic, MicOff, Loader2 } from 'lucide-vue-next'
+import { X, Mic, MicOff, Loader2, CheckCircle2, RefreshCw } from 'lucide-vue-next'
 import CategorySelect from '~/components/CategorySelect.vue'
 
 const route = useRoute()
@@ -241,16 +341,39 @@ const defaultItem = () => ({
   },
   images: [],
   is_international: false,
+  self_made: false,
+  visibility: 'PUBLIC',
   establishment_id: null
 })
 
 const newItem = ref(defaultItem())
 
+// Audience scope as a simple "registered-only" toggle over the visibility enum
+// (PUBLIC default ⇄ REGISTERED). A future CIRCLE tier would turn this into a select.
+const registeredOnly = computed({
+  get: () => newItem.value.visibility === 'REGISTERED',
+  set: (v) => { newItem.value.visibility = v ? 'REGISTERED' : 'PUBLIC' },
+})
+
 // ULID of the item whose data is currently loaded into the form (edit mode), null in create mode
 const loadedEditId = ref(null)
 
+// Existing photos of the item being edited ([{ id, url, order, caption }]) — seeds
+// MarketMediaManager, which then owns photos+video live (uploads/deletes/reorder
+// hit the API immediately).
+const editImages = ref([])
+
 // Selected category object for sale_only check
 const selectedCategoryObject = ref(null)
+
+// Barter demand-generation nudge: after publishing an OFFER, capture what the
+// user wants in return (a DEBIT item) inline, without a second full form.
+// justCreated holds the just-published offer ({id, slug, establishment_id}) and
+// flips the page into the success/nudge step; null = normal create form.
+const justCreated = ref(null)
+const wantCategoryId = ref('')
+const wantTitle = ref('')
+const creatingWant = ref(false)
 
 // The page instance survives navigation (app-wide KeepAlive in app.vue) — without an explicit
 // reset, the next visit shows the previous item's fields
@@ -261,6 +384,19 @@ const resetForm = () => {
   voiceMessage.value = ''
   editVersion.value = 0
   loadedEditId.value = null
+  editImages.value = []
+  wantCategoryId.value = ''
+  wantTitle.value = ''
+}
+
+// Pre-select offer/request from ?type= (e.g. the barter tab's "Add a request" → DEBIT).
+// No-op in edit mode (type comes from the loaded item) or for any other value.
+const applyQueryType = () => {
+  if (isEditMode.value) return
+  const t = String(route.query.type || '').toUpperCase()
+  if (t === 'CREDIT' || t === 'DEBIT') {
+    newItem.value.type = t
+  }
 }
 
 const canRentInCategory = computed(() => {
@@ -515,6 +651,8 @@ const loadEditData = async () => {
     newItem.value.description = item.description || ''
     newItem.value.category_id = item.category_id || ''
     newItem.value.is_international = item.is_international || false
+    newItem.value.self_made = item.self_made || false
+    newItem.value.visibility = item.visibility || 'PUBLIC'
     newItem.value.establishment_id = item.establishment_id || null
 
     // Location (API returns fuzzed {latitude, longitude})
@@ -535,6 +673,11 @@ const loadEditData = async () => {
     } else {
       newItem.value.pricing_options = [{ type: 'sale', amount: null, currency: userCurrency.value, unit: '', note: '' }]
     }
+
+    // Existing photos for the edit-mode image manager (sorted by display order)
+    editImages.value = (item.images || [])
+      .map(img => ({ id: img.id, url: img.url, order: img.order, caption: img.caption || '' }))
+      .sort((a, b) => a.order - b.order)
 
     editVersion.value = item.version || 0
     loadedEditId.value = editItemId.value
@@ -590,6 +733,10 @@ const updateItem = async () => {
       description: newItem.value.description,
       category_id: newItem.value.category_id || undefined,
       pricing_options: cleanPricingOptions,
+      self_made: newItem.value.self_made,
+      visibility: newItem.value.visibility,
+      // '' detaches (post personally); a ULID attaches the establishment
+      establishment_id: newItem.value.establishment_id || '',
       expected_version: editVersion.value
     }
 
@@ -609,7 +756,24 @@ const updateItem = async () => {
 
     toastStore.success($t('market.notifications.updated'))
     useState('marketDirty', () => false).value = true
-    clearNuxtData(`item-${editItemId.value}`)
+
+    // Seed the detail page's useAsyncData cache with the fresh item BEFORE we
+    // navigate. market/[id].vue is kept-alive and reads `useAsyncData(`item-${id}`)`;
+    // on (re)mount that serves the pre-edit payload, and the page's onActivated
+    // refresh deliberately skips the first activation — so the just-saved edit would
+    // render stale until a hard reload (the bug). useNuxtData shares the ref by key,
+    // so this also updates a live kept-alive instance. Seed both the ULID and slug
+    // keys since the page may have been opened by either. Same endpoint as the page,
+    // so no shape mismatch and no blank flash.
+    try {
+      const fresh = await $fetch(`/api/v1/items/${editItemId.value}/`)
+      for (const key of [fresh?.id, fresh?.slug].filter(Boolean)) {
+        useNuxtData(`item-${key}`).data.value = fresh
+      }
+    } catch (e) {
+      console.error('Failed to refresh item cache after edit:', e)
+    }
+
     await navigateTo(localePath(`/market/${editItemId.value}`))
   } catch (error) {
     console.error('Failed to update item:', error)
@@ -664,6 +828,8 @@ const createItem = async () => {
         ? newItem.value.location
         : null,
       is_international: newItem.value.is_international,
+      self_made: newItem.value.self_made,
+      visibility: newItem.value.visibility,
       ai_analysis_log_id: aiAnalysisLogId.value,
       establishment_id: newItem.value.establishment_id || undefined
     }
@@ -705,9 +871,24 @@ const createItem = async () => {
 
     useState('marketDirty', () => false).value = true
 
+    // Capture the published offer before resetForm() wipes the draft
+    const created = {
+      id: itemResponse.id,
+      slug: itemResponse.slug,
+      establishment_id: newItem.value.establishment_id || null,
+    }
+    const wasOffer = newItem.value.type === 'CREDIT'
     resetForm()
     toastStore.success($t('market.notifications.created'))
-    await navigateTo(localePath(`/market/${itemResponse.slug || itemResponse.id}`))
+
+    if (wasOffer) {
+      // Demand-generation nudge: turn a one-sided offer into a two-sided barter
+      // intent by capturing what the user wants in return (see addWant/skipWant)
+      justCreated.value = created
+    } else {
+      // A request is already the demand side — no nudge needed
+      await navigateTo(localePath(`/market/${created.slug || created.id}`))
+    }
   } catch (error) {
     console.error('Failed to create item:', error)
 
@@ -748,6 +929,62 @@ const createItem = async () => {
   }
 }
 
+// Create the matching request (DEBIT) from the post-publish nudge, then land on
+// the barter tab so the user sees both sides of their new exchange intent.
+const addWant = async () => {
+  if (!wantCategoryId.value || !wantTitle.value.trim() || creatingWant.value) return
+  creatingWant.value = true
+  try {
+    await authStore.ensureToken()
+    if (!authStore.accessToken) {
+      toastStore.error($t('market.notifications.login_required'))
+      return
+    }
+
+    await $fetch('/api/v1/items/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authStore.accessToken}`
+      },
+      credentials: 'include',
+      body: {
+        item_type: 'DEBIT',
+        category_id: wantCategoryId.value,
+        title: wantTitle.value.trim(),
+        description: '',
+        pricing_options: [],
+        accepted_payment_methods: [],
+        is_international: false,
+        self_made: false,
+        visibility: 'PUBLIC',
+        establishment_id: justCreated.value?.establishment_id || undefined
+      }
+    })
+
+    useState('marketDirty', () => false).value = true
+    justCreated.value = null
+    wantCategoryId.value = ''
+    wantTitle.value = ''
+    toastStore.success($t('barter.create_nudge.added'))
+    await navigateTo(localePath({ path: '/market/my', query: { tab: 'barter' } }))
+  } catch (error) {
+    const data = error.data || error.response?._data || error.response?.data
+    toastStore.error(`${$t('market.notifications.create_error')} ${data?.error || error.message || ''}`)
+  } finally {
+    creatingWant.value = false
+  }
+}
+
+// Skip the nudge: go to the offer that was just published
+const skipWant = async () => {
+  const dest = justCreated.value
+  justCreated.value = null
+  wantCategoryId.value = ''
+  wantTitle.value = ''
+  await navigateTo(localePath(`/market/${dest?.slug || dest?.id || ''}`))
+}
+
 // Set page meta
 definePageMeta({
   middleware: ['auth'],
@@ -778,6 +1015,8 @@ onMounted(async () => {
   if (isEditMode.value) {
     // Edit mode: load existing item data
     await loadEditData()
+  } else {
+    applyQueryType()
   }
 
   window.addEventListener('keydown', handleEscape)
@@ -788,6 +1027,10 @@ onMounted(async () => {
 let hasActivated = false
 onActivated(() => {
   window.addEventListener('keydown', handleEscape)
+
+  // A re-entry always starts on the form, never on a stale post-publish nudge
+  // (addWant/skipWant navigate away, so this only matters on KeepAlive return)
+  justCreated.value = null
 
   // Restore the map marker removed on deactivation
   const { latitude, longitude } = newItem.value.location
@@ -813,6 +1056,8 @@ onActivated(() => {
     resetForm()
   }
   // Create-mode re-entry with no prior edit keeps the unsubmitted draft (deliberate)
+  // An explicit ?type= (e.g. barter "Add a request" → DEBIT) still wins.
+  applyQueryType()
 })
 
 onDeactivated(() => {

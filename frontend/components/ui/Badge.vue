@@ -3,7 +3,9 @@ import { computed } from 'vue'
 
 // `info` is an alias of `secondary` (brand blue = info); `default` is an alias of `neutral`.
 // Both exist because the rest of the codebase routinely passes them to <UiBadge>.
-type BadgeVariant = 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'neutral' | 'info' | 'default'
+// `offer`/`want` = market listing-direction tokens (teal/violet) — prefer <MarketListingType>
+// over passing these directly, so the icon + label stay consistent site-wide.
+type BadgeVariant = 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'neutral' | 'info' | 'default' | 'offer' | 'want'
 
 interface Props {
   variant?: BadgeVariant
@@ -27,6 +29,8 @@ const solidClasses: Record<BadgeVariant, string> = {
   neutral: 'bg-neutral-500 text-white',
   info: 'bg-secondary text-white',
   default: 'bg-neutral-500 text-white',
+  offer: 'bg-offer text-white',
+  want: 'bg-want text-white',
 }
 
 const softClasses: Record<BadgeVariant, string> = {
@@ -38,6 +42,8 @@ const softClasses: Record<BadgeVariant, string> = {
   neutral: 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300',
   info: 'bg-secondary-100 text-secondary-800 dark:bg-secondary-900 dark:text-secondary-200',
   default: 'bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300',
+  offer: 'bg-offer-100 text-offer-800 dark:bg-offer-900 dark:text-offer-200',
+  want: 'bg-want-100 text-want-800 dark:bg-want-900 dark:text-want-200',
 }
 
 const outlineClasses: Record<BadgeVariant, string> = {
@@ -49,6 +55,8 @@ const outlineClasses: Record<BadgeVariant, string> = {
   neutral: 'border border-neutral-400 text-neutral-600 dark:border-neutral-500 dark:text-neutral-400',
   info: 'border border-secondary text-secondary',
   default: 'border border-neutral-400 text-neutral-600 dark:border-neutral-500 dark:text-neutral-400',
+  offer: 'border border-offer text-offer',
+  want: 'border border-want text-want',
 }
 
 const dotClasses: Record<BadgeVariant, string> = {
@@ -60,6 +68,8 @@ const dotClasses: Record<BadgeVariant, string> = {
   neutral: 'bg-neutral-400',
   info: 'bg-secondary',
   default: 'bg-neutral-400',
+  offer: 'bg-offer',
+  want: 'bg-want',
 }
 
 const sizeClasses: Record<string, string> = {

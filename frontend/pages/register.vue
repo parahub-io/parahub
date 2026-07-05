@@ -167,6 +167,7 @@ import { solvePoW } from '~/utils/pow'
 
 const authStore = useAuthStore()
 const localePath = useLocalePath()
+const { t } = useI18n()
 
 const form = ref({
   username: '',
@@ -234,8 +235,13 @@ const handleRegister = async () => {
   } catch (err: any) {
     computing.value = false
     loading.value = false
-    const detail = err?.data?.detail || err?.data?.message || err?.message
-    error.value = detail || 'Registration failed'
+    if (err?.data?.code === 'email_taken') {
+      // Existing account on this email — guide to sign in / Google, not a dead end
+      error.value = t('register.email_taken')
+    } else {
+      const detail = err?.data?.detail || err?.data?.message || err?.message
+      error.value = detail || 'Registration failed'
+    }
   } finally {
     loading.value = false
   }

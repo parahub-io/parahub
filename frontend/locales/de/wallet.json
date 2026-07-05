@@ -38,7 +38,8 @@
     "registerLnAddress": "Registrieren",
     "copyLnAddress": "Lightning-Adresse kopieren",
     "lnAddressRegisterFailed": "Adresse konnte nicht registriert werden",
-    "walletOpenInAnotherTab": "Wallet ist bereits in einem anderen Tab geöffnet. Schließen Sie es zuerst.",
+    "walletOpenInAnotherTab": "Die Wallet ist in einem anderen Tab oder Fenster dieses Browsers aktiv.",
+    "openHere": "Hier öffnen",
     "initError": "Wallet-Verbindung fehlgeschlagen",
     "lnurlDetected": "LNURL-pay erkannt. Betrag eingeben.",
     "amountlessInvoice": "Rechnung ohne Betrag. Betrag eingeben.",
@@ -99,11 +100,11 @@
   "seedRestore": {
     "title": "Wallet wiederherstellen",
     "subtitle": "Geben Sie Ihre 12-Wort-Seed-Phrase ein",
-    "wordPlaceholder": "Wort",
     "pasteAllWords": "Alle 12 Wörter einfügen",
     "pasteAllWordsPlaceholder": "wort1 wort2 wort3 wort4 wort5 wort6 wort7 wort8 wort9 wort10 wort11 wort12",
-    "pasteWords": "Aus Zwischenablage einfügen",
     "invalidMnemonic": "Ungültige Seed-Phrase. Bitte überprüfen Sie Ihre Wörter.",
+    "wordCount": "{count} / 12 Wörter",
+    "validPhrase": "Gültige Seed-Phrase",
     "restoring": "Wallet wird wiederhergestellt...",
     "restoreFailed": "Wiederherstellung fehlgeschlagen. Bitte erneut versuchen."
   }

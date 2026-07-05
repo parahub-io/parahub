@@ -411,11 +411,15 @@ class AuditService:
     def create_log_entry(
         poll: Poll,
         action: str,
-        actor: Profile,
+        actor: Optional[Profile],
         payload: dict,
         pgp_signature: str
     ) -> PollAuditLog:
-        """Создаёт запись в audit log с вычислением хеша"""
+        """Создаёт запись в audit log с вычислением хеша.
+
+        actor=None → pseudonymous opinion-vote event; hashed as actor_id=None.
+        actor_ulid snapshot keeps chain verifiable after profile deletion (SET_NULL).
+        """
 
         # Получаем предыдущую запись
         previous_log = PollAuditLog.objects.filter(poll=poll).order_by('-timestamp').first()
@@ -426,11 +430,13 @@ class AuditService:
         # явный timestamp и передаём его в created_at напрямую)
         entry_timestamp = timezone.now()
 
+        actor_ulid = actor.id if actor else ''
+
         # Вычисляем текущий хеш
         hash_data = {
             'previous_hash': previous_hash,
             'action': action,
-            'actor_id': actor.id,
+            'actor_id': actor_ulid or None,
             'payload': payload,
             'timestamp': entry_timestamp.isoformat()
         }
@@ -443,6 +449,7 @@ class AuditService:
             poll=poll,
             action=action,
             actor=actor,
+            actor_ulid=actor_ulid,
             previous_log_hash=previous_hash,
             current_log_hash=current_hash,
             payload=payload,
@@ -492,11 +499,11 @@ class AuditService:
             if log.previous_log_hash != previous_hash:
                 return False, f"Несоответствие previous_hash в записи {log.id}"
 
-            # Пересчитываем хеш
+            # Пересчитываем хеш (actor_ulid snapshot, not live FK — survives profile deletion)
             hash_data = {
                 'previous_hash': previous_hash,
                 'action': log.action,
-                'actor_id': log.actor.id,
+                'actor_id': log.actor_ulid or None,
                 'payload': log.payload,
                 'timestamp': log.timestamp.isoformat()
             }

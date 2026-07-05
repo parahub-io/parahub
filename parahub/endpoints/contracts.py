@@ -3,6 +3,7 @@ Contracts API Endpoints
 Django Ninja REST API for P2P contract signing with PGP signatures
 """
 
+import nh3
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from typing import List, Optional
@@ -11,21 +12,59 @@ from decimal import Decimal
 from django.utils import timezone
 from django.db.models import Q, Avg, Count, F, Sum, ExpressionWrapper, DurationField
 from django.db import transaction
-from identity.models import Contract, Profile, ArbiterProfile, ArbitrationVerdict
+from identity.models import Profile
+from contracts.models import Contract, ArbiterProfile, ArbitrationVerdict
 from market.models import Item
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 from parahub.crypto.pgp import pgp_crypto, PGPVerificationError
-from identity.arbitration_service import (
+from contracts.arbitration_service import (
     create_arbitration_room, post_verdict_to_room, post_escalation_to_room
 )
 import logging
 import asyncio
-import threading
+
+from parahub.background import spawn
 
 logger = logging.getLogger(__name__)
 
 router = Router(tags=["Contracts"])
+
+
+# The contract body is rendered with v-html on the frontend. It is authored in
+# TipTap and committed by hashing the RAW bytes into file_sha256 (PGP-signed), so
+# the stored/transmitted document_text must stay byte-exact for the partner's
+# SHA256 verification. We therefore never mutate it; instead the response also
+# carries a sanitized document_text_html that the UI renders, while the raw text
+# is used only for hashing/download. Allowlist = TipTap's output tags.
+_CONTRACT_HTML_TAGS = {
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'p', 'br', 'hr',
+    'strong', 'em', 'u', 's', 'del',
+    'a', 'ul', 'ol', 'li',
+    'blockquote', 'pre', 'code',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+}
+_CONTRACT_HTML_ATTRS = {
+    'a': {'href', 'title'},
+    'th': {'align'},
+    'td': {'align'},
+}
+
+
+def sanitize_contract_html(text: str) -> str:
+    """Sanitize a contract body for safe v-html rendering (XSS defense).
+
+    Does NOT touch the stored/hashed bytes — this is a display-only projection.
+    """
+    if not text:
+        return ''
+    return nh3.clean(
+        text,
+        tags=_CONTRACT_HTML_TAGS,
+        attributes=_CONTRACT_HTML_ATTRS,
+        link_rel='noopener noreferrer',
+    )
 
 
 def _build_timestamp_proof_dict(proof_obj) -> dict:
@@ -54,6 +93,10 @@ class ContractCreateRequest(Schema):
     signature: str  # PGP signature of creator signing canonical JSON
     item_ids: Optional[List[str]] = None  # Items linked to this contract
     world_object_id: Optional[str] = None  # WorldObject this contract pertains to
+    kind: str = 'SALE'  # 'SALE' (default) | 'RENTAL' — rental keeps items active on completion
+    document_text: Optional[str] = None  # Private contract body (composed in write mode); blank for upload/hash-only
+    document_format: Optional[str] = 'html'  # 'html' (TipTap) | 'markdown'
+    booking_id: Optional[str] = None  # rental.Booking to link (formalize a confirmed booking → rental contract)
 
 
 class ContractSignRequest(Schema):
@@ -109,12 +152,21 @@ class ContractResponse(Schema):
     object_type: str = 'contract'
     creator_id: str
     creator_display_name: str
+    creator_hna: str = ''
     partner_id: str
     partner_display_name: str
+    partner_hna: str = ''
     arbiter_id: Optional[str] = None
     arbiter_display_name: Optional[str] = None
+    arbiter_hna: Optional[str] = None
     title: str
     file_sha256: str
+    # Private agreement body — only ever serialized by party-restricted endpoints
+    # (get/list/sign/complete all 403 non-parties), so this is party-gated. Blank
+    # for legacy hash-only / upload contracts.
+    document_text: str = ''  # RAW body — for the partner's SHA256(file) verification + download only
+    document_text_html: str = ''  # sanitized projection of document_text — safe for v-html rendering
+    document_format: str = 'html'
     status: str
     creator_signed_at: datetime
     partner_signed_at: Optional[datetime]
@@ -134,13 +186,13 @@ class ContractResponse(Schema):
     timestamp_proof: Optional[dict] = None
 
 
-def _build_verdict_response(verdict):
+def _build_verdict_response(verdict, viewer=None):
     """Build VerdictResponse from an ArbitrationVerdict instance."""
     return VerdictResponse(
         id=verdict.id,
         contract_id=verdict.contract_id,
         arbiter_id=verdict.arbiter_id,
-        arbiter_display_name=verdict.arbiter.display_name or verdict.arbiter.hna or '',
+        arbiter_display_name=(verdict.arbiter.display_name or verdict.arbiter.hna or '') if verdict.arbiter.name_visible_to(viewer) else (verdict.arbiter.hna or ''),
         verdict_type=verdict.verdict_type,
         summary=verdict.summary,
         amount_awarded=verdict.amount_awarded,
@@ -151,7 +203,7 @@ def _build_verdict_response(verdict):
     )
 
 
-def _build_contract_response(contract, timestamp_proof=None):
+def _build_contract_response(contract, timestamp_proof=None, viewer=None):
     """Build ContractResponse from a Contract instance."""
     items = [
         ContractItemResponse(id=item.id, title=item.title, type=item.type)
@@ -163,20 +215,26 @@ def _build_contract_response(contract, timestamp_proof=None):
     try:
         verdict = getattr(contract, '_prefetched_verdict', None) or contract.verdict
         if verdict:
-            verdict_data = _build_verdict_response(verdict)
+            verdict_data = _build_verdict_response(verdict, viewer)
     except ArbitrationVerdict.DoesNotExist:
         pass
 
     return ContractResponse(
         id=contract.id,
         creator_id=contract.creator_id,
-        creator_display_name=contract.creator.display_name or contract.creator.hna or '',
+        creator_display_name=(contract.creator.display_name or contract.creator.hna or '') if contract.creator.name_visible_to(viewer) else (contract.creator.hna or ''),
+        creator_hna=contract.creator.hna or '',
         partner_id=contract.partner_id,
-        partner_display_name=contract.partner.display_name or contract.partner.hna or '',
+        partner_display_name=(contract.partner.display_name or contract.partner.hna or '') if contract.partner.name_visible_to(viewer) else (contract.partner.hna or ''),
+        partner_hna=contract.partner.hna or '',
         arbiter_id=contract.arbiter_id,
-        arbiter_display_name=contract.arbiter.display_name or contract.arbiter.hna or '' if contract.arbiter else None,
+        arbiter_display_name=((contract.arbiter.display_name or contract.arbiter.hna or '') if contract.arbiter.name_visible_to(viewer) else (contract.arbiter.hna or '')) if contract.arbiter else None,
+        arbiter_hna=(contract.arbiter.hna if contract.arbiter else None),
         title=contract.title,
         file_sha256=contract.file_sha256,
+        document_text=contract.document_text,
+        document_text_html=sanitize_contract_html(contract.document_text),
+        document_format=contract.document_format,
         status=contract.status,
         creator_signed_at=contract.creator_signed_at,
         partner_signed_at=contract.partner_signed_at,
@@ -233,7 +291,7 @@ def list_arbiter_profiles(request):
 
         results.append(ArbiterProfileResponse(
             profile_id=ap.profile_id,
-            display_name=ap.profile.display_name or ap.profile.hna or '',
+            display_name=(ap.profile.display_name or ap.profile.hna or '') if ap.profile.name_visible_to(request.auth) else (ap.profile.hna or ''),
             hna=ap.profile.hna or '',
             bio=ap.bio,
             fee_amount=ap.fee_amount,
@@ -275,7 +333,7 @@ def get_arbiter_profile(request, profile_id: str):
 
     return ArbiterProfileResponse(
         profile_id=ap.profile_id,
-        display_name=ap.profile.display_name or ap.profile.hna or '',
+        display_name=(ap.profile.display_name or ap.profile.hna or '') if ap.profile.name_visible_to(request.auth) else (ap.profile.hna or ''),
         hna=ap.profile.hna or '',
         bio=ap.bio,
         fee_amount=ap.fee_amount,
@@ -372,7 +430,7 @@ def get_arbiter_stats(request, profile_id: str):
 
     return ArbiterStatsResponse(
         profile_id=ap.profile_id,
-        display_name=ap.profile.display_name or ap.profile.hna or '',
+        display_name=(ap.profile.display_name or ap.profile.hna or '') if ap.profile.name_visible_to(request.auth) else (ap.profile.hna or ''),
         hna=ap.profile.hna or '',
         total_cases=total_cases,
         avg_rating=avg_rating,
@@ -398,7 +456,7 @@ def get_clause_template(request, type: str = 'ad_hoc', city: str = 'Lisboa',
     - arbiter_name: Arbiter name (for ad_hoc/escalated)
     - lang: Language code (pt, en, es, fr, de, ru)
     """
-    from identity.clause_templates import generate_clause
+    from contracts.clause_templates import generate_clause
 
     if type not in ('ad_hoc', 'institutional', 'escalated'):
         raise HttpError(400, "Invalid clause type. Use: ad_hoc, institutional, escalated")
@@ -460,6 +518,29 @@ def create_contract(request, data: ContractCreateRequest):
     if not creator.pgp_public_key:
         raise HttpError(400, "Creator must have PGP key uploaded")
 
+    # Validate the rental Booking to link (formalize a CONFIRMED booking). Checked
+    # BEFORE creating the contract so a permission failure can't orphan a row. Only
+    # a party to the booking may link it: the renter, the P2P item owner/poster, or
+    # a manager of the item's establishment.
+    booking = None
+    if data.booking_id:
+        from rental.models import Booking
+        try:
+            booking = Booking.objects.select_related('bookable__item').get(id=data.booking_id)
+        except Booking.DoesNotExist:
+            raise HttpError(404, "Booking not found")
+        b_item = booking.bookable.item
+        is_party = booking.renter_id == creator.id or b_item.owner_id == creator.id
+        if not is_party and b_item.establishment_id:
+            from geo.permissions import get_establishment_for_action, POSTING_ROLES
+            try:
+                get_establishment_for_action(b_item.establishment_id, creator, POSTING_ROLES)
+                is_party = True
+            except HttpError:
+                is_party = False
+        if not is_party:
+            raise HttpError(403, "You are not a party to this booking")
+
     # Use transaction to rollback on signature verification failure
     with transaction.atomic():
         # Create contract (will generate ULID and created_at)
@@ -470,7 +551,10 @@ def create_contract(request, data: ContractCreateRequest):
             title=data.title.strip(),
             file_sha256=data.file_sha256.lower(),
             creator_signature=data.signature,
-            status=Contract.Status.PENDING_PARTNER
+            status=Contract.Status.PENDING_PARTNER,
+            kind=(Contract.Kind.RENTAL if data.kind == 'RENTAL' else Contract.Kind.SALE),
+            document_text=(data.document_text or ''),
+            document_format=(data.document_format or 'html'),
         )
 
         # Need to save first to get created_at timestamp
@@ -509,9 +593,14 @@ def create_contract(request, data: ContractCreateRequest):
         )
         contract.items.set(items)
 
+    # Link the validated rental Booking to the freshly-created contract.
+    if booking is not None:
+        booking.contract = contract
+        booking.save(update_fields=['contract'])
+
     logger.info(f"Contract {contract.id} created by {creator.id} for partner {partner.id}")
 
-    return _build_contract_response(contract)
+    return _build_contract_response(contract, viewer=request.auth)
 
 
 @router.get('/', response=List[ContractResponse], auth=ProfileAuth())
@@ -563,7 +652,7 @@ def list_contracts(request, status: Optional[str] = None):
             c._prefetched_verdict = verdicts[c.id]
 
     return [
-        _build_contract_response(contract, proofs.get(contract.id))
+        _build_contract_response(contract, proofs.get(contract.id), viewer=request.auth)
         for contract in contract_list
     ]
 
@@ -598,7 +687,7 @@ def get_contract(request, contract_id: str):
     ).first()
     timestamp_proof = _build_timestamp_proof_dict(proof_obj) if proof_obj else None
 
-    return _build_contract_response(contract, timestamp_proof)
+    return _build_contract_response(contract, timestamp_proof, viewer=request.auth)
 
 
 @router.post('/{contract_id}/sign/', response={200: ContractResponse, 400: dict, 403: dict, 404: dict}, auth=ProfileAuth())
@@ -652,7 +741,7 @@ def sign_contract(request, contract_id: str, data: ContractSignRequest):
 
     logger.info(f"Contract {contract.id} signed by partner {partner.id}")
 
-    return _build_contract_response(contract)
+    return _build_contract_response(contract, viewer=request.auth)
 
 
 @router.delete('/{contract_id}/', response={200: dict, 400: dict, 403: dict, 404: dict}, auth=ProfileAuth())
@@ -738,13 +827,16 @@ def complete_contract(request, contract_id: str, data: ContractCompleteRequest):
 
     contract.save()
 
-    # Auto-deactivate linked items when contract is fully completed
-    if contract.status == Contract.Status.COMPLETED:
+    # Auto-deactivate linked items when contract is fully completed — SALE only.
+    # A RENTAL asset returns to the owner and must stay listed/available
+    # (the booking layer manages its per-period occupancy), so it is NOT
+    # deactivated on completion.
+    if contract.status == Contract.Status.COMPLETED and contract.kind == Contract.Kind.SALE:
         contract.items.filter(is_active=True).update(is_active=False)
 
     # Create contract review if provided
     if data.review_text or data.rating:
-        from identity.models import ContractReview
+        from contracts.models import ContractReview
 
         # Determine who to review (the other party)
         reviewed_profile = contract.partner if is_creator else contract.creator
@@ -767,7 +859,7 @@ def complete_contract(request, contract_id: str, data: ContractCompleteRequest):
 
     logger.info(f"Contract {contract.id} completed by {profile.id} (creator={contract.creator_completed_at is not None}, partner={contract.partner_completed_at is not None})")
 
-    return _build_contract_response(contract)
+    return _build_contract_response(contract, viewer=request.auth)
 
 
 @router.post('/{contract_id}/initiate_arbitration/', response={200: ContractResponse, 400: dict, 403: dict, 404: dict, 500: dict}, auth=ProfileAuth())
@@ -852,9 +944,9 @@ def initiate_arbitration(request, contract_id: str):
         except Exception as exc:
             logger.warning(f"Failed to send arbitration DM for contract {_contract_id}: {exc}")
 
-    threading.Thread(target=_notify_arbiter, daemon=True).start()
+    spawn(_notify_arbiter)
 
-    return _build_contract_response(contract)
+    return _build_contract_response(contract, viewer=request.auth)
 
 
 @router.post('/{contract_id}/verdict/', response={200: VerdictResponse, 400: dict, 403: dict, 404: dict}, auth=ProfileAuth())
@@ -912,9 +1004,9 @@ def submit_verdict(request, contract_id: str, data: VerdictSubmitRequest):
         except Exception as exc:
             logger.warning(f"Failed to post verdict to room: {exc}")
 
-    threading.Thread(target=_post_verdict, daemon=True).start()
+    spawn(_post_verdict)
 
-    return _build_verdict_response(verdict)
+    return _build_verdict_response(verdict, viewer=request.auth)
 
 
 @router.get('/{contract_id}/verdict/', response={200: VerdictResponse, 404: dict}, auth=ProfileAuth())
@@ -937,7 +1029,7 @@ def get_verdict(request, contract_id: str):
     except ArbitrationVerdict.DoesNotExist:
         raise HttpError(404, "No verdict for this contract")
 
-    return _build_verdict_response(verdict)
+    return _build_verdict_response(verdict, viewer=request.auth)
 
 
 @router.post('/{contract_id}/rate-arbiter/', response={200: VerdictResponse, 400: dict, 403: dict, 404: dict}, auth=ProfileAuth())
@@ -978,7 +1070,7 @@ def rate_arbiter(request, contract_id: str, data: RateArbiterRequest):
 
     logger.info(f"Arbiter rated for contract {contract.id} by {profile.id}: {data.rating}")
 
-    return _build_verdict_response(verdict)
+    return _build_verdict_response(verdict, viewer=request.auth)
 
 
 @router.post('/{contract_id}/escalate/', response={200: ContractResponse, 400: dict, 403: dict, 404: dict}, auth=ProfileAuth())
@@ -1027,6 +1119,6 @@ def escalate_arbitration(request, contract_id: str):
         except Exception as exc:
             logger.warning(f"Failed to post escalation to room: {exc}")
 
-    threading.Thread(target=_post_escalation, daemon=True).start()
+    spawn(_post_escalation)
 
-    return _build_contract_response(contract)
+    return _build_contract_response(contract, viewer=request.auth)

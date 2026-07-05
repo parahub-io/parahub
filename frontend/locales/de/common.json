@@ -32,7 +32,11 @@
     "group_advanced": "Erweitert",
     "prev": "Zurück",
     "next": "Weiter",
-    "parasos_desc": "Einen Knopf drücken — Ihre Nachbarn sind in 2 Minuten da"
+    "parasos_desc": "Einen Knopf drücken — Ihre Nachbarn sind in 2 Minuten da",
+    "subscriptions_desc": "Unterstützen Sie monatlich einen Urheber — direkt, nicht-verwahrend, ohne Plattformgebühr",
+    "rental_desc": "Tageweise oder im Zeitfenster buchen — Verfügbarkeit ohne Doppelbuchung",
+    "marketplace_desc": "Bieten oder suchen Sie alles — direkter P2P-Handel, ohne Plattformgebühren",
+    "directory_desc": "Finden Sie lokale Betriebe und Organisationen auf der Karte"
   },
   "common": {
     "save": "Speichern",
@@ -59,6 +63,7 @@
     "saved": "Gespeichert"
   },
   "nav": {
+    "notifications": "Benachrichtigungen",
     "messages": "Nachrichten",
     "market": "Markt",
     "map": "Karte",
@@ -68,6 +73,7 @@
     "iot": "Geräte",
     "directory": "Verzeichnis",
     "contracts": "Verträge",
+    "bookings": "Buchungen",
     "projects": "Projekte",
     "debts": "Schulden",
     "wallet": "Geldbörse",
@@ -163,6 +169,7 @@
     "start": "Los geht's"
   },
   "register": {
+    "email_taken": "Diese E-Mail hat bereits ein Konto. Melde dich an — oder über Google, falls du dich so registriert hast.",
     "title": "Konto erstellen",
     "subtitle": "Ohne Google — deine Identität, deine Regeln",
     "create_account": "Erstellen",
@@ -217,6 +224,8 @@
     "pulse_listings": "Inserate",
     "pulse_events": "Veranstaltungen",
     "pulse_polls": "offene Abstimmungen",
+    "online_people": "{count} online",
+    "online_guests": "{count} Gäste",
     "top_partners": "Beste Partner",
     "recent_listings": "Neueste Inserate",
     "upcoming_events": "Kommende Veranstaltungen",
@@ -234,5 +243,8 @@
   "unlike": "Gefällt mir nicht mehr",
   "go_home": "Zurück zur Startseite",
   "error_not_found": "Seite nicht gefunden",
-  "error_server": "Etwas ist schiefgelaufen"
+  "error_server": "Etwas ist schiefgelaufen",
+  "about": {
+    "title": "Über uns"
+  }
 }

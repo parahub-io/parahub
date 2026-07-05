@@ -65,6 +65,33 @@
     "errors": {
       "load_failed": "Fehler beim Laden der Tauschmöglichkeiten",
       "chat_failed": "Fehler beim Erstellen des Chatraums. Bitte versuchen Sie es erneut."
+    },
+    "diagnosis": {
+      "stat_offers": "Angebote",
+      "stat_requests": "Gesuche",
+      "stat_chains": "Ketten",
+      "explainer": "Eine Kette schließt sich nur, wenn dein Gesuch zum Angebot eines anderen passt — und dein Angebot zu dessen Gesuch. Je mehr du auf beiden Seiten einstellst, desto höher die Chance.",
+      "your_offers": "Was du anbietest",
+      "your_requests": "Was du suchst",
+      "seekers": "{n} sucht | {n} suchen",
+      "no_seekers": "noch sucht niemand",
+      "offerers": "{n} bietet an | {n} bieten an",
+      "no_offerers": "noch bietet niemand an",
+      "no_offers_hint": "Du hast noch nichts im Angebot.",
+      "no_requests_hint": "Du hast nicht angegeben, was du suchst — ohne das schließt sich der Tausch nicht.",
+      "add_offer": "Angebot hinzufügen",
+      "add_request": "Gesuch hinzufügen"
+    },
+    "create_nudge": {
+      "published": "Anzeige veröffentlicht",
+      "heading": "Was willst du im Tausch?",
+      "explainer": "Sag, was du suchst — das System findet eine Tauschkette. Ohne Gesuch kann dein Angebot nicht am Tausch teilnehmen.",
+      "category_label": "Kategorie dessen, was du suchst",
+      "title_label": "Was genau?",
+      "title_placeholder": "z. B. ein Laptop, eine Stunde Designarbeit, Tomaten",
+      "add": "Gesuch hinzufügen",
+      "skip": "Überspringen, zur Anzeige",
+      "added": "Gesuch hinzugefügt — suche nach Übereinstimmungen"
     }
   }
 }

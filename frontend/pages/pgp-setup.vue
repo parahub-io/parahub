@@ -3,7 +3,7 @@
     <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="bg-white dark:bg-neutral-800 rounded-lg p-6">
         <img
-          :src="hasKeys && keyPair ? '/images/para/thumbs_up.png' : '/images/para/pointing.png'"
+          :src="hasKeys && keyPair ? '/images/para/thumbs_up.webp' : '/images/para/pointing.webp'"
           alt="Para"
           class="mx-auto h-32 w-auto mb-4"
         />

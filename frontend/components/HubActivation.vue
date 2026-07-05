@@ -45,7 +45,7 @@
             :class="[
               'px-2.5 py-1 text-xs rounded-lg border transition-colors',
               acceptedSizes.includes(size)
-                ? 'bg-primary/10 border-primary text-primary font-medium'
+                ? 'bg-primary/10 border-primary text-primary-800 dark:text-primary-200 font-medium'
                 : 'border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800'
             ]"
           >

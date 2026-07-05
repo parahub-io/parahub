@@ -65,6 +65,33 @@
     "errors": {
       "load_failed": "Failed to load exchange opportunities",
       "chat_failed": "Failed to create chat room. Please try again."
+    },
+    "diagnosis": {
+      "stat_offers": "Offers",
+      "stat_requests": "Requests",
+      "stat_chains": "Chains",
+      "explainer": "A chain closes only when your request matches someone's offer — and your offer matches their request. The more you list on both sides, the higher your odds.",
+      "your_offers": "What you offer",
+      "your_requests": "What you're looking for",
+      "seekers": "{n} looking | {n} looking",
+      "no_seekers": "no one is looking yet",
+      "offerers": "{n} offering | {n} offering",
+      "no_offerers": "no one offers this yet",
+      "no_offers_hint": "You have nothing on offer yet.",
+      "no_requests_hint": "You haven't said what you're looking for — barter can't close without it.",
+      "add_offer": "Add an offer",
+      "add_request": "Add a request"
+    },
+    "create_nudge": {
+      "published": "Listing published",
+      "heading": "What do you want in return?",
+      "explainer": "Tell us what you're looking for — the system will find an exchange chain. Without a request, your offer can't take part in barter.",
+      "category_label": "Category you're looking for",
+      "title_label": "What exactly?",
+      "title_placeholder": "e.g. a laptop, an hour of design work, tomatoes",
+      "add": "Add request",
+      "skip": "Skip, go to listing",
+      "added": "Request added — looking for matches"
     }
   }
 }

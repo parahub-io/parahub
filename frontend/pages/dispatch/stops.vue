@@ -22,7 +22,7 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <NuxtLink to="/dispatch/routes" class="btn-sm btn-outline">
+          <NuxtLink :to="localePath('/dispatch/routes')" class="btn-sm btn-outline">
             <RouteIcon class="w-3.5 h-3.5" /> {{ $t('transit_manage.routes') }}
           </NuxtLink>
           <UiButton variant="primary" size="sm" :icon="Plus" @click="showCreate = true">
@@ -33,10 +33,10 @@
 
       <!-- Sub-nav -->
       <div class="flex gap-2 border-b border-neutral-200 dark:border-neutral-700 pb-2">
-        <NuxtLink to="/dispatch/routes" class="tab-inactive text-sm px-3 py-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">
+        <NuxtLink :to="localePath('/dispatch/routes')" class="tab-inactive text-sm px-3 py-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">
           <RouteIcon class="w-3.5 h-3.5 inline mr-1" /> {{ $t('transit_manage.routes') }}
         </NuxtLink>
-        <NuxtLink to="/dispatch/stops" class="tab-active text-sm font-medium px-3 py-1.5">
+        <NuxtLink :to="localePath('/dispatch/stops')" class="tab-active text-sm font-medium px-3 py-1.5">
           <MapPin class="w-3.5 h-3.5 inline mr-1" /> {{ $t('transit_manage.stops') }} ({{ store.stops.length }})
         </NuxtLink>
       </div>
@@ -52,7 +52,7 @@
 
       <!-- Stops list -->
       <div v-if="store.loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" />
       </div>
 
       <div v-else-if="filteredStops.length" class="space-y-1">
@@ -132,6 +132,7 @@ import {
 import { useTransitManageStore, type ManagedStop } from '~/stores/transitManage'
 
 const { t } = useI18n()
+const localePath = useLocalePath()
 const colorMode = useColorMode()
 const store = useTransitManageStore()
 const authStore = useAuthStore()

@@ -65,6 +65,33 @@
     "errors": {
       "load_failed": "Error al cargar oportunidades de intercambio",
       "chat_failed": "Error al crear sala de chat. Inténtelo de nuevo."
+    },
+    "diagnosis": {
+      "stat_offers": "Ofertas",
+      "stat_requests": "Solicitudes",
+      "stat_chains": "Cadenas",
+      "explainer": "Una cadena se cierra solo cuando tu solicitud coincide con la oferta de alguien — y tu oferta con su solicitud. Cuantas más publiques en ambos lados, más posibilidades.",
+      "your_offers": "Lo que ofreces",
+      "your_requests": "Lo que buscas",
+      "seekers": "{n} buscando | {n} buscando",
+      "no_seekers": "nadie lo busca todavía",
+      "offerers": "{n} ofreciendo | {n} ofreciendo",
+      "no_offerers": "nadie lo ofrece todavía",
+      "no_offers_hint": "Aún no tienes nada en oferta.",
+      "no_requests_hint": "No has indicado qué buscas — sin eso el trueque no se cierra.",
+      "add_offer": "Añadir oferta",
+      "add_request": "Añadir solicitud"
+    },
+    "create_nudge": {
+      "published": "Anuncio publicado",
+      "heading": "¿Qué quieres a cambio?",
+      "explainer": "Indica qué buscas — el sistema encontrará una cadena de intercambio. Sin una solicitud, tu oferta no puede participar en el trueque.",
+      "category_label": "Categoría de lo que buscas",
+      "title_label": "¿Qué exactamente?",
+      "title_placeholder": "p. ej.: un portátil, una hora de diseño, tomates",
+      "add": "Añadir solicitud",
+      "skip": "Omitir, ir al anuncio",
+      "added": "Solicitud añadida — buscando coincidencias"
     }
   }
 }

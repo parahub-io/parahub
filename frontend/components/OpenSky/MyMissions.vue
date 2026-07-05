@@ -21,7 +21,7 @@
     <!-- Authenticated -->
     <div v-else>
       <!-- Filter toggle -->
-      <UiTabs v-model="activeFilter" :tabs="filterTabs" variant="pills" class="mb-6" />
+      <UiTabs v-model="activeFilter" :tabs="filterTabs" class="mb-6" />
 
       <!-- Summary (own missions only) -->
       <div v-if="!showAllPilots && myMissions.length > 0" class="mb-6 p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg">

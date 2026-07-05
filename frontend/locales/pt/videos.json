@@ -14,7 +14,9 @@
       "dropOrClick": "Arraste o vídeo aqui ou clique para selecionar",
       "maxSize": "máx. 4 GB",
       "uploading": "A enviar…",
+      "compressing": "A otimizar vídeo…",
       "success": "Vídeo enviado",
+      "optimized": "Otimizado {from} → {to} ({ratio}×)",
       "failed": "Falha no envio",
       "invalidType": "Selecione um ficheiro de vídeo",
       "tooLarge": "Ficheiro demasiado grande (máx. 4 GB)",
@@ -22,6 +24,7 @@
     },
     "tip_author": "Gorjeta ao autor",
     "sign_in_to_upload": "Iniciar sessão para enviar",
-    "seo_description": "Assista e partilhe vídeos da comunidade Parahub"
+    "seo_description": "Assista e partilhe vídeos da comunidade Parahub",
+    "play": "Reproduzir vídeo"
   }
 }

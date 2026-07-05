@@ -1,7 +1,27 @@
 {
   "directory": {
+    "my_orgs": {
+      "title": "Mis organizaciones",
+      "subtitle": "Organizaciones a las que perteneces, agrupadas por tu rol.",
+      "group_manage": "Gestiono",
+      "group_member": "Soy miembro",
+      "group_work": "Colaboro",
+      "empty_title": "Aún no tienes organizaciones",
+      "empty_desc": "Todavía no perteneces a ninguna organización. Crea la tuya o encuentra una en el directorio.",
+      "browse_directory": "Abrir directorio",
+      "treasurer": "Tesorero",
+      "auditor": "Auditor",
+      "role": {
+        "owner": "Propietario",
+        "admin": "Administrador",
+        "member": "Miembro",
+        "employee": "Empleado",
+        "contractor": "Contratista"
+      }
+    },
     "title": "Directorio",
     "meta_description": "Socios, usuarios, organizaciones y red de confianza",
+    "intro": "Encuentra personas y organizaciones en Parahub: añade socios, únete a organizaciones y deja reseñas.",
     "tabs": {
       "partners": "Socios",
       "users": "Usuarios",
@@ -22,7 +42,9 @@
       "reputation_short": "rep",
       "open_now": "Abierto ahora",
       "no_results": "Sin resultados",
-      "no_results_desc": "Intenta ajustar la búsqueda o los filtros."
+      "no_results_desc": "Intenta ajustar la búsqueda o los filtros.",
+      "type_all": "Todos",
+      "refine_label": "Filtros"
     },
     "people": {
       "type_filter_all": "Todos",
@@ -127,9 +149,13 @@
         "efetivo": "Miembro de Pleno Derecho",
         "honorario": "Miembro Honorario",
         "apoiante": "Miembro de Apoyo"
-      }
+      },
+      "create_button": "Nueva organización",
+      "type_government": "Gobierno"
     },
     "act_as": {
+      "manage_menu": "Gestionar",
+      "new_post": "Nueva entrada de blog",
       "post_as": "Publicar como",
       "personal": "Personal",
       "pay": "Pagar",
@@ -177,6 +203,12 @@
       "share_copied": "Enlace copiado"
     },
     "form": {
+      "danger_zone": "Zona de peligro",
+      "delete_org": "Eliminar organización",
+      "delete_org_hint": "Elimina esta organización del directorio y del mapa. Los anuncios, publicaciones y miembros se conservan; contacta con soporte para restaurarla.",
+      "delete_confirm_title": "¿Eliminar esta organización?",
+      "delete_confirm_msg": "«{name}» se ocultará del directorio y del mapa. No se puede deshacer desde aquí.",
+      "deleted": "Organización eliminada",
       "name": "Nombre",
       "description": "Descripción",
       "phone": "Teléfono",
@@ -192,7 +224,23 @@
       "building_unlink": "Desvincular",
       "building_or_point": "O haz clic en el mapa para establecer un punto manualmente",
       "detecting_address": "Detectando dirección...",
-      "click_map_to_detect": "Haz clic en el mapa para detectar el edificio automáticamente"
+      "click_map_to_detect": "Haz clic en el mapa para detectar el edificio automáticamente",
+      "logo": "Logotipo",
+      "logo_upload": "Subir logotipo",
+      "logo_replace": "Reemplazar logotipo",
+      "logo_hint": "Una imagen cuadrada queda mejor — PNG o JPG, hasta 10 MB.",
+      "days": {
+        "mon": "Lun",
+        "tue": "Mar",
+        "wed": "Mié",
+        "thu": "Jue",
+        "fri": "Vie",
+        "sat": "Sáb",
+        "sun": "Dom"
+      },
+      "hours_open": "Abierto",
+      "hours_closed": "Cerrado",
+      "hours_advanced_note": "Algunas entradas usan un formato avanzado y se mantuvieron tal cual."
     },
     "photos": {
       "title": "Fotos",
@@ -265,7 +313,20 @@
       "card": "Tarjeta",
       "crypto": "Crypto",
       "mbway": "MBWay"
-    }
+    },
+    "create": {
+      "title": "Nueva organización",
+      "subtitle": "Crea una asociación, cooperativa, empresa o comunidad — con o sin ubicación física.",
+      "type_label": "Tipo",
+      "category_label": "Categoría (opcional)",
+      "has_location_hint": "Esta organización tiene una dirección física en el mapa.",
+      "online_hint": "Organización en línea — sin ubicación física.",
+      "submit": "Crear organización",
+      "success": "Organización creada",
+      "wot_required_title": "Verificación requerida",
+      "wot_required": "Crear organizaciones requiere nivel Web-of-Trust 3+ (3 verificaciones) o ser miembro de la fundación."
+    },
+    "anon_hint": "Inicia sesión para buscar personas y añadir socios."
   },
   "wot": {
     "status_title": "Tu Estado de Verificación",
@@ -312,8 +373,6 @@
       "method_video_call": "Videollamada",
       "method_documents": "Documentos",
       "method_vouched": "Avalado por Persona de Confianza",
-      "notes_label": "Notas (Opcional)",
-      "notes_placeholder": "Añade notas adicionales sobre la verificación...",
       "warning": "Al verificar a esta persona, asumes la responsabilidad de su identidad. Las verificaciones falsas pueden dañar tu reputación.",
       "cancel_button": "Cancelar",
       "confirm_button": "Confirmar Verificación",
@@ -340,9 +399,6 @@
     "method_documents_desc": "Pasaporte, ID o documentos notarizados verificados",
     "method_vouched": "Avalado",
     "method_vouched_desc": "Recomendado por alguien de confianza que lo conoció",
-    "notes_label": "Notas",
-    "notes_optional": "opcional",
-    "notes_placeholder": "Ej: 'Conocido en Lisbon Web Summit 2025'",
     "next_review": "Siguiente: Revisar Declaración",
     "statement_review_title": "Estás firmando la siguiente declaración:",
     "signature_info_title": "Firma Digital PGP",
@@ -358,6 +414,27 @@
     "photo_confirm_match": "Confirmo que esta foto coincide con la persona que estoy verificando",
     "no_verification_photo": "Este usuario aún no ha subido una foto de verificación. Es necesaria para WoT.",
     "photo_reconfirmation": "La foto de este usuario fue cambiada recientemente. {count}/3 reconfirmaciones recibidas.",
-    "error_no_verification_photo": "El usuario debe subir una foto de verificación antes de la verificación WoT"
+    "error_no_verification_photo": "El usuario debe subir una foto de verificación antes de la verificación WoT",
+    "error_codes": {
+      "not_personal_profile": "Solo los perfiles personales pueden verificar a otros usuarios. Los perfiles seudónimos no participan en la Red de Confianza.",
+      "verifier_no_pgp": "Necesitas una clave PGP para verificar a otros usuarios. Crea una en los ajustes de tu perfil.",
+      "not_authorized": "Todavía no puedes verificar a otros. Los usuarios estándar necesitan 3+ verificaciones y el estado verificado en la WoT; los miembros de la Fundación pueden verificar de inmediato.",
+      "target_not_found": "Usuario no encontrado.",
+      "self_verification": "No puedes verificarte a ti mismo.",
+      "no_verification_photo": "Este usuario debe subir una foto de verificación (con consentimiento biométrico) antes de poder ser verificado.",
+      "no_face_embedding": "La foto de verificación de este usuario no tiene un rostro detectado. Pídele que la suba de nuevo.",
+      "reconfirmation_pending": "La foto de este usuario se cambió recientemente y está pendiente de reconfirmación (se necesitan 3).",
+      "face_duplicate": "Verificación bloqueada: este rostro coincide con un perfil ya verificado.",
+      "already_verified": "Ya has verificado a este usuario.",
+      "invalid_method": "Método de verificación no válido.",
+      "statement_expired": "La declaración de verificación caducó (más de 5 minutos). Inténtalo de nuevo.",
+      "timestamp_future": "La marca de tiempo está en el futuro. Comprueba el reloj de tu dispositivo.",
+      "invalid_timestamp": "Formato de marca de tiempo no válido.",
+      "statement_mismatch": "La declaración no coincide con los datos de verificación esperados. Inténtalo de nuevo.",
+      "invalid_statement_json": "Declaración de verificación con formato incorrecto. Inténtalo de nuevo.",
+      "invalid_signature": "Firma PGP no válida. Asegúrate de haber firmado con tu clave PGP registrada.",
+      "signature_error": "No se pudo verificar tu firma PGP. Inténtalo de nuevo.",
+      "internal_error": "Algo salió mal por nuestra parte. Inténtalo más tarde."
+    }
   }
 }

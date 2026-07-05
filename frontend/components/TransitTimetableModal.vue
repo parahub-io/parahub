@@ -9,7 +9,20 @@
               <span class="flex-shrink-0 inline-block px-2 py-0.5 rounded font-bold text-sm" :style="routeBadgeStyle(routeData)">{{ routeData.short_name }}</span>
               <h3 class="font-bold text-sm text-neutral-900 dark:text-neutral-100 truncate">{{ $t('transit.schedule') }}</h3>
             </div>
-            <button ref="closeBtn" @click="$emit('close')" :aria-label="$t('common.close')" class="btn-ghost btn-icon btn-sm flex-shrink-0"><X class="w-4 h-4" /></button>
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <!-- Branded PDF of the selected day's sheet (server-rendered,
+                   localized via ?lang). Shown only when there's service to print. -->
+              <a
+                v-if="day?.directions?.length"
+                :href="pdfUrl"
+                target="_blank"
+                rel="noopener"
+                :title="$t('transit.download_pdf')"
+                :aria-label="$t('transit.download_pdf')"
+                class="btn-ghost btn-icon btn-sm"
+              ><Download class="w-4 h-4" /></a>
+              <button ref="closeBtn" @click="$emit('close')" :aria-label="$t('common.close')" class="btn-ghost btn-icon btn-sm"><X class="w-4 h-4" /></button>
+            </div>
           </div>
           <!-- Next 7 concrete dates, not abstract weekdays — GTFS calendars are
                date-based (summer/school-period services differ between same weekdays). -->
@@ -78,7 +91,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { X, ArrowRight, ArrowLeft, CalendarOff } from 'lucide-vue-next'
+import { X, ArrowRight, ArrowLeft, CalendarOff, Download } from 'lucide-vue-next'
 
 const props = defineProps<{
   routeData: any
@@ -112,6 +125,12 @@ load()
 
 const day = computed(() =>
   data.value?.days?.find((d: any) => d.date === props.selectedDate) ?? null
+)
+
+// Branded printable seasonal timetable sheet — server-rendered PDF (whole
+// editorial period, not a single day), localized to the active UI language.
+const pdfUrl = computed(() =>
+  `/api/v1/geo/transit/routes/${props.city}/${props.slug}/timetable.pdf?lang=${locale.value}`
 )
 
 // "Today" and "now" in the agency's timezone — a viewer in another zone must

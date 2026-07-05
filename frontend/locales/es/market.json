@@ -5,10 +5,6 @@
     "search_placeholder": "Buscar artículos...",
     "create_listing": "Crear anuncio",
     "barter_button": "Trueque",
-    "type": {
-      "credit": "Oferta",
-      "debit": "Solicitud"
-    },
     "pricing_type": {
       "sale": "Venta",
       "rent": "Alquiler",
@@ -39,10 +35,7 @@
       "matches_i_want": "Coincidencias: quiero recibir",
       "all_categories": "Todas las categorías",
       "barter_possible": "Trueque posible",
-      "owner_label": "Propietario",
-      "all_owners": "Todos",
       "only_mine": "Míos",
-      "loading_partners": "Cargando socios...",
       "reset_category_title": "Restablecer categoría",
       "filtered_by_user": "Filtrado por usuario",
       "clear_user_filter": "Borrar filtro de usuario",
@@ -56,7 +49,8 @@
       "price_range": "Rango de precio",
       "min_price": "Mín",
       "max_price": "Máx",
-      "include_barter": "Incluir solo trueque"
+      "include_barter": "Incluir artículos de trueque",
+      "self_made_only": "Solo producción propia"
     },
     "empty": {
       "title": "No se encontraron artículos",
@@ -82,6 +76,8 @@
       "image_n": "Imagen {n} de {total}",
       "barter": "Trueque",
       "mine_badge": "Mío",
+      "self_made_badge": "Producción propia",
+      "registered_badge": "Solo registrados",
       "match_badge": "Coincidencia",
       "demand_need": "{n} necesita | {n} necesitan",
       "demand_offers": "{n} oferta | {n} ofertas",
@@ -107,7 +103,20 @@
     "pricing": {
       "free": "Gratis",
       "negotiable": "Precio a convenir",
-      "converted_from": "de {currency}"
+      "converted_from": "de {currency}",
+      "sale": "Venta",
+      "rent": "Alquiler",
+      "unit_none": "Sin unidad",
+      "unit_custom": "Otra…",
+      "unit_custom_placeholder": "Unidad (ej: kg, hora, unid)",
+      "units": {
+        "kg": "kg", "g": "g", "t": "t", "l": "l", "ml": "ml",
+        "m": "m", "m²": "m²", "m³": "m³",
+        "pcs": "ud", "pair": "par", "box": "caja", "set": "conjunto",
+        "hour": "hora", "day": "día", "week": "semana", "month": "mes", "year": "año",
+        "half_day": "medio día", "weekend": "fin de semana",
+        "session": "sesión", "project": "proyecto", "page": "página", "consultation": "consulta"
+      }
     },
     "time": {
       "just_now": "ahora",
@@ -163,6 +172,10 @@
       "submitting": "Creando...",
       "international_label": "Anuncio internacional",
       "international_desc": "Visible para todos los usuarios independientemente del idioma (ej: servicios remotos, souvenirs)",
+      "self_made_label": "Producción propia",
+      "self_made_desc": "Marca esto si lo produjiste, cultivaste o preparaste tú mismo en lugar de revenderlo. Las piezas e ingredientes comprados están bien; no lo marques solo si lo compraste terminado para revender.",
+      "visibility_label": "Solo usuarios registrados",
+      "visibility_desc": "Oculta este anuncio a visitantes anónimos y motores de búsqueda — solo lo verán los usuarios de parahub con sesión iniciada. Déjalo sin marcar para que sea público (cualquiera puede encontrarlo).",
       "voice_dictate": "Dictar anuncio",
       "voice_recording": "Escuchando... toca para parar",
       "voice_processing": "Procesando...",
@@ -188,7 +201,13 @@
       "longitude_placeholder": "Longitud",
       "cancel": "Cancelar",
       "save": "Guardar",
-      "saving": "Guardando..."
+      "saving": "Guardando...",
+      "photos_help": "Las fotos se guardan al instante.",
+      "media_label": "Fotos y vídeo",
+      "media_help": "El primer elemento es la portada. Arrastra las miniaturas (o usa las flechas) para reordenar. Las fotos y el vídeo se guardan al instante.",
+      "add_video": "Añadir vídeo",
+      "move_earlier": "Mover antes",
+      "move_later": "Mover después"
     },
     "delete_modal": {
       "title": "¿Eliminar anuncio?",
@@ -204,7 +223,8 @@
       "listed_by": "Publicado por",
       "posted": "Publicado",
       "contact_seller": "Contactar vendedor",
-      "make_deal": "Hacer oferta"
+      "make_deal": "Hacer oferta",
+      "tap_to_close": "Toca en cualquier lugar para cerrar"
     },
     "notifications": {
       "created": "¡Anuncio creado con éxito!",
@@ -248,7 +268,13 @@
       "ai_error_401": "Autenticación requerida",
       "ai_error_unknown": "Error",
       "ai_quota_exceeded": "Límite diario de análisis AI excedido ({limit}/{limit}). Inténtelo mañana o complete manualmente.",
-      "ai_quota_exhausted": "Cuota de análisis AI agotada. Complete el formulario manualmente."
+      "ai_quota_exhausted": "Cuota de análisis AI agotada. Complete el formulario manualmente.",
+      "photo_deleted": "Foto eliminada",
+      "photo_add_error": "No se pudo añadir la foto.",
+      "photo_delete_error": "No se pudo eliminar la foto.",
+      "order_save_error": "No se pudo guardar el orden.",
+      "video_deleted": "Vídeo eliminado",
+      "video_delete_error": "No se pudo eliminar el vídeo."
     },
     "ai_quota_label": "AI: {remaining}/{limit}",
     "propose_deal": {
@@ -292,15 +318,23 @@
     "no_image": "Sin imagen",
     "zoom_image": "Ver tamaño completo",
     "my_items": {
-      "title": "Mis anuncios",
-      "subtitle": "Gestiona tus anuncios del mercado",
+      "tab_listings": "Anuncios",
+      "title": "Mi mercado",
+      "subtitle": "Tus anuncios, solicitudes y reservas",
       "filter_all": "Todos",
       "filter_active": "Activos",
       "filter_inactive": "Inactivos",
       "status_active": "Activo",
       "status_hidden": "Oculto",
       "empty_title": "Aún no tienes anuncios",
-      "empty_description": "Crea tu primer anuncio en el mercado"
+      "empty_description": "Crea tu primer anuncio en el mercado",
+      "tab_barter": "Trueque"
+    },
+    "error_codes": {
+      "item_delete_forbidden": "No tienes permiso para eliminar este anuncio",
+      "item_delete_failed": "Error al eliminar el anuncio",
+      "item_deactivate_forbidden": "No tienes permiso para ocultar este anuncio",
+      "item_activate_forbidden": "No tienes permiso para activar este anuncio"
     }
   }
 }

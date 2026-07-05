@@ -170,6 +170,7 @@ export const useRealtimeStore = defineStore('realtime', {
 
     _onOpen() {
       this.connected = true
+      _startHeartbeat()
 
       // Re-subscribe all active subscriptions on reconnect
       const all = new Set([...this.subscriptions, ...this._pendingSubscriptions])
@@ -195,6 +196,7 @@ export const useRealtimeStore = defineStore('realtime', {
 
     _onClose() {
       this.connected = false
+      _stopHeartbeat()
     },
   },
 })
@@ -205,7 +207,26 @@ let _ws: WebSocket | null = null
 let _connecting = false
 let _reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 let _reconnectAttempts = 0
+let _heartbeat: ReturnType<typeof setInterval> | null = null
 const _eventHandlers = new Map<string, Set<EventHandler>>()
+
+// Heartbeat keeps the connection counted as "online" (server presence window is
+// 60s) and alive through proxy idle timeouts. 30s → tolerates one missed beat.
+const HEARTBEAT_INTERVAL = 30000
+
+function _startHeartbeat() {
+  _stopHeartbeat()
+  _heartbeat = setInterval(() => {
+    _sendJson({ type: 'heartbeat', timestamp: Date.now() })
+  }, HEARTBEAT_INTERVAL)
+}
+
+function _stopHeartbeat() {
+  if (_heartbeat) {
+    clearInterval(_heartbeat)
+    _heartbeat = null
+  }
+}
 
 function _sendJson(data: any) {
   if (_ws?.readyState === WebSocket.OPEN) {
@@ -222,6 +243,7 @@ function _sendUnsubscribe(ids: string[]) {
 }
 
 function _cleanup() {
+  _stopHeartbeat()
   if (_reconnectTimeout) {
     clearTimeout(_reconnectTimeout)
     _reconnectTimeout = null

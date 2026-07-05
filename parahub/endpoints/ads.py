@@ -1096,6 +1096,22 @@ def record_ad_view(request, campaign_id: str):
                 payment_error = str(e)
                 logger.error(f"LNURL payment exception: {e}")
 
+    # The claim toast is ephemeral (~1.5s). If the payout did not actually
+    # reach the viewer, drop a persistent in-app notification so a silent
+    # failure (no/invalid Lightning address, advertiser wallet down, LNURL
+    # error) doesn't leave them believing they were paid.
+    if not ad_view.payment_sent:
+        try:
+            from notifications.services import notify_ad_payment_issue
+            notify_ad_payment_issue(
+                profile.account,
+                campaign=campaign,
+                amount_sats=ad_view.payment_amount_sats,
+                error=payment_error,
+            )
+        except Exception:
+            logger.exception("notify_ad_payment_issue failed")
+
     return {
         "success": True,
         "view_id": ad_view.id,

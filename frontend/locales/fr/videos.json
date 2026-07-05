@@ -14,7 +14,9 @@
       "dropOrClick": "Déposez la vidéo ici ou cliquez pour parcourir",
       "maxSize": "max 4 Go",
       "uploading": "Envoi en cours…",
+      "compressing": "Optimisation de la vidéo…",
       "success": "Vidéo envoyée",
+      "optimized": "Optimisé {from} → {to} ({ratio}×)",
       "failed": "Échec de l'envoi",
       "invalidType": "Veuillez sélectionner un fichier vidéo",
       "tooLarge": "Fichier trop volumineux (max 4 Go)",
@@ -22,6 +24,7 @@
     },
     "tip_author": "Pourboire à l'auteur",
     "sign_in_to_upload": "Connectez-vous pour envoyer",
-    "seo_description": "Regardez et partagez des vidéos de la communauté Parahub"
+    "seo_description": "Regardez et partagez des vidéos de la communauté Parahub",
+    "play": "Lire la vidéo"
   }
 }

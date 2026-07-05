@@ -1,0 +1,16 @@
+# Catch-all for requests with unknown SNI/Host on 443.
+# Without an explicit default_server nginx hands such requests to the
+# alphabetically-first 443 vhost (a landing page, with its certificate).
+# TLS must complete a handshake before nginx can act, so *some* certificate
+# is required — the Debian snakeoil self-signed one (package: ssl-cert).
+# 444 = close the connection without a response.
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+
+    ssl_certificate /etc/ssl/certs/ssl-cert-snakeoil.pem;
+    ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
+
+    return 444;
+}

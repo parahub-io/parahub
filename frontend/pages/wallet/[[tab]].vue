@@ -39,15 +39,15 @@
 
         <!-- Balance display -->
         <div class="text-center py-2">
-          <!-- Skeleton while initializing -->
-          <template v-if="sdkState === 'initializing'">
-            <div class="h-8 w-40 mx-auto bg-white/20 rounded animate-pulse mb-2"></div>
-            <div class="h-4 w-24 mx-auto bg-white/10 rounded animate-pulse"></div>
-          </template>
-          <!-- Hidden balance -->
-          <template v-else-if="balanceHidden">
+          <!-- Hidden balance (shown immediately — no scary 0 since it's masked) -->
+          <template v-if="balanceHidden">
             <p class="text-3xl font-bold text-white tracking-tight">••••••</p>
             <p class="text-sm text-white/60 mt-1">••••••</p>
+          </template>
+          <!-- Skeleton until the real balance lands: never flash a premature 0 -->
+          <template v-else-if="!balanceLoaded">
+            <div class="h-8 w-40 mx-auto bg-white/20 rounded animate-pulse mb-2"></div>
+            <div class="h-4 w-24 mx-auto bg-white/10 rounded animate-pulse"></div>
           </template>
           <!-- Visible balance -->
           <template v-else>
@@ -76,7 +76,7 @@
         <UiButton variant="primary" class="flex-1 !py-3 !text-base !font-semibold !rounded-xl" :icon="ArrowUpFromLine" @click="showSendModal = true">
           {{ $t('wallet.send') }}
         </UiButton>
-        <UiButton variant="outline" class="flex-1 !py-3 !text-base !font-semibold !rounded-xl" :icon="Download" @click="showReceiveModal = true">
+        <UiButton variant="primary" class="flex-1 !py-3 !text-base !font-semibold !rounded-xl" :icon="Download" @click="showReceiveModal = true">
           {{ $t('wallet.receive') }}
         </UiButton>
       </div>
@@ -105,6 +105,14 @@
           <p v-if="sdkError && sdkError !== 'walletOpenInAnotherTab' && sdkError !== 'noSeed'" class="font-mono text-xs">
             {{ sdkError }}
           </p>
+          <div v-if="sdkError === 'walletOpenInAnotherTab'" class="flex flex-wrap gap-2 mt-3">
+            <UiButton variant="primary" size="sm" :icon="LogIn" @click="takeOverLock">
+              {{ $t('wallet.openHere') }}
+            </UiButton>
+            <UiButton variant="outline" size="sm" :icon="RefreshCw" @click="reloadWallet">
+              {{ $t('common.retry') }}
+            </UiButton>
+          </div>
         </UiAlert>
       </div>
 
@@ -268,7 +276,7 @@ import { ref, computed, onMounted, onActivated, onUnmounted, markRaw, watch } fr
 import {
   RefreshCw, Download, ArrowUpFromLine,
   History, Check, Plus, Eye, EyeOff,
-  Ticket, ShieldCheck, HandCoins, Zap, Shield, Send
+  Ticket, ShieldCheck, HandCoins, Zap, Shield, Send, LogIn
 } from 'lucide-vue-next'
 import { useLightning } from '~/composables/useLightning'
 import { useBtcPrice } from '~/composables/useBtcPrice'
@@ -294,9 +302,11 @@ const {
   sdkState,
   sdkError,
   balanceSats,
+  balanceLoaded,
   lightningAddress,
   initSdk,
-  refreshBalance: doRefreshBalance,
+  takeOverLock,
+  syncAndRefresh: doRefreshBalance,
   getSparkAddress,
   paymentEventVersion,
   registerLnAddress,
@@ -312,6 +322,8 @@ const {
   satsToFiat,
   formatFiat
 } = useBtcPrice()
+
+const reloadWallet = () => { if (import.meta.client) window.location.reload() }
 
 // ===== MODALS =====
 const showSendModal = ref(false)

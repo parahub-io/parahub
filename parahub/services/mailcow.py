@@ -83,7 +83,9 @@ class MailcowService:
 
     @classmethod
     def delete_mailbox(cls, username: str) -> bool:
-        resp = httpx.delete(
+        # Mailcow delete is a POST with a JSON array body. httpx.delete() rejects
+        # `json=` (DELETE takes no body in httpx's helper), so use post().
+        resp = httpx.post(
             f"{cls._base_url()}/api/v1/delete/mailbox",
             json=[f"{username}@{settings.MAILCOW_DOMAIN}"],
             headers=cls._headers(),

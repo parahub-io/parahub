@@ -72,7 +72,7 @@
 import { Share2, Link, Copy, Check, QrCode, ChevronDown, ChevronUp, Download } from 'lucide-vue-next'
 import QRCode from 'qrcode'
 
-const props = defineProps<{ profile: any; profileUrl: string; modelValue: boolean }>()
+const props = defineProps<{ profile: any; profileUrl: string; modelValue: boolean; initialQr?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [boolean] }>()
 
 const { t } = useI18n()
@@ -143,8 +143,9 @@ watch(showQRCode, async (show) => {
 })
 
 watch(visible, async (show) => {
-  if (show && showQRCode.value) {
-    await generateQRCode()
-  }
+  if (!show) return
+  // Opened from the inline QR preview → jump straight to the large code; otherwise copy-link-first.
+  showQRCode.value = !!props.initialQr
+  if (showQRCode.value) await generateQRCode()
 })
 </script>

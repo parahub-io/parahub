@@ -12,7 +12,8 @@ from pydantic import BaseModel
 from django.apps import apps as django_apps
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
-from identity.models import Profile, Verification, Partner, Contract
+from identity.models import Profile, Verification, Partner
+from contracts.models import Contract
 from geo.models import Establishment, EstablishmentMembership, Event
 from governance.models import Poll
 from market.models import Item
@@ -224,6 +225,7 @@ class PartnerCardResponse(BaseModel):
     is_verified_wot: bool
     verifications_count: int
     items_count: int
+    avatar_url: Optional[str] = None
 
 
 class AchievementResponse(BaseModel):
@@ -340,7 +342,8 @@ def get_game_dashboard(request):
             reputation_score=float(partner.reputation_score),
             is_verified_wot=partner.is_verified_wot,
             verifications_count=partnership.verifications_count,
-            items_count=items_count
+            items_count=items_count,
+            avatar_url=partner.avatar.url if partner.avatar else None
         ))
 
     # === Achievements ===
@@ -514,7 +517,7 @@ def get_game_dashboard(request):
     if not is_staff:
         items_qs = items_qs.exclude(owner__account__is_test=True).exclude(owner__account__is_bot=True)
     recent_items_data = []
-    for item in items_qs[:6]:
+    for item in items_qs[:5]:
         pricing_display = "Free"
         if item.pricing_options and len(item.pricing_options) > 0:
             fp = item.pricing_options[0]

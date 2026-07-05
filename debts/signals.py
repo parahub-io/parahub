@@ -10,8 +10,8 @@ from django.core.cache import cache
 from django.db import transaction
 from debts.models import Debt, DebtRepayment
 from barter.graph_service import BarterGraphService
+from parahub.background import spawn
 import logging
-import threading
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +44,10 @@ def sync_debt_to_neo4j(sender, instance, created, **kwargs):
         'object_type': 'debt',
         'creditor_id': instance.creditor_id,
         'creditor_display_name': instance.creditor.display_name or instance.creditor.hna or '',
+        'creditor_hna': instance.creditor.hna or '',
         'debtor_id': instance.debtor_id,
         'debtor_display_name': instance.debtor.display_name or instance.debtor.hna or '',
+        'debtor_hna': instance.debtor.hna or '',
         'amount': float(instance.amount),
         'remaining_amount': float(instance.remaining_amount),
         'currency': instance.currency,
@@ -118,7 +120,7 @@ def sync_debt_to_neo4j(sender, instance, created, **kwargs):
         except Exception as e:
             logger.error(f"Failed to sync debt {debt_id} to Neo4j: {e}")
 
-    transaction.on_commit(lambda: threading.Thread(target=do_neo4j_sync, daemon=True).start())
+    transaction.on_commit(lambda: spawn(do_neo4j_sync))
 
 
 @receiver(pre_delete, sender=Debt)
@@ -136,7 +138,7 @@ def delete_debt_from_neo4j(sender, instance, **kwargs):
         except Exception as e:
             logger.error(f"Failed to delete debt {debt_id} from Neo4j: {e}")
 
-    transaction.on_commit(lambda: threading.Thread(target=do_delete, daemon=True).start())
+    transaction.on_commit(lambda: spawn(do_delete))
 
 
 @receiver(post_save, sender=DebtRepayment)
@@ -164,4 +166,4 @@ def handle_debt_repayment(sender, instance, created, **kwargs):
             except Exception as e:
                 logger.error(f"Failed to update debt {debt_id} in Neo4j after repayment: {e}")
 
-        transaction.on_commit(lambda: threading.Thread(target=do_sync, daemon=True).start())
+        transaction.on_commit(lambda: spawn(do_sync))

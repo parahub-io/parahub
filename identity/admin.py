@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Account, Profile, Verification, SocialRecovery, Partner, Contract, PGPKeyHistory, PsychProfile, ProfileNote
+from .models import (Account, Profile, Verification, SocialRecovery, Partner, PGPKeyHistory,
+                     PsychProfile, ProfileNote)
 
 
 class TestUserFilter(admin.SimpleListFilter):
@@ -36,8 +37,8 @@ class AccountAdmin(UserAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ['local_name', 'display_name', 'instance', 'reputation_score', 'is_verified_wot']
-    list_filter = ['is_verified_wot', 'instance']
+    list_display = ['local_name', 'display_name', 'instance', 'reputation_score', 'is_verified_wot', 'name_public']
+    list_filter = ['is_verified_wot', 'name_public', 'instance']
     search_fields = ['local_name', 'display_name']
     readonly_fields = ["id", "created_at", "updated_at"]
 
@@ -63,16 +64,6 @@ class PartnerAdmin(admin.ModelAdmin):
     list_filter = ['added_at']
     search_fields = ['profile__local_name', 'partner_profile__local_name']
     readonly_fields = ['added_at']
-
-
-@admin.register(Contract)
-class ContractAdmin(admin.ModelAdmin):
-    list_display = ['id', 'title', 'creator', 'partner', 'status', 'creator_signed_at', 'partner_signed_at']
-    list_filter = ['status', 'creator_signed_at']
-    search_fields = ['title', 'creator__local_name', 'partner__local_name', 'file_sha256']
-    readonly_fields = ['id', 'file_sha256', 'creator_signature', 'partner_signature',
-                       'creator_signed_at', 'partner_signed_at', 'creator_completed_at',
-                       'partner_completed_at', 'arbitration_initiated_at']
 
 
 @admin.register(PGPKeyHistory)
@@ -107,6 +98,11 @@ class ProfileNoteAdmin(admin.ModelAdmin):
     list_filter = ['created_at']
     search_fields = ['owner__local_name', 'about__local_name']
     readonly_fields = ['id', 'created_at', 'updated_at']
+
+
+# ProfileVerificationPhoto is intentionally NOT registered: it stores GDPR Art.9
+# biometric data (face embedding) and a private photo never publicly displayed.
+# Keep it out of the staff admin surface; inspect via the WoT verification flow.
 
 
 # Register the custom Account model

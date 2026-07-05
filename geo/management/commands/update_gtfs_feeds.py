@@ -45,6 +45,14 @@ GTFS_REQUIRED = {'agency.txt', 'stops.txt', 'routes.txt', 'trips.txt', 'stop_tim
 MOTIS_INPUT_DIR = '/opt/motis/input'
 MOTIS_CONTAINER = 'parahub-motis'
 
+PFAEDLE_BIN = '/usr/local/bin/pfaedle'
+PFAEDLE_CFG = '/usr/local/etc/pfaedle/pfaedle.cfg'
+# OSM extract pfaedle map-matches against. Must geographically contain any feed
+# flagged generate_shapes; pfaedle auto-crops to the feed bbox, so a country
+# extract is enough. Current consumer is CP (Portugal) — a non-PT shapeless
+# feed would need its own extract wired here.
+PFAEDLE_OSM_EXTRACT = '/opt/planet/portugal-latest.osm.pbf'
+
 
 def _cache_path(ds):
     return os.path.join(CACHE_DIR, f'{ds.id}.zip')
@@ -246,6 +254,90 @@ def _merge_gtfs_zips(zip_paths, output_path, skip_stop_times=False):
     return sum(len(r) for r in merged.values()) + st_rows
 
 
+def _zip_has_shapes(zip_path):
+    """True if the ZIP already contains a top-level shapes.txt."""
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            return any(os.path.basename(n) == 'shapes.txt' for n in zf.namelist())
+    except (zipfile.BadZipFile, OSError):
+        return False
+
+
+def _generate_shapes(zip_path, stdout=None):
+    """Synthesize shapes.txt for a feed that ships none by map-matching its trips
+    onto OSM track geometry with pfaedle.
+
+    Some operators (e.g. CP) reference shape_id in trips.txt but omit shapes.txt,
+    leaving the map nothing to draw but straight stop-to-stop lines. pfaedle builds
+    a routing graph from the OSM rail/track network and snaps each trip's stop
+    sequence onto it, producing real geometry.
+
+    Returns the path to a new temp ZIP (full feed + generated shapes), or None on
+    any failure — callers then fall back to the original shapeless ZIP, so a
+    pfaedle problem degrades map lines but never breaks the import.
+    """
+    import subprocess
+
+    if not os.path.exists(PFAEDLE_BIN):
+        if stdout:
+            stdout.write(f"    pfaedle missing at {PFAEDLE_BIN} — skipping shape generation")
+        return None
+
+    work = tempfile.mkdtemp(prefix='pfaedle_')
+    in_dir = os.path.join(work, 'in')
+    out_dir = os.path.join(work, 'out')
+    os.makedirs(in_dir)
+    os.makedirs(out_dir)
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(in_dir)
+
+        # pfaedle reads a feed directory; locate the one holding trips.txt
+        feed_dir = in_dir
+        if not os.path.exists(os.path.join(feed_dir, 'trips.txt')):
+            feed_dir = None
+            for root, _dirs, files in os.walk(in_dir):
+                if 'trips.txt' in files:
+                    feed_dir = root
+                    break
+            if feed_dir is None:
+                if stdout:
+                    stdout.write("    no trips.txt in feed — skipping shape generation")
+                return None
+
+        proc = subprocess.run(
+            [PFAEDLE_BIN, '-c', PFAEDLE_CFG, '-x', PFAEDLE_OSM_EXTRACT,
+             '-i', feed_dir, '-o', out_dir],
+            capture_output=True, text=True, timeout=3600,
+        )
+        if proc.returncode != 0:
+            if stdout:
+                tail = (proc.stderr or proc.stdout or '')[-400:]
+                stdout.write(f"    pfaedle rc={proc.returncode}: {tail}")
+            return None
+
+        shapes_txt = os.path.join(out_dir, 'shapes.txt')
+        if not os.path.exists(shapes_txt) or os.path.getsize(shapes_txt) == 0:
+            if stdout:
+                stdout.write("    pfaedle matched no shapes — skipping (wrong OSM extract for this feed?)")
+            return None
+
+        fd, out_zip = tempfile.mkstemp(suffix='.zip', prefix='gtfs_shaped_')
+        os.close(fd)
+        with zipfile.ZipFile(out_zip, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for fname in sorted(os.listdir(out_dir)):
+                fpath = os.path.join(out_dir, fname)
+                if os.path.isfile(fpath):
+                    zout.write(fpath, fname)
+        return out_zip
+    except Exception as e:
+        if stdout:
+            stdout.write(f"    pfaedle shape generation failed: {e}")
+        return None
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def _sync_to_motis(ds, zip_path, stdout=None):
     """Copy fresh GTFS ZIP into /opt/motis/input/ under canonical name.
 
@@ -313,7 +405,7 @@ def _reimport_motis(stdout):
                 '-v', '/opt/motis/input:/input',
                 '-v', '/opt/planet/planet-latest.osm.pbf:/input/planet-latest.osm.pbf:ro',
                 '--network', 'none',
-                '--memory=32g', '--cpus=8',
+                '--memory=48g', '--cpus=8',
                 image,
                 '/motis', 'import', 'config.yml',
             ],
@@ -434,6 +526,7 @@ class Command(BaseCommand):
         zip_path = None
         used_cache = False
         tmp_path = None
+        shaped_path = None
 
         try:
             if from_cache:
@@ -559,12 +652,31 @@ class Command(BaseCommand):
                     'from_cache': used_cache,
                 }
 
+            # Shape synthesis: feeds flagged generate_shapes that ship no
+            # shapes.txt get one map-matched from OSM track geometry (pfaedle)
+            # before import, so the map can draw real route lines instead of
+            # straight stop-to-stop segments. Every run regenerates from the
+            # fresh download, so shapes are never left stale. Any failure falls
+            # back to the shapeless feed.
+            import_path = zip_path
+            if ds.generate_shapes:
+                if _zip_has_shapes(zip_path):
+                    self.stdout.write(f"  {ds.name}: feed already has shapes.txt — pfaedle skipped")
+                else:
+                    self.stdout.write(f"  {ds.name}: generating shapes with pfaedle...")
+                    shaped_path = _generate_shapes(zip_path, stdout=self.stdout)
+                    if shaped_path:
+                        import_path = shaped_path
+                        self.stdout.write(f"  {ds.name}: shapes generated")
+                    else:
+                        self.stdout.write(f"  {ds.name}: shape generation failed — importing feed as-is")
+
             # Count before
             before = _count_for_source(ds)
 
             # Import
             self.stdout.write(f"  {ds.name}: importing...")
-            call_command('import_gtfs', file=zip_path, feed_url=ds.url,
+            call_command('import_gtfs', file=import_path, feed_url=ds.url,
                          verbosity=0)
 
             # Count after
@@ -591,7 +703,7 @@ class Command(BaseCommand):
             ds.last_error = ''
             ds.save(update_fields=['last_import_hash', 'last_import_stats', 'last_imported_at', 'last_error'])
 
-            motis_synced = _sync_to_motis(ds, zip_path, stdout=self.stdout)
+            motis_synced = _sync_to_motis(ds, import_path, stdout=self.stdout)
             if motis_synced:
                 self.stdout.write(f"  {ds.name}: synced to MOTIS /input/{ds.motis_input_name}")
 
@@ -618,6 +730,8 @@ class Command(BaseCommand):
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
+            if shaped_path and os.path.exists(shaped_path):
+                os.unlink(shaped_path)
 
     def _format_result(self, name, result):
         pad = 30

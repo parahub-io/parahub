@@ -228,14 +228,21 @@ const historyOffset = ref(0)
 
 const loadHistory = async () => {
   if (sdkState.value !== 'ready') return
-  loadingHistory.value = true
+  // Spinner only on the first load. Background refreshes (fired by the `synced`
+  // event) keep the list mounted and patch rows in place via stable :key, so
+  // the user's scroll position survives instead of jumping to the top.
+  const isInitial = payments.value.length === 0
+  if (isInitial) loadingHistory.value = true
   try {
-    payments.value = await listPayments(historyLimit.value, 0)
-    historyOffset.value = payments.value.length
+    // Never shrink below what's already shown (e.g. after "load more").
+    const count = Math.max(historyLimit.value, payments.value.length)
+    const fresh = await listPayments(count, 0)
+    payments.value = fresh
+    historyOffset.value = fresh.length
   } catch (e) {
     console.error('Failed to load history:', e)
   } finally {
-    loadingHistory.value = false
+    if (isInitial) loadingHistory.value = false
   }
 }
 

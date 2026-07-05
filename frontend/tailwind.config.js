@@ -78,6 +78,35 @@ export default {
           800: '#7F1D1D',
           900: '#450A0A',
         },
+        // Market listing direction — dedicated hues owned ONLY by offer/want, so
+        // the supply↔demand axis never collides with success/links/active. Always
+        // rendered via <MarketListingType> (see PK/design-system.md).
+        offer: {
+          DEFAULT: '#0D9488', // Teal 600 - "I have it" (supply), AA-safe for white text
+          50: '#F0FDFA',
+          100: '#CCFBF1',
+          200: '#99F6E4',
+          300: '#5EEAD4',
+          400: '#2DD4BF',
+          500: '#14B8A6',
+          600: '#0D9488',
+          700: '#0F766E',
+          800: '#115E59',
+          900: '#134E4A',
+        },
+        want: {
+          DEFAULT: '#7C3AED', // Violet 600 - "I'm seeking it" (demand), AA-safe for white text
+          50: '#F5F3FF',
+          100: '#EDE9FE',
+          200: '#DDD6FE',
+          300: '#C4B5FD',
+          400: '#A78BFA',
+          500: '#8B5CF6',
+          600: '#7C3AED',
+          700: '#6D28D9',
+          800: '#5B21B6',
+          900: '#4C1D95',
+        },
         // Zinc-based neutrals — cool undertone, intentional feel
         neutral: {
           50: '#FAFAFA',
@@ -134,12 +163,12 @@ export default {
     'from-primary-500',
     'to-warning-600',
     'bg-gradient-to-br',
-    // UiBadge dynamic classes
-    { pattern: /^bg-(primary|secondary|success|warning|error)(\/10)?$/ },
-    { pattern: /^text-(primary|secondary|success|warning|error)(-\d+)?$/ },
-    { pattern: /^text-(primary|secondary|success|warning|error)(-\d+)?$/, variants: ['dark'] },
-    { pattern: /^border-(primary|secondary|success|warning|error)$/ },
-    { pattern: /^bg-(primary|secondary|success|warning|error|neutral)-\d+$/ },
+    // UiBadge dynamic classes (offer|want = listing-direction tokens)
+    { pattern: /^bg-(primary|secondary|success|warning|error|offer|want)(\/10)?$/ },
+    { pattern: /^text-(primary|secondary|success|warning|error|offer|want)(-\d+)?$/ },
+    { pattern: /^text-(primary|secondary|success|warning|error|offer|want)(-\d+)?$/, variants: ['dark'] },
+    { pattern: /^border-(primary|secondary|success|warning|error|offer|want)$/ },
+    { pattern: /^bg-(primary|secondary|success|warning|error|neutral|offer|want)-\d+$/ },
     // UiAlert dynamic classes
     { pattern: /^bg-(secondary|success|warning|error)-50$/ },
     { pattern: /^bg-(secondary|success|warning|error)-900/, variants: ['dark'] },

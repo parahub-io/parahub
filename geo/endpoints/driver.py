@@ -82,16 +82,9 @@ def _check_wot(profile):
 
 def _is_heartbeat_alive(shift: DriverShift) -> bool:
     """Check if driver heartbeat key exists in Redis (TTL 45s)."""
-    import redis as _redis
-    from django.conf import settings
+    from parahub.services.redis_pool import get_redis
     try:
-        r = _redis.Redis(
-            host=getattr(settings, 'REDIS_HOST', '127.0.0.1'),
-            port=getattr(settings, 'REDIS_PORT', 6379),
-        )
-        alive = bool(r.exists(f'driver:heartbeat:{shift.id}'))
-        r.close()
-        return alive
+        return bool(get_redis().exists(f'driver:heartbeat:{shift.id}'))
     except Exception:
         return False
 
@@ -202,15 +195,10 @@ def shift_history(request):
 
 def _clean_transit_pipeline(shift: DriverShift):
     """Remove driver vehicle from Redis transit keys."""
-    import redis as _redis
-    from django.conf import settings
+    from parahub.services.redis_pool import get_redis
 
     try:
-        r = _redis.Redis(
-            host=getattr(settings, 'REDIS_HOST', '127.0.0.1'),
-            port=getattr(settings, 'REDIS_PORT', 6379),
-            decode_responses=True,
-        )
+        r = get_redis()
         ds_id = str(shift.data_source_id)
         member = f"{ds_id}:{shift.vehicle_id}"
         pipe = r.pipeline(transaction=False)
@@ -221,6 +209,5 @@ def _clean_transit_pipeline(shift: DriverShift):
         pipe.execute()
         # Signal map consumers to refresh
         r.publish('transit:tick', str(int(timezone.now().timestamp())))
-        r.close()
     except Exception as e:
         logger.warning(f"Failed to clean transit pipeline for shift {shift.id}: {e}")

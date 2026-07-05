@@ -14,14 +14,22 @@
     >
       <!-- Avatar/Portrait - compact on mobile -->
       <div class="relative aspect-[3/4] bg-neutral-100 dark:bg-neutral-800">
-        <!-- Generated avatar -->
-        <div class="absolute inset-0 flex items-center justify-center">
-          <UserAvatar
-            :seed="partner.hna"
-            :name="partner.display_name"
-            :size="50"
-            class="sm:scale-[1.6]"
-          />
+        <!-- Uploaded photo -->
+        <img
+          v-if="partner.avatar_url"
+          :src="partner.avatar_url"
+          :alt="partner.display_name"
+          class="absolute inset-0 w-full h-full object-cover"
+          loading="lazy"
+        />
+        <!-- Initials fallback (gradient, consistent with directory) -->
+        <div
+          v-else
+          class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary to-secondary"
+        >
+          <span class="text-2xl sm:text-3xl font-bold text-black">
+            {{ getInitials(partner.display_name || partner.hna) }}
+          </span>
         </div>
 
         <!-- Verified badge - icon only on mobile -->
@@ -99,6 +107,7 @@ interface Partner {
   is_verified_wot: boolean
   verifications_count: number
   items_count: number
+  avatar_url?: string | null
 }
 
 const props = defineProps<{
@@ -116,5 +125,13 @@ const isHovered = ref(false)
 function formatReputation(score: number): string {
   if (score >= 1000) return `${(score / 1000).toFixed(1)}k`
   return Number.isInteger(score) ? score.toString() : Math.round(score).toString()
+}
+
+function getInitials(name: string): string {
+  if (!name) return 'U'
+  const parts = name.trim().split(/\s+/)
+  return parts.length >= 2
+    ? (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
+    : name.substring(0, 2).toUpperCase()
 }
 </script>

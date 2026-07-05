@@ -38,7 +38,8 @@
     "registerLnAddress": "Registrar",
     "copyLnAddress": "Copiar endereço Lightning",
     "lnAddressRegisterFailed": "Falha ao registrar endereço",
-    "walletOpenInAnotherTab": "A carteira já está aberta em outra aba. Feche-a primeiro.",
+    "walletOpenInAnotherTab": "A carteira está ativa em outra aba ou janela deste navegador.",
+    "openHere": "Abrir aqui",
     "initError": "Falha ao conectar carteira",
     "lnurlDetected": "LNURL-pay detectado. Insira a quantia.",
     "amountlessInvoice": "Fatura sem quantia. Insira a quantia.",
@@ -99,11 +100,11 @@
   "seedRestore": {
     "title": "Restaurar carteira",
     "subtitle": "Digite sua frase seed de 12 palavras",
-    "wordPlaceholder": "palavra",
     "pasteAllWords": "Colar todas as 12 palavras",
     "pasteAllWordsPlaceholder": "palavra1 palavra2 palavra3 palavra4 palavra5 palavra6 palavra7 palavra8 palavra9 palavra10 palavra11 palavra12",
-    "pasteWords": "Colar da área de transferência",
     "invalidMnemonic": "Frase seed inválida. Verifique suas palavras.",
+    "wordCount": "{count} / 12 palavras",
+    "validPhrase": "Frase seed válida",
     "restoring": "Restaurando sua carteira...",
     "restoreFailed": "Falha ao restaurar. Tente novamente."
   }

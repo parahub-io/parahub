@@ -1,0 +1,23 @@
+{
+  "subscriptions": {
+    "support_monthly": "Support {name} monthly",
+    "monthly_hint": "A one-time payment now. Each month we'll remind you to renew — there's no automatic charge.",
+    "success_title": "You're now supporting {name}",
+    "success_hint": "We'll remind you before it expires so you can renew in one tap.",
+    "confirm_support": "Confirm support",
+    "support_monthly_btn": "Support monthly",
+    "supporting": "Supporting",
+    "supporters_tooltip": "People supporting this profile monthly",
+    "access_until": "Cancelled · access until {date}",
+    "renews_on": "{amount} sats/mo · renew by {date}",
+    "cancel": "Cancel",
+    "toast_subscribed": "You're now supporting {name}",
+    "toast_failed": "Couldn't record your support. Please try again.",
+    "toast_cancelled": "Support cancelled — access stays until the period ends.",
+    "locked_title": "Subscribers only",
+    "locked_desc": "Support {name} monthly to read this.",
+    "unlock_btn": "Support to unlock",
+    "editor_label": "Subscribers only",
+    "editor_hint": "Only people who support you monthly can read the full post. Others see the excerpt."
+  }
+}

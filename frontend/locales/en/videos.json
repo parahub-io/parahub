@@ -14,7 +14,9 @@
       "dropOrClick": "Drop video here or click to browse",
       "maxSize": "max 4 GB",
       "uploading": "Uploading…",
+      "compressing": "Optimizing video…",
       "success": "Video uploaded",
+      "optimized": "Optimized {from} → {to} ({ratio}×)",
       "failed": "Upload failed",
       "invalidType": "Please select a video file",
       "tooLarge": "File is too large (max 4 GB)",
@@ -22,6 +24,7 @@
     },
     "tip_author": "Tip author",
     "sign_in_to_upload": "Sign in to upload",
-    "seo_description": "Watch and share videos from the Parahub community"
+    "seo_description": "Watch and share videos from the Parahub community",
+    "play": "Play video"
   }
 }

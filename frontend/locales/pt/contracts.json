@@ -58,6 +58,7 @@
     "sign_modal": {
       "title": "Assinar contrato",
       "from": "De",
+      "read_terms": "Termos — leia antes de assinar",
       "verify_file": "1. Verifique seu arquivo primeiro",
       "verify_hint": "Carregue sua cópia do arquivo do contrato para verificar se o hash SHA256 corresponde",
       "hash_mismatch_warning": "AVISO: Os hashes dos arquivos não correspondem! Este NÃO é o mesmo arquivo. Não assine!",
@@ -115,6 +116,8 @@
     "items": "Itens",
     "export_proof": "Exportar Prova para Tribunal",
     "created": "Criado",
+    "terms_label": "Termos do contrato",
+    "rental_title": "Aluguer — {item}",
     "signatures": "Assinaturas",
     "completion": "Conclusão",
     "arbitration": {
@@ -174,7 +177,7 @@
       "loan": "Empréstimo",
       "service_body": "<p><strong>Acordo de Serviço</strong></p><p>Prestador: [Nome]</p><p>Cliente: [Nome]</p><p><strong>Serviços:</strong> [Descreva o serviço a prestar]</p><p><strong>Compensação:</strong> [Valor e moeda]</p><p><strong>Prazo:</strong> [Data início] a [Data fim]</p><p><strong>Termos:</strong></p><ul><li>Pagamento devido após conclusão, salvo acordo em contrário</li><li>Qualquer parte pode cancelar com aviso prévio de 7 dias</li></ul>",
       "sale_body": "<p><strong>Acordo de Venda</strong></p><p>Vendedor: [Nome]</p><p>Comprador: [Nome]</p><p><strong>Artigo:</strong> [Descrição do artigo a vender]</p><p><strong>Preço:</strong> [Valor e moeda]</p><p><strong>Condição:</strong> [Novo/Usado — descreva condição]</p><p><strong>Entrega:</strong> [Método e data]</p><p><strong>Termos:</strong></p><ul><li>O vendedor confirma propriedade e direito de venda</li><li>O comprador confirma inspeção e aceitação na entrega</li></ul>",
-      "rental_body": "<p><strong>Acordo de Arrendamento</strong></p><p>Proprietário: [Nome]</p><p>Inquilino: [Nome]</p><p><strong>Propriedade/Artigo:</strong> [Descrição]</p><p><strong>Período:</strong> [Data início] a [Data fim]</p><p><strong>Renda:</strong> [Valor e moeda por mês/semana]</p><p><strong>Caução:</strong> [Valor, reembolsável na devolução em bom estado]</p><p><strong>Termos:</strong></p><ul><li>O inquilino é responsável por manter bom estado</li><li>Período de aviso prévio para rescisão: [N] dias</li></ul>",
+      "rental_body": "<h3>Contrato de Aluguer de Bem Móvel</h3><p><strong>Locador (proprietário):</strong> [[owner]]<br><strong>Locatário:</strong> [[renter]]</p><p><strong>Bem alugado:</strong> [[item]]<br><strong>Matrícula / nº de série:</strong> __________ (quando aplicável)</p><p><strong>Período:</strong> [[period]]<br><strong>Renda:</strong> [[rent]]<br><strong>Caução:</strong> [[deposit]] — reembolsável na devolução em bom estado.</p><p><strong>Valor acordado do bem (perda total / furto):</strong> __________ — montante devido pelo locatário em caso de perda total, furto ou dano irreparável.</p><p><strong>Seguro:</strong> a cargo de __________ (proprietário / locatário). Apólice nº __________. Cobre responsabilidade civil perante terceiros e o condutor durante o aluguer? Sim / Não.</p><p><strong>Categoria de carta exigida:</strong> __________ (ex.: AM ciclomotor / A1). O locatário declara possuir carta válida da categoria exigida e entrega cópia.</p><p><strong>Estado na entrega:</strong> carregador e bateria entregues: Sim / Não. Observações: __________. Fotografias de entrega anexadas.</p><p><strong>Condições de utilização:</strong> __________ (ex.: apenas estrada / proibido todo-o-terreno agressivo). Limite de km: __________.</p><p><strong>Devolução:</strong> data e local __________. Atraso na devolução: __________ por dia. Renovação / extensão: __________.</p><p><strong>Identificação legal das partes</strong> (quando o bem o justifique — veículo matriculado / valor elevado): NIF/CC e morada de cada parte __________.</p><p><strong>Outras condições:</strong> __________</p><p><strong>Local e data:</strong> __________</p>",
       "loan_body": "<p><strong>Acordo de Empréstimo</strong></p><p>Credor: [Nome]</p><p>Devedor: [Nome]</p><p><strong>Valor:</strong> [Valor e moeda]</p><p><strong>Data de reembolso:</strong> [Data]</p><p><strong>Juros:</strong> [Taxa ou 'Nenhum']</p><p><strong>Termos:</strong></p><ul><li>O devedor concorda em reembolsar integralmente até à data acima</li><li>Pagamento atrasado: [Termos da penalidade ou 'Nenhum']</li></ul>"
     },
     "ots": {

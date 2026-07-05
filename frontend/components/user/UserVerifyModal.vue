@@ -9,7 +9,7 @@
             {{ t('wot.verify_title', { name: profile.display_name || profile.hna }) }}
           </h3>
 
-          <!-- Step 1: Select method and notes -->
+          <!-- Step 1: Select method -->
           <div v-if="verifyStep === 'select'" class="space-y-4">
             <UiAlert variant="info" :title="t('wot.verify_info_title')">{{ t('wot.verify_info_desc') }}</UiAlert>
             <UiAlert variant="warning" :title="t('wot.verify_warning_title')">{{ t('wot.verify_warning_desc') }}</UiAlert>
@@ -34,26 +34,12 @@
               </p>
             </div>
 
-            <!-- Optional Notes -->
-            <div>
-              <label for="verify-notes" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                {{ t('wot.notes_label') }} ({{ t('wot.notes_optional') }})
-              </label>
-              <textarea
-                id="verify-notes"
-                v-model="verificationNotes"
-                :placeholder="t('wot.notes_placeholder')"
-                class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
-                rows="3"
-              ></textarea>
-            </div>
-
             <div class="flex justify-end gap-3">
               <button
                 @click="closeVerifyModal"
                 class="px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
               >
-                {{ t('cancel') }}
+                {{ t('common.cancel') }}
               </button>
               <button
                 @click="loadVerificationPhoto"
@@ -101,7 +87,7 @@
                 @click="verifyStep = 'select'"
                 class="px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
               >
-                {{ t('back') }}
+                {{ t('common.back') }}
               </button>
               <button
                 @click="prepareStatement"
@@ -131,7 +117,7 @@
                 class="px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
                 :disabled="verifying"
               >
-                {{ t('back') }}
+                {{ t('common.back') }}
               </button>
               <button
                 @click="signAndVerify"
@@ -165,7 +151,7 @@ import { Loader2, ShieldAlert } from 'lucide-vue-next'
 const props = defineProps<{ profile: any; modelValue: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [boolean]; 'verified': [] }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const authStore = useAuthStore()
 const localePath = useLocalePath()
 const toastStore = useToastStore()
@@ -178,7 +164,6 @@ const visible = computed({
 
 const verifyStep = ref('select')
 const selectedMethod = ref('IN_PERSON')
-const verificationNotes = ref('')
 const statementText = ref('')
 const statementData = ref<any>(null)
 const verifying = ref(false)
@@ -192,7 +177,6 @@ const closeVerifyModal = () => {
   visible.value = false
   verifyStep.value = 'select'
   selectedMethod.value = 'IN_PERSON'
-  verificationNotes.value = ''
   statementText.value = ''
   statementData.value = null
   verifyError.value = ''
@@ -270,8 +254,7 @@ const signAndVerify = async () => {
         verification_method: selectedMethod.value,
         timestamp: statementData.value.timestamp,
         statement: statementText.value,
-        signature: signature,
-        notes: verificationNotes.value
+        signature: signature
       }
     }) as any
 
@@ -284,7 +267,12 @@ const signAndVerify = async () => {
     }
   } catch (error: any) {
     console.error('Verification failed:', error)
-    verifyError.value = error.data?.error || t('wot.verify_error_unknown')
+    // Backend (LocalizedHttpError) sends a machine-readable `code`; localize it.
+    // Fall back to the canonical English `detail`, then a generic message.
+    const code = error.data?.code
+    verifyError.value = (code && te(`wot.error_codes.${code}`))
+      ? t(`wot.error_codes.${code}`)
+      : (error.data?.detail || error.data?.error || t('wot.verify_error_unknown'))
   } finally {
     verifying.value = false
   }

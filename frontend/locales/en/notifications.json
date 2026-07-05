@@ -1,0 +1,17 @@
+{
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all read",
+    "empty": "No notifications yet",
+    "empty_unread": "You're all caught up",
+    "empty_mine": "No activity yet",
+    "empty_incoming": "No incoming notifications",
+    "filter_all": "All",
+    "filter_incoming": "Incoming",
+    "filter_mine": "Mine",
+    "unread_only": "Unread only",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "load_more": "Load more"
+  }
+}

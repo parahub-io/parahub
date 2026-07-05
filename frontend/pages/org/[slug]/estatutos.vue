@@ -6,7 +6,7 @@
     </Head>
 
     <div v-if="loading" class="flex justify-center items-center py-32">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
     </div>
 
     <UiAlert v-else-if="fetchError" variant="error" title="Erro">
@@ -46,22 +46,10 @@
         </NuxtLink>
       </div>
     </div>
-
-    <!-- Print button -->
-    <div v-if="termsData && !fetchError" class="mt-6 text-center">
-      <button
-        @click="window.print()"
-        class="inline-flex items-center px-4 py-2 bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 text-neutral-900 dark:text-neutral-100 rounded-lg transition-colors"
-      >
-        <Printer class="w-5 h-5 mr-2" />
-        Imprimir
-      </button>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Printer } from 'lucide-vue-next'
 import { marked } from 'marked'
 
 const route = useRoute()
@@ -101,24 +89,21 @@ const establishmentName = computed(() => termsData.value?.establishment_name || 
 const pageTitle = computed(() => establishmentName.value ? `Estatutos - ${establishmentName.value}` : 'Estatutos')
 
 const renderedContent = computed(() => {
-  // Use translation if available, otherwise original
-  let content = translatedContent.value || termsData.value?.terms_content
-  if (!content) return ''
-  // Strip preamble — component header already shows name
-  // Match first ## heading (CAPÍTULO/CHAPTER/ГЛАВА/CHAPITRE/KAPITEL)
-  const match = content.match(/^## /m)
-  if (match?.index && match.index > 0) content = content.substring(match.index)
-  return marked.parse(content, { async: false }) as string
+  // Translations are trusted static project files (/estatutos/{locale}.md) —
+  // safe to render client-side. Preamble strip: the header already shows name.
+  if (translatedContent.value) {
+    let content = translatedContent.value
+    const match = content.match(/^## /m)
+    if (match?.index && match.index > 0) content = content.substring(match.index)
+    return marked.parse(content, { async: false }) as string
+  }
+  // Original terms are owner-authored (untrusted) and reach v-html, so we render
+  // the server-sanitized HTML (markdown -> nh3), never the raw markdown.
+  return termsData.value?.terms_content_html || ''
 })
 </script>
 
 <style scoped>
-@media print {
-  button {
-    display: none;
-  }
-}
-
 .terms-content :deep(h1) {
   font-size: 1.75rem;
   font-weight: 700;

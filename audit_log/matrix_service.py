@@ -289,7 +289,7 @@ class MatrixService:
                     # Matrix user ID from profile's local_name (human-readable)
                     # One Matrix account per Parahub account, not per profile
                     user_mxid = get_matrix_user_id(participant.account_id)
-                    display_name = participant.display_name or participant.hna
+                    display_name = (participant.display_name if participant.name_public else '') or participant.hna
 
                     # Ensure user exists first (with deterministic password using account_id)
                     if not await self.ensure_user_exists(user_mxid, display_name, participant.account_id):
@@ -338,7 +338,7 @@ class MatrixService:
                 for participant in participants:
                     # Matrix user ID from profile's local_name (human-readable)
                     user_mxid = get_matrix_user_id(participant.account_id)
-                    display_name = participant.display_name or participant.hna
+                    display_name = (participant.display_name if participant.name_public else '') or participant.hna
 
                     # Ensure user exists first
                     if not await self.ensure_user_exists(user_mxid, display_name):

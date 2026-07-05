@@ -405,17 +405,17 @@ def my_status(request):
 @ratelimit(group='energy:cell_live', key='ip', rate='120/m')
 def cell_live(request, cell_id: str):
     """Real-time production data for a cell. Reads from Redis cache (populated by Shelly poller)."""
-    import redis
     import json
+
+    from parahub.services.redis_pool import get_redis
 
     cell = get_object_or_404(EnergyCell, id=cell_id)
     producers = cell.producers.filter(is_active=True)
     total_capacity = sum(float(p.capacity_kw) for p in producers)
 
     # Read cached live data from Redis
-    r = redis.Redis(host='localhost', port=6379, db=0)
     live_key = f"energy:live:{cell_id}"
-    raw = r.get(live_key)
+    raw = get_redis().get(live_key)
 
     total_production_w = 0.0
     producers_online = 0

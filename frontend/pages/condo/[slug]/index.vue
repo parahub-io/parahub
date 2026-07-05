@@ -13,10 +13,8 @@
     <h1 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">{{ condoName || $t('condo.title') }}</h1>
 
     <!-- Tab navigation -->
-    <UiTabs
-      model-value="overview"
+    <UiRouteTabs
       :tabs="condoTabs"
-      variant="nav"
       class="mb-6"
     />
 
@@ -27,7 +25,7 @@
 
     <!-- Empty state: no budget set and no data -->
     <div v-else-if="!summary || (Number(summary.monthly_budget) === 0 && !assemblies?.length)" class="text-center py-12">
-      <img src="/images/para/building.png" alt="" class="w-24 h-24 mx-auto mb-3 opacity-80" />
+      <img src="/images/para/building.webp" alt="" class="w-24 h-24 mx-auto mb-3 opacity-80" />
       <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-1">{{ $t('condo.overview_empty_title') }}</p>
       <p class="text-xs text-neutral-400 dark:text-neutral-500 mb-4">{{ $t('condo.overview_empty_subtitle') }}</p>
       <div class="flex gap-2 justify-center">

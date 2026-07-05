@@ -3,7 +3,7 @@
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Loading -->
       <div v-if="loading" class="text-center py-12">
-        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
       </div>
 
       <div v-else-if="shipment">
@@ -13,7 +13,7 @@
             <NuxtLink :to="localePath('/shipments')" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2">
               <ArrowLeft class="w-5 h-5" />
             </NuxtLink>
-            <span class="font-mono text-lg font-bold text-primary">{{ shipment.tracking_code }}</span>
+            <span class="font-mono text-lg font-bold text-secondary dark:text-secondary-400">{{ shipment.tracking_code }}</span>
             <span :class="statusClass(shipment.status)" class="px-2 py-0.5 text-xs font-medium rounded-full">
               {{ $t(`shipments.status.${shipment.status}`) }}
             </span>

@@ -6,12 +6,14 @@ from django.http import HttpResponse
 from typing import Dict, Any
 import logging
 
+from django.conf import settings
+
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
-from identity.models import Contract
+from contracts.models import Contract
 from debts.models import Debt
 from .services import ProofExportService
-from .models import ProofExport
+from .models import ProofExport, AuditBatch, TimestampProof, PGPKeyPublication
 import hashlib
 
 logger = logging.getLogger(__name__)
@@ -129,7 +131,8 @@ def export_full_account(request):
         zip_data = export_service.export_full_account(request.auth)
 
         # Get all object IDs for tracking
-        from identity.models import Contract, Verification
+        from contracts.models import Contract
+        from identity.models import Verification
         from debts.models import Debt
         from market.models import Item
 
@@ -186,4 +189,35 @@ def get_export_history(request):
             }
             for exp in exports
         ]
+    }
+
+
+@router.get("/anchoring", auth=None, response=Dict[str, Any])
+@ratelimit(group='audit:anchoring', key='ip', rate='60/m')
+def anchoring_status(request):
+    """
+    Public transparency: aggregate OTS/Bitcoin anchoring status.
+
+    Read-only counters + latest batch. No PII — only public aggregates and the
+    node's own commit/block references. Powers the /docs/crypto live status block.
+    """
+    latest = AuditBatch.objects.order_by('-stamped_at').first()
+    latest_data = None
+    if latest:
+        latest_data = {
+            'git_commit_hash': latest.git_commit_hash,
+            'bitcoin_block': latest.bitcoin_block,
+            'event_count': latest.event_count,
+            'stamped_at': latest.stamped_at.isoformat() if latest.stamped_at else None,
+            'verified_at': latest.verified_at.isoformat() if latest.verified_at else None,
+        }
+
+    return {
+        'enabled': bool(getattr(settings, 'OPENTIMESTAMPS_ENABLED', False)),
+        'keys_published': PGPKeyPublication.objects.filter(revoked=False).count(),
+        'proofs_anchored': TimestampProof.objects.filter(batch__isnull=False).count(),
+        'proofs_pending': TimestampProof.objects.filter(batch__isnull=True).count(),
+        'batches': AuditBatch.objects.count(),
+        'batches_confirmed': AuditBatch.objects.filter(bitcoin_block__isnull=False).count(),
+        'latest_batch': latest_data,
     }

@@ -3,6 +3,8 @@
     "title": "Profile - Parahub",
     "description": "Profile management and account settings",
     "bio_placeholder": "Write a short bio...",
+    "bio_updated": "Bio saved",
+    "bio_update_failed": "Failed to save bio",
     "about_you_title": "About You",
     "status": {
       "active": "Active",
@@ -102,6 +104,10 @@
       "display_name_label": "Display Name",
       "display_name_placeholder": "Your display name",
       "display_name_hint": "This name will be shown on your profile and Para-ID badge",
+      "name_public_label": "Show my name publicly",
+      "name_public_hint": "When off, only your {'@'}handle is public — your real name is shown only to you and WoT-verified members.",
+      "name_public_enabled": "Your name is visible to everyone",
+      "name_public_disabled": "Only your {'@'}handle is public",
       "display_name_updated": "Display name updated",
       "display_name_update_failed": "Failed to update display name",
       "language_label": "Preferred Language",
@@ -151,6 +157,8 @@
       "notify_social_hint": "Partners, verifications",
       "notify_contracts": "Contracts & Debts",
       "notify_contracts_hint": "New contracts, signatures, debts",
+      "notify_rental": "Rentals",
+      "notify_rental_hint": "New bookings, confirmations, cancellations",
       "notify_governance": "Governance",
       "notify_governance_hint": "New polls and votes",
       "notify_calls": "Calls",
@@ -292,8 +300,9 @@
       "id_tip_3": "Plain or neutral background"
     },
     "verification_photo": {
-      "title": "WoT Verification Photo",
-      "hint": "Private photo used for face deduplication. Never shown publicly — only to verifiers during WoT verification.",
+      "title": "Web of Trust (WoT) verification photo",
+      "hint": "Private photo used for face deduplication. Never shown publicly — only to verifiers during Web of Trust verification.",
+      "learn_more": "What is this? →",
       "consent_label": "I consent to processing my biometric data (face embedding) for Sybil defense under GDPR Art. 9(2)(a)",
       "consent_required": "Biometric consent is required to upload a verification photo",
       "uploaded": "Verification photo uploaded",
@@ -301,9 +310,9 @@
       "duplicate_error": "This face matches an already-verified profile",
       "no_face": "No face detected. Please upload a clear photo.",
       "multiple_faces": "Multiple faces detected. Upload a photo with only your face.",
-      "status_ready": "Ready for WoT",
+      "status_ready": "Ready for verification",
       "status_pending": "Awaiting re-confirmation",
-      "delete_warning": "Deleting your verification photo will affect your WoT status"
+      "delete_warning": "Deleting your verification photo will affect your Web of Trust (WoT) status"
     }
   },
   "profiles": {
@@ -337,6 +346,9 @@
     "deleting": "Deleting..."
   },
   "user_profile": {
+    "listings": "Listings",
+    "view_all_listings": "View all",
+    "my_bookings": "My bookings",
     "title": "User Profile",
     "meta_description": "Public profile of {hna}",
     "loading": "Loading profile...",
@@ -367,6 +379,11 @@
     "hide_history": "Hide History",
     "present": "Present",
     "verify_button": "Verify This User",
+    "verify_needs_photo": "This user hasn't uploaded a WoT verification photo yet, so they can't be verified.",
+    "verify_blocked_not_personal": "Only your personal profile can verify other users — switch to it first. {link}",
+    "verify_blocked_no_pgp": "You need a PGP key before you can verify other users. {link}",
+    "verify_blocked_not_verified": "You must be WoT-verified yourself (3+ verifications) before you can verify others. {link}",
+    "verify_learn_more": "Learn how Web of Trust works",
     "already_verified": "Already Verified",
     "view_reputation": "View Reputation",
     "contact_button": "Contact",
@@ -442,6 +459,9 @@
     "show_advanced": "Show Advanced",
     "pgp_verified_since": "PGP key verified since",
     "pgp_key_active": "PGP Key Active",
+    "pgp_current": "Current",
+    "pgp_show_history": "Key history ({n})",
+    "pgp_hide_history": "Hide history",
     "feature_coming_soon": "Coming Soon",
     "partner_added_success": "User added to partners",
     "partner_add_failed": "Failed to add partner",

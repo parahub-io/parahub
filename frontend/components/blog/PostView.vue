@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   ArrowLeft, Calendar, User, Pin, Clock,
-  FileText, Download, Pencil
+  FileText, Download, Pencil, Heart, HeartHandshake
 } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
@@ -113,13 +113,16 @@ watch(() => props.post?.id, loadRelated, { immediate: false })
 
         <div class="p-6 sm:p-8">
           <!-- Badges row -->
-          <div v-if="post.status === 'draft' || post.is_pinned || post.is_demo || post.tags?.length" class="flex items-center gap-2 mb-4 flex-wrap">
+          <div v-if="post.status === 'draft' || post.is_pinned || post.is_demo || post.subscribers_only || post.tags?.length" class="flex items-center gap-2 mb-4 flex-wrap">
             <DemoBadge :is-demo="post.is_demo" />
             <UiBadge v-if="post.status === 'draft'" variant="default" type="soft" size="sm">
               {{ t('cms.draft') }}
             </UiBadge>
             <UiBadge v-if="post.is_pinned" variant="warning" type="soft" size="sm">
               <Pin class="w-3 h-3 mr-1" />{{ t('cms.pinned') }}
+            </UiBadge>
+            <UiBadge v-if="post.subscribers_only" variant="error" type="soft" size="sm">
+              <HeartHandshake class="w-3 h-3 mr-1" />{{ t('subscriptions.locked_title') }}
             </UiBadge>
             <UiBadge v-for="tag in post.tags" :key="tag.id" variant="info" type="soft" size="sm">
               {{ tag.name }}
@@ -190,8 +193,32 @@ watch(() => props.post?.id, loadRelated, { immediate: false })
             class="mb-6"
           />
 
+          <!-- Locked: subscribers-only post the viewer can't unlock — teaser + CTA -->
+          <div v-if="post.locked">
+            <p v-if="post.excerpt" class="text-neutral-700 dark:text-neutral-300 leading-relaxed mb-6">
+              {{ post.excerpt }}
+            </p>
+            <div class="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 p-6 text-center">
+              <HeartHandshake class="w-10 h-10 text-rose-500 mx-auto mb-3" />
+              <p class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-1">
+                {{ t('subscriptions.locked_title') }}
+              </p>
+              <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+                {{ t('subscriptions.locked_desc', { name: post.author_display_name || post.author_hna }) }}
+              </p>
+              <NuxtLink
+                :to="localePath(`/u/${post.author_local_name || post.author_hna?.split('@')[0]}`)"
+                class="btn-primary btn-sm inline-flex"
+              >
+                <Heart class="w-4 h-4" />
+                {{ t('subscriptions.unlock_btn') }}
+              </NuxtLink>
+            </div>
+          </div>
+
           <!-- Content (hide leading h1 — already shown in card header) -->
           <div
+            v-else
             class="blog-content prose dark:prose-invert prose-neutral prose-headings:text-neutral-900 dark:prose-headings:text-neutral-100 prose-a:text-secondary prose-img:rounded-lg max-w-none"
             v-html="post.content_html"
           />
@@ -223,13 +250,13 @@ watch(() => props.post?.id, loadRelated, { immediate: false })
       </div>
 
       <!-- Photos -->
-      <BlogPostPhotos :post-id="post.id" class="mt-6" />
+      <BlogPostPhotos v-if="!post.locked" :post-id="post.id" class="mt-6" />
 
       <!-- Videos -->
-      <ObjectVideos :object-id="post.id" class="mt-6" />
+      <ObjectVideos v-if="!post.locked" :object-id="post.id" class="mt-6" />
 
       <!-- Comments -->
-      <div class="mt-6">
+      <div v-if="!post.locked" class="mt-6">
         <BlogPostComments
           :post-id="post.id"
           :allow-comments="post.allow_comments"

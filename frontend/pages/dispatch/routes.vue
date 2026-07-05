@@ -32,7 +32,7 @@
           >
             <option v-for="a in store.agencies" :key="a.id" :value="a.id">{{ a.name }}</option>
           </select>
-          <NuxtLink to="/dispatch/assignments" class="btn-sm btn-outline">
+          <NuxtLink :to="localePath('/dispatch/assignments')" class="btn-sm btn-outline">
             <Radio class="w-3.5 h-3.5" /> {{ $t('dispatch.title') }}
           </NuxtLink>
           <UiButton variant="primary" size="sm" :icon="Plus" @click="showCreateRoute = true">
@@ -52,17 +52,17 @@
 
       <!-- Loading -->
       <div v-else-if="store.loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" />
       </div>
 
       <!-- Route list -->
       <template v-else-if="store.routes.length">
         <!-- Sub-nav: Routes | Stops -->
         <div class="flex gap-2 border-b border-neutral-200 dark:border-neutral-700 pb-2">
-          <NuxtLink to="/dispatch/routes" class="tab-active text-sm font-medium px-3 py-1.5">
+          <NuxtLink :to="localePath('/dispatch/routes')" class="tab-active text-sm font-medium px-3 py-1.5">
             <RouteIcon class="w-3.5 h-3.5 inline mr-1" /> {{ $t('transit_manage.routes') }} ({{ store.routes.length }})
           </NuxtLink>
-          <NuxtLink to="/dispatch/stops" class="tab-inactive text-sm px-3 py-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">
+          <NuxtLink :to="localePath('/dispatch/stops')" class="tab-inactive text-sm px-3 py-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">
             <MapPin class="w-3.5 h-3.5 inline mr-1" /> {{ $t('transit_manage.stops') }} ({{ store.stops.length }})
           </NuxtLink>
         </div>
@@ -287,7 +287,7 @@
           </button>
         </div>
         <div class="border-t border-neutral-200 dark:border-neutral-700 pt-3">
-          <NuxtLink to="/dispatch/stops" class="text-sm text-secondary hover:underline">
+          <NuxtLink :to="localePath('/dispatch/stops')" class="text-sm text-secondary hover:underline">
             {{ $t('transit_manage.manage_stops') }}
           </NuxtLink>
         </div>
@@ -315,6 +315,7 @@ import {
 import { useTransitManageStore, type ManagedRoute, type ManagedStop, type RouteStopItem } from '~/stores/transitManage'
 
 const { t } = useI18n()
+const localePath = useLocalePath()
 const store = useTransitManageStore()
 const authStore = useAuthStore()
 const isStaff = computed(() => authStore.user?.is_staff)

@@ -423,7 +423,7 @@
 
         <!-- Map link -->
         <NuxtLink
-          :to="`/map?energy=${cell.id}&lat=${cell.latitude}&lng=${cell.longitude}&zoom=14`"
+          :to="localePath(`/map?energy=${cell.id}&lat=${cell.latitude}&lng=${cell.longitude}&zoom=14`)"
           class="card p-4 flex items-center gap-3 hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
         >
           <MapPin :size="18" class="text-secondary-500" />

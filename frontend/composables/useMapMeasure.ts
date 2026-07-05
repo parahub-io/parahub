@@ -7,8 +7,7 @@ import { ref, computed } from 'vue'
 import distance from '@turf/distance'
 import turfArea from '@turf/area'
 import { point, polygon as turfPolygon } from '@turf/helpers'
-
-const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
+import { createDrawTool, EMPTY_FC } from '~/composables/useMapDrawTool'
 
 // Layer / source IDs
 const SRC_LINE = 'measure-line'
@@ -22,11 +21,6 @@ const LYR_LABELS = 'measure-labels-layer'
 const LYR_POLYGON_FILL = 'measure-polygon-fill'
 const LYR_POLYGON_OUTLINE = 'measure-polygon-outline'
 
-// Module-level handler refs for cleanup
-let _clickHandler: ((e: any) => void) | null = null
-let _dblClickHandler: ((e: any) => void) | null = null
-let _mouseMoveHandler: ((e: any) => void) | null = null
-
 export type MeasureMode = 'distance' | 'area'
 
 export function useMapMeasure() {
@@ -34,7 +28,6 @@ export function useMapMeasure() {
 
   // ======== State ========
 
-  const measureActive = ref(false)
   const measureMode = ref<MeasureMode>('distance')
   const measurePoints = ref<[number, number][]>([]) // [lng, lat]
   const cursorPoint = ref<[number, number] | null>(null) // live cursor for rubber-band
@@ -173,123 +166,13 @@ export function useMapMeasure() {
     return { type: 'FeatureCollection', features }
   }
 
-  // ======== Layer Management ========
-
-  function setupLayers(map: any) {
-    if (map.getSource(SRC_LINE)) return
-
-    map.addSource(SRC_LINE, { type: 'geojson', data: EMPTY_FC })
-    map.addSource(SRC_POINTS, { type: 'geojson', data: EMPTY_FC })
-    map.addSource(SRC_LABELS, { type: 'geojson', data: EMPTY_FC })
-    map.addSource(SRC_POLYGON, { type: 'geojson', data: EMPTY_FC })
-
-    // Polygon fill (area mode only, semi-transparent)
-    map.addLayer({
-      id: LYR_POLYGON_FILL,
-      type: 'fill',
-      source: SRC_POLYGON,
-      paint: {
-        'fill-color': '#3b82f6',
-        'fill-opacity': 0.15,
-      },
-    })
-
-    // Polygon outline
-    map.addLayer({
-      id: LYR_POLYGON_OUTLINE,
-      type: 'line',
-      source: SRC_POLYGON,
-      paint: {
-        'line-color': '#3b82f6',
-        'line-width': 2,
-        'line-opacity': 0.4,
-      },
-    })
-
-    // Line outline (wider, for contrast)
-    map.addLayer({
-      id: LYR_LINE_OUTLINE,
-      type: 'line',
-      source: SRC_LINE,
-      paint: {
-        'line-color': '#ffffff',
-        'line-width': 5,
-        'line-opacity': 0.7,
-      },
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-    })
-
-    // Main dashed line
-    map.addLayer({
-      id: LYR_LINE,
-      type: 'line',
-      source: SRC_LINE,
-      paint: {
-        'line-color': '#3b82f6',
-        'line-width': 3,
-        'line-dasharray': [2, 1.5],
-        'line-opacity': 0.9,
-      },
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-    })
-
-    // Points
-    map.addLayer({
-      id: LYR_POINTS,
-      type: 'circle',
-      source: SRC_POINTS,
-      paint: {
-        'circle-radius': 6,
-        'circle-color': '#3b82f6',
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 2,
-      },
-    })
-
-    // Segment distance labels
-    map.addLayer({
-      id: LYR_LABELS,
-      type: 'symbol',
-      source: SRC_LABELS,
-      layout: {
-        'text-field': ['get', 'label'],
-        'text-size': 13,
-        'text-font': ['Noto Sans Regular'],
-        'text-offset': [0, -1.2],
-        'text-allow-overlap': true,
-      },
-      paint: {
-        'text-color': '#1e3a5f',
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 2,
-      },
-    })
-  }
-
   function updateVisualization() {
     const map = mapStore.mapInstance
     if (!map) return
-    const lineSrc = map.getSource(SRC_LINE)
-    const pointsSrc = map.getSource(SRC_POINTS)
-    const labelsSrc = map.getSource(SRC_LABELS)
-    const polygonSrc = map.getSource(SRC_POLYGON)
-    if (lineSrc) lineSrc.setData(buildLineGeoJSON())
-    if (pointsSrc) pointsSrc.setData(buildPointsGeoJSON())
-    if (labelsSrc) labelsSrc.setData(buildLabelsGeoJSON())
-    if (polygonSrc) polygonSrc.setData(buildPolygonGeoJSON())
-  }
-
-  function clearVisualization() {
-    const map = mapStore.mapInstance
-    if (!map) return
-    const lineSrc = map.getSource(SRC_LINE)
-    const pointsSrc = map.getSource(SRC_POINTS)
-    const labelsSrc = map.getSource(SRC_LABELS)
-    const polygonSrc = map.getSource(SRC_POLYGON)
-    if (lineSrc) lineSrc.setData(EMPTY_FC)
-    if (pointsSrc) pointsSrc.setData(EMPTY_FC)
-    if (labelsSrc) labelsSrc.setData(EMPTY_FC)
-    if (polygonSrc) polygonSrc.setData(EMPTY_FC)
+    map.getSource(SRC_LINE)?.setData(buildLineGeoJSON())
+    map.getSource(SRC_POINTS)?.setData(buildPointsGeoJSON())
+    map.getSource(SRC_LABELS)?.setData(buildLabelsGeoJSON())
+    map.getSource(SRC_POLYGON)?.setData(buildPolygonGeoJSON())
   }
 
   // ======== Interaction ========
@@ -309,71 +192,135 @@ export function useMapMeasure() {
   function clearMeasure() {
     measurePoints.value = []
     cursorPoint.value = null
-    clearVisualization()
+    tool.clearVisualization()
   }
 
-  function _attachHandlers(map: any) {
-    _clickHandler = (e: any) => {
-      addPoint([e.lngLat.lng, e.lngLat.lat])
-    }
+  // ======== Lifecycle (via createDrawTool) ========
 
-    _dblClickHandler = (e: any) => {
-      e.preventDefault()
-      // Remove last duplicate point added by the preceding click event
-      if (measurePoints.value.length > 1) {
-        measurePoints.value = measurePoints.value.slice(0, -1)
-        updateVisualization()
-      }
-    }
-
-    _mouseMoveHandler = (e: any) => {
-      if (measurePoints.value.length > 0) {
+  const tool = createDrawTool({
+    tag: 'measure',
+    sources: [SRC_LINE, SRC_POINTS, SRC_LABELS, SRC_POLYGON],
+    layers: [
+      // Polygon fill (area mode only, semi-transparent)
+      {
+        id: LYR_POLYGON_FILL,
+        type: 'fill',
+        source: SRC_POLYGON,
+        paint: {
+          'fill-color': '#3b82f6',
+          'fill-opacity': 0.15,
+        },
+      },
+      // Polygon outline
+      {
+        id: LYR_POLYGON_OUTLINE,
+        type: 'line',
+        source: SRC_POLYGON,
+        paint: {
+          'line-color': '#3b82f6',
+          'line-width': 2,
+          'line-opacity': 0.4,
+        },
+      },
+      // Line outline (wider, for contrast)
+      {
+        id: LYR_LINE_OUTLINE,
+        type: 'line',
+        source: SRC_LINE,
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 5,
+          'line-opacity': 0.7,
+        },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+      },
+      // Main dashed line
+      {
+        id: LYR_LINE,
+        type: 'line',
+        source: SRC_LINE,
+        paint: {
+          'line-color': '#3b82f6',
+          'line-width': 3,
+          'line-dasharray': [2, 1.5],
+          'line-opacity': 0.9,
+        },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+      },
+      // Points
+      {
+        id: LYR_POINTS,
+        type: 'circle',
+        source: SRC_POINTS,
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#3b82f6',
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
+        },
+      },
+      // Segment distance labels
+      {
+        id: LYR_LABELS,
+        type: 'symbol',
+        source: SRC_LABELS,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-size': 13,
+          'text-font': ['Noto Sans Regular'],
+          'text-offset': [0, -1.2],
+          'text-allow-overlap': true,
+        },
+        paint: {
+          'text-color': '#1e3a5f',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 2,
+        },
+      },
+    ],
+    disableDoubleClickZoom: true,
+    events: {
+      click: (e: any) => {
+        addPoint([e.lngLat.lng, e.lngLat.lat])
+      },
+      dblclick: (e: any) => {
+        e.preventDefault()
+        // Remove last duplicate point added by the preceding click event
+        if (measurePoints.value.length > 1) {
+          measurePoints.value = measurePoints.value.slice(0, -1)
+          updateVisualization()
+        }
+      },
+      mousemove: (e: any) => {
+        if (measurePoints.value.length === 0) return
         cursorPoint.value = [e.lngLat.lng, e.lngLat.lat]
         // Update line + polygon for rubber-band effect
-        const lineSrc = map.getSource(SRC_LINE)
-        if (lineSrc) lineSrc.setData(buildLineGeoJSON())
+        const map = mapStore.mapInstance
+        if (!map) return
+        map.getSource(SRC_LINE)?.setData(buildLineGeoJSON())
         if (measureMode.value === 'area') {
-          const polygonSrc = map.getSource(SRC_POLYGON)
-          if (polygonSrc) polygonSrc.setData(buildPolygonGeoJSON())
+          map.getSource(SRC_POLYGON)?.setData(buildPolygonGeoJSON())
         }
-      }
-    }
+      },
+    },
+    onStart: () => {
+      measurePoints.value = []
+      cursorPoint.value = null
+    },
+    onStop: () => {
+      cursorPoint.value = null
+      measurePoints.value = []
+    },
+  })
 
-    map.on('click', _clickHandler)
-    map.on('dblclick', _dblClickHandler)
-    map.on('mousemove', _mouseMoveHandler)
-  }
-
-  function _detachHandlers(map: any) {
-    if (_clickHandler) { map.off('click', _clickHandler); _clickHandler = null }
-    if (_dblClickHandler) { map.off('dblclick', _dblClickHandler); _dblClickHandler = null }
-    if (_mouseMoveHandler) { map.off('mousemove', _mouseMoveHandler); _mouseMoveHandler = null }
-  }
+  const measureActive = tool.active
 
   function startMeasure(mode: MeasureMode = 'distance') {
-    const map = mapStore.mapInstance
-    if (!map) return
-    measureActive.value = true
     measureMode.value = mode
-    measurePoints.value = []
-    cursorPoint.value = null
-    clearVisualization()
-    map.getCanvas().style.cursor = 'crosshair'
-    map.doubleClickZoom.disable()
-    _attachHandlers(map)
+    tool.start()
   }
 
-  function stopMeasure() {
-    const map = mapStore.mapInstance
-    if (!map) return
-    measureActive.value = false
-    cursorPoint.value = null
-    map.getCanvas().style.cursor = ''
-    map.doubleClickZoom.enable()
-    _detachHandlers(map)
-    clearVisualization()
-    measurePoints.value = []
-  }
+  const stopMeasure = tool.stop
 
   function toggleMeasure(mode: MeasureMode = 'distance') {
     if (measureActive.value && measureMode.value === mode) stopMeasure()
@@ -394,7 +341,7 @@ export function useMapMeasure() {
     formattedArea,
     formattedPerimeter,
     segmentDistances,
-    setupLayers,
+    setupLayers: tool.setupLayers,
     addPoint,
     undoLastPoint,
     clearMeasure,

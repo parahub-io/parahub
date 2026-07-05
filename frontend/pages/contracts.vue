@@ -12,7 +12,7 @@
       <!-- Tab content -->
       <div class="mt-6">
         <div v-if="loading" class="text-center py-12" role="status" aria-live="polite">
-          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" aria-hidden="true"></div>
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" aria-hidden="true"></div>
           <span class="sr-only">{{ $t('common.loading') }}</span>
         </div>
 
@@ -47,7 +47,7 @@
                       :key="item.id"
                       class="inline-flex items-center gap-0.5 px-1.5 py-0 text-[10px] rounded border border-neutral-200 dark:border-neutral-600 text-neutral-500 dark:text-neutral-400"
                     >
-                      {{ item.type === 'CREDIT' ? '↑' : '↓' }}{{ item.title.slice(0, 15) }}{{ item.title.length > 15 ? '…' : '' }}
+                      <span :class="item.type === 'CREDIT' ? 'text-offer-600 dark:text-offer-400' : 'text-want-600 dark:text-want-400'">{{ item.type === 'CREDIT' ? '↑' : '↓' }}</span>{{ item.title.slice(0, 15) }}{{ item.title.length > 15 ? '…' : '' }}
                     </span>
                     <span v-if="contract.items.length > 2" class="text-[10px] text-neutral-400">+{{ contract.items.length - 2 }}</span>
                   </div>
@@ -108,7 +108,7 @@
                         {{ $t(contract.creator_id === authStore.activeProfile?.id ? 'contracts.with' : 'contracts.from') }}
                       </div>
                       <NuxtLink
-                        :to="localePath(`/u/${contract.creator_id === authStore.activeProfile?.id ? contract.partner_id : contract.creator_id}`)"
+                        :to="localePath(`/u/${contract.creator_id === authStore.activeProfile?.id ? (contract.partner_hna?.split('@')[0] || contract.partner_id) : (contract.creator_hna?.split('@')[0] || contract.creator_id)}`)"
                         class="text-link break-words"
                       >
                         {{ contract.creator_id === authStore.activeProfile?.id ? contract.partner_display_name : contract.creator_display_name }}
@@ -118,7 +118,7 @@
                       <div class="text-xs uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
                         {{ $t('contracts.arbiter') }}
                       </div>
-                      <NuxtLink :to="localePath(`/u/${contract.arbiter_id}`)" class="text-link break-words">
+                      <NuxtLink :to="localePath(`/u/${contract.arbiter_hna?.split('@')[0] || contract.arbiter_id}`)" class="text-link break-words">
                         {{ contract.arbiter_display_name }}
                       </NuxtLink>
                       <NuxtLink :to="localePath(`/arbiters/${contract.arbiter_id}`)" class="text-link text-xs ml-1">
@@ -136,10 +136,16 @@
                         :key="item.id"
                         class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300"
                       >
-                        <span class="text-neutral-400">{{ item.type === 'CREDIT' ? '↑' : '↓' }}</span>
+                        <span :class="item.type === 'CREDIT' ? 'text-offer-600 dark:text-offer-400' : 'text-want-600 dark:text-want-400'">{{ item.type === 'CREDIT' ? '↑' : '↓' }}</span>
                         {{ item.title }}
                       </span>
                     </div>
+                  </div>
+
+                  <!-- Contract terms (native — stored server-side, party-only) -->
+                  <div v-if="contract.document_text" class="border-t border-neutral-200 dark:border-neutral-700 pt-3">
+                    <div class="text-xs uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">{{ $t('contracts.terms_label').toUpperCase() }}</div>
+                    <div class="prose prose-sm dark:prose-invert max-w-none" v-html="contract.document_text_html"></div>
                   </div>
 
                   <!-- Technical data -->
@@ -287,7 +293,7 @@
 
         <!-- Empty state -->
         <div v-else class="text-center py-12">
-          <img src="/images/para/shrug.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+          <img src="/images/para/shrug.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
           <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
             <template v-if="activeTab === 'pending'">{{ $t('contracts.empty.pending') }}</template>
             <template v-else-if="activeTab === 'signed'">{{ $t('contracts.empty.signed') }}</template>
@@ -564,8 +570,17 @@
               </p>
             </div>
 
-            <!-- File verification -->
-            <div class="border-2 border-orange-300 dark:border-orange-700 rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
+            <!-- Native contract: the actual terms, stored server-side (PRIVATE).
+                 The partner reads them here, then signs. -->
+            <div v-if="selectedContract.document_text" class="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+              <div class="px-3 py-2 border-b border-neutral-200 dark:border-neutral-700 text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                {{ $t('contracts.sign_modal.read_terms') }}
+              </div>
+              <div class="prose prose-sm dark:prose-invert max-w-none p-3 max-h-72 overflow-y-auto" v-html="selectedContract.document_text_html"></div>
+            </div>
+
+            <!-- File verification (legacy / upload contracts only — no stored body) -->
+            <div v-if="!selectedContract.document_text" class="border-2 border-orange-300 dark:border-orange-700 rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
               <p class="text-sm font-semibold text-orange-800 dark:text-orange-200 mb-2">
                 {{ $t('contracts.sign_modal.verify_file') }}
               </p>
@@ -895,7 +910,9 @@ const newContract = ref({
   arbiter_id: '',
   file_sha256: '',
   file: null,
-  item_ids: []
+  item_ids: [],
+  kind: 'SALE',        // 'SALE' (default) | 'RENTAL' (set by the formalize-rental flow)
+  booking_id: null     // rental.Booking to link when formalizing a confirmed booking
 })
 
 const hashProgress = ref(0)
@@ -940,14 +957,23 @@ const contractTemplates = computed(() => [
   { id: 'loan', label: $t('contracts.templates.loan') },
 ])
 
-function applyTemplate(templateId) {
+function applyTemplate(templateId, fill = {}) {
   const templates = {
     service: $t('contracts.templates.service_body'),
     sale: $t('contracts.templates.sale_body'),
     rental: $t('contracts.templates.rental_body'),
     loan: $t('contracts.templates.loan_body'),
   }
-  contractTermsHtml.value = templates[templateId] || ''
+  let body = templates[templateId] || ''
+  // [[token]] placeholders are filled from the booking/item when formalizing a
+  // booking; anything not provided becomes a fill-in-the-blank line for manual
+  // entry (so the plain template buttons still produce a usable draft).
+  // NB: [[ ]] (not { }) because vue-i18n parses braces as interpolation.
+  body = body.replace(/\[\[(\w+)\]\]/g, (_, key) => {
+    const v = fill[key]
+    return (v !== undefined && v !== null && v !== '') ? String(v) : '__________'
+  })
+  contractTermsHtml.value = body
 }
 
 // When contractTermsHtml changes (write mode), compute SHA256 from text content
@@ -1133,6 +1159,9 @@ async function fetchMyItems() {
 
 function openCreateModal() {
   newContract.value.title = ''
+  // Generic create — clear any rental context a prior formalize may have left.
+  newContract.value.kind = 'SALE'
+  newContract.value.booking_id = null
   createMode.value = 'write'
   contractTermsHtml.value = ''
   fetchMyItems()
@@ -1148,7 +1177,9 @@ function closeCreateModal() {
     arbiter_id: '',
     file_sha256: '',
     file: null,
-    item_ids: []
+    item_ids: [],
+    kind: 'SALE',
+    booking_id: null
   }
   myItems.value = []
   partnerItems.value = []
@@ -1243,7 +1274,14 @@ async function createContract() {
         file_sha256: newContract.value.file_sha256,
         arbiter_id: newContract.value.arbiter_id || null,
         signature: signature,
-        item_ids: newContract.value.item_ids.length > 0 ? newContract.value.item_ids : null
+        item_ids: newContract.value.item_ids.length > 0 ? newContract.value.item_ids : null,
+        kind: newContract.value.kind || 'SALE',
+        // Store the composed body server-side (PRIVATE) so the counterparty can
+        // read the actual terms in-app before signing. Upload mode keeps it null
+        // (legacy hash-only). The hash already proves this exact text.
+        document_text: createMode.value === 'write' ? contractTermsHtml.value : null,
+        document_format: 'html',
+        booking_id: newContract.value.booking_id || null
       }
     })
 
@@ -1271,13 +1309,27 @@ async function createContract() {
   }
 }
 
-function openSignModal(contract) {
+async function openSignModal(contract) {
   selectedContract.value = contract
   verifiedHash.value = ''
   hashMatches.value = false
   verifyHashProgress.value = 0
   verifyingHash.value = false
   showSignModal.value = true
+  // Native contract: the body is stored server-side. Confirm the rendered text
+  // hashes to the signed file_sha256 (cryptographic WYSIWYG) so the partner can
+  // read-and-sign without re-uploading a file. Legacy/upload contracts keep the
+  // manual file-verify path (handleVerifyFile).
+  if (contract.document_text) {
+    try {
+      const blob = new Blob([contract.document_text], { type: 'text/html' })
+      const sha256 = await computeFileSHA256(blob)
+      verifiedHash.value = sha256
+      hashMatches.value = sha256 === contract.file_sha256
+    } catch (e) {
+      console.error('Failed to verify stored document hash:', e)
+    }
+  }
 }
 
 async function handleVerifyFile(event) {
@@ -1752,6 +1804,8 @@ async function handleQueryParams() {
   if (!route.query.partner) return
   const partnerId = String(route.query.partner)
   const itemId = route.query.item ? String(route.query.item) : null
+  const kind = route.query.kind ? String(route.query.kind) : null
+  const bookingId = route.query.booking ? String(route.query.booking) : null
 
   try {
     await authStore.ensureToken()
@@ -1776,6 +1830,7 @@ async function handleQueryParams() {
     newContract.value.partner_id = partnerId
 
     // If item param present — fetch item and pre-fill
+    let itemOwnerId = null
     if (itemId) {
       try {
         const itemData = await $fetch(`/api/v1/items/${itemId}/`, {
@@ -1786,6 +1841,7 @@ async function handleQueryParams() {
         })
         // Auto-fill title from item
         newContract.value.title = itemData.title
+        itemOwnerId = itemData.owner_id || null
         // Pre-select item in the items list
         await fetchMyItems()
         // Add partner items manually (watcher won't fire since partner_id was set above)
@@ -1795,6 +1851,50 @@ async function handleQueryParams() {
       } catch (e) {
         console.error('Failed to load item from query:', e)
       }
+    }
+
+    // Formalize-rental flow: ?kind=rental[&booking=<id>] → write mode, RENTAL,
+    // rental template prefilled from the booking + item (the counterparty then
+    // reads the rendered terms in the sign modal and signs).
+    if (kind === 'rental') {
+      newContract.value.kind = 'RENTAL'
+      newContract.value.booking_id = bookingId
+      createMode.value = 'write'
+      const fmtD = (s) => s ? new Date(s).toLocaleDateString(locale.value, { year: 'numeric', month: 'short', day: 'numeric' }) : ''
+      const fmtM = (a, c) => (a !== null && a !== undefined && a !== '') ? `${a} ${c || ''}`.trim() : ''
+      // Owner vs renter is decided by who actually owns the item, not by who
+      // created the contract — so the template reads correctly whether the owner
+      // formalizes from their inbox or the renter proposes from the item page.
+      const me = authStore.activeProfile
+      const meName = me?.display_name || me?.hna || ''
+      const partnerName = partnerProfile.display_name || partnerProfile.hna || ''
+      const iAmOwner = itemOwnerId ? me?.id === itemOwnerId : true
+      const fill = {
+        owner: iAmOwner ? meName : partnerName,
+        renter: iAmOwner ? partnerName : meName,
+        item: newContract.value.title || '',
+      }
+      if (bookingId) {
+        try {
+          const bk = await $fetch(`/api/v1/rental/bookings/${bookingId}`, {
+            credentials: 'include',
+            headers: authStore.token ? { 'Authorization': `Bearer ${authStore.token}` } : {}
+          })
+          fill.period = `${fmtD(bk.start)} — ${fmtD(bk.end)}`.trim()
+          fill.rent = fmtM(bk.price_total, bk.currency)
+          fill.deposit = fmtM(bk.deposit_amount, bk.currency)
+          if (!fill.item && bk.item_title) {
+            newContract.value.title = bk.item_title
+            fill.item = bk.item_title
+          }
+        } catch (e) {
+          console.error('Failed to load booking for formalize:', e)
+        }
+      }
+      if (newContract.value.title) {
+        newContract.value.title = $t('contracts.rental_title', { item: newContract.value.title })
+      }
+      applyTemplate('rental', fill)
     }
 
     showCreateModal.value = true
@@ -1811,9 +1911,6 @@ watch(() => route.query.partner, (val) => {
 })
 
 onMounted(async () => {
-  await loadKeys()
-  await fetchContracts()
-  await fetchPartners()
   connectWS()
   await handleQueryParams()
 })
@@ -1821,4 +1918,17 @@ onMounted(async () => {
 onUnmounted(() => {
   disconnectWS()
 })
+
+// Client-side fetch behind Suspense (token-authed → no SSR): client-side
+// navigation holds the previous page until keys/contracts/partners are ready
+// instead of flashing an empty shell (was inside onMounted; onMounted runs
+// after this resolves, so connectWS/handleQueryParams still see loaded data).
+const bootstrap = useAsyncData('contracts-bootstrap', async () => {
+  await loadKeys()
+  await fetchContracts()
+  await fetchPartners()
+  return true
+}, { server: false })
+
+await bootstrap
 </script>

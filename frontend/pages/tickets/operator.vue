@@ -7,7 +7,6 @@
       v-if="contexts.length > 1"
       v-model="activeContext"
       :tabs="contextTabs"
-      variant="pills"
       class="mb-4"
     />
 

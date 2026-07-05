@@ -5,10 +5,6 @@
     "search_placeholder": "Artikel suchen...",
     "create_listing": "Angebot erstellen",
     "barter_button": "Tauschen",
-    "type": {
-      "credit": "Angebot",
-      "debit": "Gesuch"
-    },
     "pricing_type": {
       "sale": "Verkauf",
       "rent": "Miete",
@@ -39,10 +35,7 @@
       "matches_i_want": "Übereinstimmungen: Ich möchte",
       "all_categories": "Alle Kategorien",
       "barter_possible": "Tausch möglich",
-      "owner_label": "Besitzer",
-      "all_owners": "Alle",
       "only_mine": "Meine",
-      "loading_partners": "Partner werden geladen...",
       "reset_category_title": "Kategorie zurücksetzen",
       "filtered_by_user": "Gefiltert nach Benutzer",
       "clear_user_filter": "Benutzerfilter löschen",
@@ -56,7 +49,8 @@
       "price_range": "Preisspanne",
       "min_price": "Min",
       "max_price": "Max",
-      "include_barter": "Nur Tausch einschließen"
+      "include_barter": "Tauschartikel einschließen",
+      "self_made_only": "Nur vom Hersteller"
     },
     "empty": {
       "title": "Keine Artikel gefunden",
@@ -82,6 +76,8 @@
       "image_n": "Bild {n} von {total}",
       "barter": "Tausch",
       "mine_badge": "Meine",
+      "self_made_badge": "Vom Hersteller",
+      "registered_badge": "Nur Angemeldete",
       "match_badge": "Übereinstimmung",
       "demand_need": "{n} Bedarf | {n} Bedarf",
       "demand_offers": "{n} Angebot | {n} Angebote",
@@ -107,7 +103,20 @@
     "pricing": {
       "free": "Kostenlos",
       "negotiable": "Preis verhandelbar",
-      "converted_from": "von {currency}"
+      "converted_from": "von {currency}",
+      "sale": "Verkauf",
+      "rent": "Miete",
+      "unit_none": "Keine Einheit",
+      "unit_custom": "Andere…",
+      "unit_custom_placeholder": "Einheit (z.B. kg, Stunde, Stk)",
+      "units": {
+        "kg": "kg", "g": "g", "t": "t", "l": "l", "ml": "ml",
+        "m": "m", "m²": "m²", "m³": "m³",
+        "pcs": "Stk", "pair": "Paar", "box": "Karton", "set": "Set",
+        "hour": "Stunde", "day": "Tag", "week": "Woche", "month": "Monat", "year": "Jahr",
+        "half_day": "halber Tag", "weekend": "Wochenende",
+        "session": "Sitzung", "project": "Projekt", "page": "Seite", "consultation": "Beratung"
+      }
     },
     "time": {
       "just_now": "gerade",
@@ -163,6 +172,10 @@
       "submitting": "Erstellen...",
       "international_label": "Internationales Angebot",
       "international_desc": "Für alle Nutzer sichtbar, unabhängig von deren Spracheinstellung (z.B. Ferndienstleistungen, Souvenirs)",
+      "self_made_label": "Vom Hersteller",
+      "self_made_desc": "Aktiviere dies, wenn du es selbst hergestellt, angebaut oder zubereitet hast, statt es weiterzuverkaufen. Gekaufte Teile und Zutaten sind in Ordnung – lass es nur leer, wenn du es fertig zum Wiederverkauf gekauft hast.",
+      "visibility_label": "Nur für angemeldete Nutzer",
+      "visibility_desc": "Dieses Angebot vor anonymen Besuchern und Suchmaschinen verbergen — nur angemeldete parahub-Nutzer sehen es. Leer lassen, um öffentlich zu bleiben (für alle auffindbar).",
       "voice_dictate": "Anzeige diktieren",
       "voice_recording": "Höre zu... tippen zum Stoppen",
       "voice_processing": "Verarbeitung...",
@@ -188,7 +201,13 @@
       "longitude_placeholder": "Längengrad",
       "cancel": "Abbrechen",
       "save": "Speichern",
-      "saving": "Speichern..."
+      "saving": "Speichern...",
+      "photos_help": "Fotos werden sofort gespeichert.",
+      "media_label": "Fotos & Video",
+      "media_help": "Das erste Element ist das Titelbild. Ziehe die Kacheln (oder nutze die Pfeile), um die Reihenfolge zu ändern. Fotos und Video werden sofort gespeichert.",
+      "add_video": "Video hinzufügen",
+      "move_earlier": "Nach vorne",
+      "move_later": "Nach hinten"
     },
     "delete_modal": {
       "title": "Angebot löschen?",
@@ -204,7 +223,8 @@
       "listed_by": "Angeboten von",
       "posted": "Gepostet",
       "contact_seller": "Verkäufer kontaktieren",
-      "make_deal": "Geschäft machen"
+      "make_deal": "Geschäft machen",
+      "tap_to_close": "Zum Schließen irgendwo tippen"
     },
     "notifications": {
       "created": "Angebot erfolgreich erstellt!",
@@ -248,7 +268,13 @@
       "ai_error_401": "Authentifizierung erforderlich",
       "ai_error_unknown": "Fehler",
       "ai_quota_exceeded": "Tägliches KI-Analysekontingent überschritten ({limit}/{limit}). Versuchen Sie es morgen erneut oder füllen Sie manuell aus.",
-      "ai_quota_exhausted": "KI-Kontingent erschöpft. Bitte füllen Sie das Formular manuell aus."
+      "ai_quota_exhausted": "KI-Kontingent erschöpft. Bitte füllen Sie das Formular manuell aus.",
+      "photo_deleted": "Foto gelöscht",
+      "photo_add_error": "Foto konnte nicht hinzugefügt werden.",
+      "photo_delete_error": "Foto konnte nicht gelöscht werden.",
+      "order_save_error": "Reihenfolge konnte nicht gespeichert werden.",
+      "video_deleted": "Video gelöscht",
+      "video_delete_error": "Video konnte nicht gelöscht werden."
     },
     "ai_quota_label": "KI: {remaining}/{limit}",
     "propose_deal": {
@@ -292,15 +318,23 @@
     "no_image": "Kein Bild",
     "zoom_image": "Vollbild anzeigen",
     "my_items": {
-      "title": "Meine Anzeigen",
-      "subtitle": "Verwalten Sie Ihre Marktplatz-Anzeigen",
+      "tab_listings": "Anzeigen",
+      "title": "Mein Markt",
+      "subtitle": "Ihre Anzeigen, Anfragen und Buchungen",
       "filter_all": "Alle",
       "filter_active": "Aktiv",
       "filter_inactive": "Inaktiv",
       "status_active": "Aktiv",
       "status_hidden": "Versteckt",
       "empty_title": "Noch keine Anzeigen",
-      "empty_description": "Erstellen Sie Ihre erste Anzeige"
+      "empty_description": "Erstellen Sie Ihre erste Anzeige",
+      "tab_barter": "Tausch"
+    },
+    "error_codes": {
+      "item_delete_forbidden": "Keine Berechtigung, dieses Inserat zu löschen",
+      "item_delete_failed": "Inserat konnte nicht gelöscht werden",
+      "item_deactivate_forbidden": "Keine Berechtigung, dieses Inserat zu verbergen",
+      "item_activate_forbidden": "Keine Berechtigung, dieses Inserat zu aktivieren"
     }
   }
 }

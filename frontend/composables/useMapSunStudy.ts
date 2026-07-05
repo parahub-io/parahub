@@ -6,22 +6,23 @@
 
 import { ref, computed, watch } from 'vue'
 import SunCalc from 'suncalc'
-
-const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
+import { createDrawTool, EMPTY_FC } from '~/composables/useMapDrawTool'
 
 // Layer / source IDs — single source for sun elements (1 worker round-trip instead of 3)
 const SRC_SUN = 'sun-study'
 const LYR_SUN_DIR = 'sun-direction-line'
 const LYR_SHADOW_DIR = 'sun-shadow-line'
 const LYR_SUN_MARKER = 'sun-marker-layer'
+const LYR_MOON_CASING = 'moon-direction-casing' // dark halo so the moon line reads on satellite
+const LYR_MOON_DIR = 'moon-direction-line'   // subordinate to the sun line
+const LYR_MOON_MARKER = 'moon-marker-layer'  // opacity hints illumination/phase
 const SRC_TERMINATOR = 'sun-terminator'
 const LYR_TERM_OUTER = 'sun-term-outer'  // pre-twilight band (-6° to 0°)
 const LYR_TERM_MID = 'sun-term-mid'      // civil twilight (0° to +6°)
 const LYR_TERM_INNER = 'sun-term-inner'  // full night (beyond +6°)
 const LYR_TERMINATOR_LINE = 'sun-terminator-line'
 
-// Module-level handler for cleanup
-let _moveEndHandler: (() => void) | null = null
+// Module-level timer refs for cleanup
 let _realtimeInterval: ReturnType<typeof setInterval> | null = null
 let _rafId: number | null = null
 
@@ -31,7 +32,6 @@ export function useMapSunStudy() {
 
   // ======== State ========
 
-  const sunStudyActive = ref(false)
   const sunTimeMinutes = ref(_nowMinutes())
   const sunDateISO = ref(_todayISO()) // "YYYY-MM-DD"
   const realtimeMode = ref(true) // true = clock ticks in real-time
@@ -83,6 +83,53 @@ export function useMapSunStudy() {
       blueHourEveningEnd: times.blueHourDuskEnd || null,
     }
   })
+
+  // ======== Moon ========
+  // Always computed alongside the sun (no separate mode). The moon line/marker only
+  // render when the moon is above the horizon, so it never clutters a daytime study.
+
+  const moonPosition = computed(() => {
+    // suncalc moon azimuth uses the same convention as the sun (0 = south, positive = west)
+    const pos = SunCalc.getMoonPosition(selectedDateTime.value, mapCenter.value.lat, mapCenter.value.lng)
+    return {
+      azimuthDeg: ((pos.azimuth * 180 / Math.PI) + 180) % 360,
+      altitudeDeg: pos.altitude * 180 / Math.PI,
+      distanceKm: pos.distance,
+    }
+  })
+
+  const moonIllumination = computed(() => {
+    // fraction 0..1 lit; phase 0=new, 0.25=first quarter, 0.5=full, 0.75=last quarter
+    const i = SunCalc.getMoonIllumination(selectedDateTime.value)
+    return { fraction: i.fraction, phase: i.phase, angle: i.angle }
+  })
+
+  const moonFractionPct = computed(() => Math.round(moonIllumination.value.fraction * 100))
+
+  /** i18n slug for the current phase (8 standard phases) */
+  const moonPhaseKey = computed(() => {
+    const p = moonIllumination.value.phase
+    if (p < 0.03 || p > 0.97) return 'new'
+    if (p < 0.22) return 'waxing_crescent'
+    if (p < 0.28) return 'first_quarter'
+    if (p < 0.47) return 'waxing_gibbous'
+    if (p < 0.53) return 'full'
+    if (p < 0.72) return 'waning_gibbous'
+    if (p < 0.78) return 'last_quarter'
+    return 'waning_crescent'
+  })
+
+  const moonTimes = computed(() => {
+    const t = SunCalc.getMoonTimes(selectedDateTime.value, mapCenter.value.lat, mapCenter.value.lng)
+    return {
+      moonrise: t.rise ? _formatTime(t.rise) : '--:--',
+      moonset: t.set ? _formatTime(t.set) : '--:--',
+      alwaysUp: !!t.alwaysUp,
+      alwaysDown: !!t.alwaysDown,
+    }
+  })
+
+  const isMoonUp = computed(() => moonPosition.value.altitudeDeg > 0)
 
   const isGoldenHour = computed(() => {
     const t = selectedDateTime.value.getTime()
@@ -247,6 +294,39 @@ export function useMapSunStudy() {
     }
   }
 
+  /** Moon direction line — 15% shorter than the sun line so the two never overlap perfectly */
+  function _buildMoonLineGeoJSON(): GeoJSON.FeatureCollection {
+    if (!sunStudyActive.value) return EMPTY_FC
+    const { lat, lng } = mapCenter.value
+    const alt = moonPosition.value.altitudeDeg
+    if (alt < 0) return EMPTY_FC // moon below horizon → not visible
+    const endPoint = _offsetPoint(lng, lat, _viewportLineLen() * 0.85, moonPosition.value.azimuthDeg)
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: [[lng, lat], endPoint] },
+      }],
+    }
+  }
+
+  function _buildMoonMarkerGeoJSON(): GeoJSON.FeatureCollection {
+    if (!sunStudyActive.value) return EMPTY_FC
+    const { lat, lng } = mapCenter.value
+    const alt = moonPosition.value.altitudeDeg
+    if (alt < 0) return EMPTY_FC
+    const endPoint = _offsetPoint(lng, lat, _viewportLineLen() * 0.85, moonPosition.value.azimuthDeg)
+    return {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { illum: moonIllumination.value.fraction },
+        geometry: { type: 'Point', coordinates: endPoint },
+      }],
+    }
+  }
+
   /**
    * Night gradient: 3 overlapping polygons at different solar altitude thresholds.
    * Stacking creates a smooth twilight gradient:
@@ -328,68 +408,7 @@ export function useMapSunStudy() {
     return _cachedNightFC
   }
 
-  // ======== Layer Management ========
-
-  function setupLayers(map: any) {
-    if (map.getSource(SRC_SUN)) return
-
-    // Single source for sun/shadow/marker — 1 worker round-trip instead of 3
-    map.addSource(SRC_SUN, { type: 'geojson', data: EMPTY_FC })
-    map.addSource(SRC_TERMINATOR, { type: 'geojson', data: EMPTY_FC })
-
-    // Night gradient — 3 overlapping fill layers, opacities stack for smooth twilight
-    map.addLayer({
-      id: LYR_TERM_OUTER, type: 'fill', source: SRC_TERMINATOR,
-      filter: ['==', ['get', 'band'], -6],
-      paint: { 'fill-color': '#000020', 'fill-opacity': 0.08 },
-    })
-    map.addLayer({
-      id: LYR_TERM_MID, type: 'fill', source: SRC_TERMINATOR,
-      filter: ['==', ['get', 'band'], 0],
-      paint: { 'fill-color': '#000020', 'fill-opacity': 0.10 },
-    })
-    map.addLayer({
-      id: LYR_TERM_INNER, type: 'fill', source: SRC_TERMINATOR,
-      filter: ['==', ['get', 'band'], 6],
-      paint: { 'fill-color': '#000020', 'fill-opacity': 0.12 },
-    })
-
-    // Thin terminator line at actual sunset boundary
-    map.addLayer({
-      id: LYR_TERMINATOR_LINE, type: 'line', source: SRC_TERMINATOR,
-      filter: ['==', ['get', 'band'], 0],
-      paint: { 'line-color': '#f59e0b', 'line-width': 1, 'line-opacity': 0.3 },
-    })
-
-    // Shadow line (gray, dashed) — filtered from combined source
-    map.addLayer({
-      id: LYR_SHADOW_DIR,
-      type: 'line',
-      source: SRC_SUN,
-      filter: ['==', ['get', 'role'], 'shadow'],
-      paint: { 'line-color': '#4b5563', 'line-width': 4, 'line-dasharray': [3, 2], 'line-opacity': 0.6 },
-      layout: { 'line-cap': 'round' },
-    })
-
-    // Sun direction line (orange)
-    map.addLayer({
-      id: LYR_SUN_DIR,
-      type: 'line',
-      source: SRC_SUN,
-      filter: ['==', ['get', 'role'], 'sun'],
-      paint: { 'line-color': '#f59e0b', 'line-width': 4, 'line-opacity': 0.85 },
-      layout: { 'line-cap': 'round' },
-    })
-
-    // Sun marker (circle at end of direction line)
-    map.addLayer({
-      id: LYR_SUN_MARKER,
-      type: 'circle',
-      source: SRC_SUN,
-      filter: ['==', ['get', 'role'], 'marker'],
-      paint: { 'circle-radius': 10, 'circle-color': '#f59e0b', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2, 'circle-opacity': 0.9 },
-    })
-  }
+  // ======== Light / theme ========
 
   let _lastLightTime = 0
   let _pendingLightTimer: ReturnType<typeof setTimeout> | null = null
@@ -449,6 +468,8 @@ export function useMapSunStudy() {
     for (const f of _buildSunLineGeoJSON().features) features.push({ ...f, properties: { role: 'sun' } })
     for (const f of _buildShadowLineGeoJSON().features) features.push({ ...f, properties: { role: 'shadow' } })
     for (const f of _buildSunMarkerGeoJSON().features) features.push({ ...f, properties: { role: 'marker' } })
+    for (const f of _buildMoonLineGeoJSON().features) features.push({ ...f, properties: { role: 'moon' } })
+    for (const f of _buildMoonMarkerGeoJSON().features) features.push({ ...f, properties: { role: 'moon-marker', illum: f.properties?.illum ?? 0 } })
     const sunSrc = map.getSource(SRC_SUN)
     if (sunSrc) sunSrc.setData({ type: 'FeatureCollection', features })
     const nightData = _buildNightGeoJSON()
@@ -480,22 +501,6 @@ export function useMapSunStudy() {
     _updateLight(map)
   }
 
-  function clearVisualization() {
-    const map = mapStore.mapInstance
-    if (!map) return
-    const sunSrc = map.getSource(SRC_SUN)
-    const termSrc = map.getSource(SRC_TERMINATOR)
-    if (sunSrc) sunSrc.setData(EMPTY_FC)
-    if (termSrc) termSrc.setData(EMPTY_FC)
-    _prevSubLat = NaN
-    _prevSubLng = NaN
-    _cachedNightFC = EMPTY_FC
-    _lastLightTime = 0
-    _lastSourceUpdate = 0
-    if (_pendingLightTimer) { clearTimeout(_pendingLightTimer); _pendingLightTimer = null }
-    if (_pendingSourceTimer) { clearTimeout(_pendingSourceTimer); _pendingSourceTimer = null }
-  }
-
   // ======== Interaction ========
 
   function _startRealtimeClock() {
@@ -515,45 +520,129 @@ export function useMapSunStudy() {
     }
   }
 
-  function startSunStudy() {
-    const map = mapStore.mapInstance
-    if (!map) return
-    // Reset to current real time
-    realtimeMode.value = true
-    sunDateISO.value = _todayISO()
-    sunTimeMinutes.value = _nowMinutes()
-    _syncMapCenter()
+  // ======== Lifecycle (via createDrawTool) ========
+  // Odd one out among the draw tools: no cursor, no click handlers, and
+  // startSunStudy is RE-ENTRANT — the toolbar clock calls it while active to
+  // re-sync to "now" without restarting (hence clearOnStart: false; the
+  // factory's attach is idempotent, so the repeat attach is a no-op swap).
 
-    if (!sunStudyActive.value) {
-      sunStudyActive.value = true
-      _moveEndHandler = () => { _syncMapCenter(); updateVisualization() }
-      map.on('moveend', _moveEndHandler)
-    }
+  const tool = createDrawTool({
+    tag: 'sun-study',
+    sources: [SRC_SUN, SRC_TERMINATOR],
+    layers: [
+      // Night gradient — 3 overlapping fill layers, opacities stack for smooth twilight
+      {
+        id: LYR_TERM_OUTER, type: 'fill', source: SRC_TERMINATOR,
+        filter: ['==', ['get', 'band'], -6],
+        paint: { 'fill-color': '#000020', 'fill-opacity': 0.08 },
+      },
+      {
+        id: LYR_TERM_MID, type: 'fill', source: SRC_TERMINATOR,
+        filter: ['==', ['get', 'band'], 0],
+        paint: { 'fill-color': '#000020', 'fill-opacity': 0.10 },
+      },
+      {
+        id: LYR_TERM_INNER, type: 'fill', source: SRC_TERMINATOR,
+        filter: ['==', ['get', 'band'], 6],
+        paint: { 'fill-color': '#000020', 'fill-opacity': 0.12 },
+      },
+      // Thin terminator line at actual sunset boundary
+      {
+        id: LYR_TERMINATOR_LINE, type: 'line', source: SRC_TERMINATOR,
+        filter: ['==', ['get', 'band'], 0],
+        paint: { 'line-color': '#f59e0b', 'line-width': 1, 'line-opacity': 0.3 },
+      },
+      // Shadow line (gray, dashed) — filtered from combined source
+      {
+        id: LYR_SHADOW_DIR,
+        type: 'line',
+        source: SRC_SUN,
+        filter: ['==', ['get', 'role'], 'shadow'],
+        paint: { 'line-color': '#4b5563', 'line-width': 4, 'line-dasharray': [3, 2], 'line-opacity': 0.6 },
+        layout: { 'line-cap': 'round' },
+      },
+      // Moon direction — drawn before the sun line so the sun sits on top.
+      // Cool-blue core over a dark casing so it stays legible on both satellite and street basemaps.
+      {
+        id: LYR_MOON_CASING,
+        type: 'line',
+        source: SRC_SUN,
+        filter: ['==', ['get', 'role'], 'moon'],
+        paint: { 'line-color': '#0f172a', 'line-width': 5, 'line-opacity': 0.35 },
+        layout: { 'line-cap': 'round' },
+      },
+      {
+        id: LYR_MOON_DIR,
+        type: 'line',
+        source: SRC_SUN,
+        filter: ['==', ['get', 'role'], 'moon'],
+        paint: { 'line-color': '#bfdbfe', 'line-width': 2.5, 'line-opacity': 0.9 },
+        layout: { 'line-cap': 'round' },
+      },
+      // Moon marker (moonlight-blue circle; opacity encodes illumination — dim at new moon, bright at full)
+      {
+        id: LYR_MOON_MARKER,
+        type: 'circle',
+        source: SRC_SUN,
+        filter: ['==', ['get', 'role'], 'moon-marker'],
+        paint: {
+          'circle-radius': 8,
+          'circle-color': '#dbeafe',
+          'circle-stroke-color': '#1e293b',
+          'circle-stroke-width': 2,
+          'circle-opacity': ['+', 0.55, ['*', 0.4, ['get', 'illum']]],
+        },
+      },
+      // Sun direction line (orange)
+      {
+        id: LYR_SUN_DIR,
+        type: 'line',
+        source: SRC_SUN,
+        filter: ['==', ['get', 'role'], 'sun'],
+        paint: { 'line-color': '#f59e0b', 'line-width': 4, 'line-opacity': 0.85 },
+        layout: { 'line-cap': 'round' },
+      },
+      // Sun marker (circle at end of direction line)
+      {
+        id: LYR_SUN_MARKER,
+        type: 'circle',
+        source: SRC_SUN,
+        filter: ['==', ['get', 'role'], 'marker'],
+        paint: { 'circle-radius': 10, 'circle-color': '#f59e0b', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2, 'circle-opacity': 0.9 },
+      },
+    ],
+    cursor: null,
+    clearOnStart: false,
+    events: {
+      moveend: () => { _syncMapCenter(); updateVisualization() },
+    },
+    onStart: (map: any) => {
+      // Reset to current real time
+      realtimeMode.value = true
+      sunDateISO.value = _todayISO()
+      sunTimeMinutes.value = _nowMinutes()
+      _syncMapCenter()
+      _applyTerminatorTheme(map)
+      updateVisualization()
+      _startRealtimeClock()
+    },
+    onStop: (map: any | null) => {
+      _stopRealtimeClock()
+      if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null }
+      if (map) _resetLight(map)
+    },
+    onClear: () => {
+      _prevSubLat = NaN
+      _prevSubLng = NaN
+      _cachedNightFC = EMPTY_FC
+      _lastLightTime = 0
+      _lastSourceUpdate = 0
+      if (_pendingLightTimer) { clearTimeout(_pendingLightTimer); _pendingLightTimer = null }
+      if (_pendingSourceTimer) { clearTimeout(_pendingSourceTimer); _pendingSourceTimer = null }
+    },
+  })
 
-    _applyTerminatorTheme(map)
-    updateVisualization()
-    _startRealtimeClock()
-  }
-
-  function stopSunStudy() {
-    const map = mapStore.mapInstance
-    sunStudyActive.value = false
-    clearVisualization()
-    _stopRealtimeClock()
-    if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null }
-    if (map) {
-      _resetLight(map)
-      if (_moveEndHandler) {
-        map.off('moveend', _moveEndHandler)
-        _moveEndHandler = null
-      }
-    }
-  }
-
-  function toggleSunStudy() {
-    if (sunStudyActive.value) stopSunStudy()
-    else startSunStudy()
-  }
+  const sunStudyActive = tool.active
 
   // Watch time/date changes to update visualization (RAF-throttled to avoid jank on slider drag)
   function _scheduleUpdate() {
@@ -600,10 +689,16 @@ export function useMapSunStudy() {
     isNight,
     uvIndex,
     uvCategory,
-    setupLayers,
-    startSunStudy,
-    stopSunStudy,
-    toggleSunStudy,
+    moonPosition,
+    moonIllumination,
+    moonFractionPct,
+    moonPhaseKey,
+    moonTimes,
+    isMoonUp,
+    setupLayers: tool.setupLayers,
+    startSunStudy: tool.start,
+    stopSunStudy: tool.stop,
+    toggleSunStudy: tool.toggle,
     updateVisualization,
     pauseSunStudy,
     resumeSunStudy,

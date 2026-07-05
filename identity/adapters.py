@@ -218,6 +218,30 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
                 defaults={'verified': True, 'primary': True},
             )
 
+            # Also store the real provider email (e.g. Google address) as a secondary
+            # verified EmailAddress so it's queryable for dedup, account recovery and
+            # notifications. HNA stays primary (the login identity). Without this the
+            # real address lives only in SocialAccount.extra_data and a later
+            # email+password signup can't see the existing account.
+            extra = sociallogin.account.extra_data or {}
+            provider_email = extra.get('email')
+            if provider_email:
+                provider_email = provider_email.strip().lower()
+                if provider_email and provider_email != hna.lower():
+                    # Trust the provider's verification flag — never assume it.
+                    # Google sends a real bool `email_verified`; Apple sends it as a
+                    # string ("true"/"false"); legacy people-API used `verified_email`.
+                    # Default False: asserting a verification we didn't receive could
+                    # trip the verified-unique backstop or enable email auto-connect on
+                    # an address the user doesn't actually own.
+                    raw_verified = extra.get('email_verified', extra.get('verified_email', False))
+                    is_verified = raw_verified is True or str(raw_verified).strip().lower() in ('true', '1', 'yes')
+                    EmailAddress.objects.get_or_create(
+                        user=user,
+                        email=provider_email,
+                        defaults={'verified': is_verified, 'primary': False},
+                    )
+
             # Detect user's preferred language from cookie or Accept-Language header
             preferred_language = 'en'  # Default fallback
 

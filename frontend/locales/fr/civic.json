@@ -1,0 +1,175 @@
+{
+  "civic": {
+    "badge": "Opinion",
+    "badgeHint": "Baromètre non contraignant de l'opinion des résidents",
+    "level": {
+      "all": "Tous",
+      "parish": "Paroisse",
+      "municipality": "Commune",
+      "region": "Région",
+      "country": "Pays",
+      "groups": "Groupes",
+      "household": "Maison",
+      "condominium": "Copropriété"
+    },
+    "feed": {
+      "participation": "{n} votes",
+      "voted": "Vous avez voté",
+      "commentsEnabled": "Commentaires ouverts",
+      "emptyScope": "Pas encore de sondages à ce niveau",
+      "emptyScopeHint": "Les sondages apparaîtront ici dès qu'ils seront créés pour votre zone",
+      "needResidency": "Indiquez votre paroisse pour voir les sondages locaux",
+      "needResidencyAction": "Choisir l'emplacement",
+      "loginToSee": "Connectez-vous pour voir les sondages de votre zone"
+    },
+    "destination": "Où va le résultat",
+    "outcome": "Résultat final",
+    "vote": {
+      "title": "Votre voix",
+      "changeHint": "Vous pouvez modifier votre vote à tout moment",
+      "changed": "Vote mis à jour",
+      "cooldown": "Attendez une minute avant de modifier à nouveau votre vote",
+      "loginCta": "Connectez-vous pour voter",
+      "outOfScope": "Ce sondage s'adresse aux résidents de {name}",
+      "notActive": "Le vote est clos"
+    },
+    "consent": {
+      "title": "Avant votre premier vote",
+      "p1": "Votre choix n'est publié nulle part. Il est conservé sous forme dépersonnalisée : l'enregistrement du vote ne contient aucun lien avec votre profil.",
+      "p2": "Vous pouvez modifier votre vote, supprimer tous vos votes ou retirer ce consentement à tout moment dans les paramètres. Seuls les totaux agrégés sont publics.",
+      "p3": "Limites honnêtes : l'opérateur du serveur pourrait techniquement rétablir le lien via une clé serveur protégée. Cela exige un acte délibéré et n'arrive jamais en fonctionnement normal. Les opinions politiques sont des données sensibles (RGPD art. 9) — nous demandons votre consentement explicite pour ce stockage.",
+      "accept": "Compris — voter",
+      "decline": "Pas maintenant"
+    },
+    "results": {
+      "title": "Résultats",
+      "hiddenTitle": "Votez pour voir les résultats",
+      "hiddenHint": "L'image en direct s'ouvre après votre propre vote — pour ne pas vous influencer",
+      "participation": "Participation",
+      "fewVotes": "Encore peu de votes — les chiffres sont approximatifs et mis à jour avec délai",
+      "all": "Tous",
+      "verified": "Vérifiés",
+      "verifiedHint": "Comptes vérifiés WoT (3+ confirmations)",
+      "byTerritory": "Par commune",
+      "ended": "Sondage terminé",
+      "frozen": "Les votes originaux ont été supprimés après la clôture (minimisation des données) ; voici les agrégats gelés"
+    },
+    "receipt": {
+      "check": "Vérifier que mon vote a été compté",
+      "ok": "Votre vote est dans la chaîne d'audit et la chaîne est intacte",
+      "fail": "Reçu introuvable dans la chaîne d'audit — contactez le support",
+      "chainBroken": "La vérification de la chaîne d'audit a échoué"
+    },
+    "residency": {
+      "title": "Mon emplacement (civique)",
+      "hint": "Utilisé uniquement pour afficher les sondages de votre zone. Invisible sur votre profil public.",
+      "country": "Pays",
+      "municipality": "Commune",
+      "parish": "Paroisse",
+      "search": "Rechercher…",
+      "save": "Enregistrer l'emplacement",
+      "saved": "Emplacement enregistré",
+      "cooldown": "L'emplacement pourra être modifié après le {date}",
+      "notSet": "Non défini"
+    },
+    "privacy": {
+      "title": "Mes données civiques",
+      "consentGiven": "Consentement au stockage dépersonnalisé : donné le {date}",
+      "consentNone": "Consentement non donné",
+      "erase": "Supprimer tous mes votes",
+      "eraseTitle": "Supprimer les votes civiques",
+      "eraseMessage": "Tous vos votes d'opinion seront supprimés de tous les sondages et le consentement sera retiré. Les totaux agrégés seront recalculés. Cette action est irréversible.",
+      "eraseConfirm": "Tout supprimer",
+      "erased": "Votes supprimés dans {n} sondages"
+    },
+    "create": {
+      "territory": "Territoire (sondage civique d'opinion)",
+      "territoryHint": "Réservé au staff pour l'instant : crée un baromètre non contraignant pour les résidents du territoire sélectionné",
+      "destination": "Où va le résultat",
+      "destinationHint": "ex. : \"Junta de Freguesia de X, 1 sept. 2026\" — les sondages avec destinataire déclaré obtiennent une vraie participation",
+      "selectTerritory": "Sélectionner le territoire",
+      "typeChoice": "Choix (options)",
+      "typeSliders": "Curseurs (plus/moins vs aujourd’hui)"
+    },
+    "comments": {
+      "title": "Commentaires",
+      "placeholder": "Partagez votre avis (cela ne révèle jamais votre vote)",
+      "submit": "Publier",
+      "empty": "Pas encore de commentaires",
+      "login": "Connectez-vous pour commenter"
+    },
+    "household": {
+      "title": "Foyer",
+      "members": "Membres du foyer",
+      "invite": "Inviter au foyer",
+      "inviteHint": "Partagez ce lien avec famille/colocataires — ils rejoignent le foyer et peuvent participer aux sondages de la maison. Générer un nouveau lien révoque l’ancien.",
+      "copyLink": "Copier le lien d'invitation",
+      "linkCopied": "Lien copié",
+      "remove": "Retirer",
+      "leave": "Quitter le foyer",
+      "joinTitle": "Rejoindre le foyer",
+      "joinSuccess": "Vous avez rejoint «{name}». Les sondages de la maison sont dans votre fil.",
+      "joinAlready": "Vous êtes déjà membre de «{name}».",
+      "joinFail": "Invitation introuvable ou révoquée",
+      "toPolls": "Ouvrir les sondages"
+    },
+    "openBallots": {
+      "title": "Qui a voté quoi",
+      "empty": "Pas encore de votes",
+      "onBehalf": "+{n} délégués"
+    },
+    "sliders": {
+      "a_m2": "beaucoup moins",
+      "a_m1": "moins",
+      "a_0": "comme aujourd’hui",
+      "a_p1": "plus",
+      "a_p2": "beaucoup plus",
+      "submit": "Envoyer mes positions",
+      "median": "Médiane",
+      "hint": "Par rapport au statu quo actuel"
+    },
+    "delegations": {
+      "title": "Mes délégations",
+      "voiceUsed": "Votre voix compte dans {n} sondages par délégation",
+      "lockedTitle": "Délégué à {name}",
+      "lockedCast": "a voté, {date}",
+      "lockedNotCast": "n'a pas encore voté",
+      "override": "Voter moi-même",
+      "given": "Données",
+      "receivedPending": "Demandes reçues",
+      "receivedActive": "Vous représentez",
+      "accept": "Accepter",
+      "decline": "Refuser",
+      "revoke": "Révoquer",
+      "revokeSure": "Sûr ?",
+      "create": "Déléguer ma voix",
+      "delegatePlaceholder": "Délégué (nom ou {'@'}handle)",
+      "scopeTopic": "Par thème",
+      "scopeTerritory": "Par territoire (tous les sondages inclus)",
+      "created": "Demande envoyée — en attente d'acceptation",
+      "acceptHint": "En acceptant, vos délégants voient vos votes dans ce périmètre",
+      "empty": "Pas encore de délégations",
+      "hint": "Confiez un thème ou votre zone à quelqu'un — son vote devient le vôtre jusqu'à ce que vous le remplaciez. Vous pouvez toujours voter vous-même sur un sondage précis."
+    },
+    "ideas": {
+      "title": "Idées",
+      "hint": "Proposez un sondage pour votre zone. À {threshold} soutiens, l'idée part en revue de formulation neutre et devient un sondage.",
+      "create": "Proposer une idée",
+      "formTitle": "Titre de l'idée",
+      "formBody": "Quoi et pourquoi (la formulation sera neutralisée à la revue)",
+      "submit": "Envoyer l'idée",
+      "support": "Soutenir",
+      "supported": "Soutenue",
+      "supporters": "{n} sur {threshold}",
+      "statusReview": "En revue",
+      "statusPromoted": "Devenue sondage",
+      "statusRejected": "Non retenue",
+      "openPoll": "Ouvrir le sondage",
+      "promote": "Promouvoir en sondage",
+      "reject": "Rejeter",
+      "rejectSure": "Sûr ?",
+      "empty": "Pas encore d'idées — proposez la première",
+      "report": "Signaler"
+    }
+  }
+}

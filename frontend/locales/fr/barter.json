@@ -65,6 +65,33 @@
     "errors": {
       "load_failed": "Échec du chargement des opportunités d'échange",
       "chat_failed": "Échec de la création du salon de chat. Veuillez réessayer."
+    },
+    "diagnosis": {
+      "stat_offers": "Offres",
+      "stat_requests": "Demandes",
+      "stat_chains": "Chaînes",
+      "explainer": "Une chaîne se referme seulement quand votre demande correspond à l'offre de quelqu'un — et votre offre à sa demande. Plus vous publiez des deux côtés, plus vos chances augmentent.",
+      "your_offers": "Ce que vous offrez",
+      "your_requests": "Ce que vous cherchez",
+      "seekers": "{n} recherche | {n} recherchent",
+      "no_seekers": "personne ne le cherche encore",
+      "offerers": "{n} propose | {n} proposent",
+      "no_offerers": "personne ne le propose encore",
+      "no_offers_hint": "Vous n'avez encore rien à offrir.",
+      "no_requests_hint": "Vous n'avez pas indiqué ce que vous cherchez — sans cela le troc ne se referme pas.",
+      "add_offer": "Ajouter une offre",
+      "add_request": "Ajouter une demande"
+    },
+    "create_nudge": {
+      "published": "Annonce publiée",
+      "heading": "Que voulez-vous en échange ?",
+      "explainer": "Indiquez ce que vous cherchez — le système trouvera une chaîne d'échange. Sans demande, votre offre ne peut pas participer au troc.",
+      "category_label": "Catégorie de ce que vous cherchez",
+      "title_label": "Quoi exactement ?",
+      "title_placeholder": "ex. : un ordinateur portable, une heure de design, des tomates",
+      "add": "Ajouter une demande",
+      "skip": "Passer, aller à l'annonce",
+      "added": "Demande ajoutée — recherche de correspondances"
     }
   }
 }

@@ -16,7 +16,7 @@ Tests invariants that must never break:
 """
 
 from datetime import timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, AsyncMock, MagicMock
 
 from django.test import TestCase, SimpleTestCase, RequestFactory
 from django.contrib.sessions.backends.db import SessionStore
@@ -859,9 +859,11 @@ class SearchRequestsTest(CarpoolTestBase):
 class RouteSearchTest(CarpoolTestBase):
     """Test POST /rides/search/route/ endpoint."""
 
-    @patch('parahub.endpoints.rides._get_valhalla_route', return_value=None)
+    @patch('parahub.endpoints.rides._get_valhalla_route',
+           new_callable=AsyncMock, return_value=None)
     def test_valhalla_failure_returns_502(self, mock_route):
         """Returns 502 when Valhalla route calculation fails."""
+        import asyncio
         from parahub.endpoints.rides import search_by_route, RouteSearchBody, RouteLocation
         body = RouteSearchBody(
             origin=RouteLocation(lat=38.7, lon=-9.1),
@@ -869,7 +871,7 @@ class RouteSearchTest(CarpoolTestBase):
         )
         request = _make_auth_request(self.factory, self.driver_account, self.driver, 'post')
         with self.assertRaises(HttpError) as ctx:
-            search_by_route(request, body)
+            asyncio.run(search_by_route(request, body))
         self.assertEqual(ctx.exception.status_code, 502)
 
 

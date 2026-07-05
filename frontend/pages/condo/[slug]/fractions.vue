@@ -13,10 +13,8 @@
     <h1 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">{{ condoName || $t('condo.title') }}</h1>
 
     <!-- Tab navigation -->
-    <UiTabs
-      model-value="fractions"
+    <UiRouteTabs
       :tabs="condoTabs"
-      variant="nav"
       class="mb-6"
     />
 

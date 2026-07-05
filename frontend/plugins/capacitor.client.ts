@@ -1,12 +1,18 @@
 import { playSosSiren } from '~/composables/useSosWatcher'
 import { Capacitor } from '@capacitor/core'
-import { App } from '@capacitor/app'
-import { Keyboard } from '@capacitor/keyboard'
-import { SplashScreen } from '@capacitor/splash-screen'
-import { PushNotifications } from '@capacitor/push-notifications'
 
 export default defineNuxtPlugin(async () => {
   if (!Capacitor.isNativePlatform()) return
+
+  // Native-only plugin modules load behind the platform gate — as static
+  // imports they sat in every web visitor's entry chunk (~570 KB). Inside the
+  // native app the chunk is bundled locally, so the await is instant.
+  const [{ App }, { Keyboard }, { SplashScreen }, { PushNotifications }] = await Promise.all([
+    import('@capacitor/app'),
+    import('@capacitor/keyboard'),
+    import('@capacitor/splash-screen'),
+    import('@capacitor/push-notifications'),
+  ])
 
   // --- SystemBars safe area (Android) ---
   // Capacitor 8's SystemBars plugin (insetsHandling: 'css') injects

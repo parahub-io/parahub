@@ -14,7 +14,7 @@
         <div class="relative mb-4">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
           <input
-            v-model="searchQuery"
+            v-model="searchInput"
             @input="debouncedSearch"
             type="text"
             :placeholder="$t('events.search_placeholder')"
@@ -29,7 +29,7 @@
             <button
               v-for="opt in typeOptions"
               :key="opt.value"
-              @click="eventType = opt.value; fetchEvents()"
+              @click="eventType = opt.value"
               :class="eventType === opt.value
                 ? 'bg-secondary text-white'
                 : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
@@ -81,19 +81,18 @@
           <!-- Date filter -->
           <input
             v-model="dateFrom"
-            @change="fetchEvents"
             type="date"
             class="px-3 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 text-sm"
           />
         </div>
 
         <!-- Loading skeletons -->
-        <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-if="isInitial" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <EventCardSkeleton v-for="n in 6" :key="n" />
         </div>
 
-        <!-- Events grid -->
-        <div v-else-if="events.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Events grid (dimmed while a filter change refetches in the background) -->
+        <div v-else-if="events.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" :class="{ 'opacity-60 transition-opacity': refreshing }">
           <EventCard
             v-for="event in events"
             :key="event.id"
@@ -104,7 +103,7 @@
 
         <!-- Empty state -->
         <div v-else class="text-center py-12">
-          <img src="/images/para/searching.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+          <img src="/images/para/searching.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
           <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-1">
             {{ $t('events.empty_title') }}
           </h3>
@@ -125,7 +124,7 @@
           <button
             v-for="page in totalPages"
             :key="page"
-            @click="currentPage = page; fetchEvents()"
+            @click="currentPage = page"
             :class="currentPage === page
               ? 'bg-secondary text-white'
               : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
@@ -139,7 +138,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { debounce } from '~/utils/debounce'
 import { Search, Calendar, Plus, Tag, ChevronDown } from 'lucide-vue-next'
@@ -168,31 +167,21 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
-const events = ref([])
-
-// Real-time updates for listed events
-useObjectListSubscription(events)
-
-const loading = ref(false)
-const searchQuery = ref('')
+// Filters
+const searchInput = ref('')      // bound to the search field
+const searchQuery = ref('')      // debounced value that feeds the query
 const selectedCategory = ref('')
 const selectedCategoryObj = ref(null)
 const eventType = ref('')
 const dateFrom = ref('')
 const timeFilter = useTabSync(['upcoming', 'past'])
 const currentPage = ref(1)
-const totalPages = ref(1)
 const showCategoryPicker = ref(false)
 
 const timeTabs = computed(() => [
   { id: 'upcoming', label: t('events.tab_upcoming') },
   { id: 'past', label: t('events.tab_past') }
 ])
-
-watch(timeFilter, () => {
-  currentPage.value = 1
-  fetchEvents()
-})
 
 const typeOptions = computed(() => [
   { value: '', label: t('events.filters.all_types') },
@@ -201,47 +190,60 @@ const typeOptions = computed(() => [
   { value: 'HYBRID', label: t('events.types.hybrid') }
 ])
 
-const fetchEvents = async () => {
-  loading.value = true
-  try {
-    const params = new URLSearchParams({
-      page: currentPage.value,
-      status: 'PUBLISHED',
-      time_filter: timeFilter.value
-    })
-
-    if (searchQuery.value) params.append('search', searchQuery.value)
-    if (selectedCategory.value) params.append('category_id', selectedCategory.value)
-    if (eventType.value) params.append('event_type', eventType.value)
-    if (dateFrom.value) params.append('date_from', dateFrom.value)
-
-    const response = await $fetch(`/api/v1/geo/events/?${params}`)
-    events.value = response.items || []
-    totalPages.value = response.pages || 1
-  } catch (error) {
-    console.error('Error fetching events:', error)
-    toastStore.error('Failed to load events')
-  } finally {
-    loading.value = false
+// Reactive query: any change refetches in the background while the current
+// list stays visible (skeleton only on the very first load). useListData is
+// cache-first, so navigating away and back to this page is instant.
+const query = computed(() => {
+  const q = {
+    page: currentPage.value,
+    status: 'PUBLISHED',
+    time_filter: timeFilter.value,
   }
-}
+  if (searchQuery.value) q.search = searchQuery.value
+  if (selectedCategory.value) q.category_id = selectedCategory.value
+  if (eventType.value) q.event_type = eventType.value
+  if (dateFrom.value) q.date_from = dateFrom.value
+  return q
+})
+
+const eventsData = useListData('/api/v1/geo/events/', {
+  query,
+  default: () => ({ items: [], pages: 1 }),
+})
+const { data, error, isInitial, refreshing } = eventsData
+
+const events = computed(() => data.value?.items || [])
+const totalPages = computed(() => data.value?.pages || 1)
+
+// Real-time updates for listed events (merges WS field changes in place)
+useObjectListSubscription(events)
+
+// Reset to the first page whenever a filter (not the page itself) changes
+watch([timeFilter, searchQuery, selectedCategory, eventType, dateFrom], () => {
+  currentPage.value = 1
+})
+
+// Surface fetch errors (parity with the previous handler)
+watch(error, (e) => {
+  if (e) toastStore.error('Failed to load events')
+})
 
 const debouncedSearch = debounce(() => {
-  currentPage.value = 1
-  fetchEvents()
+  searchQuery.value = searchInput.value
 }, 500)
 
 const onCategorySelected = (cat) => {
   selectedCategoryObj.value = cat || null
   showCategoryPicker.value = false
-  fetchEvents()
 }
 
 const viewEvent = (event) => {
   router.push(localePath(`/events/${event.id}`))
 }
 
-onMounted(() => {
-  fetchEvents()
-})
+// Block client-side navigation until the first page of events is ready, so
+// Suspense holds the previous page instead of flashing a skeleton. Must stay
+// last — all lifecycle composables (useObjectListSubscription) run above it.
+// On revisit, getCachedData resolves this synchronously → instant, no wait.
+await eventsData
 </script>

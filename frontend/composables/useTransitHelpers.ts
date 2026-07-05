@@ -61,5 +61,29 @@ export function useTransitHelpers() {
     return timeStr.substring(0, 5)
   }
 
-  return { routeBadgeStyle, resolveColor, defaultColorForType, textColorFor, routeTypeFallback, routeTypeIcon, formatTime }
+  // Coarse transport-mode bucket from a GTFS route_type (mirror of the backend
+  // _mode_of_route_type, used for intermodal-interchange markers).
+  function modeOf(type?: number): string {
+    if (type == null) return 'bus'
+    if (type === 2 || (type >= 100 && type <= 199)) return 'rail'
+    if (type === 1 || (type >= 400 && type <= 499)) return 'metro'
+    if (type === 0 || (type >= 900 && type <= 999)) return 'tram'
+    if (type === 4 || (type >= 1000 && type <= 1399)) return 'ferry'
+    if (type === 7 || (type >= 1400 && type <= 1499)) return 'funicular'
+    if (type === 1100) return 'air'
+    return 'bus'
+  }
+
+  // Representative route_type for a mode string — drives icon + i18n label lookup.
+  const MODE_ROUTE_TYPE: Record<string, number> = {
+    tram: 0, metro: 1, rail: 2, bus: 3, ferry: 4, funicular: 7, air: 1100,
+  }
+  function modeRouteType(mode: string): number {
+    return MODE_ROUTE_TYPE[mode] ?? 3
+  }
+  function modeIcon(mode: string): string {
+    return routeTypeIcon(modeRouteType(mode))
+  }
+
+  return { routeBadgeStyle, resolveColor, defaultColorForType, textColorFor, routeTypeFallback, routeTypeIcon, formatTime, modeOf, modeRouteType, modeIcon }
 }

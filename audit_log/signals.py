@@ -7,7 +7,6 @@ Actual OTS stamping happens in batches via batch_ots_stamp management command (e
 import hashlib
 import json
 import logging
-import threading
 from typing import Optional
 
 from django.db.models.signals import post_save
@@ -17,9 +16,11 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
 from asgiref.sync import async_to_sync
 
-from identity.models import Profile, Contract, Verification
+from identity.models import Profile, Verification
+from contracts.models import Contract
 from debts.models import Debt
 from geo.models import Establishment
+from parahub.background import spawn
 
 from .services import PGPKeyringService, ProofExportService
 from .matrix_service import matrix_service
@@ -235,8 +236,8 @@ def register_organization_in_registry(sender, instance, created, **kwargs):
         except Exception as e:
             logger.error(f"Failed to register organization {instance.id[:8]} in registry: {e}")
 
-    # Run in background thread to avoid blocking the HTTP response
-    threading.Thread(target=_register, daemon=True).start()
+    # Run on the shared background pool to avoid blocking the HTTP response
+    spawn(_register)
 
 
 def _send_verification_notifications(instance_id: str, verified_profile_id: str, verifier_id: str):
@@ -293,11 +294,8 @@ def notify_verification_to_matrix(sender, instance, created, **kwargs):
     if not created:
         return
 
-    threading.Thread(
-        target=_send_verification_notifications,
-        args=(instance.id, instance.verified_profile_id, instance.verifier_id),
-        daemon=True
-    ).start()
+    spawn(_send_verification_notifications,
+          instance.id, instance.verified_profile_id, instance.verifier_id)
 
 
 @receiver(post_save, sender=Contract)
@@ -309,11 +307,7 @@ def email_contract_proof(sender, instance, created, **kwargs):
     contract_id = instance.id
     creator_id = instance.creator_id
     partner_id = instance.partner_id
-    threading.Thread(
-        target=_send_contract_email,
-        args=(contract_id, creator_id, partner_id),
-        daemon=True,
-    ).start()
+    spawn(_send_contract_email, contract_id, creator_id, partner_id)
 
 
 def _send_contract_email(contract_id, creator_id, partner_id):
@@ -360,11 +354,7 @@ def email_debt_proof(sender, instance, created, **kwargs):
     debt_id = instance.id
     creditor_id = instance.creditor_id
     debtor_id = instance.debtor_id
-    threading.Thread(
-        target=_send_debt_email,
-        args=(debt_id, creditor_id, debtor_id),
-        daemon=True,
-    ).start()
+    spawn(_send_debt_email, debt_id, creditor_id, debtor_id)
 
 
 def _send_debt_email(debt_id, creditor_id, debtor_id):

@@ -40,6 +40,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   play: []
   pause: []
+  /** Playback reached the end of the clip (derived — see onIframeLoad). */
+  ended: []
   ready: [player: PeerTubePlayerType]
   timeupdate: [currentTime: number]
 }>()
@@ -48,6 +50,7 @@ const loading = ref(true)
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 let player: PeerTubePlayerType | null = null
 let wasPlayingBeforeHide = false
+let hasEnded = false
 
 const embedSrc = computed(() => {
   const url = new URL(props.embedUrl)
@@ -56,6 +59,14 @@ const embedSrc = computed(() => {
   if (props.muted) url.searchParams.set('muted', '1')
   if (props.startTime) url.searchParams.set('start', String(props.startTime))
   url.searchParams.set('controls', '1')
+  // The title is always shown in surrounding UI, so hide the redundant in-player
+  // overlay (auto-named uploads like "1477" look like noise). Disable P2P: it
+  // shares the viewer's IP with other peers for peer-assisted delivery — useless
+  // on our single-server instance and a privacy leak. warningTitle=0 drops the
+  // "your IP address is visible" notice (moot once p2p is off, but explicit).
+  url.searchParams.set('title', '0')
+  url.searchParams.set('p2p', '0')
+  url.searchParams.set('warningTitle', '0')
   return url.toString()
 })
 
@@ -70,11 +81,23 @@ const onIframeLoad = async () => {
     player = new PeerTubePlayer(iframeRef.value)
     await player.ready
 
-    player.addEventListener('play', () => emit('play'))
+    const markEnded = () => { if (!hasEnded) { hasEnded = true; emit('ended') } }
+
+    player.addEventListener('play', () => { hasEnded = false; emit('play') })
     player.addEventListener('pause', () => emit('pause'))
-    // playbackStatusUpdate fires ~1Hz with { position, volume, playbackState, ... }
+    // embed-api@0.2.0 has NO dedicated 'ended' event. The AUTHORITATIVE end signal
+    // is playbackStatusChange === 'ended' (PeerTube wires it to video.js 'ended').
+    // playbackStatusUpdate alone is NOT enough: it's throttled to 500ms off
+    // `timeupdate`, which stops at end — so the last emitted frame can sit beyond
+    // our position≈duration window and no post-end frame carries playbackState
+    // 'ended'. We still keep the position backstop in case the change event is lost.
+    player.addEventListener('playbackStatusChange', (state: any) => {
+      if (state === 'ended') markEnded()
+    })
     player.addEventListener('playbackStatusUpdate', (ev: any) => {
       if (typeof ev?.position === 'number') emit('timeupdate', ev.position)
+      const dur = typeof ev?.duration === 'number' ? ev.duration : 0
+      if (ev?.playbackState === 'ended' || (dur > 0 && ev?.position >= dur - 0.4)) markEnded()
     })
 
     emit('ready', player)

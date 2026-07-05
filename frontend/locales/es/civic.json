@@ -1,0 +1,175 @@
+{
+  "civic": {
+    "badge": "Opinión",
+    "badgeHint": "Barómetro no vinculante de la opinión de los residentes",
+    "level": {
+      "all": "Todos",
+      "parish": "Parroquia",
+      "municipality": "Municipio",
+      "region": "Región",
+      "country": "País",
+      "groups": "Grupos",
+      "household": "Casa",
+      "condominium": "Comunidad"
+    },
+    "feed": {
+      "participation": "{n} votos",
+      "voted": "Ya has votado",
+      "commentsEnabled": "Comentarios abiertos",
+      "emptyScope": "Aún no hay encuestas en este nivel",
+      "emptyScopeHint": "Las encuestas aparecerán aquí cuando se creen para tu zona",
+      "needResidency": "Indica tu parroquia para ver encuestas locales",
+      "needResidencyAction": "Elegir ubicación",
+      "loginToSee": "Inicia sesión para ver encuestas de tu zona"
+    },
+    "destination": "Adónde va el resultado",
+    "outcome": "Resultado final",
+    "vote": {
+      "title": "Tu voz",
+      "changeHint": "Puedes cambiar tu voto en cualquier momento",
+      "changed": "Voto actualizado",
+      "cooldown": "Espera un minuto antes de volver a cambiar tu voto",
+      "loginCta": "Inicia sesión para votar",
+      "outOfScope": "Esta encuesta es para residentes de {name}",
+      "notActive": "La votación está cerrada"
+    },
+    "consent": {
+      "title": "Antes de tu primer voto",
+      "p1": "Tu elección no se publica en ningún sitio. Se guarda de forma despersonalizada: el registro del voto no contiene ningún vínculo con tu perfil.",
+      "p2": "Puedes cambiar tu voto, borrar todos tus votos o retirar este consentimiento en cualquier momento desde los ajustes. Solo los totales agregados son públicos.",
+      "p3": "Límites honestos: el operador del servidor podría técnicamente restablecer el vínculo mediante una clave protegida del servidor. Eso exige un acto deliberado y nunca ocurre en la operación normal. Las opiniones políticas son datos sensibles (RGPD art. 9) — pedimos tu consentimiento explícito para este almacenamiento.",
+      "accept": "Entendido — votar",
+      "decline": "Ahora no"
+    },
+    "results": {
+      "title": "Resultados",
+      "hiddenTitle": "Vota para ver los resultados",
+      "hiddenHint": "La imagen en vivo se abre tras tu propio voto — para no influirte",
+      "participation": "Participación",
+      "fewVotes": "Aún hay pocos votos — las cifras son aproximadas y se actualizan con retraso",
+      "all": "Todos",
+      "verified": "Verificados",
+      "verifiedHint": "Cuentas verificadas WoT (3+ confirmaciones)",
+      "byTerritory": "Por municipio",
+      "ended": "Encuesta finalizada",
+      "frozen": "Los votos originales se borraron tras el cierre (minimización de datos); estos son los agregados congelados"
+    },
+    "receipt": {
+      "check": "Verificar que mi voto fue contado",
+      "ok": "Tu voto está en la cadena de auditoría y la cadena está íntegra",
+      "fail": "Recibo no encontrado en la cadena de auditoría — contacta con soporte",
+      "chainBroken": "La verificación de la cadena de auditoría falló"
+    },
+    "residency": {
+      "title": "Mi ubicación (cívica)",
+      "hint": "Se usa solo para mostrar encuestas de tu zona. No es visible en tu perfil público.",
+      "country": "País",
+      "municipality": "Municipio",
+      "parish": "Parroquia",
+      "search": "Buscar…",
+      "save": "Guardar ubicación",
+      "saved": "Ubicación guardada",
+      "cooldown": "La ubicación podrá cambiarse de nuevo después del {date}",
+      "notSet": "Sin definir"
+    },
+    "privacy": {
+      "title": "Mis datos cívicos",
+      "consentGiven": "Consentimiento para almacenamiento despersonalizado: dado el {date}",
+      "consentNone": "Consentimiento no dado",
+      "erase": "Borrar todos mis votos",
+      "eraseTitle": "Borrar votos cívicos",
+      "eraseMessage": "Todos tus votos de opinión se borrarán de todas las encuestas y se retirará el consentimiento. Los totales agregados se recalcularán. Esta acción es irreversible.",
+      "eraseConfirm": "Borrar todo",
+      "erased": "Votos borrados en {n} encuestas"
+    },
+    "create": {
+      "territory": "Territorio (encuesta cívica de opinión)",
+      "territoryHint": "Por ahora solo staff: crea un barómetro no vinculante para residentes del territorio seleccionado",
+      "destination": "Adónde va el resultado",
+      "destinationHint": "ej.: \"Junta de Freguesia de X, 1 sep 2026\" — las encuestas con destinatario declarado logran participación real",
+      "selectTerritory": "Seleccionar territorio",
+      "typeChoice": "Elección (opciones)",
+      "typeSliders": "Deslizadores (más/menos vs hoy)"
+    },
+    "comments": {
+      "title": "Comentarios",
+      "placeholder": "Comparte tu opinión (esto nunca revela tu voto)",
+      "submit": "Publicar",
+      "empty": "Aún no hay comentarios",
+      "login": "Inicia sesión para comentar"
+    },
+    "household": {
+      "title": "Hogar",
+      "members": "Miembros del hogar",
+      "invite": "Invitar al hogar",
+      "inviteHint": "Comparte este enlace con familia/compañeros de piso — se unen y pueden participar en las encuestas de casa. Generar un nuevo enlace revoca el anterior.",
+      "copyLink": "Copiar enlace de invitación",
+      "linkCopied": "Enlace copiado",
+      "remove": "Quitar",
+      "leave": "Salir del hogar",
+      "joinTitle": "Unirse al hogar",
+      "joinSuccess": "Te has unido a «{name}». Las encuestas de casa ya están en tu feed.",
+      "joinAlready": "Ya eres miembro de «{name}».",
+      "joinFail": "Invitación no encontrada o revocada",
+      "toPolls": "Abrir encuestas"
+    },
+    "openBallots": {
+      "title": "Quién votó qué",
+      "empty": "Aún no hay votos",
+      "onBehalf": "+{n} delegados"
+    },
+    "sliders": {
+      "a_m2": "mucho menos",
+      "a_m1": "menos",
+      "a_0": "como ahora",
+      "a_p1": "más",
+      "a_p2": "mucho más",
+      "submit": "Enviar mis posiciones",
+      "median": "Mediana",
+      "hint": "Respecto al statu quo actual"
+    },
+    "delegations": {
+      "title": "Mis delegaciones",
+      "voiceUsed": "Tu voz está contada en {n} encuestas por delegación",
+      "lockedTitle": "Delegado a {name}",
+      "lockedCast": "votó, {date}",
+      "lockedNotCast": "aún no ha votado",
+      "override": "Votar yo mismo",
+      "given": "Dadas",
+      "receivedPending": "Solicitudes",
+      "receivedActive": "Representas",
+      "accept": "Aceptar",
+      "decline": "Rechazar",
+      "revoke": "Revocar",
+      "revokeSure": "¿Seguro?",
+      "create": "Delegar mi voz",
+      "delegatePlaceholder": "Delegado (nombre o {'@'}handle)",
+      "scopeTopic": "Por tema",
+      "scopeTerritory": "Por territorio (todas las encuestas dentro)",
+      "created": "Solicitud enviada — pendiente de aceptación",
+      "acceptHint": "Al aceptar, quienes te delegaron ven tus votos en este ámbito",
+      "empty": "Aún no hay delegaciones",
+      "hint": "Confía un tema o tu zona a alguien — su voto será el tuyo hasta que lo anules. Siempre puedes votar tú en cualquier encuesta."
+    },
+    "ideas": {
+      "title": "Ideas",
+      "hint": "Propón una encuesta para tu zona. Con {threshold} apoyos pasa a revisión de formulación neutral y se convierte en encuesta.",
+      "create": "Proponer una idea",
+      "formTitle": "Título de la idea",
+      "formBody": "Qué y por qué (la redacción se neutralizará en la revisión)",
+      "submit": "Enviar idea",
+      "support": "Apoyar",
+      "supported": "Apoyada",
+      "supporters": "{n} de {threshold}",
+      "statusReview": "En revisión",
+      "statusPromoted": "Se convirtió en encuesta",
+      "statusRejected": "No promovida",
+      "openPoll": "Abrir la encuesta",
+      "promote": "Promover a encuesta",
+      "reject": "Rechazar",
+      "rejectSure": "¿Seguro?",
+      "empty": "Aún no hay ideas — propón la primera",
+      "report": "Denunciar"
+    }
+  }
+}

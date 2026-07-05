@@ -8,14 +8,14 @@
     />
 
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-12" role="status">
+    <div v-if="isInitial" class="text-center py-12" role="status">
       <div class="inline-block h-12 w-12 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" />
       <span class="sr-only">Loading...</span>
     </div>
 
     <!-- Empty state -->
     <div v-else-if="condos.length === 0" class="text-center py-12">
-      <img src="/images/para/building.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+      <img src="/images/para/building.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
       <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
         {{ $t('condo.empty_title') }}
       </h3>
@@ -100,8 +100,11 @@ interface CondoItem {
   role: string
 }
 
-const condos = ref<CondoItem[]>([])
-const loading = ref(true)
+const condosData = useListData<CondoItem[]>('/api/v1/geo/condominiums/my/', {
+  auth: true,
+  default: () => [],
+})
+const { data: condos, isInitial } = condosData
 
 const roleBadgeVariant = (role: string) => {
   switch (role) {
@@ -112,17 +115,7 @@ const roleBadgeVariant = (role: string) => {
   }
 }
 
-onMounted(async () => {
-  try {
-    await authStore.ensureToken()
-    condos.value = await $fetch<CondoItem[]>('/api/v1/geo/condominiums/my/', {
-      credentials: 'include',
-      headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
-    })
-  } catch (err) {
-    console.error('Failed to load condominiums:', err)
-  } finally {
-    loading.value = false
-  }
-})
+// Block client-side navigation until the list is ready (Suspense holds the
+// previous page — no spinner flash). Cache-first on revisit.
+await condosData
 </script>

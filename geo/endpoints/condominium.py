@@ -186,7 +186,7 @@ def _check_condo_member(request, establishment) -> bool:
     return False
 
 
-def _format_fraction(f, show_token=False) -> FractionResponse:
+def _format_fraction(f, show_token=False, viewer=None) -> FractionResponse:
     return FractionResponse(
         id=f.id,
         identifier=f.identifier,
@@ -196,14 +196,14 @@ def _format_fraction(f, show_token=False) -> FractionResponse:
         permilagem=f.permilagem,
         resident_id=f.resident_id,
         resident_hna=f.resident.hna if f.resident else None,
-        resident_display_name=f.resident.display_name if f.resident else None,
+        resident_display_name=(f.resident.display_name if f.resident.name_visible_to(viewer) else f.resident.hna) if f.resident else None,
         is_owner=f.is_owner,
         invite_token=f.invite_token if show_token else None,
         created_at=f.created_at,
     )
 
 
-def _format_payment(p) -> QuotaPaymentResponse:
+def _format_payment(p, viewer=None) -> QuotaPaymentResponse:
     return QuotaPaymentResponse(
         id=p.id,
         fraction_id=p.fraction_id,
@@ -213,7 +213,7 @@ def _format_payment(p) -> QuotaPaymentResponse:
         paid_at=p.paid_at,
         confirmed_by_id=p.confirmed_by_id,
         confirmed_by_hna=p.confirmed_by.hna if p.confirmed_by else None,
-        confirmed_by_display_name=p.confirmed_by.display_name if p.confirmed_by else None,
+        confirmed_by_display_name=(p.confirmed_by.display_name if p.confirmed_by.name_visible_to(viewer) else p.confirmed_by.hna) if p.confirmed_by else None,
         notes=p.notes,
         created_at=p.created_at,
     )
@@ -498,7 +498,7 @@ def list_fractions(request, slug: str):
 
     is_admin = _check_condo_admin(request, est)
     fractions = CondominiumFraction.objects.filter(establishment=est).select_related('resident')
-    return [_format_fraction(f, show_token=is_admin) for f in fractions]
+    return [_format_fraction(f, show_token=is_admin, viewer=request.auth) for f in fractions]
 
 
 @router.post("/condominiums/{slug}/fractions/", auth=ProfileAuth(), response={200: FractionResponse, 400: dict, 403: dict})
@@ -522,7 +522,7 @@ def add_fraction(request, slug: str, payload: FractionInput):
         fraction_type=payload.fraction_type,
         permilagem=payload.permilagem,
     )
-    return _format_fraction(f, show_token=True)
+    return _format_fraction(f, show_token=True, viewer=request.auth)
 
 
 @router.put("/condominiums/{slug}/fractions/{fraction_id}/", auth=ProfileAuth(),
@@ -570,7 +570,7 @@ def update_fraction(request, slug: str, fraction_id: str, payload: FractionUpdat
     if update_fields:
         f.save(update_fields=update_fields)
 
-    return _format_fraction(f, show_token=True)
+    return _format_fraction(f, show_token=True, viewer=request.auth)
 
 
 @router.delete("/condominiums/{slug}/fractions/{fraction_id}/", auth=ProfileAuth(),
@@ -735,8 +735,8 @@ def list_quotas(request, slug: str, month: str = None):
             permilagem=f.permilagem,
             expected_quota=quota,
             paid=is_paid,
-            payment=_format_payment(payment) if payment else None,
-            resident_display_name=f.resident.display_name if f.resident else None,
+            payment=_format_payment(payment, viewer=request.auth) if payment else None,
+            resident_display_name=(f.resident.display_name if f.resident.name_visible_to(request.auth) else f.resident.hna) if f.resident else None,
             resident_id=f.resident_id,
             is_owner=f.is_owner,
             months_unpaid=months_unpaid,
@@ -912,7 +912,7 @@ def record_payment(request, slug: str, payload: QuotaPaymentInput):
         payment.notes = payload.notes
         payment.save(update_fields=['amount', 'paid_at', 'confirmed_by', 'notes'])
 
-    return _format_payment(payment)
+    return _format_payment(payment, viewer=request.auth)
 
 
 @router.put("/condominiums/{slug}/budget/", auth=ProfileAuth(),

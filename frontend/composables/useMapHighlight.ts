@@ -27,7 +27,17 @@ const mapMarkers = new Map<string, any>()
  * When `getLockOnMarker` returns a marker already sitting on the hovered feature,
  * the lock-on hex is tinted red (`lockon-hot`) instead of stacking a second hex.
  */
+// Per-map guard: callers (e.g. transit setupLayers) re-run on style reloads,
+// and the handlers below are anonymous — without the guard each call would
+// stack another mouseenter/mouseleave pair on the KeepAlive'd map. WeakMap
+// keyed by map instance stays correct when the map is destroyed & recreated.
+const hoverHexAttached = new WeakMap<any, Set<string>>()
+
 export function attachHoverHex(map: any, layerId: string, iconSize = 1.2, getLockOnMarker?: () => any) {
+  const attached = hoverHexAttached.get(map) ?? new Set<string>()
+  if (attached.has(layerId)) return
+  attached.add(layerId)
+  hoverHexAttached.set(map, attached)
   // Screen-distance check (rendered geojson coords are tile-quantized, exact match won't hold)
   const lockOnAt = (coords: [number, number]) => {
     const marker = getLockOnMarker?.()

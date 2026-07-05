@@ -4,8 +4,8 @@ from .models import Post, Site, SitePage
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author', 'establishment', 'status', 'language', 'published_at')
-    list_filter = ('status', 'language', 'is_pinned')
+    list_display = ('title', 'author', 'establishment', 'status', 'language', 'subscribers_only', 'published_at')
+    list_filter = ('status', 'language', 'is_pinned', 'subscribers_only')
     search_fields = ('title', 'slug')
     raw_id_fields = ('author', 'establishment', 'translation_of')
     readonly_fields = ('content_html', 'comments_count')

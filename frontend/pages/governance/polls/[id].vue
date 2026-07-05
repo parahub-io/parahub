@@ -3,7 +3,7 @@
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
       </div>
 
       <!-- Error State -->
@@ -25,7 +25,7 @@
 
           <div class="flex justify-between items-start mb-4">
             <div>
-              <div class="flex items-center gap-2 mb-3">
+              <div class="flex items-center gap-2 mb-3 flex-wrap">
                 <DemoBadge :is-demo="poll.is_demo" />
                 <span
                   class="inline-block px-3 py-1 rounded-full text-xs font-semibold"
@@ -33,6 +33,12 @@
                 >
                   {{ getStatusLabel(poll.status) }}
                 </span>
+                <!-- Community (household/condo) open opinion polls: scope shown in the header;
+                     anonymous civic polls render their own badges inside CivicPollView -->
+                <template v-if="poll.poll_class === 'opinion' && poll.ballot_mode === 'open'">
+                  <CivicScopeBadge :level="poll.scope_level" :name="poll.scope_name" />
+                  <UiBadge variant="secondary" type="soft" :title="$t('civic.badgeHint')">{{ $t('civic.badge') }}</UiBadge>
+                </template>
               </div>
               <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
                 {{ poll.title }}
@@ -62,6 +68,21 @@
           <p class="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{{ poll.description }}</p>
         </div>
 
+        <!-- Civic opinion poll (anonymous/territory): pseudonymous voting + live results -->
+        <template v-if="poll.poll_class === 'opinion' && poll.ballot_mode === 'anonymous'">
+          <CivicPollView :poll="poll" />
+          <div class="flex gap-3 mt-6">
+            <button
+              @click="router.push(localePath(`/governance/polls/audit-${poll.id}`))"
+              class="px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors flex items-center gap-2"
+            >
+              <Shield class="w-4 h-4" />
+              {{ $t('governance.auditLog.title') }}
+            </button>
+          </div>
+        </template>
+
+        <template v-else>
         <!-- Statistics -->
         <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 mb-6">
           <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">{{ $t('governance.pollDetail.statistics') }}</h2>
@@ -294,6 +315,15 @@
           </UiAlert>
         </div>
 
+        <!-- Open-ballot list for household/condominium opinion polls (audience-only).
+             Keyed by vote count so a fresh vote remounts and reloads the list. -->
+        <CivicOpenBallots
+          v-if="poll.poll_class === 'opinion' && poll.ballot_mode === 'open'"
+          :key="`ballots-${poll.total_voted}`"
+          :poll-id="poll.id"
+          class="mb-6"
+        />
+
         <!-- Actions -->
         <div class="flex gap-3">
           <button
@@ -313,6 +343,7 @@
             {{ $t('governance.auditLog.title') }}
           </button>
         </div>
+        </template>
       </div>
     </div>
 
@@ -483,7 +514,9 @@ async function castVote() {
   voteNeedsKeys.value = false
 
   await loadKeys()
-  if (!hasKeys.value) {
+  // Binding (decision) votes require client keys — NV#2. Open opinion polls
+  // (household/condo sandbox) are PGP-if-capable: sign when keys exist, else unsigned.
+  if (!hasKeys.value && poll.value?.poll_class !== 'opinion') {
     voteNeedsKeys.value = true
     voteError.value = $t('governance.errors.pgpKeysRequired')
     voting.value = false
@@ -494,11 +527,13 @@ async function castVote() {
     await authStore.ensureToken()
 
     const timestamp = new Date().toISOString()
-    const signature = await signCanonicalPayload({
-      option_id: selectedOption.value,
-      poll_id: pollId.value,
-      timestamp,
-    })
+    const signature = hasKeys.value
+      ? await signCanonicalPayload({
+          option_id: selectedOption.value,
+          poll_id: pollId.value,
+          timestamp,
+        })
+      : ''
 
     await $fetch(`/api/v1/governance/polls/${pollId.value}/vote/`, {
       method: 'POST',

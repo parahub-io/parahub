@@ -80,7 +80,7 @@
 
     <!-- Empty state -->
     <div v-else class="py-12 text-center">
-      <img src="/images/para/searching.png" alt="Para" class="mx-auto h-32 w-auto mb-6" />
+      <img src="/images/para/searching.webp" alt="Para" class="mx-auto h-32 w-auto mb-6" />
       <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ $t('videos.empty') }}</h3>
       <p class="mt-1 text-sm text-neutral-500 mb-6">{{ $t('videos.empty_desc') }}</p>
       <UiButton

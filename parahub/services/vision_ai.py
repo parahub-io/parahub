@@ -65,16 +65,153 @@ def build_category_list(categories: List[Dict[str, str]]) -> tuple[str, Dict[int
     return category_list, index_to_id
 
 
+def _is_buy_request(item_type: str) -> bool:
+    """DEBIT = the user is looking to BUY/find an item (the photo is an example);
+    CREDIT (default) = the user is the seller posting their own item."""
+    return (item_type or 'CREDIT').upper() == 'DEBIT'
+
+
+def _description_style(language_name: str, item_type: str) -> str:
+    """
+    The "how to write the description" block of the vision prompt, flipped by
+    intent. For a SELL listing (CREDIT) the model is the seller describing the
+    exact item in the photo. For a BUY request (DEBIT) the photo is only an
+    EXAMPLE of the wanted item, so the model must write from the buyer's side and
+    NOT invent ownership details (specific wear, scratches, serial numbers).
+    """
+    if _is_buy_request(item_type):
+        return f"""CRITICAL - This is a BUY REQUEST (the user is LOOKING FOR / wants to buy this kind of item), NOT an offer to sell:
+- Write from the BUYER's perspective — describe what the user is LOOKING FOR
+- Title and description MUST read as a request to buy/find (e.g. "Ищу...", "Куплю...", "Procuro...", "Looking for...") in {language_name}
+- The photo is only an EXAMPLE of the wanted item — do NOT describe specific wear, scratches, defects or serial numbers as if the user already owns this exact unit
+- State the kind of item wanted, the desired condition, and the key specs/features the buyer cares about
+- Keep it practical and honest
+
+Example BAD description (DO NOT DO THIS — it describes a specific owned unit, but this is a buy request):
+"Ноутбук Dell XPS 15. Использовался 2 года, царапины на крышке, батарея держит 3 часа."
+
+Example GOOD description (looking to buy):
+"Ищу ноутбук Dell XPS 15 в хорошем состоянии, желательно с зарядкой. Батарея должна держать пару часов. Бюджет до 600€."
+
+Example GOOD description (looking to buy):
+"Куплю свежие апельсины, нужно около 5 кг для сока. Самовывоз или доставка по городу."
+"""
+    return f"""CRITICAL - Description writing style:
+- Write as if you are the SELLER describing YOUR item for sale
+- Use first person perspective ("selling", "offering") or neutral description
+- NEVER use phrases like "on the image", "in the photo", "shown", "depicted", "presented"
+- Describe the SPECIFIC item in the photo, not general facts about the product category
+- Mention actual condition, visible features, defects, damages, wear if present
+- Focus on what makes THIS specific item unique or notable
+- Keep it practical and honest - don't oversell with marketing language about vitamins/health benefits unless directly relevant
+- If item looks new/unused, mention it. If used/worn, describe the condition honestly
+
+Example BAD description (DO NOT DO THIS):
+"На изображении представлен апельсин. Апельсины богаты витамином С..."
+
+Example GOOD description:
+"Свежие апельсины, 5 штук. Куплены вчера на рынке, один немного помят с боку. Остальные в отличном состоянии."
+
+Example GOOD description:
+"Ноутбук Dell XPS 15. Использовался 2 года, царапины на крышке, батарея держит около 3 часов. Работает без проблем, все порты исправны."
+"""
+
+
+def build_vision_prompt(language_name: str, item_type: str = 'CREDIT') -> str:
+    """
+    Vision prompt for analyze_image (title/description/price, no category).
+    Shared verbatim by all providers; item_type flips the seller↔buyer framing
+    (see _description_style).
+    """
+    is_request = _is_buy_request(item_type)
+    task = (
+        "This image shows an EXAMPLE of an item a user wants to BUY / is LOOKING FOR. "
+        "Write a \"wanted\" (buy request) listing — title, description, and a budget estimate — in JSON format."
+        if is_request else
+        "Analyze this product image and provide title, description, and price estimate in JSON format."
+    )
+    price_rule = (
+        "- Price should be a realistic budget — what the buyer could expect to pay — in EUR"
+        if is_request else
+        "- Price should be realistic market value in EUR"
+    )
+
+    return f"""{task}
+
+IMPORTANT: Generate the title and description in {language_name}. The user's preferred language is {language_name}, so all text fields MUST be written in {language_name}.
+
+Respond with ONLY a valid JSON object (no markdown, no explanations) with this structure:
+{{
+    "title": "Short descriptive title (3-50 words) in {language_name}",
+    "description": "Detailed description (50-200 words) in {language_name}",
+    "suggested_price_eur": estimated price in EUR as a number (or null if cannot estimate),
+    "confidence": 0.0 to 1.0
+}}
+
+Rules:
+- Title and description MUST be written in {language_name}
+- Title should be concise and descriptive
+{price_rule}
+- Set confidence based on image clarity and your certainty
+
+{_description_style(language_name, item_type)}"""
+
+
+def build_vision_with_categories_prompt(
+    language_name: str, num_categories: int, category_list: str, item_type: str = 'CREDIT'
+) -> str:
+    """
+    Vision+category prompt for analyze_with_categories (ONE-REQUEST path).
+    Shared verbatim by all providers; item_type flips the seller↔buyer framing.
+    """
+    is_request = _is_buy_request(item_type)
+    task = (
+        "This image shows an EXAMPLE of an item a user wants to BUY / is LOOKING FOR. "
+        "Write a \"wanted\" (buy request) listing — title, description, budget, AND category — in JSON format."
+        if is_request else
+        "Analyze this product image and provide title, description, price, AND category in JSON format."
+    )
+    price_field = (
+        'estimated budget the buyer could pay in EUR as a number (or null)'
+        if is_request else
+        'estimated price in EUR as a number (or null)'
+    )
+
+    return f"""{task}
+
+IMPORTANT: Generate the title and description in {language_name}. All text fields MUST be in {language_name}.
+
+Available categories ({num_categories} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
+{category_list}
+
+Respond with ONLY a valid JSON object:
+{{
+    "title": "Short descriptive title (3-50 words) in {language_name}",
+    "description": "Detailed description (50-200 words) in {language_name}",
+    "suggested_price_eur": {price_field},
+    "category_index": number of the most appropriate category from the list above,
+    "category_confidence": 0.0 to 1.0,
+    "confidence": 0.0 to 1.0
+}}
+
+{_description_style(language_name, item_type)}
+Category selection:
+- Choose the MOST SPECIFIC and ACCURATE category by its NUMBER
+- Pay careful attention to actual image content (categorize by WHAT the item is, regardless of buy/sell intent)"""
+
+
 class AIVisionProvider:
     """Base class for AI vision providers - extracts title/description/price from image"""
 
-    def analyze_image(self, image_data: bytes, language: str = 'en') -> Dict[str, Any]:
+    def analyze_image(self, image_data: bytes, language: str = 'en', item_type: str = 'CREDIT') -> Dict[str, Any]:
         """
         Analyze image and return title, description, price (NO category)
 
         Args:
             image_data: Raw image bytes
             language: User's preferred language code (en, ru, pt, es, fr, etc.)
+            item_type: 'CREDIT' (user sells the item) or 'DEBIT' (user is looking
+                to buy an item like the one shown) — flips the prompt framing
 
         Returns:
             {
@@ -95,7 +232,7 @@ class AIVisionProvider:
         """
         raise NotImplementedError
 
-    def analyze_with_categories(self, image_data: bytes, categories: List[Dict[str, str]], language: str = 'en') -> Dict[str, Any]:
+    def analyze_with_categories(self, image_data: bytes, categories: List[Dict[str, str]], language: str = 'en', item_type: str = 'CREDIT') -> Dict[str, Any]:
         """
         Analyze image AND select category in ONE request (optimization for same provider)
 
@@ -103,6 +240,7 @@ class AIVisionProvider:
             image_data: Raw image bytes
             categories: ALL available categories with id, name, slug
             language: User's preferred language code
+            item_type: 'CREDIT' (sell) or 'DEBIT' (buy request) — flips framing
 
         Returns:
             {
@@ -153,50 +291,14 @@ class ClaudeVisionProvider(AIVisionProvider):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
 
-    def analyze_image(self, image_data: bytes, language: str = 'en') -> Dict[str, Any]:
+    def analyze_image(self, image_data: bytes, language: str = 'en', item_type: str = 'CREDIT') -> Dict[str, Any]:
         # Encode image to base64
         image_b64 = base64.b64encode(image_data).decode('utf-8')
 
         # Language-specific instructions
         language_name = LANGUAGE_MAP.get(language, 'English')
 
-        prompt = f"""Analyze this product image and provide title, description, and price estimate in JSON format.
-
-IMPORTANT: Generate the title and description in {language_name}. The user's preferred language is {language_name}, so all text fields MUST be written in {language_name}.
-
-Respond with ONLY a valid JSON object (no markdown, no explanations) with this structure:
-{{
-    "title": "Short descriptive title (3-50 words) in {language_name}",
-    "description": "Detailed description (50-200 words) in {language_name}",
-    "suggested_price_eur": estimated price in EUR as a number (or null if cannot estimate),
-    "confidence": 0.0 to 1.0
-}}
-
-Rules:
-- Title and description MUST be written in {language_name}
-- Title should be concise and descriptive
-- Price should be realistic market value in EUR
-- Set confidence based on image clarity and your certainty
-
-CRITICAL - Description writing style:
-- Write as if you are the SELLER describing YOUR item for sale
-- Use first person perspective ("selling", "offering") or neutral description
-- NEVER use phrases like "on the image", "in the photo", "shown", "depicted", "presented"
-- Describe the SPECIFIC item in the photo, not general facts about the product category
-- Mention actual condition, visible features, defects, damages, wear if present
-- Focus on what makes THIS specific item unique or notable
-- Keep it practical and honest - don't oversell with marketing language about vitamins/health benefits unless directly relevant
-- If item looks new/unused, mention it. If used/worn, describe the condition honestly
-
-Example BAD description (DO NOT DO THIS):
-"На изображении представлен апельсин. Апельсины богаты витамином С..."
-
-Example GOOD description:
-"Свежие апельсины, 5 штук. Куплены вчера на рынке, один немного помят с боку. Остальные в отличном состоянии."
-
-Example GOOD description:
-"Ноутбук Dell XPS 15. Использовался 2 года, царапины на крышке, батарея держит около 3 часов. Работает без проблем, все порты исправны."
-"""
+        prompt = build_vision_prompt(language_name, item_type)
 
         try:
             message = self.client.messages.create(
@@ -264,7 +366,7 @@ Example GOOD description:
             logger.error(f"Claude API error: {e}")
             raise
 
-    def analyze_with_categories(self, image_data: bytes, categories: List[Dict[str, str]], language: str = 'en') -> Dict[str, Any]:
+    def analyze_with_categories(self, image_data: bytes, categories: List[Dict[str, str]], language: str = 'en', item_type: str = 'CREDIT') -> Dict[str, Any]:
         """ONE REQUEST: analyze image AND select category for Claude"""
         # Encode image to base64
         image_b64 = base64.b64encode(image_data).decode('utf-8')
@@ -275,33 +377,7 @@ Example GOOD description:
         # Build compact category list (numbered)
         category_list, index_to_id = build_category_list(categories)
 
-        prompt = f"""Analyze this product image and provide title, description, price, AND category in JSON format.
-
-IMPORTANT: Generate the title and description in {language_name}. All text fields MUST be in {language_name}.
-
-Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
-{category_list}
-
-Respond with ONLY a valid JSON object:
-{{
-    "title": "Short descriptive title (3-50 words) in {language_name}",
-    "description": "Detailed description (50-200 words) in {language_name}",
-    "suggested_price_eur": estimated price in EUR as a number (or null),
-    "category_index": number of the most appropriate category from the list above,
-    "category_confidence": 0.0 to 1.0,
-    "confidence": 0.0 to 1.0
-}}
-
-Description writing style:
-- Write as if you are the SELLER describing YOUR item for sale
-- NEVER use phrases like "on the image", "in the photo", "shown", "depicted"
-- Describe the SPECIFIC item in the photo, not general facts
-- Mention actual condition, visible defects, damages, wear if present
-- Keep it practical and honest
-
-Category selection:
-- Choose the MOST SPECIFIC and ACCURATE category by its NUMBER
-- Pay careful attention to actual image content"""
+        prompt = build_vision_with_categories_prompt(language_name, len(categories), category_list, item_type)
 
         try:
             message = self.client.messages.create(
@@ -380,50 +456,14 @@ class OpenAIVisionProvider(AIVisionProvider):
         self.client = openai.OpenAI(api_key=api_key)
         self.model = model
 
-    def analyze_image(self, image_data: bytes, language: str = 'en') -> Dict[str, Any]:
+    def analyze_image(self, image_data: bytes, language: str = 'en', item_type: str = 'CREDIT') -> Dict[str, Any]:
         # Encode image to base64
         image_b64 = base64.b64encode(image_data).decode('utf-8')
 
         # Language-specific instructions
         language_name = LANGUAGE_MAP.get(language, 'English')
 
-        prompt = f"""Analyze this product image and provide title, description, and price estimate in JSON format.
-
-IMPORTANT: Generate the title and description in {language_name}. The user's preferred language is {language_name}, so all text fields MUST be written in {language_name}.
-
-Respond with ONLY a valid JSON object (no markdown, no explanations) with this structure:
-{{
-    "title": "Short descriptive title (3-50 words) in {language_name}",
-    "description": "Detailed description (50-200 words) in {language_name}",
-    "suggested_price_eur": estimated price in EUR as a number (or null if cannot estimate),
-    "confidence": 0.0 to 1.0
-}}
-
-Rules:
-- Title and description MUST be written in {language_name}
-- Title should be concise and descriptive
-- Price should be realistic market value in EUR
-- Set confidence based on image clarity and your certainty
-
-CRITICAL - Description writing style:
-- Write as if you are the SELLER describing YOUR item for sale
-- Use first person perspective ("selling", "offering") or neutral description
-- NEVER use phrases like "on the image", "in the photo", "shown", "depicted", "presented"
-- Describe the SPECIFIC item in the photo, not general facts about the product category
-- Mention actual condition, visible features, defects, damages, wear if present
-- Focus on what makes THIS specific item unique or notable
-- Keep it practical and honest - don't oversell with marketing language about vitamins/health benefits unless directly relevant
-- If item looks new/unused, mention it. If used/worn, describe the condition honestly
-
-Example BAD description (DO NOT DO THIS):
-"На изображении представлен апельсин. Апельсины богаты витамином С..."
-
-Example GOOD description:
-"Свежие апельсины, 5 штук. Куплены вчера на рынке, один немного помят с боку. Остальные в отличном состоянии."
-
-Example GOOD description:
-"Ноутбук Dell XPS 15. Использовался 2 года, царапины на крышке, батарея держит около 3 часов. Работает без проблем, все порты исправны."
-"""
+        prompt = build_vision_prompt(language_name, item_type)
 
         try:
             # GPT-5 models require max_completion_tokens instead of max_tokens
@@ -508,7 +548,7 @@ Example GOOD description:
             logger.error(f"OpenAI API error: {e}")
             raise
 
-    def analyze_with_categories(self, image_data: bytes, categories: List[Dict[str, str]], language: str = 'en') -> Dict[str, Any]:
+    def analyze_with_categories(self, image_data: bytes, categories: List[Dict[str, str]], language: str = 'en', item_type: str = 'CREDIT') -> Dict[str, Any]:
         """ONE REQUEST: analyze image AND select category for OpenAI"""
         # Encode image to base64
         image_b64 = base64.b64encode(image_data).decode('utf-8')
@@ -519,33 +559,7 @@ Example GOOD description:
         # Build compact category list (numbered)
         category_list, index_to_id = build_category_list(categories)
 
-        prompt = f"""Analyze this product image and provide title, description, price, AND category in JSON format.
-
-IMPORTANT: Generate the title and description in {language_name}. All text fields MUST be in {language_name}.
-
-Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
-{category_list}
-
-Respond with ONLY a valid JSON object:
-{{
-    "title": "Short descriptive title (3-50 words) in {language_name}",
-    "description": "Detailed description (50-200 words) in {language_name}",
-    "suggested_price_eur": estimated price in EUR as a number (or null),
-    "category_index": number of the most appropriate category from the list above,
-    "category_confidence": 0.0 to 1.0,
-    "confidence": 0.0 to 1.0
-}}
-
-Description writing style:
-- Write as if you are the SELLER describing YOUR item for sale
-- NEVER use phrases like "on the image", "in the photo", "shown", "depicted"
-- Describe the SPECIFIC item in the photo, not general facts
-- Mention actual condition, visible defects, damages, wear if present
-- Keep it practical and honest
-
-Category selection:
-- Choose the MOST SPECIFIC and ACCURATE category by its NUMBER
-- Pay careful attention to actual image content"""
+        prompt = build_vision_with_categories_prompt(language_name, len(categories), category_list, item_type)
 
         try:
             # GPT-5 models require max_completion_tokens
@@ -639,47 +653,11 @@ class GeminiFlashVisionProvider(AIVisionProvider):
         self.client = genai.Client(api_key=api_key)
         self.model_name = model
 
-    def analyze_image(self, image_data: bytes, language: str = 'en') -> Dict[str, Any]:
+    def analyze_image(self, image_data: bytes, language: str = 'en', item_type: str = 'CREDIT') -> Dict[str, Any]:
         # Language-specific instructions
         language_name = LANGUAGE_MAP.get(language, 'English')
 
-        prompt = f"""Analyze this product image and provide title, description, and price estimate in JSON format.
-
-IMPORTANT: Generate the title and description in {language_name}. The user's preferred language is {language_name}, so all text fields MUST be written in {language_name}.
-
-Respond with ONLY a valid JSON object (no markdown, no explanations) with this structure:
-{{
-    "title": "Short descriptive title (3-50 words) in {language_name}",
-    "description": "Detailed description (50-200 words) in {language_name}",
-    "suggested_price_eur": estimated price in EUR as a number (or null if cannot estimate),
-    "confidence": 0.0 to 1.0
-}}
-
-Rules:
-- Title and description MUST be written in {language_name}
-- Title should be concise and descriptive
-- Price should be realistic market value in EUR
-- Set confidence based on image clarity and your certainty
-
-CRITICAL - Description writing style:
-- Write as if you are the SELLER describing YOUR item for sale
-- Use first person perspective ("selling", "offering") or neutral description
-- NEVER use phrases like "on the image", "in the photo", "shown", "depicted", "presented"
-- Describe the SPECIFIC item in the photo, not general facts about the product category
-- Mention actual condition, visible features, defects, damages, wear if present
-- Focus on what makes THIS specific item unique or notable
-- Keep it practical and honest - don't oversell with marketing language about vitamins/health benefits unless directly relevant
-- If item looks new/unused, mention it. If used/worn, describe the condition honestly
-
-Example BAD description (DO NOT DO THIS):
-"На изображении представлен апельсин. Апельсины богаты витамином С..."
-
-Example GOOD description:
-"Свежие апельсины, 5 штук. Куплены вчера на рынке, один немного помят с боку. Остальные в отличном состоянии."
-
-Example GOOD description:
-"Ноутбук Dell XPS 15. Использовался 2 года, царапины на крышке, батарея держит около 3 часов. Работает без проблем, все порты исправны."
-"""
+        prompt = build_vision_prompt(language_name, item_type)
 
         try:
             # Upload image
@@ -769,7 +747,7 @@ Example GOOD description:
             logger.error(f"Gemini Flash Vision API error: {e}")
             raise
 
-    def analyze_with_categories(self, image_data: bytes, categories: List[Dict[str, str]], language: str = 'en') -> Dict[str, Any]:
+    def analyze_with_categories(self, image_data: bytes, categories: List[Dict[str, str]], language: str = 'en', item_type: str = 'CREDIT') -> Dict[str, Any]:
         """ONE REQUEST: analyze image AND select category"""
         # Language-specific instructions
         language_name = LANGUAGE_MAP.get(language, 'English')
@@ -777,33 +755,7 @@ Example GOOD description:
         # Build compact category list (numbered)
         category_list, index_to_id = build_category_list(categories)
 
-        prompt = f"""Analyze this product image and provide title, description, price, AND category in JSON format.
-
-IMPORTANT: Generate the title and description in {language_name}. All text fields MUST be in {language_name}.
-
-Available categories ({len(categories)} total, format: number:full category path (Parent > ... > Leaf); pick the leaf whose full path best fits):
-{category_list}
-
-Respond with ONLY a valid JSON object:
-{{
-    "title": "Short descriptive title (3-50 words) in {language_name}",
-    "description": "Detailed description (50-200 words) in {language_name}",
-    "suggested_price_eur": estimated price in EUR as a number (or null),
-    "category_index": number of the most appropriate category from the list above,
-    "category_confidence": 0.0 to 1.0,
-    "confidence": 0.0 to 1.0
-}}
-
-Description writing style:
-- Write as if you are the SELLER describing YOUR item for sale
-- NEVER use phrases like "on the image", "in the photo", "shown", "depicted"
-- Describe the SPECIFIC item in the photo, not general facts
-- Mention actual condition, visible defects, damages, wear if present
-- Keep it practical and honest
-
-Category selection:
-- Choose the MOST SPECIFIC and ACCURATE category by its NUMBER
-- Pay careful attention to actual image content"""
+        prompt = build_vision_with_categories_prompt(language_name, len(categories), category_list, item_type)
 
         try:
             import PIL.Image
@@ -1334,22 +1286,61 @@ class AIVisionService:
             return Decimal(rounded)
 
     @staticmethod
+    def _apply_market_discount(suggested_price: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Apply the admin-configured liquidity discount to an AI-suggested price.
+
+        The discount anchors the pre-filled asking price slightly below the model's raw
+        estimate to favour faster sales / marketplace liquidity over squeezing the last
+        euro. It is a soft nudge only — the seller can always edit the final price.
+
+        Applied to the EUR base BEFORE currency conversion/rounding so the discount is
+        currency-independent. Returns the price unchanged if disabled (pct <= 0), if there
+        is no amount, or on any error (fail-open: never block analysis over a discount).
+        """
+        if not suggested_price or not suggested_price.get('amount'):
+            return suggested_price
+
+        try:
+            from parahub.models import AISettings
+            ai_settings = AISettings.objects.first()
+            pct = getattr(ai_settings, 'market_discount_pct', None) if ai_settings else None
+            pct = Decimal(str(pct)) if pct is not None else Decimal('0')
+            if pct <= 0:
+                return suggested_price
+
+            discounted = suggested_price['amount'] * (Decimal('1') - pct)
+            return {**suggested_price, 'amount': discounted}
+        except Exception as e:
+            logger.warning(f"Failed to apply market discount: {e}, using original price")
+            return suggested_price
+
+    @staticmethod
     def _convert_price_to_currency(suggested_price: Dict[str, Any], target_currency: str) -> Dict[str, Any]:
         """
-        Convert suggested_price from EUR to target currency with smart rounding.
+        Apply the liquidity discount, then convert from EUR to target currency with
+        smart rounding.
 
         Args:
             suggested_price: Dict with type, amount (Decimal), currency ('EUR')
             target_currency: Target currency code (e.g., 'RUB', 'USD')
 
         Returns:
-            Dict with converted and smartly rounded amount and target currency
+            Dict with discounted, converted and smartly rounded amount and target currency
         """
         if not suggested_price or not suggested_price.get('amount'):
             return suggested_price
 
+        # Liquidity discount on the EUR base (applies to ALL currencies, incl. same-currency).
+        suggested_price = AIVisionService._apply_market_discount(suggested_price)
+
         if suggested_price.get('currency') == target_currency:
-            return suggested_price
+            # Same currency (e.g. EUR→EUR): still smart-round the discounted anchor.
+            return {
+                'type': suggested_price['type'],
+                'amount': AIVisionService._smart_round_price(suggested_price['amount']),
+                'currency': suggested_price['currency'],
+            }
 
         try:
             from currency.models import ExchangeRate
@@ -1375,7 +1366,7 @@ class AIVisionService:
             return suggested_price
 
     @staticmethod
-    def analyze_item_image(image_data: bytes, language: str = 'en', user_currency: str = 'EUR', user_id: str = None) -> Dict[str, Any]:
+    def analyze_item_image(image_data: bytes, language: str = 'en', user_currency: str = 'EUR', user_id: str = None, item_type: str = 'CREDIT') -> Dict[str, Any]:
         """
         Analyze item image using one-step or two-step process:
         - ONE STEP: if same provider for vision & categorization (faster, cheaper)
@@ -1386,6 +1377,8 @@ class AIVisionService:
             language: User's preferred language code (en, ru, pt, es, fr, etc.)
             user_currency: User's preferred currency code (EUR, USD, RUB, etc.)
             user_id: User ID for WebSocket notifications (optional)
+            item_type: 'CREDIT' (user sells) or 'DEBIT' (user is looking to buy an
+                item like the one shown) — flips the vision prompt's framing
 
         Returns:
             Dict with:
@@ -1440,7 +1433,7 @@ class AIVisionService:
             logger.info(f"Using ONE-REQUEST optimization (provider: {ai_settings.provider})")
             vision_start = time.time()
 
-            result = vision_provider.analyze_with_categories(image_data, categories, language)
+            result = vision_provider.analyze_with_categories(image_data, categories, language, item_type)
 
             if result:  # analyze_with_categories succeeded
                 vision_time_ms = int((time.time() - vision_start) * 1000)
@@ -1495,7 +1488,7 @@ class AIVisionService:
 
         # Step 1: Vision analysis
         vision_start = time.time()
-        vision_result = vision_provider.analyze_image(image_data, language)
+        vision_result = vision_provider.analyze_image(image_data, language, item_type)
         vision_time_ms = int((time.time() - vision_start) * 1000)
 
         # Convert price to user's currency

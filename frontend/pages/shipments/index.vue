@@ -13,13 +13,13 @@
 
       <!-- Loading -->
       <div v-if="loading" class="text-center py-12" role="status" aria-live="polite">
-        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary" aria-hidden="true"></div>
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" aria-hidden="true"></div>
         <span class="sr-only">{{ $t('common.loading') }}</span>
       </div>
 
       <!-- Empty state -->
       <div v-else-if="filteredShipments.length === 0" class="text-center py-12">
-        <img src="/images/para/shrug.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+        <img src="/images/para/shrug.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
         <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
           {{ $t('shipments.no_shipments') }}
         </h3>
@@ -41,7 +41,7 @@
         >
           <div>
             <div class="flex flex-wrap items-center gap-2 mb-2">
-              <span class="font-mono text-sm font-bold text-primary">{{ s.tracking_code }}</span>
+              <span class="font-mono text-sm font-bold text-secondary dark:text-secondary-400">{{ s.tracking_code }}</span>
               <span :class="statusClass(s.status)" class="px-2 py-0.5 text-xs font-medium rounded-full">
                 {{ $t(`shipments.status.${s.status}`) }}
               </span>
@@ -333,5 +333,13 @@ async function loadData() {
   }
 }
 
-onMounted(loadData)
+// Client-side fetch behind Suspense (token-authed → no SSR): client-side
+// navigation holds the previous page until the lists are ready instead of
+// flashing an empty shell (was onMounted(loadData)).
+const bootstrap = useAsyncData('shipments-bootstrap', async () => {
+  await loadData()
+  return true
+}, { server: false })
+
+await bootstrap
 </script>

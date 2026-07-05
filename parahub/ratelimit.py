@@ -3,9 +3,12 @@ Rate limiting utilities for Parahub API endpoints
 Using django-ratelimit with Django Ninja integration
 """
 
+import asyncio
 from functools import wraps
+from asgiref.sync import sync_to_async
 from django.core.cache import cache
 from ninja.errors import HttpError
+from django_ratelimit import ALL as RL_ALL
 from django_ratelimit.decorators import ratelimit as django_ratelimit
 from django_ratelimit.exceptions import Ratelimited
 import logging
@@ -16,6 +19,10 @@ logger = logging.getLogger(__name__)
 def ratelimit(group=None, key='ip', rate='5/m', method='ALL', block=True):
     """
     Rate limiting decorator for Django Ninja endpoints
+
+    Supports both sync and async endpoint functions. For async endpoints the
+    check runs via sync_to_async: key callables may resolve request.user,
+    which is a lazy sync ORM/session lookup and must not run on the event loop.
 
     Args:
         group: Group name for the rate limit (e.g., 'auth:login')
@@ -29,53 +36,54 @@ def ratelimit(group=None, key='ip', rate='5/m', method='ALL', block=True):
         def login(request, data):
             ...
     """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(request, *args, **kwargs):
-            # Skip rate limiting for localhost (E2E tests)
-            client_ip = get_ip(request)
-            if client_ip in ('127.0.0.1', 'localhost', '::1'):
-                return func(request, *args, **kwargs)
+    def _enforce(request):
+        """Run the django-ratelimit check; raise HttpError(429) when limited."""
+        try:
+            # django-ratelimit's ALL is a sentinel tuple, not the string 'ALL'.
+            # Passing the string made _method_match compare request.method
+            # against ['ALL'] — never matching, i.e. the limit was silently
+            # OFF for every endpoint that used our 'ALL' default (all GETs).
+            limited = django_ratelimit(
+                group=group,
+                key=key,
+                rate=rate,
+                method=RL_ALL if method == 'ALL' else method,
+                block=block
+            )(lambda r: None)
+            limited(request)
 
-            # Apply django-ratelimit logic manually
-            try:
-                # Use django-ratelimit to check the rate
-                limited = django_ratelimit(
-                    group=group,
-                    key=key,
-                    rate=rate,
-                    method=method,
-                    block=block
-                )(lambda r: None)
-
-                # Call the rate limit check
-                limited(request)
-
-                # Check if request was rate limited
-                if getattr(request, 'limited', False) and block:
-                    logger.warning(
-                        f"Rate limit exceeded for {group or 'endpoint'}: "
-                        f"IP={request.META.get('REMOTE_ADDR')}, "
-                        f"Path={request.path}"
-                    )
-                    raise HttpError(
-                        429,
-                        "rate_limited"
-                    )
-
-                # Execute the actual endpoint function
-                return func(request, *args, **kwargs)
-
-            except Ratelimited:
+            if getattr(request, 'limited', False) and block:
                 logger.warning(
                     f"Rate limit exceeded for {group or 'endpoint'}: "
                     f"IP={request.META.get('REMOTE_ADDR')}, "
                     f"Path={request.path}"
                 )
-                raise HttpError(
-                    429,
-                    "rate_limited"
-                )
+                raise HttpError(429, "rate_limited")
+        except Ratelimited:
+            logger.warning(
+                f"Rate limit exceeded for {group or 'endpoint'}: "
+                f"IP={request.META.get('REMOTE_ADDR')}, "
+                f"Path={request.path}"
+            )
+            raise HttpError(429, "rate_limited")
+
+    def decorator(func):
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(request, *args, **kwargs):
+                # Skip rate limiting for localhost (E2E tests)
+                if get_ip(request) not in ('127.0.0.1', 'localhost', '::1'):
+                    await sync_to_async(_enforce)(request)
+                return await func(request, *args, **kwargs)
+
+            return async_wrapper
+
+        @wraps(func)
+        def wrapper(request, *args, **kwargs):
+            # Skip rate limiting for localhost (E2E tests)
+            if get_ip(request) not in ('127.0.0.1', 'localhost', '::1'):
+                _enforce(request)
+            return func(request, *args, **kwargs)
 
         return wrapper
     return decorator

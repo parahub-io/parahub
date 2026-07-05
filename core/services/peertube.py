@@ -90,10 +90,17 @@ def get_video_urls(video_data: dict) -> dict:
         'hls_url': '',
     }
 
-    # Thumbnail (v8.1+: thumbnails array; fallback to deprecated fields)
+    # Thumbnail / poster. v8.1+ returns a `thumbnails` array where each entry's
+    # URL lives under `fileUrl` (NOT `url` — that key never exists, so the old
+    # code silently produced an empty poster). Pick the largest 16:9 frame so the
+    # main-stage poster stays crisp; fall back to deprecated paths for older responses.
     thumbnails = video_data.get('thumbnails') or []
-    if thumbnails:
-        result['thumbnail_url'] = thumbnails[0].get('url', '')
+    def _thumb_url(t):
+        return t.get('fileUrl') or t.get('url') or ''
+    sixteen_nine = [t for t in thumbnails if t.get('aspectRatio') == '16:9' and _thumb_url(t)]
+    candidates = sixteen_nine or [t for t in thumbnails if _thumb_url(t)]
+    if candidates:
+        result['thumbnail_url'] = _thumb_url(max(candidates, key=lambda t: t.get('width') or 0))
     else:
         preview = video_data.get('previewPath') or video_data.get('thumbnailPath')
         if preview:

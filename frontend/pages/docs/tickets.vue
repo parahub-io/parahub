@@ -39,6 +39,17 @@
         </div>
       </div>
 
+      <!-- Operator tools -->
+      <div>
+        <h3 class="font-semibold text-neutral-900 dark:text-white mb-3">{{ $t('about.ticketsSystem.operator.title') }}</h3>
+        <ul class="space-y-2 text-neutral-700 dark:text-neutral-300">
+          <li v-for="i in 4" :key="i" class="flex gap-3">
+            <Check class="w-4 h-4 flex-shrink-0 text-secondary mt-1" />
+            <span>{{ $t(`about.ticketsSystem.operator.point${i}`) }}</span>
+          </li>
+        </ul>
+      </div>
+
       <!-- No escrow note -->
       <div class="p-4 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg">
         <h3 class="font-semibold text-neutral-900 dark:text-white mb-2">{{ $t('about.ticketsSystem.noEscrow.title') }}</h3>
@@ -51,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronRight } from 'lucide-vue-next'
+import { ChevronRight, Check } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -63,7 +74,7 @@ useSeoMeta({
 })
 useDocsBreadcrumb(t('about.ticketsSystem.title'), '/docs/tickets')
 
-const features = ['qrCode', 'pgpSigning', 'unified', 'capacity']
+const features = ['qrCode', 'pgpSigning', 'unified', 'capacity', 'offline', 'fares']
 
 definePageMeta({ order: 2 })
 </script>

@@ -158,7 +158,7 @@
           <div class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700">
             <h3 class="text-sm text-neutral-500 mb-3">{{ $t('events.organizer') }}</h3>
             <NuxtLink
-              :to="`/u/${event.organizer.id}`"
+              :to="localePath(`/u/${event.organizer.hna?.split('@')[0] || event.organizer.id}`)"
               class="flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-700 -m-2 p-2 rounded-lg"
             >
               <img
@@ -188,7 +188,7 @@
               <p class="text-sm text-neutral-500 mb-3">{{ $t('events.you_are_organizer') }}</p>
               <div class="space-y-2">
                 <NuxtLink
-                  :to="`/events/${event.id}/edit`"
+                  :to="localePath(`/events/${event.id}/edit`)"
                   class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 rounded-lg font-medium hover:bg-neutral-200 dark:hover:bg-neutral-600"
                 >
                   <Pencil :size="16" />
@@ -321,7 +321,7 @@
                 </div>
                 <div class="flex-1">
                   <NuxtLink
-                    :to="`/u/${p.profile_id}`"
+                    :to="localePath(`/u/${p.profile_hna?.split('@')[0] || p.profile_id}`)"
                     class="text-neutral-900 dark:text-neutral-100 hover:underline"
                   >
                     {{ p.profile_display_name || p.profile_hna || p.profile_id }}

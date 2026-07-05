@@ -11,6 +11,8 @@
     "searchPosts": "Search posts...",
     "noPosts": "No posts yet",
     "noPostsDesc": "Be the first to publish something.",
+    "orgBlogInviteTitle": "Your blog is empty",
+    "orgBlogInviteDesc": "Share your organization's news and stories — they'll show up here.",
     "readMore": "Read more",
     "publishedAt": "Published {date}",
     "draft": "Draft",
@@ -95,7 +97,7 @@
       "download": "Download"
     },
     "manage": {
-      "title": "Manage",
+      "title": "Site editor",
       "posts": "Posts",
       "pages": "Pages",
       "files": "Files",
@@ -151,6 +153,8 @@
       "accentColor": "Accent color",
       "heroText": "Hero text (Markdown)",
       "branding": "Site branding",
+      "siteUrls": "Site URLs",
+      "siteUrlsDesc": "All addresses where this mini-site is reachable. If a custom domain is verified, share that one — the subdomain always works as a fallback.",
       "subdomain": "Mini-site URL",
       "customDomain": "Custom domain",
       "domain": "Domain",

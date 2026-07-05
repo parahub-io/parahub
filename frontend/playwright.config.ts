@@ -10,7 +10,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 3,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    // PW_BASE_URL lets a run target a dev slot (e.g. http://localhost:3001)
+    baseURL: process.env.PW_BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

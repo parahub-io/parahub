@@ -58,6 +58,7 @@
     "sign_modal": {
       "title": "Signer le contrat",
       "from": "De",
+      "read_terms": "Conditions — à lire avant de signer",
       "verify_file": "1. Vérifiez d'abord votre fichier",
       "verify_hint": "Téléchargez votre copie du fichier de contrat pour vérifier que le hash SHA256 correspond",
       "hash_mismatch_warning": "ATTENTION : Les hashes de fichiers ne correspondent pas ! Ce n'est PAS le même fichier. Ne signez pas !",
@@ -115,6 +116,8 @@
     "items": "Articles",
     "export_proof": "Exporter la Preuve pour le Tribunal",
     "created": "Créé",
+    "terms_label": "Conditions du contrat",
+    "rental_title": "Location — {item}",
     "signatures": "Signatures",
     "completion": "Finalisation",
     "arbitration": {

@@ -11,8 +11,7 @@
  */
 
 import { ref } from 'vue'
-
-const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
+import { createDrawTool, EMPTY_FC } from '~/composables/useMapDrawTool'
 
 const TILE_ZOOM = 17
 
@@ -48,15 +47,14 @@ function tile2lat(y: number, z: number): number {
   return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))
 }
 
-let _clickHandler: ((e: any) => void) | null = null
-let _moveHandler: (() => void) | null = null
+// Debounce slot for the moveend zones refetch (module-level, mirrors the
+// factory's module-level handler slots)
 let _moveTimer: any = null
 
 export function useMapDroneReach() {
   const mapStore = useMapStore()
   const authStore = useAuthStore()
 
-  const droneReachActive = ref(false)
   const droneReachLoading = ref(false)
   const launchPoint = ref<[number, number] | null>(null) // [lng, lat]
   const stats = ref<{ capturable: number; terrain: number; los: number; restricted: number; total: number } | null>(null)
@@ -126,88 +124,6 @@ export function useMapDroneReach() {
     }
   }
 
-  // ======== Layers ========
-
-  function setupLayers(map: any) {
-    if (map.getSource(SRC_TILES)) return
-
-    map.addSource(SRC_TILES, { type: 'geojson', data: EMPTY_FC })
-    map.addSource(SRC_LAUNCH, { type: 'geojson', data: EMPTY_FC })
-    map.addSource(SRC_ZONES, { type: 'geojson', data: EMPTY_FC })
-
-    map.addLayer({
-      id: LYR_FILL,
-      type: 'fill',
-      source: SRC_TILES,
-      paint: {
-        'fill-color': ['match', ['get', 'status'],
-          'capturable', STATUS_COLORS.capturable,
-          'terrain', STATUS_COLORS.terrain,
-          'los', STATUS_COLORS.los,
-          'restricted', STATUS_COLORS.restricted,
-          '#888888',
-        ],
-        'fill-opacity': 0.35,
-      },
-    })
-    map.addLayer({
-      id: LYR_OUTLINE,
-      type: 'line',
-      source: SRC_TILES,
-      paint: {
-        'line-color': ['match', ['get', 'status'],
-          'capturable', STATUS_COLORS.capturable,
-          'terrain', STATUS_COLORS.terrain,
-          'los', STATUS_COLORS.los,
-          'restricted', STATUS_COLORS.restricted,
-          '#888888',
-        ],
-        'line-width': 0.6,
-        'line-opacity': 0.5,
-      },
-    })
-    map.addLayer({
-      id: LYR_ZONES_FILL,
-      type: 'fill',
-      source: SRC_ZONES,
-      paint: {
-        'fill-color': ['match', ['get', 'restriction'],
-          'PROHIBITED', ZONE_COLORS.PROHIBITED,
-          'REQ_AUTHORISATION', ZONE_COLORS.REQ_AUTHORISATION,
-          'CONDITIONAL', ZONE_COLORS.CONDITIONAL,
-          '#888888',
-        ],
-        'fill-opacity': 0.12,
-      },
-    })
-    map.addLayer({
-      id: LYR_ZONES_OUTLINE,
-      type: 'line',
-      source: SRC_ZONES,
-      paint: {
-        'line-color': ['match', ['get', 'restriction'],
-          'PROHIBITED', ZONE_COLORS.PROHIBITED,
-          'REQ_AUTHORISATION', ZONE_COLORS.REQ_AUTHORISATION,
-          'CONDITIONAL', ZONE_COLORS.CONDITIONAL,
-          '#888888',
-        ],
-        'line-width': 1.6,
-        'line-opacity': 0.85,
-      },
-    })
-    map.addLayer({
-      id: LYR_LAUNCH,
-      type: 'circle',
-      source: SRC_LAUNCH,
-      paint: {
-        'circle-radius': 7,
-        'circle-color': '#2563eb',
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 3,
-      },
-    })
-  }
-
   async function showReach(lng: number, lat: number) {
     const map = mapStore.mapInstance
     if (!map) return
@@ -215,18 +131,14 @@ export function useMapDroneReach() {
     droneReachLoading.value = true
     launchPoint.value = [lng, lat]
 
-    const launchSrc = map.getSource(SRC_LAUNCH)
-    if (launchSrc) {
-      launchSrc.setData({
-        type: 'FeatureCollection',
-        features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [lng, lat] } }],
-      })
-    }
+    map.getSource(SRC_LAUNCH)?.setData({
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [lng, lat] } }],
+    })
 
     try {
       const geojson = await fetchReachability(lng, lat)
-      const src = map.getSource(SRC_TILES)
-      if (src) src.setData(geojson)
+      map.getSource(SRC_TILES)?.setData(geojson)
     } catch (e) {
       console.warn('[DroneReach] Failed to fetch:', e)
       useToastStore().error('Failed to compute drone reachability')
@@ -235,54 +147,112 @@ export function useMapDroneReach() {
     }
   }
 
-  function clearVisualization() {
-    const map = mapStore.mapInstance
-    if (!map) return
-    const src = map.getSource(SRC_TILES)
-    const launchSrc = map.getSource(SRC_LAUNCH)
-    const zoneSrc = map.getSource(SRC_ZONES)
-    if (src) src.setData(EMPTY_FC)
-    if (launchSrc) launchSrc.setData(EMPTY_FC)
-    if (zoneSrc) zoneSrc.setData(EMPTY_FC)
-    stats.value = null
-    launchElev.value = null
-    selectedZone.value = null
-  }
+  // ======== Lifecycle (via createDrawTool) ========
 
-  // ======== Interaction ========
-
-  function _attachHandlers(map: any) {
-    _clickHandler = (e: any) => {
-      // Identify a clicked regulatory zone (for the info readout)...
-      const hits = map.queryRenderedFeatures(e.point, { layers: [LYR_ZONES_FILL] })
-      selectedZone.value = hits.length ? hits[0].properties : null
-      // ...and place the launch point / compute reachability.
-      showReach(e.lngLat.lng, e.lngLat.lat)
-    }
-    map.on('click', _clickHandler)
-    // Refetch zone overlay for the new viewport (debounced).
-    _moveHandler = () => {
-      if (_moveTimer) clearTimeout(_moveTimer)
-      _moveTimer = setTimeout(() => { fetchZones() }, 300)
-    }
-    map.on('moveend', _moveHandler)
-  }
-  function _detachHandlers(map: any) {
-    if (_clickHandler) { map.off('click', _clickHandler); _clickHandler = null }
-    if (_moveHandler) { map.off('moveend', _moveHandler); _moveHandler = null }
-    if (_moveTimer) { clearTimeout(_moveTimer); _moveTimer = null }
-  }
-
-  function startDroneReach() {
-    const map = mapStore.mapInstance
-    if (!map) return
-    droneReachActive.value = true
-    launchPoint.value = null
-    clearVisualization()
-    map.getCanvas().style.cursor = 'crosshair'
-    _attachHandlers(map)
-    fetchZones() // show no-fly zones for the current view immediately
-  }
+  const tool = createDrawTool({
+    tag: 'drone-reach',
+    sources: [SRC_TILES, SRC_LAUNCH, SRC_ZONES],
+    layers: [
+      {
+        id: LYR_FILL,
+        type: 'fill',
+        source: SRC_TILES,
+        paint: {
+          'fill-color': ['match', ['get', 'status'],
+            'capturable', STATUS_COLORS.capturable,
+            'terrain', STATUS_COLORS.terrain,
+            'los', STATUS_COLORS.los,
+            'restricted', STATUS_COLORS.restricted,
+            '#888888',
+          ],
+          'fill-opacity': 0.35,
+        },
+      },
+      {
+        id: LYR_OUTLINE,
+        type: 'line',
+        source: SRC_TILES,
+        paint: {
+          'line-color': ['match', ['get', 'status'],
+            'capturable', STATUS_COLORS.capturable,
+            'terrain', STATUS_COLORS.terrain,
+            'los', STATUS_COLORS.los,
+            'restricted', STATUS_COLORS.restricted,
+            '#888888',
+          ],
+          'line-width': 0.6,
+          'line-opacity': 0.5,
+        },
+      },
+      {
+        id: LYR_ZONES_FILL,
+        type: 'fill',
+        source: SRC_ZONES,
+        paint: {
+          'fill-color': ['match', ['get', 'restriction'],
+            'PROHIBITED', ZONE_COLORS.PROHIBITED,
+            'REQ_AUTHORISATION', ZONE_COLORS.REQ_AUTHORISATION,
+            'CONDITIONAL', ZONE_COLORS.CONDITIONAL,
+            '#888888',
+          ],
+          'fill-opacity': 0.12,
+        },
+      },
+      {
+        id: LYR_ZONES_OUTLINE,
+        type: 'line',
+        source: SRC_ZONES,
+        paint: {
+          'line-color': ['match', ['get', 'restriction'],
+            'PROHIBITED', ZONE_COLORS.PROHIBITED,
+            'REQ_AUTHORISATION', ZONE_COLORS.REQ_AUTHORISATION,
+            'CONDITIONAL', ZONE_COLORS.CONDITIONAL,
+            '#888888',
+          ],
+          'line-width': 1.6,
+          'line-opacity': 0.85,
+        },
+      },
+      {
+        id: LYR_LAUNCH,
+        type: 'circle',
+        source: SRC_LAUNCH,
+        paint: {
+          'circle-radius': 7,
+          'circle-color': '#2563eb',
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 3,
+        },
+      },
+    ],
+    events: {
+      click: (e: any) => {
+        // Identify a clicked regulatory zone (for the info readout)...
+        const hits = e.target.queryRenderedFeatures(e.point, { layers: [LYR_ZONES_FILL] })
+        selectedZone.value = hits.length ? hits[0].properties : null
+        // ...and place the launch point / compute reachability.
+        showReach(e.lngLat.lng, e.lngLat.lat)
+      },
+      // Refetch zone overlay for the new viewport (debounced).
+      moveend: () => {
+        if (_moveTimer) clearTimeout(_moveTimer)
+        _moveTimer = setTimeout(() => { fetchZones() }, 300)
+      },
+    },
+    onStart: () => {
+      launchPoint.value = null
+      fetchZones() // show no-fly zones for the current view immediately
+    },
+    onStop: () => {
+      launchPoint.value = null
+      if (_moveTimer) { clearTimeout(_moveTimer); _moveTimer = null }
+    },
+    onClear: () => {
+      stats.value = null
+      launchElev.value = null
+      selectedZone.value = null
+    },
+  })
 
   /** Toggle the regulatory-zones overlay and (re)load or clear it. */
   function setShowZones(value: boolean) {
@@ -296,21 +266,6 @@ export function useMapDroneReach() {
     else selectedZone.value = null
   }
 
-  function stopDroneReach() {
-    const map = mapStore.mapInstance
-    if (!map) return
-    droneReachActive.value = false
-    launchPoint.value = null
-    map.getCanvas().style.cursor = ''
-    _detachHandlers(map)
-    clearVisualization()
-  }
-
-  function toggleDroneReach() {
-    if (droneReachActive.value) stopDroneReach()
-    else startDroneReach()
-  }
-
   /** Update a param and re-fetch if a launch point is already placed. */
   function setParam(key: 'agl' | 'margin' | 'radiusM' | 'rcHeight', value: number) {
     if (key === 'agl') agl.value = value
@@ -321,7 +276,7 @@ export function useMapDroneReach() {
   }
 
   return {
-    droneReachActive,
+    droneReachActive: tool.active,
     droneReachLoading,
     launchPoint,
     stats,
@@ -329,10 +284,10 @@ export function useMapDroneReach() {
     agl, margin, radiusM, rcHeight,
     showZones,
     selectedZone,
-    setupLayers,
-    startDroneReach,
-    stopDroneReach,
-    toggleDroneReach,
+    setupLayers: tool.setupLayers,
+    startDroneReach: tool.start,
+    stopDroneReach: tool.stop,
+    toggleDroneReach: tool.toggle,
     setParam,
     setShowZones,
     fetchZones,

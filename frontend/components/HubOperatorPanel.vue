@@ -3,9 +3,9 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-        <Package class="w-4 h-4 text-primary" />
+        <Package class="w-4 h-4 text-neutral-400" />
         {{ $t('shipments.hub.operator_panel') }}
-        <span v-if="shipments.length" class="px-1.5 py-0.5 bg-primary/10 text-primary text-xs rounded-full font-medium">
+        <span v-if="shipments.length" class="px-1.5 py-0.5 bg-primary/10 text-primary-800 dark:text-primary-200 text-xs rounded-full font-medium">
           {{ shipments.length }}
         </span>
       </h2>
@@ -41,7 +41,7 @@
         <div class="flex items-center justify-between gap-2 mb-2">
           <NuxtLink
             :to="localePath(`/shipments/${s.tracking_code.replace('PH-', '')}`)"
-            class="font-mono text-xs text-primary hover:underline"
+            class="font-mono text-xs text-link"
           >
             {{ s.tracking_code }}
           </NuxtLink>

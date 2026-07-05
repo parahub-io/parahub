@@ -34,6 +34,10 @@ const sdkInstance = ref<BreezSdk | null>(null)
 const sdkState = ref<'idle' | 'initializing' | 'ready' | 'error'>('idle')
 const sdkError = ref<string | null>(null)
 const balanceSats = ref(0)
+// True only after the first successful getInfo(). Gates the UI so it shows a
+// loading skeleton instead of a premature, misleading 0 while the SDK reports
+// `ready` but the background sync hasn't landed the real balance yet.
+const balanceLoaded = ref(false)
 const lightningAddress = ref<LightningAddressInfo | null>(null)
 const eventListenerId = ref<string | null>(null)
 const unclaimedDeposits = ref<DepositInfo[]>([])
@@ -43,8 +47,46 @@ const paymentEventVersion = ref(0)
 // Singleton init promise to prevent double-init
 let initPromise: Promise<void> | null = null
 
+// Cross-tab coordination: a tab taking the wallet over asks others to release.
+let broadcast: BroadcastChannel | null = null
+let releaseListenerRegistered = false
+
 export const useLightning = () => {
   const { loadSeed, hasSeed } = useSeed()
+
+  // Hold the Web Lock for as long as this tab keeps the SDK connected.
+  const holdUntilDisconnect = () => new Promise<boolean>((resolve) => {
+    const check = setInterval(() => {
+      if (!sdkInstance.value || sdkState.value !== 'ready') {
+        clearInterval(check)
+        resolve(true)
+      }
+    }, 1000)
+  })
+
+  const getBroadcast = (): BroadcastChannel | null => {
+    if (!process.client || typeof BroadcastChannel === 'undefined') return null
+    if (!broadcast) broadcast = new BroadcastChannel('parahub-wallet')
+    return broadcast
+  }
+
+  // When another tab takes the wallet over, disconnect here so only one SDK
+  // ever writes to the shared IndexedDB store.
+  const registerReleaseListener = () => {
+    const ch = getBroadcast()
+    if (!ch || releaseListenerRegistered) return
+    releaseListenerRegistered = true
+    ch.addEventListener('message', (ev: MessageEvent) => {
+      // Another tab took the wallet over: drop our SDK (so only one tab writes
+      // to IndexedDB) and show the locked-out state pointing at that tab.
+      if (ev.data?.type === 'wallet-takeover' && sdkInstance.value) {
+        disconnect().then(() => {
+          sdkState.value = 'error'
+          sdkError.value = 'walletOpenInAnotherTab'
+        })
+      }
+    })
+  }
 
   /**
    * Initialize Breez SDK with mnemonic from localStorage.
@@ -67,45 +109,51 @@ export const useLightning = () => {
     sdkState.value = 'initializing'
     sdkError.value = null
 
-    // Check for multi-tab lock
+    // Only one tab may drive the SDK at a time — concurrent IndexedDB writers
+    // would corrupt wallet state. Coordinate via a named Web Lock.
+    // Release our lock if any other tab takes the wallet over.
+    registerReleaseListener()
+
     if ('locks' in navigator) {
       try {
-        // Separate promise to signal init completion without waiting for lock release
+        // Signal init completion without waiting for the lock to be released.
         let initResolve!: () => void
         const initDone = new Promise<void>(r => { initResolve = r })
+        let gotLock = false
 
-        // Fire lock request (don't await — it holds the lock until disconnect)
+        // Fast path: grab the lock if it's free right now (don't await — the
+        // callback holds the lock until the SDK disconnects).
         navigator.locks.request('parahub-breez-sdk', { ifAvailable: true }, async (lock) => {
           if (!lock) {
-            initResolve()
+            initResolve() // lock busy — let the caller fall through to the wait path
             return false
           }
+          gotLock = true
           await _initializeBreez()
           initResolve() // Signal: init complete, callers can proceed
-          // Hold lock until SDK disconnects
-          return new Promise<boolean>((resolve) => {
-            const check = setInterval(() => {
-              if (!sdkInstance.value || sdkState.value !== 'ready') {
-                clearInterval(check)
-                resolve(true)
-              }
-            }, 1000)
-          })
-        })
+          return holdUntilDisconnect()
+        }).catch(() => {}) // our lock rejects if another tab later steals it
 
-        // Wait for init OR 2s timeout (lock held by another tab)
-        const ready = await Promise.race([
+        // Resolve as soon as the fast path settles, or after 2s for a slow init.
+        await Promise.race([
           initDone.then(() => true),
           new Promise<false>((resolve) => setTimeout(() => resolve(false), 2000))
         ])
 
-        if (!ready && sdkState.value !== 'ready') {
+        // Lock is held by another tab: surface the intended message instead of
+        // hanging on skeletons, and auto-recover once that tab releases the lock.
+        if (!gotLock) {
           sdkState.value = 'error'
           sdkError.value = 'walletOpenInAnotherTab'
-          return
+          navigator.locks.request('parahub-breez-sdk', async (lock) => {
+            if (sdkInstance.value) return true // already connected in this tab
+            sdkState.value = 'initializing'
+            await _initializeBreez()
+            return holdUntilDisconnect()
+          }).catch(() => {})
         }
       } catch (e) {
-        // Fallback: try without lock (old browsers)
+        // Fallback: try without lock (old browsers / locks unavailable)
         await _initializeBreez()
       }
     } else {
@@ -180,9 +228,16 @@ export const useLightning = () => {
 
       sdkState.value = 'ready'
 
-      // Background: sync, balance, deposits, LN address (non-blocking)
+      // Render the cached balance immediately: getInfo() reads local storage
+      // (IndexedDB), no network — so a returning user sees their last-known
+      // balance in ~0ms instead of waiting ~3-4s for the full network sync.
+      // Breez-recommended pattern: show the cached balance now, then reconcile
+      // via the background sync below and the `synced` event handler.
+      refreshBalance()
+
+      // Background: full network sync, then reconcile balance/deposits/LN address.
       ;(async () => {
-        try { await sdk.sync() } catch {}
+        try { await sdk.syncWallet({}) } catch {}
         await Promise.allSettled([
           refreshBalance(),
           fetchUnclaimedDeposits(),
@@ -190,6 +245,9 @@ export const useLightning = () => {
             lightningAddress.value = info ?? null
           }).catch(() => {})
         ])
+        // Best-effort init finished: reveal the balance even if getInfo failed,
+        // so the card never gets stuck on the loading skeleton forever.
+        balanceLoaded.value = true
       })()
     } catch (e: any) {
       console.error('Breez SDK init failed:', e)
@@ -199,17 +257,62 @@ export const useLightning = () => {
   }
 
   /**
-   * Refresh balance from SDK
+   * Force this tab to take over a wallet that's locked by another tab.
+   * Asks live tabs to disconnect first (clean handoff — no concurrent writers),
+   * then steals the Web Lock so a frozen/crashed tab can't keep us locked out.
+   * User-initiated only.
+   */
+  const takeOverLock = async (): Promise<void> => {
+    if (!process.client) return
+    registerReleaseListener()
+    getBroadcast()?.postMessage({ type: 'wallet-takeover' })
+    sdkError.value = null
+    sdkState.value = 'initializing'
+    // Give a live holder a moment to release before we force it.
+    await new Promise(r => setTimeout(r, 250))
+
+    if (!('locks' in navigator)) {
+      await _initializeBreez()
+      return
+    }
+
+    let initResolve!: () => void
+    const initDone = new Promise<void>(r => { initResolve = r })
+    navigator.locks.request('parahub-breez-sdk', { steal: true }, async () => {
+      await _initializeBreez()
+      initResolve() // Signal: init complete, callers can proceed
+      return holdUntilDisconnect()
+    }).catch(() => initResolve())
+    await initDone
+  }
+
+  /**
+   * Read balance from local SDK state. Cheap, no network sync, emits no events.
+   *
+   * IMPORTANT: do NOT call syncWallet() here. This runs from the `synced` event
+   * handler, and syncWallet() itself fires `synced` — syncing here creates a
+   * sync storm (slow load, balance flicker, repeated history reloads). Keep the
+   * network sync explicit via syncAndRefresh().
    */
   const refreshBalance = async (): Promise<void> => {
     if (!sdkInstance.value) return
     try {
-      try { await sdkInstance.value.sync() } catch {}
       const info = await sdkInstance.value.getInfo({})
       balanceSats.value = info.balanceSats
+      balanceLoaded.value = true
     } catch (e) {
       console.error('Failed to refresh balance:', e)
     }
+  }
+
+  /**
+   * Force a network sync, then read the fresh balance. For user-initiated
+   * refreshes (the refresh button, post-send) only — never the event handler.
+   */
+  const syncAndRefresh = async (): Promise<void> => {
+    if (!sdkInstance.value) return
+    try { await sdkInstance.value.syncWallet({}) } catch {}
+    await refreshBalance()
   }
 
   /**
@@ -410,6 +513,7 @@ export const useLightning = () => {
       sdkInstance.value = null
       sdkState.value = 'idle'
       balanceSats.value = 0
+      balanceLoaded.value = false
       lightningAddress.value = null
       unclaimedDeposits.value = []
       depositAddress.value = null
@@ -429,16 +533,19 @@ export const useLightning = () => {
     sdkState,
     sdkError,
     balanceSats,
+    balanceLoaded,
     lightningAddress,
     unclaimedDeposits,
     depositAddress,
 
     // Lifecycle
     initSdk,
+    takeOverLock,
     disconnect,
 
     // Balance
     refreshBalance,
+    syncAndRefresh,
 
     // Receive
     createInvoice,

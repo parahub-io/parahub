@@ -76,11 +76,13 @@
           </li>
         </ul>
 
-        <!-- Manifesto stats -->
-        <div class="grid grid-cols-3 gap-3 sm:gap-5">
-          <div v-for="stat in manifestoStats" :key="stat.label" class="landing-reveal border border-neutral-700 rounded-xl p-4 sm:p-6 text-center">
-            <div class="text-2xl sm:text-4xl font-extrabold text-primary mb-1">{{ stat.value }}</div>
-            <div class="text-xs text-neutral-400 uppercase tracking-[0.12em]">{{ stat.label }}</div>
+        <!-- Manifesto stats: stacked rows on phones — three ~106px columns can't
+             fit the uppercase labels in wider locales (PT "Intermediários" 121px,
+             DE "Mittelsmänner" 123px measured at 390px viewport) -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-5">
+          <div v-for="stat in manifestoStats" :key="stat.label" class="landing-reveal border border-neutral-700 rounded-xl p-4 sm:p-6 flex items-baseline justify-between gap-3 sm:block sm:text-center">
+            <div class="text-2xl sm:text-4xl font-extrabold text-primary sm:mb-1">{{ stat.value }}</div>
+            <div class="text-xs text-neutral-400 uppercase tracking-[0.12em] text-right sm:text-center">{{ stat.label }}</div>
           </div>
         </div>
       </div>
@@ -208,6 +210,13 @@
 const localePath = useLocalePath()
 const { t } = useI18n()
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+
+// Scroll-reveal (.landing-reveal starts at opacity 0) depends on JS; without it
+// everything below the hero would stay invisible. Emitted in <head> — noscript
+// content in the body is parsed as text when JS is on, breaking hydration.
+useHead({
+  noscript: [{ innerHTML: '<style>.landing-reveal{opacity:1!important;transform:none!important}</style>' }],
+})
 import {
   Rocket, BookOpen, Github,
   Fingerprint, Store, Wallet, Bus,
@@ -247,7 +256,11 @@ const techPillars = [
 const pageRef = ref<HTMLElement>()
 const canvasRef = ref<HTMLCanvasElement>()
 const heroRef = ref<HTMLElement>()
-const useWebGPU = ref(!!(globalThis.navigator as any)?.gpu)
+// Always false on SSR AND first client render — the canvas is swapped in only
+// after a live adapter is confirmed (initWebGPU). Seeding from navigator.gpu
+// here guaranteed a svg-vs-canvas hydration mismatch in Chrome, which exposes
+// navigator.gpu even when no adapter is available (PK/issues.md entry).
+const useWebGPU = ref(false)
 let observer: IntersectionObserver | null = null
 let heroObserver: IntersectionObserver | null = null
 let rafId: number | null = null
@@ -301,10 +314,8 @@ function createLogoTex(): HTMLCanvasElement {
   return c
 }
 
-async function startWebGPU(canvas: HTMLCanvasElement) {
+async function startWebGPU(canvas: HTMLCanvasElement, adapter: any) {
   const gpu = (navigator as any).gpu
-  const adapter = await gpu.requestAdapter()
-  if (!adapter) throw 'no adapter'
   const device = await adapter.requestDevice()
   const fmt = gpu.getPreferredCanvasFormat()
   const gctx = canvas.getContext('webgpu') as any
@@ -391,13 +402,29 @@ async function startWebGPU(canvas: HTMLCanvasElement) {
   rafId = requestAnimationFrame(tick)
 }
 
-function startPatternAnimation() {
-  if (!useWebGPU.value) return // SVG fallback is static, nothing to start
+// Probe for a usable adapter BEFORE flipping the svg→canvas branch: requestAdapter
+// resolves null on GPU-less clients, and flipping early would flap svg→canvas→svg.
+async function initWebGPU() {
+  const gpu = (navigator as any).gpu
+  if (!gpu) return
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  let adapter: any = null
+  try { adapter = await gpu.requestAdapter() } catch { return }
+  if (!adapter) return
+
+  useWebGPU.value = true
+
+  // Hero visibility — pause WebGPU animation when scrolled away
+  heroObserver = new IntersectionObserver(
+    (entries) => { heroVisible = entries[0]?.isIntersecting ?? false },
+    { threshold: 0 }
+  )
+  if (heroRef.value) heroObserver.observe(heroRef.value)
+
+  await nextTick()
   const canvas = canvasRef.value
   if (!canvas) return
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
-  startWebGPU(canvas).catch(() => { useWebGPU.value = false })
+  try { await startWebGPU(canvas, adapter) } catch { useWebGPU.value = false }
 }
 
 onMounted(() => {
@@ -416,16 +443,7 @@ onMounted(() => {
     observer?.observe(el)
   })
 
-  // Hero visibility — pause WebGPU animation when scrolled away
-  if (useWebGPU.value) {
-    heroObserver = new IntersectionObserver(
-      (entries) => { heroVisible = entries[0]?.isIntersecting ?? false },
-      { threshold: 0 }
-    )
-    if (heroRef.value) heroObserver.observe(heroRef.value)
-  }
-
-  nextTick(() => startPatternAnimation())
+  initWebGPU()
 })
 
 onBeforeUnmount(() => {

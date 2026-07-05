@@ -99,7 +99,7 @@
           <div class="text-[9px] font-mono uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-600">{{ $t('opensky.r_pilot', 'Pilot') }}</div>
           <NuxtLink
             v-if="mission.pilot_name && mission.pilot_id"
-            :to="`/u/${mission.pilot_id}`"
+            :to="localePath(`/u/${mission.pilot_hna?.split('@')[0] || mission.pilot_id}`)"
             class="block text-[12px] font-mono text-neutral-800 dark:text-neutral-100 truncate hover:text-secondary dark:hover:text-secondary-400 transition-colors"
           >{{ mission.pilot_name }}</NuxtLink>
           <div v-else class="text-[12px] font-mono text-neutral-800 dark:text-neutral-100 truncate">{{ mission.pilot_name || '—' }}</div>
@@ -181,6 +181,7 @@ const props = defineProps<{ mission: OpenSkyMission; canDelete?: boolean }>()
 defineEmits<{ delete: [string]; 'view-3d': [string]; 'download-3d': [string]; 'add-photos': [string] }>()
 
 const { t, locale } = useI18n()
+const localePath = useLocalePath()
 const { viewOnMap } = useMissionActions()
 const { lookup } = useReverseGeocode()
 

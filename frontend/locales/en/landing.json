@@ -8,8 +8,6 @@
       "subtitle": "Everything for life and work — directly, openly, commission-free.",
       "tagline": "Market, finance, messaging, and logistics — in one app.",
       "cta_start": "Get Started",
-      "cta_philosophy": "Learn Philosophy",
-      "badge": "P2P without intermediaries",
       "cta_docs": "Where to Begin"
     },
     "problem": {
@@ -47,10 +45,9 @@
       "learn_more": "Learn more"
     },
     "tech": {
-      "title": "Under the hood — independence.",
       "decentralization": {
         "title": "Decentralization",
-        "desc": "Payments, messaging, and reputation all work without a central server. No single point of control or failure."
+        "desc": "Payments flow directly between people and messages are end-to-end encrypted. The code is yours to run — no one can lock you in."
       },
       "opensource": {
         "title": "Open Source",
@@ -59,8 +56,7 @@
       "offline": {
         "title": "Offline-Ready",
         "desc": "Community mesh networks keep neighbors connected even when the internet goes down."
-      },
-      "link": "Full tech stack details"
+      }
     },
     "mission": {
       "title": "Cooperation Without Corporations.",

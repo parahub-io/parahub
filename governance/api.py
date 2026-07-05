@@ -92,6 +92,18 @@ def _create_poll_proofs(poll_ids):
 # WebSocket Helper
 # ============================================================================
 
+def _resolve_civic_topic(topic_slug):
+    """Curated civic topic lookup (children of 'civic-topics'); None-safe."""
+    if not topic_slug:
+        return None
+    from taxonomy.models import Category
+    topic = Category.objects.filter(slug=topic_slug, is_active=True,
+                                    parent__slug='civic-topics').first()
+    if topic is None:
+        raise HttpError(404, "Unknown civic topic")
+    return topic
+
+
 def broadcast_poll_update(poll_id: str, event_type: str, data: dict):
     """Broadcast update to all WebSocket clients connected to poll."""
     from parahub.services.ws_publish import ws_publish
@@ -142,6 +154,14 @@ class PollListItemSchema(BaseModel):
     quorum_met: bool = False
     is_demo: bool = False
 
+    # Civic (PK/civic-polls-system.md)
+    poll_class: str = 'decision'
+    ballot_mode: str = 'open'
+    civic_destination: str = ''
+    civic_outcome: str = ''
+    scope_level: Optional[str] = None  # territory level when context is TERRITORY
+    scope_name: str = ''
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -163,12 +183,17 @@ class PollDetailSchema(PollListItemSchema):
 
 
 class PollCreateRequest(BaseModel):
-    context_type: str = Field(..., pattern="^(organization|community|tszh|adhoc)$")
+    context_type: str = Field(..., pattern="^(organization|community|tszh|adhoc|territory|household|condominium)$")
     context_id: str = Field(..., min_length=26, max_length=26)
+    # Civic (PK/civic-polls-system.md): territory contexts are staff-only in MVP
+    poll_class: str = Field(default="decision", pattern="^(decision|opinion)$")
+    civic_destination: str = Field(default='', max_length=300)
+    topic_slug: Optional[str] = None  # civic topic (standing delegations match on it)
+    from_idea_id: Optional[str] = Field(None, min_length=26, max_length=26)  # promote a citizen idea
     title: str = Field(..., min_length=5, max_length=200)
     description: str = Field(..., min_length=10)
     options: List[str] = Field(..., min_length=2, max_length=10)
-    poll_type: str = Field(default="multiple_choice", pattern="^(simple|multiple_choice|ranked|quadratic)$")
+    poll_type: str = Field(default="multiple_choice", pattern="^(simple|multiple_choice|ranked|quadratic|sliders)$")
 
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
@@ -277,8 +302,8 @@ class PollResultsSchema(BaseModel):
 class AuditLogEntrySchema(BaseModel):
     id: str
     action: str
-    actor_id: str
-    actor_hna: str
+    actor_id: Optional[str] = None  # None for pseudonymous opinion-vote events
+    actor_hna: str = ''
     actor_display_name: str = ''
     timestamp: datetime
     payload: Dict
@@ -309,7 +334,9 @@ def list_polls(
     """
     _maybe_update_poll_statuses()
 
-    queryset = Poll.objects.all()
+    # Opinion (civic) polls live in /governance/civic/feed/ — excluded here so the
+    # group listing doesn't duplicate them
+    queryset = Poll.objects.exclude(poll_class=Poll.PollClass.OPINION)
 
     if status:
         queryset = queryset.filter(status=status)
@@ -410,6 +437,30 @@ def get_poll(request, poll_id: str):
         id=poll_id
     )
 
+    # Territory / community scope info for civic polls
+    scope_level = None
+    scope_name = ''
+    if poll.context.context_type == PollContext.ContextType.TERRITORY:
+        from geo.models import Territory
+        territory = Territory.objects.filter(id=poll.context.context_id).first()
+        if territory:
+            scope_level = territory.level
+            scope_name = territory.name
+    elif poll.context.context_type in (PollContext.ContextType.HOUSEHOLD, PollContext.ContextType.CONDOMINIUM):
+        scope_level = poll.context.context_type
+        if poll.context.context_type == PollContext.ContextType.HOUSEHOLD:
+            from iot.models import Property
+            prop = Property.objects.filter(id=poll.context.context_id).first()
+            scope_name = prop.name if prop else ''
+        else:
+            from geo.models import Establishment
+            est = Establishment.objects.filter(id=poll.context.context_id).first()
+            scope_name = est.name if est else ''
+        # Keep the audience in sync with live membership (lazy, active polls only)
+        if poll.status == Poll.Status.ACTIVE:
+            from governance.civic import sync_poll_audience
+            sync_poll_audience(poll)
+
     # Подсчёт результатов
     service = VotingService(poll)
     poll_results = service.calculate_results()
@@ -463,6 +514,12 @@ def get_poll(request, poll_id: str):
         results=results_data,
         winning_option_id=winning_option_id,
         is_demo=bool(poll.attributes.get('__demo_seed') or poll.attributes.get('demo')),
+        poll_class=poll.poll_class,
+        ballot_mode=poll.ballot_mode,
+        civic_destination=poll.civic_destination,
+        civic_outcome=poll.civic_outcome,
+        scope_level=scope_level,
+        scope_name=scope_name,
     )
 
     return detail
@@ -476,12 +533,32 @@ def create_poll(request, data: PollCreateRequest):
     """
     profile = request.auth_profile
 
-    # Authorization: verify creator is a member of the establishment
-    if data.context_id:
+    is_territory = data.context_type == 'territory'
+    is_community = data.context_type in ('household', 'condominium')
+    if is_territory:
+        # MVP: territory (civic) polls are staff-seeded until the Phase 3 idea pipeline
+        if not profile.account.is_staff:
+            raise HttpError(403, "Territory polls are staff-only for now")
+        from geo.models import Territory
+        if not Territory.objects.filter(id=data.context_id, is_active=True).exists():
+            raise HttpError(404, "Territory not found")
+        if data.poll_class != 'opinion':
+            raise HttpError(400, "Territory polls are opinion-class only (binding civic votes are a later phase)")
+    elif is_community:
+        # Household/condominium: any audience member creates (it's their living room)
+        from governance.civic import resolve_context_audience
+        community_audience = resolve_context_audience(data.context_type, data.context_id)
+        if profile.id not in community_audience:
+            raise HttpError(403, "You are not a member of this household/condominium")
+    elif data.context_id:
+        # Authorization: verify creator is a member of the establishment
         if not EstablishmentMembership.objects.filter(
             establishment_id=data.context_id, profile=profile
         ).exists():
             raise HttpError(403, "You must be a member of this organization to create polls")
+
+    if data.poll_type == 'sliders' and not is_territory:
+        raise HttpError(400, "Slider polls are territory opinion polls only for now")
 
     with transaction.atomic():
         # Создаём контекст
@@ -495,6 +572,12 @@ def create_poll(request, data: PollCreateRequest):
         start_time = data.start_time or timezone.now()
         end_time = data.end_time
 
+        # Opinion-class invariants. Territory → anonymous ballots, no delegation
+        # (Phase 2.5 adds standing delegations). Community (household/condo) →
+        # open ballots on the identified PollVote engine, per-poll delegation allowed
+        # (the liquid-democracy sandbox).
+        is_opinion = (is_territory and data.poll_class == 'opinion') or is_community
+
         # Создаём голосование
         poll = Poll.objects.create(
             context=context,
@@ -506,11 +589,15 @@ def create_poll(request, data: PollCreateRequest):
             warning_hours=data.warning_hours,
             quorum_type=data.quorum_type,
             quorum_percent=data.quorum_percent,
-            allow_delegation=data.allow_delegation,
+            allow_delegation=data.allow_delegation if is_community else (False if is_opinion else data.allow_delegation),
             require_wot_verified=data.require_wot_verified,
             public_results=data.public_results,
-            use_weights=data.use_weights,
-            weight_source=data.weight_source,
+            use_weights=False if is_opinion else data.use_weights,
+            weight_source=None if is_opinion else data.weight_source,
+            poll_class=Poll.PollClass.OPINION if is_opinion else Poll.PollClass.DECISION,
+            ballot_mode=Poll.BallotMode.ANONYMOUS if is_territory and is_opinion else Poll.BallotMode.OPEN,
+            civic_destination=data.civic_destination if is_opinion else '',
+            topic=_resolve_civic_topic(data.topic_slug) if is_territory else None,
             status=Poll.Status.ACTIVE,
             created_by=profile
         )
@@ -524,7 +611,16 @@ def create_poll(request, data: PollCreateRequest):
             )
 
         # Добавляем eligible voters
-        if data.use_weights and data.weight_source == 'ownership_shares' and data.context_id:
+        if is_territory and is_opinion:
+            pass  # Anonymous opinion polls have no eligible list — the audience is the residency scope at vote time
+        elif is_community:
+            # Audience snapshot from live membership; kept in sync lazily on poll reads
+            PollEligibleVoter.objects.bulk_create(
+                [PollEligibleVoter(poll=poll, profile_id=pid, weight=Decimal('1.0000'))
+                 for pid in community_audience],
+                ignore_conflicts=True,
+            )
+        elif data.use_weights and data.weight_source == 'ownership_shares' and data.context_id:
             # Auto-populate from ObjectShare (cooperatives, energy cells, etc.)
             from core.services.shares import setup_share_weighted_voters
             count = setup_share_weighted_voters(poll, data.context_id)
@@ -594,6 +690,11 @@ def create_poll(request, data: PollCreateRequest):
             logger.info(f"Sent notifications to {eligible_voters.count()} eligible voters for poll {poll.id}")
 
         logger.info(f"Poll created: {poll.id} by {profile.id}")
+
+        # Ideas pipeline (Phase 3): promoting an idea links it and notifies supporters
+        if is_territory and data.from_idea_id:
+            from governance.civic_api import link_promoted_idea
+            link_promoted_idea(data.from_idea_id, poll, profile)
 
     # Возвращаем созданное голосование
     return get_poll(request, poll.id)
@@ -1016,20 +1117,20 @@ def get_audit_log(request, poll_id: str):
 
         # Redact option_id in vote_cast entries for private polls
         # Replace with sha256(actor_id + option_id + poll_id) for verifiability
-        if not poll.public_results and log.action == 'vote_cast' and 'option_id' in payload:
+        if not poll.public_results and log.action == 'vote_cast' and 'option_id' in payload and log.actor_id:
             payload = dict(payload)
             raw_option_id = payload['option_id']
             payload['option_id'] = hashlib.sha256(
-                f"{log.actor.id}{raw_option_id}{poll.id}".encode()
+                f"{log.actor_id}{raw_option_id}{poll.id}".encode()
             ).hexdigest()
             payload['option_id_hashed'] = True
 
         results.append(AuditLogEntrySchema(
             id=log.id,
             action=log.action,
-            actor_id=log.actor.id,
-            actor_hna=log.actor.hna,
-            actor_display_name=log.actor.display_name or '',
+            actor_id=log.actor.id if log.actor else None,
+            actor_hna=log.actor.hna if log.actor else '',
+            actor_display_name=(log.actor.display_name or '') if log.actor else '',
             timestamp=log.timestamp,
             payload=payload,
             current_log_hash=log.current_log_hash,

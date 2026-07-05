@@ -33,19 +33,20 @@
   {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    "name": "{{ t.landing_hero_title | e }}",
-    "description": "{{ t.landing_meta | e }}",
+    "name": {{ t.landing_hero_title | tojson }},
+    "description": {{ t.landing_meta | tojson }},
     "url": "https://{{ subdomain }}.parahub.io{{ locale_path }}",
     "inLanguage": "{{ locale_lang }}",
     "isPartOf": { "@type": "WebSite", "name": "Parahub", "url": "https://parahub.io" },
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR", "description": "{{ t.landing_free_desc | e }}" }
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR", "description": {{ t.landing_free_desc | tojson }} }
   }
   </script>
 
   <link rel="icon" href="https://parahub.io/favicon.ico">
   <style>{{ inline_css }}</style>
-  <!-- Plausible -->
-  <script defer data-domain="parahub.io" src="https://parahub.io/plausible/js/script.file-downloads.outbound-links.js"></script>
+  <!-- Plausible. data-api is mandatory: the script's default endpoint is
+       <script-origin>/api/event, which hits Django on parahub.io and 404s. -->
+  <script defer data-domain="parahub.io" data-api="https://parahub.io/plausible/api/event" src="https://parahub.io/plausible/js/script.file-downloads.outbound-links.js"></script>
 </head>
 <body class="bg-white text-neutral-900">
 
@@ -131,10 +132,11 @@
   <!-- Footer -->
   <footer class="py-8 bg-neutral-900 text-neutral-400 text-sm">
     {% if cross_links %}
-    <!-- Ecosystem cross-links: de-emphasized secondary tier -->
-    <div class="flex flex-wrap justify-center gap-x-3 gap-y-1 mb-6 max-w-3xl mx-auto px-6 text-xs text-neutral-500">
+    <!-- Ecosystem cross-links: de-emphasized secondary tier.
+         neutral-400 (not 500) for WCAG AA contrast on neutral-900; py-1 for 24px tap targets. -->
+    <div class="flex flex-wrap justify-center gap-x-3 gap-y-2 mb-6 max-w-3xl mx-auto px-6 text-xs text-neutral-400">
       {% for link in cross_links %}
-      <a href="{{ link.url }}" class="hover:text-primary transition-colors">{{ link.label }}</a>
+      <a href="{{ link.url }}" class="inline-block py-1 hover:text-primary transition-colors">{{ link.label }}</a>
       {% endfor %}
     </div>
     {% endif %}
@@ -142,9 +144,9 @@
     <!-- Bottom bar: copyright left, language switcher right (stacks on mobile) -->
     <div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 max-w-4xl mx-auto px-6 pt-6">
       <p class="text-center sm:text-left">&copy; {{ year }} <a href="https://parahub.io" class="hover:text-white">Parahub</a> &mdash; {{ footer_tagline }}</p>
-      <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 flex-shrink-0">
-        {% for alt in alternates %}
-        <a href="{{ alt.path }}" class="hover:text-white transition-colors {% if alt.code == locale_code %}text-white font-bold{% endif %}">{{ alt.name }}</a>
+      <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 flex-shrink-0">
+        {% for alt in footer_alternates %}
+        <a href="{{ alt.path }}" class="inline-block py-1 hover:text-white transition-colors {% if alt.code == locale_code %}text-white font-bold{% endif %}">{{ alt.name }}</a>
         {% endfor %}
       </div>
     </div>

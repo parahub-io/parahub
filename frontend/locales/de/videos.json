@@ -14,7 +14,9 @@
       "dropOrClick": "Video hierher ziehen oder klicken zum Auswählen",
       "maxSize": "max. 4 GB",
       "uploading": "Wird hochgeladen…",
+      "compressing": "Video wird optimiert…",
       "success": "Video hochgeladen",
+      "optimized": "Optimiert {from} → {to} ({ratio}×)",
       "failed": "Hochladen fehlgeschlagen",
       "invalidType": "Bitte wählen Sie eine Videodatei",
       "tooLarge": "Datei zu gross (max. 4 GB)",
@@ -22,6 +24,7 @@
     },
     "tip_author": "Trinkgeld an Autor",
     "sign_in_to_upload": "Anmelden zum Hochladen",
-    "seo_description": "Videos aus der Parahub-Community ansehen und teilen"
+    "seo_description": "Videos aus der Parahub-Community ansehen und teilen",
+    "play": "Video abspielen"
   }
 }

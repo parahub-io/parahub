@@ -66,7 +66,7 @@
 
     <!-- Empty state -->
     <div v-else class="text-center py-12">
-      <img src="/images/para/pointing.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+      <img src="/images/para/pointing.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
       <p class="text-neutral-500 dark:text-neutral-400">{{ $t('ads.campaigns.empty') }}</p>
       <p class="text-sm text-neutral-400 dark:text-neutral-500 mt-2">{{ $t('ads.campaigns.empty_desc') }}</p>
       <button

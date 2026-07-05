@@ -11,7 +11,7 @@
           </span>
         </div>
         <NuxtLink
-          :to="localePath('/barter')"
+          :to="localePath({ path: '/market/my', query: { tab: 'barter' } })"
           class="block w-full text-center px-3 py-2 bg-primary text-black font-medium rounded-lg hover:bg-opacity-90 text-sm"
         >
           {{ $t('barter.view_chains') }}
@@ -28,7 +28,7 @@
           </span>
         </div>
         <NuxtLink
-          :to="localePath('/barter')"
+          :to="localePath({ path: '/market/my', query: { tab: 'barter' } })"
           class="px-4 py-2 bg-primary text-black font-medium rounded-lg hover:bg-opacity-90 text-sm"
         >
           {{ $t('barter.view_chains') }}
@@ -63,7 +63,7 @@
             <p>{{ $t('barter.promo.how_it_works') }}</p>
           </div>
           <NuxtLink
-            :to="localePath('/barter')"
+            :to="localePath({ path: '/market/my', query: { tab: 'barter' } })"
             class="block w-full text-center px-3 py-2 bg-gradient-to-r from-secondary to-purple-500 text-white font-medium rounded-lg hover:from-secondary-600 hover:to-purple-600 text-sm"
           >
             {{ $t('barter.promo.learn_more') }}
@@ -73,7 +73,7 @@
 
       <!-- Desktop: Inline Promo Banner -->
       <NuxtLink
-        :to="localePath('/barter')"
+        :to="localePath({ path: '/market/my', query: { tab: 'barter' } })"
         class="hidden md:flex items-center justify-between bg-gradient-to-r from-secondary-50 to-purple-50 dark:from-secondary-900/30 dark:to-purple-950/30 border border-secondary-200 dark:border-secondary-800 rounded-lg p-3 hover:from-secondary-100 hover:to-purple-100 dark:hover:from-secondary-900/50 dark:hover:to-purple-950/50 transition-colors group"
       >
         <div class="flex items-center gap-3">

@@ -1,0 +1,23 @@
+{
+  "subscriptions": {
+    "support_monthly": "{name} monatlich unterstützen",
+    "monthly_hint": "Jetzt eine einmalige Zahlung. Jeden Monat erinnern wir dich ans Verlängern — keine automatische Abbuchung.",
+    "success_title": "Du unterstützt jetzt {name}",
+    "success_hint": "Wir erinnern dich vor Ablauf, damit du mit einem Tipp verlängern kannst.",
+    "confirm_support": "Unterstützung bestätigen",
+    "support_monthly_btn": "Monatlich unterstützen",
+    "supporting": "Unterstützt",
+    "supporters_tooltip": "Personen, die dieses Profil monatlich unterstützen",
+    "access_until": "Gekündigt · Zugang bis {date}",
+    "renews_on": "{amount} Sats/Mon. · verlängern bis {date}",
+    "cancel": "Kündigen",
+    "toast_subscribed": "Du unterstützt jetzt {name}",
+    "toast_failed": "Unterstützung konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "toast_cancelled": "Unterstützung gekündigt — Zugang bleibt bis zum Ende des Zeitraums.",
+    "locked_title": "Nur für Abonnenten",
+    "locked_desc": "Unterstütze {name} monatlich, um dies zu lesen.",
+    "unlock_btn": "Unterstützen zum Freischalten",
+    "editor_label": "Nur Abonnenten",
+    "editor_hint": "Nur wer dich monatlich unterstützt, liest den vollen Beitrag. Andere sehen den Auszug."
+  }
+}

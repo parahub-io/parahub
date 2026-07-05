@@ -13,13 +13,18 @@ Tests invariants that must never break:
 - Canonical JSON determinism (sorted keys, no created_at)
 """
 
+import json
+import shutil
+import tempfile
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from django.test import TestCase, SimpleTestCase, RequestFactory
+from django.test import TestCase, SimpleTestCase, RequestFactory, override_settings
 from django.contrib.sessions.backends.db import SessionStore
 from ninja.errors import HttpError
 
-from identity.models import Account, Profile, Contract, ContractReview
+from identity.models import Account, Profile
+from contracts.models import Contract, ContractReview
 from core.models import Instance
 from market.models import Item
 
@@ -1161,8 +1166,8 @@ class ContractArbitrationTest(TestCase):
         self.factory = RequestFactory()
 
     @patch('parahub.endpoints.contracts.create_arbitration_room', return_value='!room123:parahub.io')
-    @patch('parahub.endpoints.contracts.threading')
-    def test_initiate_arbitration_success(self, mock_threading, mock_room, _mock_proof):
+    @patch('parahub.endpoints.contracts.spawn')
+    def test_initiate_arbitration_success(self, mock_spawn, mock_room, _mock_proof):
         """Creator initiates arbitration, Matrix room created."""
         contract = _create_contract(
             self.alice, self.bob, status=Contract.Status.SIGNED,
@@ -1208,8 +1213,8 @@ class ContractArbitrationTest(TestCase):
         self.assertIn('signed', str(ctx.exception).lower())
 
     @patch('parahub.endpoints.contracts.create_arbitration_room', return_value='!room:parahub.io')
-    @patch('parahub.endpoints.contracts.threading')
-    def test_arbitration_already_initiated_rejected(self, mock_threading, mock_room, _mock_proof):
+    @patch('parahub.endpoints.contracts.spawn')
+    def test_arbitration_already_initiated_rejected(self, mock_spawn, mock_room, _mock_proof):
         """Cannot initiate arbitration twice."""
         contract = _create_contract(
             self.alice, self.bob, status=Contract.Status.SIGNED,
@@ -1356,3 +1361,250 @@ class ContractLifecycleTest(TestCase):
 
         contract = Contract.objects.get(id=created.id)
         self.assertEqual(contract.status, Contract.Status.CANCELLED)
+
+
+# ===========================================================================
+# DB-backed tests: Native Rental Contract (document_text + Booking link + kind)
+# ===========================================================================
+
+@patch('audit_log.signals._create_pending_proof', return_value=None)
+class ContractRentalDocumentTest(TestCase):
+    """Native rental contract: server-stored PRIVATE body + Booking link + kind=RENTAL.
+
+    Invariants:
+    - document_text is stored and returned to the parties (not in canonical text).
+    - A CONFIRMED booking links to the contract only for a party to the booking.
+    - kind=RENTAL keeps the linked item active on completion (only SALE consumes it).
+    - Legacy/upload contracts (no document_text) stay backward-compatible (blank body).
+    """
+
+    def setUp(self):
+        self.instance = _create_instance()
+        self.alice_account = _create_account(self.instance, 'alice')
+        self.alice = _create_profile(self.alice_account, self.instance, pgp_public_key=FAKE_PGP_KEY)
+        self.bob_account = _create_account(self.instance, 'bob')
+        self.bob = _create_profile(self.bob_account, self.instance, local_name='bob', pgp_public_key=FAKE_PGP_KEY)
+        self.factory = RequestFactory()
+
+    def _make_booking(self, owner, renter, status='CONFIRMED'):
+        """A CONFIRMED booking on an item owned by `owner`, rented by `renter`."""
+        from datetime import timedelta
+        from decimal import Decimal
+        from django.utils import timezone
+        from rental.models import Bookable, Booking
+        item = _create_item(owner, title='Sur-Ron Ultra Bee')
+        bookable = Bookable.objects.create(item=item)
+        start = timezone.now() + timedelta(days=1)
+        booking = Booking.objects.create(
+            bookable=bookable, renter=renter, created_by=owner,
+            start=start, end=start + timedelta(days=1), status=status,
+            price_total=Decimal('50'), currency='EUR', deposit_amount=Decimal('100'),
+            mode='RANGE', unit='month',
+        )
+        return item, booking
+
+    @patch('parahub.endpoints.contracts.pgp_crypto')
+    def test_rental_contract_stores_body_and_links_booking(self, mock_pgp, _mock_proof):
+        """RENTAL contract stores the private body and links its CONFIRMED booking."""
+        mock_pgp.verify_signature.return_value = True
+        item, booking = self._make_booking(self.alice, self.bob)
+        body = '<h3>Contrato</h3><p>Caução: 100 EUR</p>'
+
+        from parahub.endpoints.contracts import create_contract, ContractCreateRequest
+        data = ContractCreateRequest(
+            partner_id=self.bob.id, title='Aluguer — Sur-Ron',
+            file_sha256=FAKE_SHA256, signature=FAKE_SIGNATURE,
+            kind='RENTAL', document_text=body, document_format='html',
+            item_ids=[item.id], booking_id=booking.id,
+        )
+        request = _make_auth_request(self.factory, self.alice_account, self.alice, 'post')
+        response = create_contract(request, data)
+
+        self.assertEqual(response.document_text, body)
+        self.assertEqual(response.document_format, 'html')
+        # kind is not part of the response schema → assert on the persisted row
+        contract = Contract.objects.get(id=response.id)
+        self.assertEqual(contract.kind, Contract.Kind.RENTAL)
+        # document body is NOT in the signed canonical text (signatures stay valid)
+        self.assertNotIn('document_text', contract.get_canonical_text())
+        # the booking is now linked to the contract
+        booking.refresh_from_db()
+        self.assertEqual(booking.contract_id, response.id)
+
+    @patch('parahub.endpoints.contracts.pgp_crypto')
+    def test_document_text_visible_to_partner(self, mock_pgp, _mock_proof):
+        """The counterparty can read the stored body via the contract detail."""
+        mock_pgp.verify_signature.return_value = True
+        contract = _create_contract(self.alice, self.bob,
+                                    document_text='<p>private terms</p>',
+                                    kind=Contract.Kind.RENTAL)
+
+        from parahub.endpoints.contracts import get_contract
+        request = _make_auth_request(self.factory, self.bob_account, self.bob)
+        response = get_contract(request, contract.id)
+        self.assertEqual(response.document_text, '<p>private terms</p>')
+
+    @patch('parahub.endpoints.contracts.pgp_crypto')
+    def test_legacy_contract_has_blank_body(self, mock_pgp, _mock_proof):
+        """Upload / hash-only contracts stay backward-compatible (blank body)."""
+        mock_pgp.verify_signature.return_value = True
+        from parahub.endpoints.contracts import create_contract, ContractCreateRequest
+        data = ContractCreateRequest(
+            partner_id=self.bob.id, title='Upload contract',
+            file_sha256=FAKE_SHA256, signature=FAKE_SIGNATURE,
+        )
+        request = _make_auth_request(self.factory, self.alice_account, self.alice, 'post')
+        response = create_contract(request, data)
+        self.assertEqual(response.document_text, '')
+
+    def test_rental_completion_keeps_item_active(self, _mock_proof):
+        """kind=RENTAL: the asset returns to availability (only SALE deactivates)."""
+        from django.utils import timezone
+        item = _create_item(self.alice, title='Sur-Ron')
+        contract = _create_contract(self.alice, self.bob, status=Contract.Status.SIGNED,
+                                    partner_signature=FAKE_SIGNATURE, kind=Contract.Kind.RENTAL)
+        contract.items.set([item])
+        contract.creator_completed_at = timezone.now()
+        contract.save()
+
+        from parahub.endpoints.contracts import complete_contract, ContractCompleteRequest
+        data = ContractCompleteRequest()
+        request = _make_auth_request(self.factory, self.bob_account, self.bob, 'post')
+        response = complete_contract(request, contract.id, data)
+
+        self.assertEqual(response.status, 'COMPLETED')
+        item.refresh_from_db()
+        self.assertTrue(item.is_active)
+
+    @patch('parahub.endpoints.contracts.pgp_crypto')
+    def test_booking_link_rejects_non_party(self, mock_pgp, _mock_proof):
+        """A non-party to the booking cannot link it — and no orphan contract is left."""
+        mock_pgp.verify_signature.return_value = True
+        _item, booking = self._make_booking(self.alice, self.bob)
+        charlie_account = _create_account(self.instance, 'charlie')
+        charlie = _create_profile(charlie_account, self.instance, local_name='charlie',
+                                  pgp_public_key=FAKE_PGP_KEY)
+        before = Contract.objects.count()
+
+        from parahub.endpoints.contracts import create_contract, ContractCreateRequest
+        data = ContractCreateRequest(
+            partner_id=self.alice.id, title='Sneaky', file_sha256=FAKE_SHA256,
+            signature=FAKE_SIGNATURE, kind='RENTAL', booking_id=booking.id,
+        )
+        request = _make_auth_request(self.factory, charlie_account, charlie, 'post')
+        with self.assertRaises(HttpError) as ctx:
+            create_contract(request, data)
+        self.assertEqual(ctx.exception.status_code, 403)
+        # Booking is validated BEFORE the contract is created → nothing orphaned.
+        self.assertEqual(Contract.objects.count(), before)
+
+
+# ===========================================================================
+# DB-backed tests: Contract Git Mirror (v1.5 — private per-contract proof repo)
+# ===========================================================================
+
+@patch('audit_log.signals._create_pending_proof', return_value=None)
+class ContractGitMirrorTest(TestCase):
+    """Private per-contract DB → git mirror.
+
+    Invariants:
+    - sync() writes a proof bundle: body, canonical.json (== signed bytes),
+      meta.json (structured front-matter), and detached signatures.
+    - canonical.json mirrors get_canonical_text() exactly (court-verifiable offline).
+    - Edits create new commits (redline history); unchanged rows commit nothing.
+    - Legacy hash-only/upload contracts (no body) still mirror meta + canonical + sig.
+    - The drain command mirrors every changed contract from the watermark.
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix='contract-mirror-test-'))
+        # Isolate the git root AND the cache: the drain watermark lives in the
+        # default cache (real Redis on the server), so without a local cache the
+        # test would advance the production mirror watermark.
+        self._ov = override_settings(
+            CONTRACTS_GIT_ROOT=self.tmp,
+            CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}},
+        )
+        self._ov.enable()
+        self.instance = _create_instance()
+        self.alice_account = _create_account(self.instance, 'alice')
+        self.alice = _create_profile(self.alice_account, self.instance, pgp_public_key=FAKE_PGP_KEY)
+        self.bob_account = _create_account(self.instance, 'bob')
+        self.bob = _create_profile(self.bob_account, self.instance, local_name='bob', pgp_public_key=FAKE_PGP_KEY)
+
+    def tearDown(self):
+        self._ov.disable()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _repo_dir(self, contract):
+        return self.tmp / contract.id
+
+    def test_sync_writes_proof_bundle(self, _mp):
+        c = _create_contract(self.alice, self.bob, title='Aluguer — Sur-Ron',
+                             document_text='<h3>Termos</h3>', kind=Contract.Kind.RENTAL)
+        from contracts.contract_git_mirror import ContractGitMirror
+        commit = ContractGitMirror().sync(c)
+        self.assertIsNotNone(commit)
+        d = self._repo_dir(c)
+        self.assertTrue((d / 'contract.html').exists())
+        self.assertTrue((d / 'canonical.json').exists())
+        self.assertTrue((d / 'meta.json').exists())
+        self.assertTrue((d / 'signatures' / 'creator.asc').exists())
+        self.assertEqual((d / 'contract.html').read_text(), '<h3>Termos</h3>')
+        # canonical.json is byte-identical to the signed bytes
+        self.assertEqual((d / 'canonical.json').read_text().strip(), c.get_canonical_text())
+        meta = json.loads((d / 'meta.json').read_text())
+        self.assertEqual(meta['id'], c.id)
+        self.assertEqual(meta['kind'], 'RENTAL')
+        self.assertEqual(meta['file_sha256'], c.file_sha256)
+        self.assertTrue(meta['has_body'])
+
+    def test_sync_idempotent(self, _mp):
+        c = _create_contract(self.alice, self.bob, document_text='<p>x</p>')
+        from contracts.contract_git_mirror import ContractGitMirror
+        m = ContractGitMirror()
+        self.assertIsNotNone(m.sync(c))
+        self.assertIsNone(m.sync(c))  # nothing changed → no second commit
+
+    def test_edit_creates_new_commit(self, _mp):
+        import git
+        c = _create_contract(self.alice, self.bob, document_text='<p>v1</p>')
+        from contracts.contract_git_mirror import ContractGitMirror
+        m = ContractGitMirror()
+        m.sync(c)
+        c.document_text = '<p>v2</p>'
+        c.save()
+        self.assertIsNotNone(m.sync(c))
+        repo = git.Repo(self._repo_dir(c))
+        # init + v1 + v2
+        self.assertEqual(len(list(repo.iter_commits())), 3)
+        self.assertEqual((self._repo_dir(c) / 'contract.html').read_text(), '<p>v2</p>')
+
+    def test_signed_writes_partner_signature(self, _mp):
+        c = _create_contract(self.alice, self.bob, status=Contract.Status.SIGNED,
+                             partner_signature=FAKE_SIGNATURE, document_text='<p>x</p>')
+        from contracts.contract_git_mirror import ContractGitMirror
+        ContractGitMirror().sync(c)
+        self.assertTrue((self._repo_dir(c) / 'signatures' / 'partner.asc').exists())
+
+    def test_legacy_contract_no_body_file(self, _mp):
+        c = _create_contract(self.alice, self.bob)  # no document_text
+        from contracts.contract_git_mirror import ContractGitMirror
+        ContractGitMirror().sync(c)
+        d = self._repo_dir(c)
+        self.assertFalse((d / 'contract.html').exists())
+        self.assertFalse((d / 'contract.md').exists())
+        self.assertTrue((d / 'meta.json').exists())
+        self.assertTrue((d / 'canonical.json').exists())
+        self.assertTrue((d / 'signatures' / 'creator.asc').exists())
+        self.assertFalse(json.loads((d / 'meta.json').read_text())['has_body'])
+
+    def test_drain_command_mirrors_all(self, _mp):
+        from django.core.cache import cache
+        from django.core.management import call_command
+        cache.delete('contracts:mirror:last_sync_ts')
+        c1 = _create_contract(self.alice, self.bob, title='C1', document_text='<p>1</p>')
+        c2 = _create_contract(self.alice, self.bob, title='C2')
+        call_command('contract_mirror_drain')
+        self.assertTrue((self._repo_dir(c1) / 'meta.json').exists())
+        self.assertTrue((self._repo_dir(c2) / 'meta.json').exists())

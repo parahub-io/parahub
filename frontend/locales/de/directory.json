@@ -1,7 +1,27 @@
 {
   "directory": {
+    "my_orgs": {
+      "title": "Meine Organisationen",
+      "subtitle": "Organisationen, denen Sie angehören, gruppiert nach Ihrer Rolle.",
+      "group_manage": "Ich verwalte",
+      "group_member": "Ich bin Mitglied",
+      "group_work": "Ich arbeite mit",
+      "empty_title": "Noch keine Organisationen",
+      "empty_desc": "Sie gehören noch keiner Organisation an. Erstellen Sie Ihre eigene oder finden Sie eine im Verzeichnis.",
+      "browse_directory": "Verzeichnis öffnen",
+      "treasurer": "Kassenwart",
+      "auditor": "Rechnungsprüfer",
+      "role": {
+        "owner": "Eigentümer",
+        "admin": "Administrator",
+        "member": "Mitglied",
+        "employee": "Mitarbeiter",
+        "contractor": "Auftragnehmer"
+      }
+    },
     "title": "Verzeichnis",
     "meta_description": "Partner, Benutzer, Organisationen und Web of Trust",
+    "intro": "Finden Sie Personen und Organisationen auf Parahub – fügen Sie Partner hinzu, treten Sie Organisationen bei und hinterlassen Sie Bewertungen.",
     "tabs": {
       "partners": "Partner",
       "users": "Benutzer",
@@ -22,7 +42,9 @@
       "reputation_short": "Rep",
       "open_now": "Jetzt geöffnet",
       "no_results": "Keine Ergebnisse gefunden",
-      "no_results_desc": "Versuchen Sie, Ihre Suche oder Filter anzupassen."
+      "no_results_desc": "Versuchen Sie, Ihre Suche oder Filter anzupassen.",
+      "type_all": "Alle",
+      "refine_label": "Filter"
     },
     "people": {
       "type_filter_all": "Alle",
@@ -47,6 +69,12 @@
       "share_copied": "Link kopiert"
     },
     "form": {
+      "danger_zone": "Gefahrenzone",
+      "delete_org": "Organisation löschen",
+      "delete_org_hint": "Entfernt diese Organisation aus dem Verzeichnis und von der Karte. Anzeigen, Beiträge und Mitglieder bleiben erhalten; zum Wiederherstellen den Support kontaktieren.",
+      "delete_confirm_title": "Diese Organisation löschen?",
+      "delete_confirm_msg": "„{name}“ wird aus dem Verzeichnis und von der Karte ausgeblendet. Das kann hier nicht rückgängig gemacht werden.",
+      "deleted": "Organisation gelöscht",
       "name": "Name",
       "description": "Beschreibung",
       "phone": "Telefon",
@@ -62,7 +90,23 @@
       "building_unlink": "Verknüpfung aufheben",
       "building_or_point": "Oder klicken Sie auf die Karte, um einen Punkt manuell festzulegen",
       "detecting_address": "Adresse wird ermittelt...",
-      "click_map_to_detect": "Klicken Sie auf die Karte, um das Gebäude automatisch zu erkennen"
+      "click_map_to_detect": "Klicken Sie auf die Karte, um das Gebäude automatisch zu erkennen",
+      "logo": "Logo",
+      "logo_upload": "Logo hochladen",
+      "logo_replace": "Logo ersetzen",
+      "logo_hint": "Quadratisches Bild ist ideal — PNG oder JPG, bis 10 MB.",
+      "days": {
+        "mon": "Mo",
+        "tue": "Di",
+        "wed": "Mi",
+        "thu": "Do",
+        "fri": "Fr",
+        "sat": "Sa",
+        "sun": "So"
+      },
+      "hours_open": "Geöffnet",
+      "hours_closed": "Geschlossen",
+      "hours_advanced_note": "Einige Einträge nutzen ein erweitertes Format und wurden unverändert beibehalten."
     },
     "users": {
       "search_placeholder": "Nach Name oder HNA suchen...",
@@ -162,9 +206,13 @@
         "efetivo": "Vollmitglied",
         "honorario": "Ehrenmitglied",
         "apoiante": "Fördermitglied"
-      }
+      },
+      "create_button": "Neue Organisation",
+      "type_government": "Behörde"
     },
     "act_as": {
+      "manage_menu": "Verwalten",
+      "new_post": "Neuer Blogbeitrag",
       "post_as": "Veröffentlichen als",
       "personal": "Persönlich",
       "pay": "Bezahlen",
@@ -265,7 +313,20 @@
       "card": "Karte",
       "crypto": "Krypto",
       "mbway": "MBWay"
-    }
+    },
+    "create": {
+      "title": "Neue Organisation",
+      "subtitle": "Erstelle einen Verein, eine Genossenschaft, ein Unternehmen oder eine Gemeinschaft — mit oder ohne physischen Standort.",
+      "type_label": "Typ",
+      "category_label": "Kategorie (optional)",
+      "has_location_hint": "Diese Organisation hat eine physische Adresse auf der Karte.",
+      "online_hint": "Online-Organisation — ohne physischen Standort.",
+      "submit": "Organisation erstellen",
+      "success": "Organisation erstellt",
+      "wot_required_title": "Verifizierung erforderlich",
+      "wot_required": "Das Erstellen von Organisationen erfordert Web-of-Trust-Stufe 3+ (3 Verifizierungen) oder eine Stiftungsmitgliedschaft."
+    },
+    "anon_hint": "Melden Sie sich an, um Personen zu suchen und Partner hinzuzufügen."
   },
   "wot": {
     "status_title": "Ihr Verifizierungsstatus",
@@ -312,8 +373,6 @@
       "method_video_call": "Videoanruf",
       "method_documents": "Dokumente",
       "method_vouched": "Verbürgt durch Vertrauensperson",
-      "notes_label": "Anmerkungen (Optional)",
-      "notes_placeholder": "Fügen Sie zusätzliche Anmerkungen zur Verifizierung hinzu...",
       "warning": "Indem Sie diese Person verifizieren, übernehmen Sie Verantwortung für deren Identität. Falsche Verifizierungen können Ihre Reputation beschädigen.",
       "cancel_button": "Abbrechen",
       "confirm_button": "Verifizierung bestätigen",
@@ -340,9 +399,6 @@
     "method_documents_desc": "Reisepass, Ausweis oder notariell beglaubigte Dokumente geprüft",
     "method_vouched": "Verbürgt",
     "method_vouched_desc": "Empfohlen von jemandem, dem ich vertraue und der die Person kennt",
-    "notes_label": "Anmerkungen",
-    "notes_optional": "optional",
-    "notes_placeholder": "Z.B. 'Getroffen beim Lisbon Web Summit 2025'",
     "next_review": "Weiter: Erklärung prüfen",
     "statement_review_title": "Sie unterschreiben folgende Erklärung:",
     "signature_info_title": "PGP Digitale Signatur",
@@ -358,6 +414,27 @@
     "photo_confirm_match": "Ich bestätige, dass dieses Foto mit der Person übereinstimmt, die ich verifiziere",
     "no_verification_photo": "Dieser Benutzer hat noch kein Verifizierungsfoto hochgeladen. Es ist für WoT erforderlich.",
     "photo_reconfirmation": "Das Foto dieses Benutzers wurde kürzlich geändert. {count}/3 Bestätigungen erhalten.",
-    "error_no_verification_photo": "Der Benutzer muss ein Verifizierungsfoto hochladen, bevor eine WoT-Verifizierung möglich ist"
+    "error_no_verification_photo": "Der Benutzer muss ein Verifizierungsfoto hochladen, bevor eine WoT-Verifizierung möglich ist",
+    "error_codes": {
+      "not_personal_profile": "Nur persönliche Profile können andere Nutzer verifizieren. Pseudonyme Profile nehmen nicht am Web of Trust teil.",
+      "verifier_no_pgp": "Sie benötigen einen PGP-Schlüssel, um andere Nutzer zu verifizieren. Erstellen Sie einen in den Profileinstellungen.",
+      "not_authorized": "Sie können noch keine anderen verifizieren. Standardnutzer benötigen 3+ Verifizierungen und den WoT-verifizierten Status; Stiftungsmitglieder können sofort verifizieren.",
+      "target_not_found": "Nutzer nicht gefunden.",
+      "self_verification": "Sie können sich nicht selbst verifizieren.",
+      "no_verification_photo": "Dieser Nutzer muss ein Verifizierungsfoto (mit biometrischer Einwilligung) hochladen, bevor er verifiziert werden kann.",
+      "no_face_embedding": "Auf dem Verifizierungsfoto dieses Nutzers wurde kein Gesicht erkannt. Bitten Sie ihn, es erneut hochzuladen.",
+      "reconfirmation_pending": "Das Foto dieses Nutzers wurde kürzlich geändert und wartet auf Bestätigung (3 erforderlich).",
+      "face_duplicate": "Verifizierung blockiert: Dieses Gesicht stimmt mit einem bereits verifizierten Profil überein.",
+      "already_verified": "Sie haben diesen Nutzer bereits verifiziert.",
+      "invalid_method": "Ungültige Verifizierungsmethode.",
+      "statement_expired": "Die Verifizierungserklärung ist abgelaufen (älter als 5 Minuten). Bitte versuchen Sie es erneut.",
+      "timestamp_future": "Der Zeitstempel liegt in der Zukunft. Überprüfen Sie die Uhr Ihres Geräts.",
+      "invalid_timestamp": "Ungültiges Zeitstempelformat.",
+      "statement_mismatch": "Die Erklärung stimmt nicht mit den erwarteten Verifizierungsdaten überein. Bitte versuchen Sie es erneut.",
+      "invalid_statement_json": "Fehlerhafte Verifizierungserklärung. Bitte versuchen Sie es erneut.",
+      "invalid_signature": "Ungültige PGP-Signatur. Stellen Sie sicher, dass Sie mit Ihrem registrierten PGP-Schlüssel signiert haben.",
+      "signature_error": "Ihre PGP-Signatur konnte nicht überprüft werden. Bitte versuchen Sie es erneut.",
+      "internal_error": "Auf unserer Seite ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut."
+    }
   }
 }

@@ -1,7 +1,9 @@
 subdomain: troca
 default_locale: pt
 i18n_namespace: barter
-cta_path: /barter
+# NOT /barter: that stub 301s to /market/my?tab=barter (auth-walled "my market", drops ?from=).
+# Cold landing visitors get the public market; barter lives on market items anyway.
+cta_path: /market
 from_param: troca
 problems_count: 3
 features_count: 6

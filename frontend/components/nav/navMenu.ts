@@ -2,7 +2,7 @@ import type { Component } from 'vue'
 import {
   Wallet, Settings, Calendar, Book, Vote, Building,
   Megaphone, FileText, PackageCheck, Package, Zap, Car,
-  Shield, Info, Bot,
+  Shield, Info, Bot, Bell,
 } from 'lucide-vue-next'
 
 /**
@@ -59,6 +59,7 @@ export const NAV_MENU: NavMenuEntry[] = [
 
   // Dropdown: footer pills
   { path: '/about', activeIcon: Info, labelKey: 'about.title', inDropdown: true },
+  { path: '/notifications', activeIcon: Bell, labelKey: 'nav.notifications', inDropdown: true },
   { path: '/yellow-gate', activeIcon: Bot, inDropdown: true }, // "Hive" — no i18n key, not rendered in dropdown (Menu active-icon only)
 
   // Subpath-only (no navbar link of its own — lights Menu icon when user is on /transit/rides)

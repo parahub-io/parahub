@@ -121,7 +121,7 @@
           @click="invoiceStep = 'method_select'"
           class="px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
         >
-          {{ t('back') }}
+          {{ t('common.back') }}
         </button>
         <button
           @click="generateInvoice"

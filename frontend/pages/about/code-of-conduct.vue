@@ -107,7 +107,7 @@ const effectiveDate = computed(() => {
 })
 
 const emailAddress = computed(() => {
-  return 'support@parahub.io'
+  return 'info@parahub.io'
 })
 
 definePageMeta({

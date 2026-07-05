@@ -256,7 +256,7 @@
     },
     "responsible": {
       "title": "Responsável pelo Conteúdo",
-      "text": "Parahub - Associação, Portugal"
+      "country": "Portugal"
     },
     "disclaimer": {
       "title": "Isenção de Responsabilidade",
@@ -279,7 +279,6 @@
     }
   },
   "about": {
-    "title": "Sobre",
     "android_app": "Android",
     "meta": {
       "description": "Parahub — plataforma federada de código aberto para cooperação P2P, comércio e comunicações. Sem taxas, sem intermediários, encriptação do lado do cliente."
@@ -453,6 +452,14 @@
       "sos": {
         "title": "ParaSOS",
         "desc": "Ajuda mútua de emergência entre vizinhos. Alertas SOS com um toque para o seu grupo de segurança com push, sirene e localização."
+      },
+      "subscriptions": {
+        "title": "Apoio Recorrente",
+        "desc": "Apoie um perfil todos os meses com um valor fixo em Lightning. Não-custodial, por lembrete, sem comissão da plataforma. Desbloqueia publicações para apoiantes."
+      },
+      "rental": {
+        "title": "Aluguer e Reservas",
+        "desc": "Torne qualquer anúncio reservável por intervalo de datas ou período horário. Calendário em tempo real, sem reserva dupla, confirmação imediata ou por pedido."
       }
     },
     "principles": {
@@ -762,6 +769,21 @@
       "noEscrow": {
         "title": "Pagamentos diretos",
         "text": "O seu pagamento vai diretamente para o organizador do evento ou operador de transporte. A plataforma nunca retém fundos — é um princípio fundamental."
+      },
+      "offline": {
+        "title": "Funciona offline",
+        "text": "Os bilhetes têm um QR assinado criptograficamente. Os operadores podem validá-los mesmo sem rede — a assinatura prova que um bilhete é genuíno sem consultar o servidor."
+      },
+      "fares": {
+        "title": "Tarifas e validade",
+        "text": "Os operadores podem oferecer tarifas reduzidas (estudante, sénior, criança) e definir períodos de validade — uso único, limitado no tempo, ou um passe válido em toda uma rede. Os preços podem ser mostrados em euros com conversão em tempo real para sats na compra."
+      },
+      "operator": {
+        "title": "Ferramentas do operador",
+        "point1": "Um painel de vendas com bilhetes vendidos, receita e validações em tempo real.",
+        "point2": "Bilhetes de rede que funcionam em todas as linhas de um operador de transporte, não apenas numa.",
+        "point3": "Reembolsos de bilhetes não utilizados, devolvidos diretamente ao comprador.",
+        "point4": "Adicione pessoal de confiança como operadores do seu estabelecimento para vender e validar em seu nome."
       }
     },
     "driverMode": {
@@ -1016,6 +1038,25 @@
       "legal": {
         "title": "Validade Jurídica",
         "text": "As provas criptográficas são aceites como prova em muitas jurisdições. As assinaturas PGP demonstram consentimento; os timestamps Bitcoin estabelecem anterioridade. Consulte um advogado para o seu caso específico."
+      },
+      "short": "Verifique cada contrato, dívida e chave por si — ancorado no Bitcoin, espelhado em git público.",
+      "repo": {
+        "title": "Repositório de auditoria público",
+        "text": "O chaveiro PGP e cada prova OpenTimestamps são espelhados num repositório git público — sobrevivem mesmo que a parahub.io desapareça.",
+        "cta": "Abrir o repositório de auditoria"
+      },
+      "live": {
+        "title": "Estado de ancoragem em tempo real",
+        "keys": "chaves públicas publicadas",
+        "anchored": "provas ancoradas",
+        "pending": "a aguardar o próximo lote",
+        "confirmed": "lotes confirmados no Bitcoin",
+        "latest": "Último lote",
+        "block": "Bloco Bitcoin {block}",
+        "awaiting": "a aguardar confirmação do Bitcoin",
+        "commit": "commit {hash}",
+        "none": "Ainda não há eventos ancorados — o chaveiro está publicado e a ancoragem está ativa para novos eventos.",
+        "disabled": "A ancoragem está atualmente desativada."
       }
     },
     "transparency": {
@@ -1057,6 +1098,130 @@
       "chat_desc": "Mensagens encriptadas via Matrix",
       "status": "Estado",
       "status_desc": "Monitorização de disponibilidade"
+    },
+    "subscriptionsSystem": {
+      "title": "Apoio Recorrente",
+      "intro": "Apoie um perfil todos os meses com um valor fixo em Lightning — uma forma não-custodial e por lembrete de apoiar as pessoas e projetos que valoriza. A plataforma nunca detém fundos nem cobra comissão: cada pagamento vai diretamente de si para o destinatário.",
+      "flow": {
+        "title": "Como funciona",
+        "step1": "Em qualquer perfil, toque em «Apoiar mensalmente», escolha um valor e pague a partir da sua carteira Lightning. Torna-se apoiante e o destinatário é notificado.",
+        "step2": "Alguns dias antes de terminar o mês, recebe um lembrete. Um toque volta a pagar e prolonga o apoio — nunca há cobrança automática.",
+        "step3": "Não quer continuar? Basta não renovar, ou cancelar a qualquer momento. O acesso mantém-se até ao fim do período que já pagou."
+      },
+      "subscribersOnly": {
+        "title": "Conteúdo exclusivo para apoiantes",
+        "text": "Os criadores podem marcar publicações do blogue como exclusivas para apoiantes. O título, a pré-visualização e a capa ficam públicos como aperitivo; o texto completo desbloqueia para apoiantes ativos. Os restantes veem um convite «Apoie para desbloquear»."
+      },
+      "whyPush": {
+        "title": "Porquê mensal e não automático",
+        "text": "A Lightning é de envio, não de cobrança — uma carteira não-custodial nunca pode ser debitada em silêncio. O compromisso é deliberado: sem faturação automática não há estornos, o destinatário fica com ~100% e as suas chaves nunca saem do seu dispositivo."
+      },
+      "flatAmount": {
+        "title": "Qualquer valor desbloqueia",
+        "text": "O apoio é um valor mensal fixo à sua escolha — não há níveis nem benefícios por nível. Qualquer apoio ativo desbloqueia o conteúdo do criador para apoiantes."
+      },
+      "cancelAnytime": {
+        "title": "Cancele quando quiser",
+        "text": "Cancelar significa «não renovar», não «revogar agora». Mantém o acesso até ao fim do período que já pagou, e o destinatário vê o número de apoiantes e a sua data de renovação."
+      },
+      "noCut": {
+        "title": "Sem caução, sem comissão da plataforma",
+        "text": "A plataforma nunca detém nem encaminha o seu dinheiro e não cobra qualquer taxa. O pagamento de cada mês é uma transferência Lightning direta do apoiante para o destinatário — o mesmo princípio sem caução de todos os pagamentos no Parahub."
+      }
+    },
+    "rentalSystem": {
+      "title": "Aluguer e Reservas",
+      "intro": "Alugue coisas ao dia ou por períodos — bicicletas, salas, ferramentas, equipamento, tempo de estúdio. Qualquer anúncio do mercado pode tornar-se reservável, com um calendário de disponibilidade em tempo real onde nunca há reserva dupla. A reserva é uma camada leve: a maioria dos alugueres nunca precisa de um contrato assinado.",
+      "flow": {
+        "title": "Como funciona a reserva",
+        "step1": "Explore um anúncio disponível para aluguer — tudo o que uma pessoa ou organização aluga mostra um calendário de disponibilidade em tempo real.",
+        "step2": "Escolha um intervalo de datas (para estadias e alugueres de vários dias) ou um período horário (para reservas à hora, como uma sala ou um campo). Também há reservas recorrentes semanais ou mensais.",
+        "step3": "Envie a sua reserva. Conforme as definições do proprietário, é confirmada de imediato ou enviada como pedido para aprovação — e o calendário atualiza em tempo real para todos."
+      },
+      "noDoubleBooking": {
+        "title": "Nunca em duplicado",
+        "text": "As reservas sobrepostas são bloqueadas ao nível da base de dados, não apenas na interface. Duas pessoas não conseguem apanhar o mesmo período em simultâneo, e uma reserva cancelada liberta logo o período."
+      },
+      "twoModes": {
+        "title": "Por intervalo ou por período",
+        "text": "Dois estilos: um intervalo de datas com levantamento e devolução (estadias, equipamento por dias) ou períodos fixos gerados a partir do horário (uma sala à hora, um campo, uma marcação). Há suporte para turnos divididos e pausas."
+      },
+      "recurring": {
+        "title": "Recorrentes e presenciais",
+        "text": "Reserve um período todas as semanas ou todos os meses de uma só vez. O proprietário também pode introduzir uma reserva à mão para um cliente presencial que não está no Parahub, mantendo o calendário rigoroso."
+      },
+      "ownerControls": {
+        "title": "Para proprietários",
+        "text": "Torne qualquer anúncio reservável: escolha intervalo ou períodos, defina horários, confirmação imediata ou aprovação de cada pedido, margens e antecedência. Uma caixa de entrada em tempo real mostra os pedidos com confirmar, concluir ou cancelar num toque."
+      },
+      "lightweight": {
+        "title": "Leve por princípio",
+        "text": "Uma reserva fica sob a camada mais pesada dos contratos assinados — a maioria dos alugueres fica-se pela reserva e não precisa de mais. Para alugueres de valor elevado pode formalizar a reserva num contrato de aluguer assinado com PGP. Como sempre, a plataforma não detém fundos nem caução."
+      }
+    },
+    "directorySystem": {
+      "title": "Diretório de Negócios",
+      "intro": "Um mapa comunitário de negócios locais, cooperativas, associações e serviços. Clique num edifício no mapa para ver o que está lá dentro, ou explore o catálogo com pesquisa e filtros. Qualquer pessoa encontra um local; os membros verificados mantêm-no rigoroso.",
+      "buildings": {
+        "title": "Edifícios e locais",
+        "text": "Cada anúncio está ligado a um local real — um edifício, uma fração ou uma organização só online. Um edifício pode albergar vários estabelecimentos, como um centro comercial, e os locais importados do OpenStreetMap podem ser reivindicados pelo seu dono."
+      },
+      "orgTypes": {
+        "title": "Empresas e organizações",
+        "text": "Empresas, ONGs, cooperativas, associações, condomínios, comunidades e organismos públicos. Cada tipo serve o seu fim — uma associação, por exemplo, mostra uma direção pública (presidente, tesoureiro, fiscal único) para transparência."
+      },
+      "openNow": {
+        "title": "Aberto agora",
+        "text": "Os horários aparecem em cada anúncio, com um selo em tempo real a indicar se o local está aberto ou fechado neste momento."
+      },
+      "reviews": {
+        "title": "Avaliações e classificações",
+        "text": "Os membros verificados podem deixar classificações por estrelas e críticas escritas. Os donos podem responder. As médias e a contagem aparecem em cada anúncio."
+      },
+      "membership": {
+        "title": "Adesão",
+        "text": "As organizações podem gerir membros e funções, aceitar pedidos de adesão e designar um tesoureiro (que recebe os pagamentos) e um fiscal único para supervisão financeira."
+      },
+      "actAs": {
+        "title": "Publicar em nome da organização",
+        "text": "Os membros com permissão podem publicar anúncios, eventos e publicidade em nome da sua organização — e tornar os seus artigos reserváveis para aluguer."
+      },
+      "access": {
+        "title": "Quem pode o quê",
+        "text": "Explorar e pesquisar é aberto a todos, sem conta. Criar um local ou organização e escrever críticas exige um perfil verificado (rede de confiança). Só os donos e administradores podem editar um anúncio ou gerir membros."
+      }
+    },
+    "marketplaceSystem": {
+      "title": "Mercado",
+      "intro": "O núcleo do Parahub: um lugar para oferecer ou procurar qualquer coisa — bens, serviços, competências ou ajuda. Sem comissão da plataforma, sem ordenação algorítmica, sem intermediário. Apenas pessoas a negociar diretamente, num mapa, na sua língua.",
+      "creditDebit": {
+        "title": "Oferecer ou procurar",
+        "text": "Cada anúncio tem um sentido. «Ofereço» abrange bens, serviços, competências ou coisas para dar. «Procuro» abrange pedidos, necessidades e artigos desejados — assim a procura é tão visível como a oferta."
+      },
+      "pricing": {
+        "title": "Vender, alugar ou dar",
+        "text": "Defina um preço de venda fixo, uma renda por dia ou mês, ou marque como grátis para a economia de dádiva. Um único anúncio pode ter várias opções ao mesmo tempo — vender, alugar ou dar aos vizinhos."
+      },
+      "visibility": {
+        "title": "Público ou só para membros",
+        "text": "Escolha quem vê cada anúncio: público (visível para todos, incluindo motores de busca) ou só para registados (visível apenas a membros com sessão iniciada). Mantenha as ofertas sensíveis dentro da comunidade enquanto as públicas chegam a toda a web."
+      },
+      "selfMade": {
+        "title": "Feito à mão",
+        "text": "Marque um anúncio como feito por si para mostrar que é o seu artesanato, produção ou trabalho — não revenda. Um selo destaca-o, e um filtro ajuda os compradores a encontrar produtores locais e ofertas «do seu e do que está perto»."
+      },
+      "matching": {
+        "title": "Um mercado de necessidades",
+        "text": "As categorias ligam oferta e procura automaticamente. O sistema sugere pedidos que combinam com o que oferece, e ofertas que combinam com o que precisa — tornando um catálogo num motor de correspondência nos dois sentidos."
+      },
+      "barterLink": {
+        "title": "Trocar sem dinheiro",
+        "text": "Não quer pagar em dinheiro? Os artigos podem entrar no grafo de troca, que encontra cadeias de troca entre várias partes automaticamente — dá o que tem e recebe o que quer, mesmo sem uma correspondência direta."
+      },
+      "noFees": {
+        "title": "Sem comissão da plataforma",
+        "text": "O Parahub nunca fica com uma parte da sua transação nem detém o seu dinheiro. Os pagamentos — em Lightning ou em qualquer forma acordada — vão diretamente entre comprador e vendedor. Não há um feed algorítmico a decidir quem é visto."
+      }
     }
   }
 }

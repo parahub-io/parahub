@@ -207,7 +207,7 @@
     "docs_passive_autoresolve_desc": "Les alertes actives depuis plus de 2 heures sans réponse sont automatiquement résolues pour garder le système propre.",
 
     "landing_title": "ParaSOS — Entraide de Voisinage",
-    "landing_meta": "Système communautaire gratuit d'entraide en cas d'urgence. Appuyez sur un bouton — vos voisins arrivent en 2 minutes. Plus rapide que la police ou toute société de sécurité.",
+    "landing_meta": "Entraide communautaire gratuite en cas d'urgence. Appuyez sur un bouton — vos voisins arrivent en 2 minutes. Plus rapide que la police ou une société de sécurité.",
     "landing_hero_title": "Vos voisins arrivent en 2 minutes",
     "landing_hero_subtitle": "Appuyez sur un bouton — tous les membres de votre groupe de sécurité reçoivent une alerte instantanée avec votre position. Sans abonnement. Sans intermédiaires. Des voisins qui s'entraident.",
     "landing_hero_cta": "Créez Votre Groupe de Sécurité",

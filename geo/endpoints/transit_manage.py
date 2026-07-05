@@ -13,6 +13,7 @@ import zipfile
 import time as _time
 from typing import List, Optional
 
+import httpx
 import requests
 from django.conf import settings
 from django.contrib.gis.geos import Point, LineString
@@ -413,6 +414,45 @@ def list_routes(request, agency_id: str):
     return [_route_detail(r) for r in routes]
 
 
+# Registered BEFORE the /routes/{route_id}/ operations: URL patterns resolve
+# in registration order and {route_id} would otherwise shadow this path
+# (matching route_id='preview-shape' → 405 for POST, the pre-2026-07 state).
+@router.post("/routes/preview-shape/", auth=ProfileAuth())
+@ratelimit(group='transit_manage:preview_shape', key=user_or_ip, rate='30/m', method='POST')
+async def preview_shape(request, payload: ShapePreviewIn):
+    """Preview route shape: stops → Valhalla → GeoJSON LineString.
+
+    Async: a many-waypoint Valhalla call can take tens of seconds and must not
+    hold the shared sync executor thread for its duration.
+    """
+    if len(payload.stops) < 2:
+        raise HttpError(400, "At least 2 stops required")
+
+    locations = [{"lat": s["lat"], "lon": s["lon"]} for s in payload.stops]
+    costing = payload.costing if payload.costing in ("bus", "auto", "bicycle") else "bus"
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=2.0)) as client:
+            resp = await client.post(f"{VALHALLA_URL}/route", json={
+                "locations": locations,
+                "costing": costing,
+                "directions_options": {"units": "km"},
+            })
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        logger.warning(f"Valhalla route failed: {e}")
+        # Fallback: straight line through stops
+        coords = [[s["lon"], s["lat"]] for s in payload.stops]
+        return {"type": "LineString", "coordinates": coords, "fallback": True}
+
+    # Decode Valhalla shape (encoded polyline with 6-decimal precision)
+    shape_points = _decode_polyline(data["trip"]["legs"][0]["shape"])
+    coords = [[lon, lat] for lat, lon in shape_points]
+
+    return {"type": "LineString", "coordinates": coords}
+
+
 @router.get("/routes/{route_id}/", response=RouteDetailOut, auth=ProfileAuth())
 @ratelimit(group='transit_manage:get_route', key=user_or_ip, rate='60/m')
 def get_route(request, route_id: str):
@@ -541,37 +581,6 @@ def delete_route(request, route_id: str):
 
 
 # --- Shape Generation ---
-
-@router.post("/routes/preview-shape/", auth=ProfileAuth())
-@ratelimit(group='transit_manage:preview_shape', key=user_or_ip, rate='30/m', method='POST')
-def preview_shape(request, payload: ShapePreviewIn):
-    """Preview route shape: stops → Valhalla → GeoJSON LineString."""
-    if len(payload.stops) < 2:
-        raise HttpError(400, "At least 2 stops required")
-
-    locations = [{"lat": s["lat"], "lon": s["lon"]} for s in payload.stops]
-    costing = payload.costing if payload.costing in ("bus", "auto", "bicycle") else "bus"
-
-    try:
-        resp = requests.post(f"{VALHALLA_URL}/route", json={
-            "locations": locations,
-            "costing": costing,
-            "directions_options": {"units": "km"},
-        }, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        logger.warning(f"Valhalla route failed: {e}")
-        # Fallback: straight line through stops
-        coords = [[s["lon"], s["lat"]] for s in payload.stops]
-        return {"type": "LineString", "coordinates": coords, "fallback": True}
-
-    # Decode Valhalla shape (encoded polyline with 6-decimal precision)
-    shape_points = _decode_polyline(data["trip"]["legs"][0]["shape"])
-    coords = [[lon, lat] for lat, lon in shape_points]
-
-    return {"type": "LineString", "coordinates": coords}
-
 
 def _generate_shape(stops, route_type=3):
     """Generate LineString shape from ordered stops via Valhalla bus routing."""

@@ -312,7 +312,7 @@ async function handleLogout() {
     console.error('Logout error:', error)
   }
   // Hard redirect ensures fresh SSR render with anonymous state
-  window.location.href = '/'
+  window.location.href = localePath('/')
 }
 
 // Delete profile handler

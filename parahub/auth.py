@@ -65,7 +65,9 @@ class GlobalAuth(HttpBearer):
 
         try:
             # Get primary profile first (for fallback) with account preloaded
-            primary_profile = request.user.profiles.filter(is_primary=True).select_related('account').first()
+            # instance is preloaded because Profile.hna (local_name@instance.domain)
+            # is read on nearly every authenticated request
+            primary_profile = request.user.profiles.filter(is_primary=True).select_related('account', 'instance').first()
 
             # Auto-create primary profile if it doesn't exist
             if primary_profile is None:
@@ -105,7 +107,7 @@ class GlobalAuth(HttpBearer):
             active_profile_id = request.session.get('active_profile_id')
             if active_profile_id:
                 try:
-                    active_profile = Profile.objects.select_related('account').get(id=active_profile_id)
+                    active_profile = Profile.objects.select_related('account', 'instance').get(id=active_profile_id)
 
                     # Verify user can manage this profile
                     if primary_profile.can_manage_profile(active_profile):

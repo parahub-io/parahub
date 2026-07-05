@@ -58,6 +58,7 @@
     "sign_modal": {
       "title": "Sign Contract",
       "from": "From",
+      "read_terms": "Terms — read before signing",
       "verify_file": "1. Verify your file first",
       "verify_hint": "Upload your copy of the contract file to verify its SHA256 hash matches",
       "hash_mismatch_warning": "WARNING: File hashes do not match! This is NOT the same file. Do not sign!",
@@ -115,6 +116,8 @@
     "items": "Items",
     "export_proof": "Export Proof for Court",
     "created": "Created",
+    "terms_label": "Contract terms",
+    "rental_title": "Rental — {item}",
     "signatures": "Signatures",
     "completion": "Completion",
     "arbitration": {

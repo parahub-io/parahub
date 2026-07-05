@@ -67,7 +67,7 @@ def list_shares(request, object_id: Optional[str] = None, profile_id: Optional[s
             return []
         qs = qs.filter(profile_id=profile_id)
 
-    return [_format(s) for s in qs]
+    return [_format(s, viewer=request.auth) for s in qs]
 
 
 @router.post("/", auth=ProfileAuth(), response={201: ShareResponse, 400: dict, 403: dict})
@@ -115,7 +115,7 @@ def create_share(request, data: ShareInput):
         invested_at=timezone.now() if data.invested_amount else None,
     )
 
-    return 201, _format(share, target_profile)
+    return 201, _format(share, target_profile, viewer=request.auth)
 
 
 @router.patch("/{share_id}/", auth=ProfileAuth(), response={200: ShareResponse, 400: dict, 404: dict})
@@ -145,7 +145,7 @@ def update_share(request, share_id: str, data: ShareUpdateInput):
     if fields:
         share.save(update_fields=fields + ['updated_at'])
 
-    return 200, _format(share)
+    return 200, _format(share, viewer=request.auth)
 
 
 @router.delete("/{share_id}/", auth=ProfileAuth(), response={200: dict, 404: dict})
@@ -166,13 +166,13 @@ def deactivate_share(request, share_id: str):
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _format(share, profile=None) -> ShareResponse:
+def _format(share, profile=None, viewer=None) -> ShareResponse:
     p = profile or getattr(share, 'profile', None)
     return ShareResponse(
         id=share.id,
         object_id=share.object_id,
         profile_id=share.profile_id,
-        profile_name=p.display_name if p else '',
+        profile_name=(p.display_name if p.name_visible_to(viewer) else p.hna) if p else '',
         share_type=share.share_type,
         share_percent=share.share_percent,
         invested_amount=share.invested_amount,

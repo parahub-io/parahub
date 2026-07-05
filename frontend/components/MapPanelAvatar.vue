@@ -115,7 +115,7 @@
             <div
               v-if="avatarOfferItems.length > 8"
               class="w-10 h-10 rounded bg-secondary-100 dark:bg-secondary-900 flex items-center justify-center text-xs font-medium text-secondary-600 dark:text-secondary-300 cursor-pointer hover:bg-secondary-200 dark:hover:bg-secondary-800 transition"
-              @click="router.push(localePath(`/u/${avatarData?.profile_id}`))"
+              @click="router.push(localePath(`/u/${avatarData?.profile_hna?.split('@')[0] || avatarData?.profile_id}`))"
             >
               +{{ avatarOfferItems.length - 8 }}
             </div>
@@ -149,7 +149,7 @@
             <div
               v-if="avatarRequestItems.length > 8"
               class="w-10 h-10 rounded bg-success-50 dark:bg-success-900 flex items-center justify-center text-xs font-medium text-success dark:text-success-300 cursor-pointer hover:bg-success-100 dark:hover:bg-success-800 transition"
-              @click="router.push(localePath(`/u/${avatarData?.profile_id}`))"
+              @click="router.push(localePath(`/u/${avatarData?.profile_hna?.split('@')[0] || avatarData?.profile_id}`))"
             >
               +{{ avatarRequestItems.length - 8 }}
             </div>
@@ -166,7 +166,7 @@
       <UiButton
         variant="secondary"
         :icon="User"
-        :to="localePath(`/u/${avatarData?.profile_id}`)"
+        :to="localePath(`/u/${avatarData?.profile_hna?.split('@')[0] || avatarData?.profile_id}`)"
         class="w-full"
       >
         {{ t('map.presence.view_full_profile') }}

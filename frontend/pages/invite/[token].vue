@@ -245,7 +245,7 @@
 
         <!-- Loading -->
         <div v-else-if="status === 'loading'" class="text-center py-8">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100 mx-auto mb-4"></div>
           <p class="text-neutral-600 dark:text-neutral-400">
             {{ $t('invite.processing') }}
           </p>

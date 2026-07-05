@@ -18,6 +18,15 @@ Operators (establishment owners/admins or staff) create ticket types linked to e
 ### Validation
 Operators scan QR codes via camera (`/tickets/scan`). Server verifies QR token and marks ticket USED. Only the ticket type operator or staff can validate.
 
+### Offline Validation
+Tickets carry a cryptographically signed QR. An operator can validate one with no connectivity -- the signature proves the ticket is genuine without a live server round-trip; the used-state syncs when back online.
+
+### Fares and Validity
+Concession fares (student, senior, child) and validity windows -- single-use or time-limited. Network-wide agency tickets are valid across every route of a transit operator, not just one line. Prices can be set in EUR and shown with a live conversion to sats at the moment of purchase.
+
+### Operator Tools
+Establishment owners/admins act as operators (not only platform staff): they sell, validate, and manage their own ticket types. A sales dashboard shows tickets sold, revenue, and validations in real time. Refunds for unused tickets are issued directly back to the buyer.
+
 ## Access Control
 
 | Action | Requirement |
@@ -32,7 +41,7 @@ Operators scan QR codes via camera (`/tickets/scan`). Server verifies QR token a
 - **TicketBuyModal** -- payment flow with Breez SDK integration
 - **TicketCard** -- ticket display in wallet "My Tickets" tab
 - **TicketQRModal** -- full-screen QR code for validation
-- **Scanner** -- `/tickets/scan` page with camera QR reading (jsQR)
+- **Scanner** -- `/tickets/scan` page with camera QR reading (qr-scanner)
 
 ## Technical Details
 

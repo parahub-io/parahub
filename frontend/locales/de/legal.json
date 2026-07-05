@@ -256,7 +256,7 @@
     },
     "responsible": {
       "title": "Verantwortlich für den Inhalt",
-      "text": "Parahub - Associação, Portugal"
+      "country": "Portugal"
     },
     "disclaimer": {
       "title": "Haftungsausschluss",
@@ -279,7 +279,6 @@
     }
   },
   "about": {
-    "title": "Über uns",
     "android_app": "Android",
     "meta": {
       "description": "Parahub — quelloffene föderierte Plattform für P2P-Kooperation, Handel und Kommunikation. Keine Gebühren, keine Mittelsmänner, clientseitige Verschlüsselung."
@@ -453,6 +452,14 @@
       "sos": {
         "title": "ParaSOS",
         "desc": "Nachbarschaftliche Nothilfe. SOS-Alarm per Fingertipp an Ihre Sicherheitsgruppe mit Push, Sirene und Standort."
+      },
+      "subscriptions": {
+        "title": "Wiederkehrende Unterstützung",
+        "desc": "Unterstützen Sie ein Profil monatlich mit festem Lightning-Betrag. Nicht-verwahrend, per Erinnerung, ohne Plattformgebühr. Schaltet Unterstützer-Beiträge frei."
+      },
+      "rental": {
+        "title": "Vermietung & Buchung",
+        "desc": "Machen Sie jedes Inserat per Zeitraum oder Zeitfenster buchbar. Echtzeit-Kalender, nie doppelt gebucht, sofort bestätigt oder auf Anfrage."
       }
     },
     "principles": {
@@ -762,6 +769,21 @@
       "noEscrow": {
         "title": "Direktzahlungen",
         "text": "Ihre Zahlung geht direkt an den Veranstalter oder Verkehrsbetreiber. Die Plattform hält nie Gelder — das ist ein Grundprinzip."
+      },
+      "offline": {
+        "title": "Funktioniert offline",
+        "text": "Tickets tragen einen kryptografisch signierten QR-Code. Betreiber können sie auch ohne Empfang validieren — die Signatur beweist die Echtheit eines Tickets ohne Serverabfrage."
+      },
+      "fares": {
+        "title": "Tarife & Gültigkeit",
+        "text": "Betreiber können ermäßigte Tarife (Studierende, Senioren, Kinder) anbieten und Gültigkeitszeiträume festlegen — Einmalnutzung, zeitlich begrenzt oder ein netzweit gültiges Ticket. Preise können in Euro mit Live-Umrechnung in Sats beim Kauf angezeigt werden."
+      },
+      "operator": {
+        "title": "Betreiber-Werkzeuge",
+        "point1": "Ein Verkaufs-Dashboard mit verkauften Tickets, Umsatz und Validierungen in Echtzeit.",
+        "point2": "Netzweite Tickets, die auf allen Linien eines Verkehrsbetreibers gelten, nicht nur auf einer.",
+        "point3": "Erstattungen für ungenutzte Tickets, direkt an den Käufer zurück.",
+        "point4": "Fügen Sie vertrautes Personal als Betreiber Ihres Betriebs hinzu, um in Ihrem Namen zu verkaufen und zu validieren."
       }
     },
     "driverMode": {
@@ -1057,6 +1079,130 @@
       "chat_desc": "Verschlüsselte Nachrichten über Matrix",
       "status": "Status",
       "status_desc": "Plattform-Verfügbarkeitsüberwachung"
+    },
+    "subscriptionsSystem": {
+      "title": "Wiederkehrende Unterstützung",
+      "intro": "Unterstützen Sie ein Profil jeden Monat mit einem festen Lightning-Betrag — eine nicht-verwahrende, per Erinnerung gesteuerte Art, die Menschen und Projekte zu fördern, die Ihnen wichtig sind. Die Plattform hält niemals Gelder und behält nichts ein: Jede Zahlung geht direkt von Ihnen an den Empfänger.",
+      "flow": {
+        "title": "So funktioniert es",
+        "step1": "Tippen Sie auf einem beliebigen Profil auf „Monatlich unterstützen“, wählen Sie einen Betrag und zahlen Sie aus Ihrer Lightning-Wallet. Sie werden Unterstützer und der Empfänger wird benachrichtigt.",
+        "step2": "Wenige Tage vor Monatsende erhalten Sie eine Erinnerung. Ein Tippen zahlt erneut und verlängert Ihre Unterstützung — eine automatische Abbuchung gibt es nie.",
+        "step3": "Möchten Sie nicht fortfahren? Verlängern Sie einfach nicht oder kündigen Sie jederzeit. Ihr Zugang bleibt bis zum Ende des bereits bezahlten Zeitraums bestehen."
+      },
+      "subscribersOnly": {
+        "title": "Inhalte nur für Unterstützer",
+        "text": "Urheber können Blogbeiträge als nur für Unterstützer markieren. Titel, Vorschau und Titelbild bleiben als Vorgeschmack öffentlich; der vollständige Text wird für aktive Unterstützer freigeschaltet. Alle anderen sehen den Hinweis „Unterstützen zum Freischalten“."
+      },
+      "whyPush": {
+        "title": "Warum monatlich und nicht automatisch",
+        "text": "Lightning funktioniert per Senden, nicht per Einzug — eine nicht-verwahrende Wallet kann niemals stillschweigend belastet werden. Der Kompromiss ist bewusst: Ohne automatische Abrechnung gibt es keine Rückbuchungen, der Empfänger behält ~100 % und Ihre Schlüssel verlassen nie Ihr Gerät."
+      },
+      "flatAmount": {
+        "title": "Jeder Betrag schaltet frei",
+        "text": "Die Unterstützung ist ein fester monatlicher Betrag Ihrer Wahl — ohne Stufen oder stufenabhängige Vorteile. Jede aktive Unterstützung schaltet die Unterstützer-Inhalte des Urhebers frei."
+      },
+      "cancelAnytime": {
+        "title": "Jederzeit kündbar",
+        "text": "Kündigen bedeutet „nicht verlängern“, nicht „jetzt widerrufen“. Sie behalten den Zugang bis zum Ende des bereits bezahlten Zeitraums, und der Empfänger sieht seine Unterstützerzahl und Ihr Verlängerungsdatum."
+      },
+      "noCut": {
+        "title": "Kein Treuhand, keine Plattformgebühr",
+        "text": "Die Plattform hält oder leitet Ihr Geld niemals und erhebt keine Gebühr. Die Zahlung jedes Monats ist eine direkte Lightning-Überweisung vom Unterstützer an den Empfänger — dasselbe treuhandfreie Prinzip wie bei jeder Zahlung auf Parahub."
+      }
+    },
+    "rentalSystem": {
+      "title": "Vermietung & Buchung",
+      "intro": "Mieten Sie Dinge tageweise oder im Zeitfenster — Fahrräder, Räume, Werkzeuge, Ausrüstung, Studiozeit. Jedes Marktinserat kann buchbar gemacht werden, mit einem Echtzeit-Verfügbarkeitskalender, in dem Doppelbuchungen unmöglich sind. Die Buchung ist eine leichte Ebene: Die meisten Vermietungen brauchen nie einen unterschriebenen Vertrag.",
+      "flow": {
+        "title": "So funktioniert die Buchung",
+        "step1": "Stöbern Sie in einem mietbaren Inserat — alles, was eine Person oder Organisation vermietet, zeigt einen Echtzeit-Verfügbarkeitskalender.",
+        "step2": "Wählen Sie einen Datumsbereich (für Aufenthalte und mehrtägige Mieten) oder ein Zeitfenster (für stündliche Buchungen wie einen Raum oder einen Platz). Auch wiederkehrende wöchentliche oder monatliche Buchungen werden unterstützt.",
+        "step3": "Senden Sie Ihre Buchung. Je nach Einstellungen des Eigentümers wird sie sofort bestätigt oder als Anfrage zur Freigabe gesendet — und der Kalender aktualisiert sich für alle in Echtzeit."
+      },
+      "noDoubleBooking": {
+        "title": "Nie doppelt gebucht",
+        "text": "Überlappende Buchungen werden auf Datenbankebene blockiert, nicht nur in der Oberfläche. Zwei Personen können nicht im Wettlauf dasselbe Zeitfenster ergattern, und eine stornierte Buchung gibt das Fenster sofort wieder frei."
+      },
+      "twoModes": {
+        "title": "Nach Zeitraum oder Fenster",
+        "text": "Zwei Stile: ein Datumsbereich mit Abholung und Rückgabe (Aufenthalte, Ausrüstung tageweise) oder feste Zeitfenster aus den Öffnungszeiten (ein Raum stündlich, ein Platz, ein Termin). Geteilte Schichten und Pausen werden unterstützt."
+      },
+      "recurring": {
+        "title": "Wiederkehrend & vor Ort",
+        "text": "Buchen Sie ein Fenster jede Woche oder jeden Monat auf einmal. Eigentümer können eine Buchung auch von Hand für einen Laufkunden eintragen, der nicht bei Parahub ist, und halten den Kalender genau."
+      },
+      "ownerControls": {
+        "title": "Für Eigentümer",
+        "text": "Machen Sie jedes Inserat buchbar: Zeitraum oder Fenster wählen, Öffnungszeiten festlegen, sofort bestätigen oder jede Anfrage freigeben, Puffer und Vorlaufzeit. Ein Echtzeit-Posteingang zeigt eingehende Anfragen mit Bestätigen, Abschließen oder Stornieren auf einen Tipp."
+      },
+      "lightweight": {
+        "title": "Bewusst leichtgewichtig",
+        "text": "Eine Buchung liegt unter der schwereren Ebene der unterschriebenen Verträge — die meisten Vermietungen bleiben bei einer Buchung und brauchen nicht mehr. Für hochwertige Vermietungen können Sie die Buchung dennoch zu einem PGP-signierten Mietvertrag formalisieren. Wie immer hält die Plattform weder Gelder noch Kaution."
+      }
+    },
+    "directorySystem": {
+      "title": "Branchenverzeichnis",
+      "intro": "Eine gemeinschaftliche Karte lokaler Betriebe, Genossenschaften, Vereine und Dienste. Klicken Sie auf ein Gebäude auf der Karte, um zu sehen, was darin ist, oder durchstöbern Sie den Katalog mit Suche und Filtern. Jeder findet einen Ort; verifizierte Mitglieder halten ihn aktuell.",
+      "buildings": {
+        "title": "Gebäude und Orte",
+        "text": "Jeder Eintrag ist mit einem realen Ort verknüpft — einem Gebäude, einer Einheit oder einer reinen Online-Organisation. Ein Gebäude kann viele Betriebe beherbergen, wie ein Einkaufszentrum, und aus OpenStreetMap importierte Orte können von ihrem Eigentümer beansprucht werden."
+      },
+      "orgTypes": {
+        "title": "Unternehmen und Organisationen",
+        "text": "Unternehmen, NGOs, Genossenschaften, Vereine, Eigentümergemeinschaften, Gemeinschaften und öffentliche Stellen. Jeder Typ passt zu seinem Zweck — ein Verein zeigt etwa einen öffentlichen Vorstand (Vorsitz, Kassenwart, Rechnungsprüfer) für Transparenz."
+      },
+      "openNow": {
+        "title": "Jetzt geöffnet",
+        "text": "Die Öffnungszeiten erscheinen in jedem Eintrag, mit einem Live-Abzeichen, das anzeigt, ob ein Ort gerade geöffnet oder geschlossen ist."
+      },
+      "reviews": {
+        "title": "Bewertungen",
+        "text": "Verifizierte Mitglieder können Sternebewertungen und schriftliche Rezensionen hinterlassen. Eigentümer können antworten. Durchschnitt und Anzahl erscheinen in jedem Eintrag."
+      },
+      "membership": {
+        "title": "Mitgliedschaft",
+        "text": "Organisationen können Mitglieder und Rollen verwalten, Beitrittsanfragen annehmen und einen Kassenwart (der Zahlungen erhält) sowie einen Rechnungsprüfer für die Finanzaufsicht benennen."
+      },
+      "actAs": {
+        "title": "Im Namen der Organisation posten",
+        "text": "Mitglieder mit Veröffentlichungsrechten können Inserate, Veranstaltungen und Anzeigen im Namen ihrer Organisation veröffentlichen — und deren Artikel zur Miete buchbar machen."
+      },
+      "access": {
+        "title": "Wer darf was",
+        "text": "Stöbern und Suchen stehen allen offen, ohne Konto. Einen Ort oder eine Organisation anzulegen und Rezensionen zu schreiben erfordert ein verifiziertes Profil (Netz des Vertrauens). Nur Eigentümer und Administratoren können einen Eintrag bearbeiten oder Mitglieder verwalten."
+      }
+    },
+    "marketplaceSystem": {
+      "title": "Marktplatz",
+      "intro": "Der Kern von Parahub: ein Ort, um alles anzubieten oder zu suchen — Waren, Dienste, Fähigkeiten oder Hilfe. Keine Plattformgebühren, kein algorithmisches Ranking, kein Mittelsmann. Einfach Menschen, die direkt handeln, auf einer Karte, in ihrer Sprache.",
+      "creditDebit": {
+        "title": "Anbieten oder suchen",
+        "text": "Jedes Inserat hat eine Richtung. „Ich biete“ umfasst Waren, Dienste, Fähigkeiten oder Dinge zum Verschenken. „Ich suche“ umfasst Gesuche, Bedarf und gewünschte Artikel — so ist die Nachfrage genauso sichtbar wie das Angebot."
+      },
+      "pricing": {
+        "title": "Verkaufen, vermieten oder verschenken",
+        "text": "Legen Sie einen festen Verkaufspreis, eine Mietrate pro Tag oder Monat fest oder markieren Sie es als gratis für die Schenkökonomie. Ein einziges Inserat kann mehrere Optionen zugleich tragen — verkaufen, vermieten oder an Nachbarn verschenken."
+      },
+      "visibility": {
+        "title": "Öffentlich oder nur für Mitglieder",
+        "text": "Wählen Sie, wer jedes Inserat sieht: öffentlich (für alle sichtbar, auch für Suchmaschinen) oder nur für Registrierte (nur für angemeldete Mitglieder sichtbar). Halten Sie sensible Angebote in der Gemeinschaft, während öffentliche das ganze Web erreichen."
+      },
+      "selfMade": {
+        "title": "Handgemacht",
+        "text": "Markieren Sie ein Inserat als selbst gemacht, um zu zeigen, dass es Ihr eigenes Handwerk, Erzeugnis oder Werk ist — kein Wiederverkauf. Ein Abzeichen hebt es hervor, und ein Filter hilft Käufern, lokale Macher und Angebote „aus eigener und naher Hand“ zu finden."
+      },
+      "matching": {
+        "title": "Ein Marktplatz der Bedürfnisse",
+        "text": "Kategorien verbinden Angebot und Nachfrage automatisch. Das System schlägt Gesuche vor, die zu Ihrem Angebot passen, und Angebote, die zu Ihrem Bedarf passen — und macht aus einem Katalog eine beidseitige Matching-Maschine."
+      },
+      "barterLink": {
+        "title": "Tauschen ohne Geld",
+        "text": "Sie wollen nicht bar zahlen? Artikel können dem Tauschgraphen beitreten, der automatisch mehrseitige Tauschketten findet — Sie geben, was Sie haben, und erhalten, was Sie wollen, auch ohne direkte Übereinstimmung."
+      },
+      "noFees": {
+        "title": "Keine Plattformgebühren",
+        "text": "Parahub behält niemals einen Anteil an Ihrem Handel und hält niemals Ihr Geld. Zahlungen — in Lightning oder jeder vereinbarten Form — gehen direkt zwischen Käufer und Verkäufer. Es gibt keinen algorithmischen Feed, der entscheidet, wer gesehen wird."
+      }
     }
   }
 }

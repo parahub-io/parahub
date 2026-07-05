@@ -1,0 +1,51 @@
+{
+  "wotGraph": {
+    "pageTitle": "Grafo WoT — Auditoria Sybil",
+    "staffOnly": "Apenas pessoal.",
+    "title": "Rede de Confiança — Grafo",
+    "subtitle": "Rede completa de verificações para auditoria de clusters Sybil e anéis de conluio",
+    "reload": "Recarregar",
+    "relayout": "Reorganizar",
+    "stats": {
+      "profilesTotal": "{n} perfil no total | {n} perfis no total",
+      "verified": "{n} verificado WoT | {n} verificados WoT",
+      "inGraph": "{n} no grafo | {n} no grafo",
+      "verifications": "{n} verificação | {n} verificações",
+      "mutualPairs": "{n} par mútuo | {n} pares mútuos",
+      "sameAccount": "{n} ligação de mesma conta | {n} ligações de mesma conta"
+    },
+    "loadError": "Falha ao carregar o grafo",
+    "emptyTitle": "Ainda sem verificações",
+    "emptyText": "O grafo de confiança está vazio — sem verificações ativas neste nó.",
+    "legend": {
+      "title": "Legenda",
+      "high": "Alto (10+)",
+      "medium": "Médio (5+)",
+      "basic": "Básico (3+)",
+      "low": "Baixo (1–2)",
+      "none": "Nenhum (0)",
+      "verified": "verificado (3+)",
+      "pseudonymous": "pseudónimo",
+      "oneway": "unidirecional",
+      "mutual": "mútua",
+      "sameAccount": "mesma conta"
+    },
+    "tooltip": {
+      "rep": "rep",
+      "in": "ent",
+      "out": "saí"
+    },
+    "detail": {
+      "reputation": "Reputação",
+      "received": "Recebidas",
+      "given": "Dadas",
+      "trust": "Confiança",
+      "type": "Tipo",
+      "joined": "Registo",
+      "account": "Conta",
+      "sharesAccount": "Partilha conta com: {names}",
+      "openProfile": "Abrir perfil"
+    },
+    "hint": "Clique num nó para detalhes. Arraste para reorganizar."
+  }
+}

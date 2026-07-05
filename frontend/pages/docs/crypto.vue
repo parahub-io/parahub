@@ -20,6 +20,52 @@
 
       <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">{{ $t('about.cryptoProofs.intro') }}</p>
 
+      <!-- Live anchoring status -->
+      <div class="border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 space-y-4">
+        <div class="flex items-center gap-2">
+          <ShieldCheck class="w-4 h-4 text-neutral-500" />
+          <h3 class="font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('about.cryptoProofs.live.title') }}</h3>
+        </div>
+
+        <div v-if="anchoringLoading" class="flex items-center gap-2 text-sm text-neutral-400 dark:text-neutral-500">
+          <span class="w-4 h-4 rounded-full border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-700 dark:border-t-neutral-100 animate-spin"></span>
+        </div>
+        <template v-else-if="anchoring?.enabled">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <div class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ anchoring.keys_published }}</div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.keys') }}</div>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ anchoring.proofs_anchored }}</div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.anchored') }}</div>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ anchoring.batches_confirmed }}</div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.confirmed') }}</div>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ anchoring.proofs_pending }}</div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.pending') }}</div>
+            </div>
+          </div>
+
+          <div v-if="anchoring.latest_batch" class="text-sm text-neutral-600 dark:text-neutral-400 flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 border-t border-neutral-100 dark:border-neutral-800">
+            <span class="font-medium text-neutral-700 dark:text-neutral-300">{{ $t('about.cryptoProofs.live.latest') }}:</span>
+            <span v-if="anchoring.latest_batch.bitcoin_block" class="inline-flex items-center gap-1 text-neutral-700 dark:text-neutral-300">
+              <Bitcoin class="w-3.5 h-3.5 text-yellow-500" />{{ $t('about.cryptoProofs.live.block', { block: anchoring.latest_batch.bitcoin_block }) }}
+            </span>
+            <span v-else class="inline-flex items-center gap-1 text-neutral-500 dark:text-neutral-400">
+              <Clock class="w-3.5 h-3.5" />{{ $t('about.cryptoProofs.live.awaiting') }}
+            </span>
+            <span class="text-neutral-300 dark:text-neutral-600">·</span>
+            <code class="font-mono text-xs">{{ $t('about.cryptoProofs.live.commit', { hash: anchoring.latest_batch.git_commit_hash.slice(0, 10) }) }}</code>
+          </div>
+          <p v-else class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.none') }}</p>
+        </template>
+        <p v-else class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.disabled') }}</p>
+      </div>
+
       <!-- PGP + OTS cards -->
       <div class="grid sm:grid-cols-2 gap-4">
         <div class="border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 space-y-3">
@@ -49,6 +95,18 @@
             </li>
           </ul>
         </div>
+      </div>
+
+      <!-- Public audit repository -->
+      <div class="p-5 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg space-y-3">
+        <div class="flex items-center gap-2">
+          <FolderGit2 class="w-4 h-4 text-neutral-500" />
+          <h3 class="font-semibold text-neutral-900 dark:text-white">{{ $t('about.cryptoProofs.repo.title') }}</h3>
+        </div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">{{ $t('about.cryptoProofs.repo.text') }}</p>
+        <UiButton tag="a" :href="REPO_URL" target="_blank" rel="noopener" variant="secondary" size="sm" :icon="ExternalLink">
+          {{ $t('about.cryptoProofs.repo.cta') }}
+        </UiButton>
       </div>
 
       <!-- Export section -->
@@ -90,10 +148,26 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronRight, KeyRound, Bitcoin, FileDown } from 'lucide-vue-next'
+import { ChevronRight, KeyRound, Bitcoin, FileDown, ShieldCheck, Clock, FolderGit2, ExternalLink } from 'lucide-vue-next'
+
+const REPO_URL = 'https://git.parahub.io/audit/parahub-registry'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
+
+// Live anchoring status — fetched client-side so it reflects the backend the
+// request actually routes to (dev-slot cookie aware); fail-soft on error.
+const anchoring = ref<any>(null)
+const anchoringLoading = ref(true)
+onMounted(async () => {
+  try {
+    anchoring.value = await $fetch('/api/v1/audit/anchoring')
+  } catch {
+    anchoring.value = null
+  } finally {
+    anchoringLoading.value = false
+  }
+})
 useHead({ title: computed(() => `${t('about.cryptoProofs.title')} — Parahub`) })
 useSeoMeta({
   description: computed(() => t('docs.crypto_desc')),

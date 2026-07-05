@@ -24,6 +24,7 @@ export function useMapAvatarPanel(opts: {
   const currentAvatarState = ref<'idle' | 'walking' | 'jumping' | 'sitting' | 'emoting'>('idle')
   const activeAvatarPanel = ref<'own' | 'other' | null>(null)
   const selectedOtherAvatar = ref<any>(null)
+  let _presenceMoveHandler: (() => void) | null = null
 
   const {
     connect: connectMapPresence,
@@ -89,11 +90,16 @@ export function useMapAvatarPanel(opts: {
     const zoom = map.getZoom()
     updatePosition(center.lat, center.lng, zoom, currentAvatarType.value as any, 'idle', true)
 
-    map.on('moveend', () => {
+    // Named ref + off-before-on: initializeMapPresence re-runs on every
+    // KeepAlive reactivation (deactivate disconnects presence), so an
+    // anonymous handler would accumulate once per activate cycle.
+    if (_presenceMoveHandler) map.off('moveend', _presenceMoveHandler)
+    _presenceMoveHandler = () => {
       const center = map.getCenter()
       const zoom = map.getZoom()
       updatePosition(center.lat, center.lng, zoom, currentAvatarType.value as any, currentAvatarState.value as any)
-    })
+    }
+    map.on('moveend', _presenceMoveHandler)
   }
 
   function handleAvatarClick(avatar: any, isOwnArg?: boolean) {

@@ -60,7 +60,7 @@
         <!-- Transit -->
         <NavItem
           to="/transit"
-          :icon="Bus"
+          :icon="BusFront"
           :label="$t('nav.transit')"
           :aria-label="$t('nav.transit')"
           :active="isPathActive('/transit')"
@@ -91,6 +91,12 @@
               class="w-4 h-4 opacity-70"
             />
             <span v-else class="hidden sm:block text-xs font-medium">{{ $t('nav.menu') || 'Menu' }}</span>
+            <!-- Unread-notifications badge bubbles up here (kept inside the button bounds — the button is overflow-hidden, a corner-overflowing badge would be clipped) -->
+            <span
+              v-if="notifUnread > 0"
+              class="absolute top-1 right-1 min-w-[18px] h-[18px] bg-error text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1"
+              :aria-label="$t('nav.notifications') || 'Notifications'"
+            >{{ notifUnread > 99 ? '99+' : notifUnread }}</span>
           </button>
 
           <!-- Site Menu Dropdown -->
@@ -329,7 +335,7 @@
                   </template>
                 </div>
 
-              <!-- === Footer: equal-width meta-action pills — About + Invite + Logout === -->
+              <!-- === Footer: equal-width meta-action pills — About + Alerts + Invite + Logout === -->
               <div class="flex items-center gap-1 sm:gap-1.5">
                 <NavItem
                   to="/about"
@@ -339,6 +345,20 @@
                   :active="isPathActive('/about')"
                   :drag-hovered="isDragHovered('/about', null)"
                   @click="handleSubMenuClick('/about', $event)"
+                  @touchstart="handleDragStart"
+                />
+
+                <!-- Notifications feed — bell + unread badge (real-time alerting is the toast; this is the catch-up history) -->
+                <NavItem
+                  v-if="authStore.isAuthenticated"
+                  to="/notifications"
+                  :icon="Bell"
+                  :label="$t('nav.notifications') || 'Alerts'"
+                  size="footer"
+                  :badge="notifUnread > 0 ? notifUnread : null"
+                  :active="isPathActive('/notifications')"
+                  :drag-hovered="isDragHovered('/notifications', null)"
+                  @click="handleSubMenuClick('/notifications', $event)"
                   @touchstart="handleDragStart"
                 />
 
@@ -418,8 +438,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
-import { MessageCircle, ShoppingBag, Map, Megaphone, Menu, Book, Settings, FileText, PackageCheck, FolderGit, Wallet, Shield, LogOut, Lock, Vote, Rocket, Calendar, UserPlus, Bus, Mail, ExternalLink, Sun, Building, Cpu } from 'lucide-vue-next'
+import { MessageCircle, ShoppingBag, Map, Megaphone, Menu, Book, Settings, FileText, PackageCheck, FolderGit, Wallet, Shield, LogOut, Lock, Vote, Rocket, Calendar, UserPlus, BusFront, Mail, ExternalLink, Sun, Building, Cpu, Bell } from 'lucide-vue-next'
 import { useMatrixUnread } from '~/composables/useMatrixUnread'
+import { useNotifications } from '~/composables/useNotifications'
 import { getMenuItemsMap, getSubmenuPathPrefixes, makeDragLabelLookup, PROJECTS_URL } from '~/components/nav/navMenu'
 
 const { t } = useI18n()
@@ -428,28 +449,55 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-// Locale-aware path matching: strips locale prefix before comparison
+// Locale-aware route-name (strips the ___locale suffix @nuxtjs/i18n appends)
+function currentRouteName(): string {
+  return (route.name?.toString() || '').replace(/___[a-z]{2}$/, '')
+}
+
+// Convert a base path to its expected route-name pattern (/market/my → market-my)
+function routeNameFor(base: string): string {
+  return base.replace(/^\//, '').replace(/\//g, '-') || 'index'
+}
+
+// Locale-aware path matching: true on the path itself or any of its subpaths
 function isPathActive(base: string): boolean {
-  const routeName = route.name?.toString() || ''
-  // @nuxtjs/i18n adds ___locale suffix to route names
-  const baseName = routeName.replace(/___[a-z]{2}$/, '')
-  // Convert base path to expected route name pattern
-  const expectedBase = base.replace(/^\//, '').replace(/\//g, '-') || 'index'
+  const baseName = currentRouteName()
+  const expectedBase = routeNameFor(base)
   return baseName === expectedBase || baseName.startsWith(expectedBase + '-')
 }
 
-// Dev mode indicator (yellow bar at top). useCookie reads the cookie during SSR
-// too, so the bar and the 2px header offset are in the server HTML — reading
-// document.cookie in onMounted made them pop in after hydration.
+// Exact match — the path itself, not its subpaths
+function isExactPath(base: string): boolean {
+  return currentRouteName() === routeNameFor(base)
+}
+
+// Dev mode indicator (yellow bar at top). useCookie reads the cookie during
+// SSR too, so on per-request renders the bar and the 2px header offset are in
+// the server HTML (no pop-in). But client-side useCookie reads document.cookie
+// at setup — before hydration — while SWR-cached routes serve a cookie-less
+// cached shell: hydrating straight from the cookie made the bar a guaranteed
+// hydration mismatch for dev-cookie holders on every cached page. Hydrate
+// from the payload value instead (always matches the served HTML), then
+// reconcile with the live cookie after mount; on cached shells the bar pops
+// in post-mount, which is the only honest option there.
 // Raw decode: default decode destr's '1' into a number (see PreferencesSection).
 const devModeCookie = useCookie('parahub_dev', {
   decode: (v: string) => v ? decodeURIComponent(v) : v
 })
-const isDevMode = computed(() => devModeCookie.value === '1')
+const devModeHydrated = useState('dev-mode-bar', () => devModeCookie.value === '1')
+onMounted(() => { devModeHydrated.value = devModeCookie.value === '1' })
+const isDevMode = computed(() => devModeHydrated.value)
 
 // Matrix unread counter (global service)
 const { totalUnreadCount, isFirstSyncCompleted, initialize, cleanup } = useMatrixUnread()
 const unreadCount = totalUnreadCount // Use the ref directly
+
+// In-app notification feed — unread count drives the bell badge
+const {
+  unreadCount: notifUnread,
+  init: initNotifications,
+  cleanup: cleanupNotifications,
+} = useNotifications()
 
 // Ads feed count (available unviewed ads, updated via WS)
 const { feedCount: adsFeedCount, loadFeedCount: loadAdsFeedCount } = useAdsState()
@@ -537,7 +585,7 @@ async function handleLogout() {
     console.error('Logout error:', error)
   }
   // Hard redirect ensures fresh SSR render with anonymous state
-  window.location.href = '/'
+  window.location.href = localePath('/')
 }
 
 // Touch drag selection (mobile): press → drag → release. Visual effects
@@ -593,6 +641,7 @@ onMounted(() => {
     initialize()
     loadAdsFeedCount()
     realtimeStore.connect()
+    initNotifications()
   }
 })
 
@@ -602,8 +651,10 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
     initialize()
     loadAdsFeedCount()
     realtimeStore.connect()
+    initNotifications()
   } else {
     cleanup()
+    cleanupNotifications()
   }
 })
 
@@ -612,17 +663,27 @@ onUnmounted(() => {
   // cleanup()
 })
 
-// Handle navigation click - toggle between section and dashboard
+// Handle navigation click — re-tapping the section you're already in is
+// per-section: Market toggles its two views, Transit returns to its home,
+// Map & Messages "unpress" to the dashboard.
 function handleNavClick(path: string) {
-  // Check if clicking on currently active section
-  const active = isPathActive(path)
-
-  if (active) {
-    // "Unpress" - go back to dashboard
-    router.push(localePath('/'))
-  } else {
-    // Navigate to the section
+  // Not on this section yet — just navigate there
+  if (!isPathActive(path)) {
     router.push(localePath(path))
+    return
+  }
+
+  // Already in this section — re-tap behavior depends on which one
+  if (path === '/market') {
+    // Toggle between the marketplace and the user's own items;
+    // from a detail/create subpage, the first tap returns to the list
+    router.push(localePath(isExactPath('/market') ? '/market/my' : '/market'))
+  } else if (path === '/transit') {
+    // Return to transit home (e.g. from /transit/rides or a stop page)
+    if (!isExactPath('/transit')) router.push(localePath('/transit'))
+  } else {
+    // Map & Messages: "unpress" back to the dashboard
+    router.push(localePath('/'))
   }
 }
 

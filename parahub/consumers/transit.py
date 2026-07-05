@@ -94,7 +94,11 @@ class TransitConsumer(AsyncWebsocketConsumer):
         self._route_source_id: str | None = None
         self._stop_ds_id: str | None = None
         self._stop_source_id: str | None = None
-        self._stop_route_dirs: set | None = None
+        # Co-located cross-operator poles merged into this board:
+        # [(ds_id, source_id, {(route_src, dir)})]. Two operators sharing one
+        # physical pole (Carris + Carris Metropolitana) so the live layer covers
+        # every line the page lists, not just the opened feed's.
+        self._stop_poles: list | None = None
         self._tick_subscribed = False
         self._feed = FeedPubSubManager.get()
         await self._feed.ensure_running()
@@ -222,7 +226,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
         self._route_source_id = None
         self._stop_ds_id = None
         self._stop_source_id = None
-        self._stop_route_dirs = None
+        self._stop_poles = None
         await self.send(text_data=orjson.dumps({'type': 'unsubscribed'}).decode())
 
     async def _handle_subscribe_route(self, data):
@@ -599,7 +603,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
 
         self._stop_ds_id = ds_id
         self._stop_source_id = stop_source_id
-        self._stop_route_dirs = await self._load_stop_route_dirs(ds_id, stop_source_id)
+        self._stop_poles = await self._load_stop_poles(ds_id, stop_source_id)
 
         if not self._tick_subscribed:
             await self._feed.subscribe('transit:tick', self._on_tick)
@@ -608,67 +612,94 @@ class TransitConsumer(AsyncWebsocketConsumer):
         await self._send_stop_live()
 
     @database_sync_to_async
-    def _load_stop_route_dirs(self, ds_id, stop_source_id):
-        """{(route_source_id, direction_id)} serving this stop — resolved once on
-        subscribe so per-tick pushes stay pure-Redis (no DB)."""
+    def _load_stop_poles(self, ds_id, stop_source_id):
+        """Co-located cross-operator poles of the opened stop, each with the
+        (route_source_id, direction_id) set serving it — resolved once on
+        subscribe so per-tick pushes stay pure-Redis (no DB).
+
+        Two operators sharing one physical pole (Carris + Carris Metropolitana —
+        ~thousands in Lisbon) each ship their own Stop row; the stop page merges
+        them into one board, so its live layer must too, else half the listed
+        lines show no arrivals though the data exists. Same physical-pole SSOT as
+        the page (_grouped_pole_members, ≤5m cross-agency). Returns
+        [(ds_id, source_id, {(route_src, dir)})]."""
         from geo.models import Stop, RouteStop
-        stop = Stop.objects.filter(
+        from geo.endpoints.transit import _grouped_pole_members
+        stop = Stop.objects.select_related('agency', 'group').filter(
             source_id=stop_source_id, agency__data_source_id=ds_id
         ).first()
         if not stop:
-            return set()
-        rd = RouteStop.objects.filter(stop=stop).values_list(
-            'route__source_id', 'direction_id'
-        )
-        return {(r, d if d is not None else 0) for r, d in rd}
+            return []
+        colocated, _siblings = _grouped_pole_members(stop)
+        poles = []
+        for cs in colocated:
+            cs_ds = str(cs.agency.data_source_id) if cs.agency and cs.agency.data_source_id else ''
+            if not cs_ds:
+                continue
+            rd = RouteStop.objects.filter(stop=cs).values_list(
+                'route__source_id', 'direction_id'
+            )
+            poles.append((cs_ds, cs.source_id, {(r, d if d is not None else 0) for r, d in rd}))
+        return poles
 
     async def _send_stop_live(self):
-        """Push vehicles at the stop + approaching ETAs (recomputed each tick)."""
-        ds_id = self._stop_ds_id
-        stop_src = self._stop_source_id
-        if not ds_id or not stop_src:
+        """Push vehicles at + approaching the stop (recomputed each tick), pooled
+        across the co-located cross-operator poles so every listed line's live
+        layer shows — not just the opened feed's. De-duped by vehicle in case two
+        poles share a data source."""
+        poles = self._stop_poles
+        if not poles:
             return
 
-        # Vehicles currently AT this stop — displayable set (members + vdata, 180s
-        # cutoff), same source the route page uses for its on-list icon.
-        at_stop = []
         cutoff = time.time() - 180
-        member_ids = await self._redis.smembers(f'transit:members:{ds_id}')
-        if member_ids:
-            raw_values = await self._redis.hmget('transit:vdata', *member_ids)
-            for raw in raw_values:
-                if not raw:
-                    continue
-                try:
-                    v = orjson.loads(raw)
-                except (orjson.JSONDecodeError, TypeError):
-                    continue
+        at_stop_by_vid = {}
+        appr_by_key = {}
+        vehicles_by_ds = {}  # ds_id -> [vdata] cache for this tick (members set)
+        for ds_id, stop_src, route_dirs in poles:
+            # Vehicles currently AT this pole — displayable set (members + vdata,
+            # 180s cutoff), same source the route page uses for its on-list icon.
+            if ds_id not in vehicles_by_ds:
+                vehicles = []
+                member_ids = await self._redis.smembers(f'transit:members:{ds_id}')
+                if member_ids:
+                    raw_values = await self._redis.hmget('transit:vdata', *member_ids)
+                    for raw in raw_values:
+                        if not raw:
+                            continue
+                        try:
+                            vehicles.append(orjson.loads(raw))
+                        except (orjson.JSONDecodeError, TypeError):
+                            continue
+                vehicles_by_ds[ds_id] = vehicles
+            for v in vehicles_by_ds[ds_id]:
                 if v.get('sid') == stop_src and v.get('t', 0) >= cutoff:
-                    at_stop.append({
+                    at_stop_by_vid[v.get('v', '')] = {
                         'vehicle_id': v.get('v', ''),
                         'route_short_name': v.get('rn', ''),
                         'route_color': v.get('rc', ''),
                         'headsign': v.get('hs', ''),
                         'direction': v.get('d'),
                         'trip_id': v.get('tid', ''),
-                    })
+                    }
+            for item in await self._compute_pole_approaching(ds_id, stop_src, route_dirs):
+                k = (item['vehicle_id'], item['route'], item['direction'])
+                if k not in appr_by_key or item['eta_seconds'] < appr_by_key[k]['eta_seconds']:
+                    appr_by_key[k] = item
 
-        approaching = await self._compute_stop_approaching()
+        approaching = sorted(appr_by_key.values(), key=lambda x: x['eta_seconds'])[:20]
 
         await self.send(text_data=orjson.dumps({
             'type': 'stop_live',
-            'at_stop': at_stop,
+            'at_stop': list(at_stop_by_vid.values()),
             'approaching': approaching,
         }).decode())
 
-    async def _compute_stop_approaching(self) -> list:
-        """Confirmed vehicles approaching this stop with chained-segment ETAs.
+    async def _compute_pole_approaching(self, ds_id, stop_src, route_dirs) -> list:
+        """Confirmed vehicles approaching one pole with chained-segment ETAs.
 
         Async-Redis mirror of the REST get_stop_eta (same transit_eta helpers);
-        the serving (route, dir) set is resolved once on subscribe."""
-        ds_id = self._stop_ds_id
-        stop_src = self._stop_source_id
-        route_dirs = self._stop_route_dirs
+        the serving (route, dir) set is resolved once on subscribe. Called once
+        per co-located pole by _send_stop_live."""
         if not ds_id or not stop_src or not route_dirs:
             return []
 

@@ -25,6 +25,12 @@ Item language is auto-detected from title/description text (langdetect). Interna
 ### Images
 Multiple images per item with drag-to-reorder. AI validation available (multi-provider: Claude, GPT, Gemini) with quota (30 analyses/day). EXIF GPS extraction for auto-location.
 
+### Visibility
+Each item picks its audience: **public** (the default -- visible to everyone, including search engines) or **registered-only** (visible only to signed-in members). Lets sensitive or community-internal offers stay off the public web while public listings reach the whole internet.
+
+### Self-Made Mark
+An item can be flagged **made by hand** to signal it is the seller's own craft, produce, or work -- not resale. Shown as a badge on the listing and available as a browse filter, surfacing local makers and "your own and nearby" supply.
+
 ## Category-Based Matching
 
 850 categories organized in a hierarchical tree (5 languages: en, es, fr, pt, ru). Each item tagged with categories. SEO-friendly slug URLs for items.

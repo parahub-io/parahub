@@ -1,7 +1,7 @@
 <template>
   <div class="max-w-2xl mx-auto px-4 py-2">
     <div v-if="pending" class="flex justify-center py-12">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
     </div>
     <template v-else-if="stopData">
       <div class="flex items-center gap-2 mb-4">
@@ -12,11 +12,18 @@
         <div class="min-w-0">
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100" :aria-label="stopData.tts_name || undefined">{{ stopData.name }}</h1>
           <p v-if="stopData.directions?.length" class="text-sm text-secondary-600 dark:text-secondary-400 mt-0.5 truncate">{{ $t('transit.towards', { dest: stopData.directions.join(' · ') }) }}</p>
+          <!-- Intermodal interchange: this location connects another transport type -->
+          <div v-if="headerInterchangeModes.length" class="mt-1">
+            <TransitInterchangeBadge :modes="headerInterchangeModes" label />
+          </div>
           <!-- Only stations earn a type chip; "Stop" on every bus pole is noise. -->
           <span v-if="stopData.location_type === 1" class="inline-block px-2 py-0.5 text-xs font-medium rounded mt-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
             {{ $t('transit.type_station') }}
           </span>
         </div>
+        <!-- Current weather at the stop (same cached Open-Meteo reading as the map
+             HUD): a glance at what it's like while you wait for the bus. -->
+        <WeatherInline v-if="stopWeather?.available" :data="stopWeather" class="ml-auto self-start flex-shrink-0 pl-2" />
       </div>
 
       <!-- Live vehicles at stop (WS-driven; pulses on arrival) — most urgent
@@ -39,18 +46,18 @@
                 <span
                   v-if="isPulsing(v.vehicle_id)"
                   class="stop-pulse-ring absolute inset-0 rounded-full border-2 pointer-events-none"
-                  :style="{ borderColor: `#${resolveColor(v)}`, boxShadow: `0 0 0 1.5px ${pulseCasingCss}` }"
+                  :style="{ borderColor: `#${liveColor(v)}`, boxShadow: `0 0 0 1.5px ${pulseCasingCss}` }"
                   aria-hidden="true"
                 ></span>
                 <img
-                  :src="routeTypeIcon(3)"
+                  :src="routeTypeIcon(liveRouteType(v))"
                   class="relative z-[1] w-7 h-7"
                   :class="{ 'stop-pulse-pop': isPulsing(v.vehicle_id) }"
                 />
               </span>
               <span
                 class="pl-2.5 pr-1.5 py-0.5 -ml-1.5 rounded font-bold text-xs min-w-[2.5rem] text-center"
-                :style="`background-color: #${resolveColor(v)}; color: ${textColorFor(resolveColor(v))}`"
+                :style="`background-color: #${liveColor(v)}; color: ${textColorFor(liveColor(v))}`"
               >{{ v.route_short_name }}</span>
             </span>
             <div class="flex-1 min-w-0 text-sm text-neutral-700 dark:text-neutral-300 truncate">{{ v.headsign }}</div>
@@ -71,10 +78,13 @@
             @click="openVehicleDetail(v)"
             class="w-full text-left flex items-center gap-3 p-2.5 bg-secondary/10 dark:bg-secondary/20 border border-secondary/30 dark:border-secondary/40 rounded-lg hover:bg-secondary/20 dark:hover:bg-secondary/30 transition-colors"
           >
-            <span
-              class="px-2 py-0.5 rounded font-bold text-xs min-w-[2.5rem] text-center flex-shrink-0"
-              :style="`background-color: #${v.route_color}; color: ${textColorFor(v.route_color)}`"
-            >{{ v.route_name }}</span>
+            <span class="inline-flex items-center flex-shrink-0">
+              <img :src="routeTypeIcon(liveRouteType(v))" :alt="routeTypeFallback(liveRouteType(v))" class="w-7 h-7 relative z-[1]" />
+              <span
+                class="pl-2.5 pr-1.5 py-0.5 -ml-1.5 rounded font-bold text-xs min-w-[2.5rem] text-center"
+                :style="`background-color: #${liveColor(v)}; color: ${textColorFor(liveColor(v))}`"
+              >{{ v.route_name }}</span>
+            </span>
             <div class="flex-1 min-w-0 text-sm text-neutral-700 dark:text-neutral-300 truncate">{{ v.headsign }}</div>
             <div class="flex items-center gap-1.5 flex-shrink-0">
               <span class="text-sm font-semibold" :class="v.eta_minutes <= 3 ? 'text-success dark:text-success-400' : v.eta_minutes <= 10 ? 'text-secondary dark:text-secondary-400' : 'text-neutral-600 dark:text-neutral-400'">
@@ -93,7 +103,7 @@
              refresh `schedulePending` flips true but `schedule` keeps its data —
              swapping the whole table for a spinner is what made it "blink". -->
         <div v-if="schedulePending && !schedule?.departures?.length" class="flex justify-center py-4">
-          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
         </div>
         <div v-else-if="!schedule?.departures?.length" class="text-neutral-500 dark:text-neutral-400 text-sm py-4">
           {{ $t('transit.no_departures') }}
@@ -146,7 +156,22 @@
         </div>
       </div>
 
-      <!-- Virtual stop group: sibling poles/platforms at this location -->
+      <!-- Stop Mini-Map: every pole at this location. Hovering a sibling row in
+           the list below pulses an amber hex on that pole's marker (setHoverHex).
+           Raised above the siblings/routes so the map sits right under the
+           schedule. -->
+      <div
+        class="route-mini-map mb-6 cursor-pointer rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 hover:border-secondary-300 dark:hover:border-secondary-600 transition-colors"
+        @click="showOnMap"
+      >
+        <div ref="miniMapEl" class="mini-map-inner" style="height: 240px" />
+      </div>
+
+      <!-- Virtual stop group: sibling poles/platforms at this location.
+           Per-sibling route badges (the full line list) were noise — near-always
+           this stop's own set. Instead show an aggregated per-mode counter
+           (🚌 3 · 🚆 4) so the rider sees at a glance what that pole serves; tap
+           through for its actual routes/schedule. -->
       <div v-if="groupSiblings.length" class="mb-6">
         <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">{{ $t('transit.group_title') }}</h2>
         <div class="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -154,7 +179,12 @@
             v-for="m in groupSiblings"
             :key="m.id"
             :to="localePath(`/transit/stop/${m.place_slug}/${m.slug}`)"
-            class="block p-3 hover:bg-primary/15 dark:hover:bg-primary/10 transition-colors"
+            class="block p-3 transition-colors"
+            :class="hoveredStopId === m.id
+              ? 'bg-primary/15 dark:bg-primary/10 ring-1 ring-inset ring-primary/50'
+              : 'hover:bg-primary/15 dark:hover:bg-primary/10'"
+            @mouseenter="hoveredStopId = m.id"
+            @mouseleave="hoveredStopId = null"
           >
             <div class="flex items-center gap-3">
               <img src="/img/bus-stop.png" alt="" class="w-7 h-7 flex-shrink-0" />
@@ -163,8 +193,18 @@
                 <div v-if="m.directions?.length" class="text-xs text-secondary-600 dark:text-secondary-400 truncate">{{ $t('transit.towards', { dest: m.directions.join(' · ') }) }}</div>
                 <div class="text-xs text-neutral-500 dark:text-neutral-400 truncate">{{ m.agency_name }}</div>
               </div>
-              <div v-if="m.routes?.length" class="flex flex-wrap gap-1 justify-end max-w-[40%]">
-                <span v-for="r in m.routes.slice(0, 6)" :key="r.short_name" class="px-1.5 py-0.5 text-xs rounded font-medium" :style="routeBadgeStyle(r)">{{ r.short_name }}</span>
+              <!-- Aggregated counter: how many distinct lines of each transport
+                   mode serve this pole (mode-first order from the backend). -->
+              <div v-if="m.route_modes?.length" class="flex flex-wrap items-center gap-x-2.5 gap-y-1 justify-end flex-shrink-0">
+                <span
+                  v-for="mc in m.route_modes"
+                  :key="mc.type"
+                  class="inline-flex items-center gap-1 text-neutral-600 dark:text-neutral-300"
+                  :title="`${mc.count} ${$t(`transit.route_types.${mc.type}`, routeTypeFallback(mc.type))}`"
+                >
+                  <img :src="routeTypeIcon(mc.type)" :alt="$t(`transit.route_types.${mc.type}`, routeTypeFallback(mc.type))" class="w-5 h-5 flex-shrink-0" />
+                  <span class="text-sm font-semibold tabular-nums">{{ mc.count }}</span>
+                </span>
               </div>
             </div>
           </NuxtLink>
@@ -181,18 +221,10 @@
             @click="openRoute(r)"
             class="flex items-center min-h-[44px] transition-opacity hover:opacity-80"
           >
-            <img :src="routeTypeIcon(r.route_type)" :alt="routeTypeFallback(r.route_type)" class="w-8 h-8 flex-shrink-0 relative z-[1]" />
-            <span class="pl-3 pr-2 py-0.5 -ml-2 rounded font-bold text-sm" :style="routeBadgeStyle(r)">{{ r.short_name || r.long_name }}</span>
+            <img :src="routeTypeIcon(r.route_type)" :alt="routeTypeFallback(r.route_type)" class="w-7 h-7 flex-shrink-0 relative z-[1]" />
+            <span class="pl-2.5 pr-1.5 py-0.5 -ml-1.5 rounded font-bold text-xs min-w-[2.5rem] text-center" :style="routeBadgeStyle(r)">{{ r.short_name || r.long_name }}</span>
           </button>
         </div>
-      </div>
-
-      <!-- Stop Mini-Map -->
-      <div
-        class="route-mini-map mb-6 cursor-pointer rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 hover:border-secondary-300 dark:hover:border-secondary-600 transition-colors"
-        @click="showOnMap"
-      >
-        <div ref="miniMapEl" class="mini-map-inner" style="height: 200px" />
       </div>
 
       <!-- Carpool CTA -->
@@ -302,7 +334,7 @@
               <button @click="vehicleDetail = null" class="btn-ghost btn-icon btn-sm"><X class="w-4 h-4" /></button>
             </div>
             <div v-if="vehicleDetailLoading" class="flex justify-center py-8">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
             </div>
             <div v-else class="px-4 py-3 space-y-3 text-sm">
               <div v-if="vehicleDetail.vdata" class="space-y-1.5">
@@ -369,19 +401,36 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ArrowLeft, Car, Clock, X } from 'lucide-vue-next'
+import type { WeatherData } from '~/composables/useMapWeather'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const localePath = useLocalePath()
 const colorMode = useColorMode()
-const { routeBadgeStyle, resolveColor, textColorFor, formatTime, routeTypeIcon, routeTypeFallback } = useTransitHelpers()
+const { routeBadgeStyle, resolveColor, textColorFor, formatTime, routeTypeIcon, routeTypeFallback, modeOf } = useTransitHelpers()
 
 const city = route.params.city as string
 const slug = route.params.slug as string
 
 const { data: stopData, pending } = await useFetch(`/api/v1/geo/transit/stops/${city}/${slug}/`)
 const { data: schedule, pending: schedulePending, refresh: refreshSchedule } = await useFetch(`/api/v1/geo/transit/stops/${city}/${slug}/schedule/`)
+
+// Current weather at the stop — reuses the cached planetary Open-Meteo proxy
+// (/api/v1/geo/weather). Fetched client-side (supplementary, not SEO content) and
+// re-fetched when navigating between stops. The backend's ~11 km grid cache means
+// many stop views in the same area share a single upstream call.
+const stopWeather = ref<WeatherData | null>(null)
+async function loadStopWeather() {
+  const s = stopData.value
+  if (!import.meta.client || s?.lat == null || s?.lon == null) return
+  try {
+    stopWeather.value = await $fetch<WeatherData>('/api/v1/geo/weather', {
+      params: { lat: s.lat, lon: s.lon },
+    })
+  } catch { /* keep prior reading; a transient failure shouldn't blank it */ }
+}
+watch(() => [stopData.value?.lat, stopData.value?.lon], loadStopWeather, { immediate: true })
 
 useSeoMeta({
   title: () => stopData.value?.name ? `${stopData.value.name} — Parahub` : t('transit.title'),
@@ -393,12 +442,67 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
+// Interchange marker for the header: prefer the modes OTHER than this pole's own
+// (a bus pole next to a metro station → "metro"); for a same-pole multimode stop
+// (tram+bus on one pole) own == present, so fall back to showing every mode.
+const headerInterchangeModes = computed(() => {
+  const present: string[] = (stopData.value as any)?.interchange_modes || []
+  if (!present.length) return []
+  const own = new Set(((stopData.value as any)?.routes || []).map((r: any) => modeOf(r.route_type)))
+  const others = present.filter(m => !own.has(m))
+  return others.length ? others : present
+})
+
 // Virtual stop group: the other poles/platforms at this location (self excluded)
 const groupSiblings = computed(() => {
   const g = (stopData.value as any)?.group
   if (!g?.stops) return []
   return g.stops.filter((m: any) => m.id !== (stopData.value as any)?.id && m.slug && m.place_slug)
 })
+
+// Hovering a sibling row highlights it AND pulses an amber hex on its pole on the
+// mini-map — the list and the map share `hoveredStopId`.
+const hoveredStopId = ref<string | null>(null)
+
+// All poles to draw on the mini-map: this stop + every sibling pole (each carries
+// lat/lon from the backend group block).
+const mapStops = computed(() => {
+  const self = stopData.value as any
+  if (!self) return [] as Array<{ id: string; lon: number; lat: number }>
+  const out = [{ id: self.id, lon: self.lon, lat: self.lat }]
+  for (const m of groupSiblings.value) {
+    if (m.lat != null && m.lon != null) out.push({ id: m.id, lon: m.lon, lat: m.lat })
+  }
+  return out
+})
+const stopCoordsById = computed(() => {
+  const m = new Map<string, [number, number]>()
+  for (const s of mapStops.value) m.set(s.id, [s.lon, s.lat])
+  return m
+})
+
+// The live at-stop / approaching rows render the SAME [icon][route-badge] unit as
+// the schedule board, but the WS payload carries route name + color, not the GTFS
+// route_type the icon needs. Resolve it by matching the vehicle's route to this
+// stop's serving routes (authoritative here); fall back to bus for any miss.
+const routeMetaByName = computed(() => {
+  const m = new Map<string, { type?: number; color?: string }>()
+  for (const r of ((stopData.value as any)?.routes || [])) {
+    if (r.short_name != null) m.set(String(r.short_name), { type: r.route_type, color: r.route_color })
+  }
+  return m
+})
+function liveRouteType(v: any): number {
+  return routeMetaByName.value.get(String(v.route_short_name ?? v.route_name))?.type ?? 3
+}
+// Color the live badge from THIS stop's serving-route metadata so it's identical
+// to the schedule / serving-routes badge for the same line. The WS `route_color`
+// is a backend fallback ('3b82f6') that would otherwise paint buses blue here.
+function liveColor(v: any): string {
+  const meta = routeMetaByName.value.get(String(v.route_short_name ?? v.route_name))
+  if (meta) return resolveColor({ route_color: meta.color, route_type: meta.type })
+  return resolveColor({ route_color: v.route_color, route_type: 3 })
+}
 
 // ── Live arrivals via WebSocket ──────────────────────────────────────────────
 // Replaces the old 30s /eta/ poll + the static schedule snapshot. The stop WS
@@ -553,6 +657,8 @@ onUnmounted(() => {
   if (scheduleTimer) clearInterval(scheduleTimer)
   liveWs?.close()
   liveWs = null
+  hoverHexMarker?.remove()
+  hoverHexMarker = null
   if (miniMap) { miniMap.remove(); miniMap = null }
 })
 
@@ -645,7 +751,20 @@ function showOnMap() {
 // ── Mini-Map ──
 const miniMapEl = ref<HTMLElement | null>(null)
 let miniMap: any = null
+let miniMapGl: any = null          // cached maplibre-gl module (needed for the hover-hex Marker)
 let miniMapCreated = false
+let hoverHexMarker: any = null     // amber hex pulsed over the hovered sibling's pole
+
+// Mini-map pole icon sized to match the list rows' bus-stop icon (w-7 = 28px;
+// bus-stop.png is 300px native → icon-size 28/300).
+const STOP_ICON_SIZE = 28 / 300
+
+// Flat-top amber hexagon (matches the /map POI hover-hex, useMapHighlight) —
+// a steady core + an expanding "ping" ring, both animated via the global CSS below.
+const HEX_SVG = `<svg class="stop-hex-svg" viewBox="0 0 100 100" aria-hidden="true">
+  <polygon class="hex-ping" points="25,5 75,5 98,50 75,95 25,95 2,50"/>
+  <polygon class="hex-core" points="25,5 75,5 98,50 75,95 25,95 2,50"/>
+</svg>`
 
 const getMiniMapStyle = () =>
   colorMode.value === 'dark'
@@ -657,10 +776,10 @@ async function createMiniMap() {
   miniMapCreated = true
 
   const mod = await import('maplibre-gl')
-  const maplibregl = mod.default || mod
+  miniMapGl = mod.default || mod
   await import('maplibre-gl/dist/maplibre-gl.css')
 
-  miniMap = new maplibregl.Map({
+  miniMap = new miniMapGl.Map({
     container: miniMapEl.value,
     style: getMiniMapStyle(),
     center: [stopData.value.lon, stopData.value.lat],
@@ -694,29 +813,64 @@ async function decorateMiniMap() {
     miniMap.addImage('bus-stop-icon', img)
   }
 
-  if (!miniMap.getSource('stop-point')) {
-    miniMap.addSource('stop-point', {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [stopData.value.lon, stopData.value.lat] },
-        properties: {},
-      },
-    })
+  // Every pole at this location (this stop + sibling poles), each a bus-stop icon
+  // sized to match the list rows. Icon size = STOP_ICON_SIZE (28px, like w-7).
+  const fc = {
+    type: 'FeatureCollection',
+    features: mapStops.value.map(s => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
+      properties: { id: s.id },
+    })),
   }
-  if (!miniMap.getLayer('stop-point-icon')) {
+  if (!miniMap.getSource('stop-points')) {
+    miniMap.addSource('stop-points', { type: 'geojson', data: fc })
+  } else {
+    miniMap.getSource('stop-points').setData(fc)
+  }
+  if (!miniMap.getLayer('stop-points-icon')) {
     miniMap.addLayer({
-      id: 'stop-point-icon',
+      id: 'stop-points-icon',
       type: 'symbol',
-      source: 'stop-point',
+      source: 'stop-points',
       layout: {
         'icon-image': 'bus-stop-icon',
-        'icon-size': 0.17,
+        'icon-size': STOP_ICON_SIZE,
         'icon-allow-overlap': true,
       },
     })
   }
+
+  // Fit every pole in view; a lone stop keeps the z17 close-up center.
+  if (mapStops.value.length > 1 && miniMapGl) {
+    const b = new miniMapGl.LngLatBounds()
+    mapStops.value.forEach(s => b.extend([s.lon, s.lat]))
+    miniMap.fitBounds(b, { padding: 40, duration: 0, maxZoom: 17.5 })
+  }
 }
+
+// Pulse an amber hex over a pole (or clear it). Driven by `hoveredStopId` so the
+// sibling list and the map stay in sync.
+function setHoverHex(coords: [number, number] | null) {
+  if (!miniMap || !miniMapGl) return
+  if (!coords) {
+    hoverHexMarker?.remove()
+    hoverHexMarker = null
+    return
+  }
+  if (!hoverHexMarker) {
+    const el = document.createElement('div')
+    el.className = 'stop-hex-hover'
+    el.innerHTML = HEX_SVG
+    hoverHexMarker = new miniMapGl.Marker({ element: el, anchor: 'center' }).setLngLat(coords).addTo(miniMap)
+  } else {
+    hoverHexMarker.setLngLat(coords)
+  }
+}
+
+watch(hoveredStopId, (id) => {
+  setHoverHex(id ? (stopCoordsById.value.get(id) ?? null) : null)
+})
 
 watch(() => colorMode.value, () => {
   if (!miniMap) return
@@ -734,5 +888,50 @@ watch(() => colorMode.value, () => {
 .mini-map-inner :deep(.maplibregl-ctrl-bottom-left),
 .mini-map-inner :deep(.maplibregl-ctrl-bottom-right) {
   display: none;
+}
+</style>
+
+<!-- Non-scoped: the hover-hex marker is a maplibregl.Marker element created in JS,
+     so scoped styles (which key on template-element data attributes) can't reach it. -->
+<style>
+.stop-hex-hover {
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+}
+.stop-hex-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.stop-hex-svg polygon {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.stop-hex-svg .hex-core {
+  fill: rgba(255, 193, 7, 0.18);
+  stroke: #ffc107;
+  stroke-width: 6;
+  stroke-linejoin: round;
+  animation: stopHexCore 1.2s ease-in-out infinite;
+}
+.stop-hex-svg .hex-ping {
+  fill: none;
+  stroke: #ffc107;
+  stroke-width: 5;
+  animation: stopHexPing 1.2s ease-out infinite;
+}
+@keyframes stopHexCore {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.45; }
+}
+@keyframes stopHexPing {
+  0% { transform: scale(0.85); opacity: 0.75; }
+  100% { transform: scale(1.95); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stop-hex-svg .hex-core,
+  .stop-hex-svg .hex-ping { animation: none; }
+  .stop-hex-svg .hex-ping { display: none; }
 }
 </style>

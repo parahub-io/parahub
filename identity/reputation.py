@@ -22,7 +22,8 @@ def calculate_reputation(profile) -> dict:
 
     Returns dict with each dimension score, total, and active_dimensions count.
     """
-    from identity.models import Verification, ContractReview, Contract
+    from identity.models import Verification
+    from contracts.models import Contract, ContractReview
     from geo.models import EventParticipant, EstablishmentMembership
     from market.models import Item
     from governance.models import PollVote, PollVoteDelegation

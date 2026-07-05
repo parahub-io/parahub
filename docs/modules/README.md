@@ -7,7 +7,8 @@ Detailed documentation for individual Parahub subsystems. See [Features](../feat
 | Module | Description |
 |--------|-------------|
 | [Identity](identity.md) | Accounts, profiles, Web of Trust, PGP |
-| [Marketplace](marketplace.md) | Items, pricing, barter, category matching |
+| [Marketplace](marketplace.md) | Items, pricing, barter, category matching, visibility, self-made |
+| [Rentals & Booking](rental.md) | Availability + time-window bookings over marketplace items, no double-booking |
 | [Contracts](contracts.md) | P2P digital contracts, PGP signatures, arbitration |
 | [Debts](debts.md) | P2P debt tracking, clearing via barter cycles |
 | [Audit Trail](audit.md) | Cryptographic proofs, OpenTimestamps, court-ready export |
@@ -38,4 +39,5 @@ Detailed documentation for individual Parahub subsystems. See [Features](../feat
 | [OpenSky](opensky.md) | Community drone mapping, 3D mesh generation |
 | [Ads](ads.md) | P2P advertising with Lightning payments |
 | [Wallet](wallet.md) | Non-custodial Lightning wallet |
+| [Subscriptions](subscriptions.md) | Recurring P2P support, subscribers-only content (Lightning, no escrow) |
 | [AI](ai.md) | Image analysis, Zenith assistant, image generation, Psycho-Hash, support voice |

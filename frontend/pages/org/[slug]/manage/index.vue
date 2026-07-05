@@ -54,6 +54,7 @@ const loading = ref(true)
 const posts = ref<any[]>([])
 const estName = ref('')
 const estId = ref('')
+const videosRef = ref<{ refresh: () => void } | null>(null)
 const deleteTargetGroup = ref<any>(null)
 const deleting = ref(false)
 const busyTopicKey = ref('')  // topic key currently running an approve/unapprove/publish action
@@ -309,7 +310,7 @@ useHead({ title: computed(() => `${t('cms.manage.title')} — ${estName.value ||
         </div>
 
         <div v-else-if="posts.length === 0" class="text-center py-12">
-          <img src="/images/para/reading.png" alt="Para" class="mx-auto h-32 w-auto mb-4" />
+          <img src="/images/para/reading.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
           <h3 class="text-lg font-semibold text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.noPosts') }}</h3>
           <p class="text-neutral-500 dark:text-neutral-400">{{ t('cms.noPostsDesc') }}</p>
         </div>
@@ -470,7 +471,7 @@ useHead({ title: computed(() => `${t('cms.manage.title')} — ${estName.value ||
         </div>
 
         <div v-else-if="site.sitePages.value.length === 0 && !site.editingPage.value" class="text-center py-12">
-          <img src="/images/para/welcome.png" alt="" aria-hidden="true" class="mx-auto h-32 w-auto mb-4" />
+          <img src="/images/para/welcome.webp" alt="" aria-hidden="true" class="mx-auto h-32 w-auto mb-4" />
           <h3 class="text-lg font-semibold text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.manage.noPagesYet') }}</h3>
           <p class="text-neutral-500 dark:text-neutral-400">{{ t('cms.manage.noPagesDesc') }}</p>
         </div>
@@ -517,6 +518,66 @@ useHead({ title: computed(() => `${t('cms.manage.title')} — ${estName.value ||
 
       <!-- ═══ SETTINGS TAB ═══ -->
       <div v-else-if="activeTab === 'settings'" class="space-y-6">
+        <!-- Site URLs (subdomain + custom domain together, so it's clear which ones are live) -->
+        <div class="card p-4 space-y-4">
+          <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+            <Globe class="w-5 h-5" />
+            {{ t('cms.site.siteUrls') }}
+          </h3>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">
+            {{ t('cms.site.siteUrlsDesc') }}
+          </p>
+
+          <div class="space-y-2">
+            <div v-if="estSlug" class="flex items-center gap-2 text-sm">
+              <UiBadge variant="default" type="soft" size="sm">{{ t('cms.site.subdomain') }}</UiBadge>
+              <a :href="`https://${estSlug}.org.parahub.io`" target="_blank" rel="noopener" class="text-link"><code class="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-xs">{{ estSlug }}.org.parahub.io</code></a>
+            </div>
+
+            <div v-if="site.siteData.value?.custom_domain" class="flex items-center gap-2 text-sm">
+              <UiBadge variant="default" type="soft" size="sm">{{ t('cms.site.customDomain') }}</UiBadge>
+              <a :href="`https://${site.siteData.value.custom_domain}`" target="_blank" rel="noopener" class="text-link"><code class="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-xs">{{ site.siteData.value.custom_domain }}</code></a>
+              <UiBadge v-if="site.siteData.value.custom_domain_verified && site.siteData.value.custom_domain_ssl_ready" variant="success" type="soft" size="sm">{{ t('cms.site.domainLive') }}</UiBadge>
+              <UiBadge v-else-if="site.siteData.value.custom_domain_verified" variant="warning" type="soft" size="sm">{{ t('cms.site.sslPending') }}</UiBadge>
+              <UiBadge v-else variant="default" type="soft" size="sm">{{ t('cms.site.notVerified') }}</UiBadge>
+            </div>
+          </div>
+
+          <!-- Custom domain form -->
+          <div class="pt-2 border-t border-neutral-200 dark:border-neutral-700 space-y-3">
+            <p class="text-sm text-neutral-500 dark:text-neutral-400">
+              {{ t('cms.site.domainDesc') }}
+            </p>
+            <div class="flex items-end gap-3">
+              <div class="flex-1">
+                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.site.domain') }}</label>
+                <input
+                  v-model="site.domainForm.domain"
+                  type="text"
+                  placeholder="my-org.pt"
+                  class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <UiButton variant="outline" size="sm" :loading="site.domainSaving.value" @click="site.setDomain" class="shrink-0">
+                {{ site.siteData.value?.custom_domain ? t('cms.site.updateDomain') : t('cms.site.setDomain') }}
+              </UiButton>
+            </div>
+
+            <div v-if="site.siteData.value?.custom_domain" class="flex gap-2">
+              <UiButton v-if="!site.siteData.value.custom_domain_verified" variant="primary" size="sm" :loading="site.domainVerifying.value" @click="site.verifyDomain">
+                {{ t('cms.site.verifyCname') }}
+              </UiButton>
+              <UiButton variant="ghost" size="sm" @click="site.removeDomain">
+                {{ t('cms.site.removeDomain') }}
+              </UiButton>
+            </div>
+
+            <p v-if="site.domainMessage.value" class="text-sm" :class="site.siteData.value?.custom_domain_verified ? 'text-green-600 dark:text-green-400' : 'text-neutral-500'">
+              {{ site.domainMessage.value }}
+            </p>
+          </div>
+        </div>
+
         <div class="card p-4 space-y-4">
           <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
             <Palette class="w-5 h-5" />
@@ -541,11 +602,6 @@ useHead({ title: computed(() => `${t('cms.manage.title')} — ${estName.value ||
               class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
               placeholder="Welcome to our community..."
             />
-          </div>
-
-          <!-- Subdomain info -->
-          <div v-if="estSlug" class="text-sm text-neutral-500 dark:text-neutral-400">
-            {{ t('cms.site.subdomain') }}: <a :href="`https://${estSlug}.org.parahub.io`" target="_blank" rel="noopener" class="text-link"><code class="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-xs">{{ estSlug }}.org.parahub.io</code></a>
           </div>
 
           <UiButton variant="primary" :loading="site.siteSaving.value" @click="site.saveSite">
@@ -623,58 +679,8 @@ useHead({ title: computed(() => `${t('cms.manage.title')} — ${estName.value ||
             <Video class="w-5 h-5" />
             {{ t('videos.upload.button') }}
           </h3>
-          <ObjectVideos :object-id="estId" />
-          <VideoUpload :object-id="estId" />
-        </div>
-
-        <!-- Custom domain -->
-        <div class="card p-4 space-y-4">
-          <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-            <Globe class="w-5 h-5" />
-            {{ t('cms.site.customDomain') }}
-          </h3>
-
-          <p class="text-sm text-neutral-500 dark:text-neutral-400">
-            {{ t('cms.site.domainDesc') }}
-          </p>
-
-          <div class="flex items-end gap-3">
-            <div class="flex-1">
-              <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ t('cms.site.domain') }}</label>
-              <input
-                v-model="site.domainForm.domain"
-                type="text"
-                placeholder="my-org.pt"
-                class="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
-            <UiButton variant="outline" size="sm" :loading="site.domainSaving.value" @click="site.setDomain" class="shrink-0">
-              {{ site.siteData.value?.custom_domain ? t('cms.site.updateDomain') : t('cms.site.setDomain') }}
-            </UiButton>
-          </div>
-
-          <!-- Status -->
-          <div v-if="site.siteData.value?.custom_domain" class="space-y-2">
-            <div class="flex items-center gap-2 text-sm">
-              <span class="text-neutral-700 dark:text-neutral-300">{{ site.siteData.value.custom_domain }}</span>
-              <UiBadge v-if="site.siteData.value.custom_domain_verified && site.siteData.value.custom_domain_ssl_ready" variant="success" type="soft" size="sm">{{ t('cms.site.domainLive') }}</UiBadge>
-              <UiBadge v-else-if="site.siteData.value.custom_domain_verified" variant="warning" type="soft" size="sm">{{ t('cms.site.sslPending') }}</UiBadge>
-              <UiBadge v-else variant="default" type="soft" size="sm">{{ t('cms.site.notVerified') }}</UiBadge>
-            </div>
-
-            <div class="flex gap-2">
-              <UiButton v-if="!site.siteData.value.custom_domain_verified" variant="primary" size="sm" :loading="site.domainVerifying.value" @click="site.verifyDomain">
-                {{ t('cms.site.verifyCname') }}
-              </UiButton>
-              <UiButton variant="ghost" size="sm" @click="site.removeDomain">
-                {{ t('cms.site.removeDomain') }}
-              </UiButton>
-            </div>
-
-            <p v-if="site.domainMessage.value" class="text-sm" :class="site.siteData.value.custom_domain_verified ? 'text-green-600 dark:text-green-400' : 'text-neutral-500'">
-              {{ site.domainMessage.value }}
-            </p>
-          </div>
+          <ObjectVideos ref="videosRef" :object-id="estId" :editable="true" />
+          <VideoUpload :object-id="estId" @uploaded="videosRef?.refresh()" />
         </div>
       </div>
       </template>

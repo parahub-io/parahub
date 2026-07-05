@@ -193,7 +193,7 @@
     "energy_note": "Estimations basées sur les spécifications des fabricants et des mesures indépendantes. La consommation réelle dépend de la charge WiFi, du nombre de clients et du trafic mesh.",
 
     "landing_title": "WiFi communautaire pour ton village",
-    "landing_meta": "Firmware OpenWrt gratuit + droit européen d'accès aux poteaux d'éclairage (GIA Règl. UE 2024/1309). Construis un réseau WiFi communautaire à partir de ~110€ par poteau — couvre 1-2 km² pour 2000€.",
+    "landing_meta": "Firmware OpenWrt gratuit + droit européen d'accès aux poteaux (GIA UE 2024/1309). Réseau WiFi communautaire dès ~110€ par poteau — couvre 1-2 km² pour 2000€.",
     "landing_hero_title": "WiFi pour ton village à partir de 2000€",
     "landing_hero_subtitle": "Firmware OpenWrt prêt à flasher + droit de l'UE d'accès aux poteaux d'éclairage public. 15 nœuds couvrent 1-2 km². Les hôtes gagnent des sats avec le trafic payant des invités.",
     "landing_hero_cta": "Télécharger le firmware",

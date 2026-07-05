@@ -419,7 +419,10 @@ class ItemListTest(TestCase):
         self.assertEqual(result['page'], 2)
 
     def test_list_items_inactive_hidden(self):
-        """Inactive items included only when is_active filter is set."""
+        """An owner listing their OWN items sees inactive ones in the unfiltered
+        'All' view; the is_active filter narrows it. (Anonymous callers are
+        forced active-only — hidden listings are private — so this is tested
+        from the owner's My-Items perspective, which sends no is_active.)"""
         from parahub.endpoints.items import list_items
 
         self.item1.is_active = False
@@ -427,19 +430,41 @@ class ItemListTest(TestCase):
         # refresh to avoid F() expression issue
         self.item1.refresh_from_db()
 
-        request = _make_anon_request(self.factory)
+        # Owner (alice) listing her own two items (item1 inactive + item2 active).
+        request = _make_auth_request(self.factory, self.alice_account, self.alice)
 
-        # Without filter — all items returned (active + inactive)
-        result_all = _unwrap_result(list_items(request))
-        self.assertEqual(result_all['count'], 3)
+        # Without filter — owner sees all their items (active + inactive)
+        result_all = _unwrap_result(list_items(request, owner_id=self.alice.id))
+        self.assertEqual(result_all['count'], 2)
 
         # Filter active only
-        result_active = _unwrap_result(list_items(request, is_active=True))
-        self.assertEqual(result_active['count'], 2)
+        result_active = _unwrap_result(list_items(request, owner_id=self.alice.id, is_active=True))
+        self.assertEqual(result_active['count'], 1)
 
         # Filter inactive only
-        result_inactive = _unwrap_result(list_items(request, is_active=False))
+        result_inactive = _unwrap_result(list_items(request, owner_id=self.alice.id, is_active=False))
         self.assertEqual(result_inactive['count'], 1)
+
+    def test_list_items_explicit_inactive_forced_active(self):
+        """A non-owner passing an explicit is_active=false must NOT receive
+        other people's hidden (inactive) listings — the server forces the
+        filter back to active-only (the None-only guard was bypassable)."""
+        from parahub.endpoints.items import list_items
+
+        self.item1.is_active = False
+        self.item1.save()
+
+        # Anonymous caller explicitly asking for inactive items
+        request = _make_anon_request(self.factory)
+        result = _unwrap_result(list_items(request, is_active=False))
+        self.assertEqual(result['count'], 2)  # only the two active items
+        self.assertNotIn(self.item1.id, [item.id for item in result['items']])
+
+        # Authenticated non-owner (bob) scoped to alice's items — same enforcement
+        request = _make_auth_request(self.factory, self.bob_account, self.bob)
+        result = _unwrap_result(list_items(request, owner_id=self.alice.id, is_active=False))
+        self.assertEqual(result['count'], 1)  # alice's active item only
+        self.assertNotIn(self.item1.id, [item.id for item in result['items']])
 
     def test_list_items_default_ordering(self):
         """Default ordering is newest first (-created_at)."""
@@ -662,6 +687,100 @@ class ItemDeactivateTest(TestCase):
 
 
 # ===========================================================================
+# DB-backed tests: Item Activate (re-enable a hidden item)
+# ===========================================================================
+
+class ItemActivateTest(TestCase):
+    """Test item activation endpoint — owner-only inverse of deactivate."""
+
+    def setUp(self):
+        self.instance = _create_instance()
+        self.alice_account = _create_account(self.instance, 'alice')
+        self.alice = _create_profile(self.alice_account, self.instance)
+        self.bob_account = _create_account(self.instance, 'bob')
+        self.bob = _create_profile(self.bob_account, self.instance, local_name='bob')
+        self.factory = RequestFactory()
+
+    def test_owner_can_activate_hidden_item(self):
+        """Hide then activate round-trip — the flow that 404'd before the route existed."""
+        from parahub.endpoints.items import activate_item, deactivate_item
+
+        item = _create_item(self.alice, 'Hide Me')
+        deactivate_item(_make_auth_request(self.factory, self.alice_account, self.alice, 'post'), item.id)
+        item.refresh_from_db()
+        self.assertFalse(item.is_active)
+
+        response = activate_item(_make_auth_request(self.factory, self.alice_account, self.alice, 'post'), item.id)
+
+        self.assertTrue(response.is_active)
+        item.refresh_from_db()
+        self.assertTrue(item.is_active)
+
+    def test_non_owner_cannot_activate(self):
+        """Non-owner gets 403."""
+        from parahub.endpoints.items import activate_item
+
+        item = _create_item(self.alice, 'Alice Item')
+        item.is_active = False
+        item.save()
+        request = _make_auth_request(self.factory, self.bob_account, self.bob, 'post')
+
+        with self.assertRaises(HttpError) as ctx:
+            activate_item(request, item.id)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_activate_nonexistent_item(self):
+        """Activating non-existent item raises 404."""
+        from parahub.endpoints.items import activate_item
+        from django.http import Http404
+
+        request = _make_auth_request(self.factory, self.alice_account, self.alice, 'post')
+
+        with self.assertRaises(Http404):
+            activate_item(request, 'NONEXISTENT00000000000000')
+
+
+# ===========================================================================
+# DB-backed tests: object.updated realtime broadcast (post_save signal)
+# ===========================================================================
+
+class ObjectPublishSignalTest(TestCase):
+    """The post_save broadcast must materialize F()-expressions (e.g. version)
+    so the realtime payload stays JSON-serializable. Before the fix, version was
+    still a CombinedExpression at signal time and orjson.dumps threw, silently
+    dropping every item-update broadcast."""
+
+    def setUp(self):
+        self.instance = _create_instance()
+        self.account = _create_account(self.instance, 'alice')
+        self.alice = _create_profile(self.account, self.instance)
+
+    def test_update_broadcast_materializes_version(self):
+        import orjson
+        from unittest.mock import patch
+
+        item = _create_item(self.alice, 'Broadcast Me')  # created → version 1, no broadcast
+        captured = {}
+
+        def _capture(channel, data):
+            captured['channel'] = channel
+            captured['data'] = data
+
+        with patch('parahub.services.ws_publish.ws_publish', side_effect=_capture):
+            item.title = 'Updated Title'
+            item.save()  # update → Item.save() sets version = F('version') + 1
+
+        self.assertIn('data', captured, 'update should broadcast on object: channel')
+        changes = captured['data']['changes']
+        # version must be the materialized int, not an unresolved expression
+        self.assertIsInstance(changes['version'], int)
+        self.assertEqual(changes['version'], 2)
+        self.assertEqual(changes['title'], 'Updated Title')
+        # the full payload must be JSON-serializable — this is what threw before
+        orjson.dumps(captured['data'])
+
+
+# ===========================================================================
 # DB-backed tests: Item Version (optimistic locking)
 # ===========================================================================
 
@@ -768,3 +887,243 @@ class ItemSearchCombinedTest(TestCase):
 
         self.assertEqual(result['count'], 3)
         self.assertEqual(len(result['items']), 0)
+
+
+# ===========================================================================
+# DB-backed tests: Item ↔ Establishment on the edit path (post on behalf of)
+# ===========================================================================
+
+class ItemEstablishmentUpdateTest(TestCase):
+    """Attach/detach an establishment to an existing item via update_item.
+
+    Guards the edit-path gap: create supported 'post on behalf of' but update
+    did not. Owner can attach an establishment they can post for, detach via '',
+    a payload without establishment_id leaves it unchanged, and attaching one the
+    user can't post for is blocked (403) with no partial write.
+    """
+
+    def setUp(self):
+        from geo.models import Establishment
+        self.instance = _create_instance()
+        self.alice_account = _create_account(self.instance, 'alice')
+        self.alice = _create_profile(self.alice_account, self.instance)
+        self.bob_account = _create_account(self.instance, 'bob')
+        self.bob = _create_profile(self.bob_account, self.instance, local_name='bob')
+        self.factory = RequestFactory()
+        # alice owns this establishment → POSTING_ROLES grants her access
+        self.est = Establishment.objects.create(name='Alice Cafe', owner=self.alice)
+        # bob owns this one; alice is not a member
+        self.bob_est = Establishment.objects.create(name='Bob Bar', owner=self.bob)
+
+    def _update(self, profile, account, item_id, **fields):
+        from parahub.endpoints.items import update_item, ItemUpdateRequest
+        data = ItemUpdateRequest(**fields)
+        request = _make_auth_request(self.factory, account, profile, 'put')
+        return update_item(request, item_id, data)
+
+    def test_attach_establishment(self):
+        """Owner attaches an establishment they can post for."""
+        item = _create_item(self.alice, 'Skoda Octavia')
+        self.assertIsNone(item.establishment_id)
+
+        response = self._update(self.alice, self.alice_account, item.id,
+                                establishment_id=self.est.id)
+
+        self.assertEqual(response.establishment_id, self.est.id)
+        self.assertEqual(response.establishment_name, 'Alice Cafe')
+        item.refresh_from_db()
+        self.assertEqual(item.establishment_id, self.est.id)
+
+    def test_detach_establishment(self):
+        """Empty string detaches (post personally)."""
+        item = _create_item(self.alice, 'Skoda Octavia', establishment=self.est)
+        self.assertEqual(item.establishment_id, self.est.id)
+
+        response = self._update(self.alice, self.alice_account, item.id,
+                                establishment_id='')
+
+        self.assertIsNone(response.establishment_id)
+        item.refresh_from_db()
+        self.assertIsNone(item.establishment_id)
+
+    def test_omitted_establishment_left_unchanged(self):
+        """A payload without establishment_id must not touch the existing link."""
+        item = _create_item(self.alice, 'Skoda Octavia', establishment=self.est)
+
+        # unrelated edit (is_active) — avoids triggering language detection
+        self._update(self.alice, self.alice_account, item.id, is_active=False)
+
+        item.refresh_from_db()
+        self.assertEqual(item.establishment_id, self.est.id)
+        self.assertFalse(item.is_active)
+
+    def test_attach_without_permission_blocked(self):
+        """Attaching an establishment the user can't post for → 403, no partial write."""
+        item = _create_item(self.alice, 'Skoda Octavia')
+
+        status, body = self._update(self.alice, self.alice_account, item.id,
+                                    establishment_id=self.bob_est.id)
+
+        self.assertEqual(status, 403)
+        item.refresh_from_db()
+        self.assertIsNone(item.establishment_id)
+
+    def test_detail_of_item_with_establishment(self):
+        """Regression: get_item must not 404 when the item has an establishment.
+
+        The detail builder used item.establishment.logo.url, but Establishment
+        exposes logo_url — so every on-behalf-of item 404'd. Guards that fix.
+        """
+        from parahub.endpoints.items import get_item
+
+        item = _create_item(self.alice, 'Skoda Octavia', establishment=self.est)
+        request = _make_anon_request(self.factory)
+
+        response = get_item(request, item.id)
+
+        self.assertEqual(response.id, item.id)
+        self.assertEqual(response.establishment_id, self.est.id)
+        self.assertEqual(response.establishment_name, 'Alice Cafe')
+        self.assertFalse(response.establishment_logo_url)  # no logo set → '' (URLField default)
+
+
+class ItemVisibilityTest(TestCase):
+    """Item.visibility (PUBLIC | REGISTERED): anonymous viewers see PUBLIC only;
+    any authenticated user sees every tier. Enforced on list (raw SQL + ORM),
+    detail, and create/update."""
+
+    def setUp(self):
+        self.instance = _create_instance()
+        self.alice_account = _create_account(self.instance, 'alice')
+        self.alice = _create_profile(self.alice_account, self.instance)
+        self.bob_account = _create_account(self.instance, 'bob')
+        self.bob = _create_profile(self.bob_account, self.instance, local_name='bob')
+        self.factory = RequestFactory()
+        # Two active items, shared keyword so both list paths can be exercised.
+        self.pub = _create_item(self.alice, 'Visible Widget', 'CREDIT', visibility='PUBLIC')
+        self.reg = _create_item(self.alice, 'Members Widget', 'CREDIT', visibility='REGISTERED')
+
+    def test_default_visibility_is_public(self):
+        """A new item is PUBLIC unless told otherwise (civic-router default)."""
+        item = _create_item(self.alice, 'Default Widget', 'CREDIT')
+        self.assertEqual(item.visibility, 'PUBLIC')
+
+    def test_list_rawsql_anonymous_excludes_registered(self):
+        """Raw-SQL fast path: anonymous list hides REGISTERED items."""
+        from parahub.endpoints.items import list_items
+        request = _make_anon_request(self.factory)
+        titles = {it.title for it in _unwrap_result(list_items(request, owner_id=self.alice.id))['items']}
+        self.assertIn('Visible Widget', titles)
+        self.assertNotIn('Members Widget', titles)
+
+    def test_list_rawsql_authenticated_includes_registered(self):
+        """Any signed-in user (here a non-owner) sees REGISTERED items in the list."""
+        from parahub.endpoints.items import list_items
+        request = _make_auth_request(self.factory, self.bob_account, self.bob)
+        titles = {it.title for it in _unwrap_result(list_items(request, owner_id=self.alice.id))['items']}
+        self.assertIn('Visible Widget', titles)
+        self.assertIn('Members Widget', titles)
+
+    def test_list_orm_path_anonymous_excludes_registered(self):
+        """ORM path (forced by q=search) also hides REGISTERED from anonymous."""
+        from parahub.endpoints.items import list_items
+        request = _make_anon_request(self.factory)
+        titles = {it.title for it in _unwrap_result(list_items(request, owner_id=self.alice.id, q='Widget'))['items']}
+        self.assertIn('Visible Widget', titles)
+        self.assertNotIn('Members Widget', titles)
+
+    def test_detail_anonymous_404_on_registered(self):
+        """A direct URL to a REGISTERED item 404s for anonymous (no leak)."""
+        from parahub.endpoints.items import get_item
+        from django.http import Http404
+        request = _make_anon_request(self.factory)
+        with self.assertRaises(Http404):
+            get_item(request, self.reg.id)
+
+    def test_detail_anonymous_ok_on_public(self):
+        """PUBLIC item detail is reachable anonymously and reports its tier."""
+        from parahub.endpoints.items import get_item
+        resp = get_item(_make_anon_request(self.factory), self.pub.id)
+        self.assertEqual(resp.id, self.pub.id)
+        self.assertEqual(resp.visibility, 'PUBLIC')
+
+    def test_detail_authenticated_ok_on_registered(self):
+        """A signed-in user can open a REGISTERED item; the tier is reported."""
+        from parahub.endpoints.items import get_item
+        resp = get_item(_make_auth_request(self.factory, self.bob_account, self.bob), self.reg.id)
+        self.assertEqual(resp.id, self.reg.id)
+        self.assertEqual(resp.visibility, 'REGISTERED')
+
+    @patch('parahub.endpoints.items.detect_content_language', return_value='en')
+    def test_create_registered_persists(self, mock_lang):
+        """Create with visibility=REGISTERED is saved and echoed back."""
+        from parahub.endpoints.items import create_item, ItemCreateRequest
+        data = ItemCreateRequest(title='Secret Tool', item_type='CREDIT',
+                                 pricing_options=[], visibility='REGISTERED')
+        status, response = create_item(
+            _make_auth_request(self.factory, self.alice_account, self.alice, 'post'), data)
+        self.assertEqual(status, 201)
+        self.assertEqual(response.visibility, 'REGISTERED')
+        self.assertEqual(Item.objects.get(id=response.id).visibility, 'REGISTERED')
+
+
+class MediaReorderTest(TestCase):
+    """Combined photo+video reordering: owner-only, one shared order space."""
+
+    def setUp(self):
+        import uuid
+        from core.models import ObjectVideo
+        self.factory = RequestFactory()
+        self.instance = _create_instance()
+        self.alice_account = _create_account(self.instance, 'alice')
+        self.alice = _create_profile(self.alice_account, self.instance)
+        self.bob_account = _create_account(self.instance, 'bob')
+        self.bob = _create_profile(self.bob_account, self.instance, is_primary=False)
+        self.item = _create_item(self.alice, title='Reorder Item')
+        # Legacy-style layout: 3 photos (0,1,2) + 1 video (0).
+        self.p0 = ObjectPhoto.objects.create(object_id=self.item.id, order=0, uploaded_by=self.alice)
+        self.p1 = ObjectPhoto.objects.create(object_id=self.item.id, order=1, uploaded_by=self.alice)
+        self.p2 = ObjectPhoto.objects.create(object_id=self.item.id, order=2, uploaded_by=self.alice)
+        self.v = ObjectVideo.objects.create(
+            object_id=self.item.id, peertube_uuid=uuid.uuid4(),
+            peertube_url='https://video.parahub.io/w/x', title='Vid',
+            order=0, uploaded_by=self.alice,
+        )
+
+    def _payload(self, seq):
+        from parahub.endpoints.items import MediaOrderPayload, MediaOrderEntry
+        return MediaOrderPayload(order=[MediaOrderEntry(type=k, id=i) for (k, i) in seq])
+
+    def test_owner_reorders_photos_and_video_into_one_sequence(self):
+        from parahub.endpoints.items import reorder_item_media
+        # Desired: photo2, video, photo0, photo1 (a photo is now the cover).
+        seq = [('photo', self.p2.id), ('video', self.v.id),
+               ('photo', self.p0.id), ('photo', self.p1.id)]
+        req = _make_auth_request(self.factory, self.alice_account, self.alice, 'patch')
+        status, _ = reorder_item_media(req, self.item.id, self._payload(seq))
+        self.assertEqual(status, 200)
+        for obj in (self.p0, self.p1, self.p2, self.v):
+            obj.refresh_from_db()
+        self.assertEqual((self.p2.order, self.v.order, self.p0.order, self.p1.order), (0, 1, 2, 3))
+
+    def test_non_owner_forbidden(self):
+        from parahub.endpoints.items import reorder_item_media
+        req = _make_auth_request(self.factory, self.bob_account, self.bob, 'patch')
+        status, _ = reorder_item_media(req, self.item.id, self._payload([('photo', self.p0.id)]))
+        self.assertEqual(status, 403)
+        self.p0.refresh_from_db()
+        self.assertEqual(self.p0.order, 0)  # unchanged
+
+    def test_media_from_another_item_rejected(self):
+        from parahub.endpoints.items import reorder_item_media
+        other = _create_item(self.alice, title='Other')
+        foreign = ObjectPhoto.objects.create(object_id=other.id, order=0, uploaded_by=self.alice)
+        req = _make_auth_request(self.factory, self.alice_account, self.alice, 'patch')
+        status, _ = reorder_item_media(req, self.item.id, self._payload([('photo', foreign.id)]))
+        self.assertEqual(status, 400)
+
+    def test_invalid_type_rejected(self):
+        from parahub.endpoints.items import reorder_item_media
+        req = _make_auth_request(self.factory, self.alice_account, self.alice, 'patch')
+        status, _ = reorder_item_media(req, self.item.id, self._payload([('audio', self.p0.id)]))
+        self.assertEqual(status, 400)

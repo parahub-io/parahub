@@ -4,8 +4,8 @@ from .models import Item
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ['title', 'owner', 'type', 'get_pricing_display', 'is_active', 'created_at']
-    list_filter = ['type', 'is_active', 'created_at', 'category']
+    list_display = ['title', 'owner', 'type', 'get_pricing_display', 'self_made', 'is_active', 'created_at']
+    list_filter = ['type', 'is_active', 'self_made', 'created_at', 'category']
     search_fields = ['title', 'description', 'owner__local_name']
     readonly_fields = ['id', 'created_at', 'updated_at']
     filter_horizontal = ['tags']

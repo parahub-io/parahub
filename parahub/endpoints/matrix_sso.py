@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 import httpx
 import hashlib
 from django.conf import settings
-from parahub.endpoints.matrix_auth import get_matrix_localpart_for_account
+from parahub.endpoints.matrix_auth import get_matrix_localpart_for_account, SYNAPSE_HTTP_TIMEOUT
 
 from parahub.ratelimit import ratelimit
 
@@ -40,7 +40,7 @@ def element_auto_login(request):
     matrix_user_id = f"@{matrix_localpart}:parahub.io"
 
     try:
-        with httpx.Client() as client:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
             # Generate deterministic password
             password = hashlib.sha256(f"{user.id}:{SYNAPSE_SHARED_SECRET}".encode()).hexdigest()
 

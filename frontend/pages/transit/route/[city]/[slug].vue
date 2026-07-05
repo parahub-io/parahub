@@ -1,7 +1,7 @@
 <template>
   <div class="max-w-2xl mx-auto px-4 py-2">
     <div v-if="pending" class="flex justify-center py-12">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
     </div>
     <template v-else-if="routeData">
       <h1 class="sr-only">{{ routeData.short_name }} — {{ routeData.long_name }}</h1>
@@ -9,7 +9,7 @@
         <button @click="navigateTo(localePath('/transit'))" :aria-label="$t('transit.back')" class="btn-ghost btn-icon w-11 h-11 -ml-2 flex-shrink-0">
           <ArrowLeft class="w-5 h-5" />
         </button>
-        <img :src="routeTypeIcon(routeData.route_type)" :alt="routeTypeFallback(routeData.route_type)" class="w-10 h-10 flex-shrink-0" />
+        <img :src="routeTypeIcon(routeData.route_type)" :alt="routeTypeFallback(routeData.route_type)" class="w-9 h-9 flex-shrink-0" />
         <span class="flex-shrink-0 inline-block px-2.5 py-1 rounded font-bold text-lg" :style="routeBadgeStyle(routeData)">{{ routeData.short_name }}</span>
         <span v-if="isNightRoute" class="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-medium">
           <Moon class="w-3 h-3" />{{ $t('transit.night_route') }}
@@ -106,62 +106,78 @@
               :key="s.id"
               class="flex items-center gap-2 hover:bg-primary/15 dark:hover:bg-primary/10 transition-colors min-h-[44px]"
             >
-              <!-- Left slot: when a vehicle is at this stop the bus icon takes the
-                   time column (an ETA here is the FOLLOWING bus — secondary to "it's
-                   here now"; it reappears the moment the vehicle leaves). Otherwise
-                   the slot holds the live ETA / scheduled / first-departure time. -->
-              <button
-                v-if="vehicleAtStop(s.source_id, view.direction_id)"
-                @click.stop="openVehicleDetail(vehicleAtStop(s.source_id, view.direction_id))"
-                class="relative flex-shrink-0 ml-2 p-0.5 rounded-full hover:bg-primary/30 transition-colors"
-                :class="vehicleAtStop(s.source_id, view.direction_id).z ? 'opacity-40' : ''"
-                :title="vehicleAtStop(s.source_id, view.direction_id).z ? t('transit.zombie') : t('transit.vehicle_here')"
-              >
-                <!-- Arrival pulse: route-colored ring expands when the vehicle
-                     just hopped to this stop (see reconcileVehiclePulses) -->
+              <!-- Left gutter: fixed width so the bus icon, an ETA / scheduled /
+                   first-departure time, or nothing all occupy the same column and
+                   the stop-name list never shifts horizontally between rows. When a
+                   vehicle is at this stop the bus icon takes this slot (an ETA here
+                   is the FOLLOWING bus — secondary to "it's here now"; it reappears
+                   the moment the vehicle leaves). -->
+              <div class="flex-shrink-0 ml-2 w-14 flex items-center justify-center">
+                <button
+                  v-if="vehicleAtStop(s.source_id, view.direction_id)"
+                  @click.stop="openVehicleDetail(vehicleAtStop(s.source_id, view.direction_id))"
+                  class="relative p-0.5 rounded-full hover:bg-primary/30 transition-colors"
+                  :class="vehicleAtStop(s.source_id, view.direction_id).z ? 'opacity-40' : ''"
+                  :title="vehicleAtStop(s.source_id, view.direction_id).z ? t('transit.zombie') : t('transit.vehicle_here')"
+                >
+                  <!-- Arrival pulse: route-colored ring expands when the vehicle
+                       just hopped to this stop (see reconcileVehiclePulses) -->
+                  <span
+                    v-if="isPulsing(vehicleAtStop(s.source_id, view.direction_id).v)"
+                    class="stop-pulse-ring absolute inset-0 rounded-full border-2 pointer-events-none"
+                    :style="{ borderColor: routeColorCss, boxShadow: `0 0 0 1.5px ${pulseCasingCss}` }"
+                    aria-hidden="true"
+                  ></span>
+                  <img
+                    :src="routeTypeIcon(routeData.route_type)"
+                    :alt="routeTypeFallback(routeData.route_type)"
+                    class="relative w-9 h-9"
+                    :class="{ 'stop-pulse-pop': isPulsing(vehicleAtStop(s.source_id, view.direction_id).v) }"
+                  />
+                </button>
+                <button
+                  v-else-if="etasFor(view.direction_id)[s.source_id] != null"
+                  @click.stop="openEtaDetail(s.source_id, view.direction_id)"
+                  class="px-1.5 py-0.5 rounded bg-primary text-neutral-900 text-xs font-bold font-mono hover:bg-primary/80 transition-colors"
+                >{{ formatStopEta(s.source_id, view.direction_id) }}</button>
                 <span
-                  v-if="isPulsing(vehicleAtStop(s.source_id, view.direction_id).v)"
-                  class="stop-pulse-ring absolute inset-0 rounded-full border-2 pointer-events-none"
-                  :style="{ borderColor: routeColorCss, boxShadow: `0 0 0 1.5px ${pulseCasingCss}` }"
-                  aria-hidden="true"
-                ></span>
-                <img
-                  :src="routeTypeIcon(routeData.route_type)"
-                  class="relative w-9 h-9"
-                  :class="{ 'stop-pulse-pop': isPulsing(vehicleAtStop(s.source_id, view.direction_id).v) }"
-                />
-              </button>
-              <button
-                v-else-if="etasFor(view.direction_id)[s.source_id] != null"
-                @click.stop="openEtaDetail(s.source_id, view.direction_id)"
-                class="flex-shrink-0 ml-2 px-1.5 py-0.5 rounded bg-primary text-neutral-900 text-xs font-bold font-mono hover:bg-primary/80 transition-colors"
-              >{{ formatStopEta(s.source_id, view.direction_id) }}</button>
-              <span
-                v-else-if="scheduledTimeFor(view.direction_id, s.source_id)"
-                class="flex-shrink-0 ml-2 px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-mono"
-                :title="$t('transit.scheduled')"
-              >{{ scheduledTimeFor(view.direction_id, s.source_id) }}</span>
-              <span
-                v-else-if="view.stops[0]?.source_id === s.source_id && firstDepartureFor(view.direction_id)"
-                class="flex-shrink-0 ml-2 px-1.5 py-0.5 rounded text-xs font-mono bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"
-                :title="$t('transit.next_departure')"
-              >{{ firstDepartureFor(view.direction_id) }}</span>
-              <span v-else class="flex-shrink-0 ml-2 w-10"></span>
+                  v-else-if="scheduledTimeFor(view.direction_id, s.source_id)"
+                  class="px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-mono"
+                  :title="$t('transit.scheduled')"
+                >{{ scheduledTimeFor(view.direction_id, s.source_id) }}</span>
+                <span
+                  v-else-if="view.stops[0]?.source_id === s.source_id && firstDepartureFor(view.direction_id)"
+                  class="px-1.5 py-0.5 rounded text-xs font-mono bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"
+                  :title="$t('transit.next_departure')"
+                >{{ firstDepartureFor(view.direction_id) }}</span>
+              </div>
               <button
                 @click="openStop(s)"
-                class="flex-1 p-3 pl-0 min-w-0 text-left text-sm text-neutral-900 dark:text-neutral-100"
-              >{{ s.name }}</button>
+                class="flex-1 flex items-center gap-2 p-3 pl-0 min-w-0 text-left text-sm text-neutral-900 dark:text-neutral-100"
+              >
+                <span class="min-w-0">{{ s.name }}</span>
+                <TransitInterchangeBadge v-if="s.interchange_modes?.length" :modes="s.interchange_modes" :exclude="routeData.route_type" class="ml-auto flex-shrink-0" />
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Route Mini-Map -->
+      <!-- Route Mini-Map — drag to pan; explicit button opens the full map -->
       <div
-        class="route-mini-map mb-4 cursor-pointer rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 hover:border-secondary-300 dark:hover:border-secondary-600 transition-colors"
-        @click="showRouteOnMap"
+        class="route-mini-map relative mb-4 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 transition-colors"
       >
         <div ref="miniMapEl" class="mini-map-inner aspect-[1.618]" />
+        <button
+          type="button"
+          @click="showRouteOnMap"
+          :aria-label="$t('transit.show_on_map')"
+          :title="$t('transit.show_on_map')"
+          class="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 px-2.5 h-9 rounded-lg bg-white/90 dark:bg-neutral-800/90 backdrop-blur border border-neutral-200 dark:border-neutral-700 text-sm font-medium text-neutral-700 dark:text-neutral-300 shadow-sm hover:bg-white dark:hover:bg-neutral-800 hover:border-secondary-300 dark:hover:border-secondary-600 transition-colors"
+        >
+          <Maximize2 class="w-4 h-4" />
+          <span class="hidden sm:inline">{{ $t('transit.show_on_map') }}</span>
+        </button>
       </div>
 
       <!-- Tickets -->
@@ -289,13 +305,13 @@
           <div class="relative bg-white dark:bg-neutral-900 w-full sm:max-w-lg sm:rounded-xl rounded-t-xl max-h-[85vh] overflow-y-auto shadow-xl">
             <div class="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <img :src="routeTypeIcon(routeData.route_type)" class="w-6 h-6" />
+                <img :src="routeTypeIcon(routeData.route_type)" :alt="routeTypeFallback(routeData.route_type)" class="w-6 h-6" />
                 <h3 class="font-bold text-sm text-neutral-900 dark:text-neutral-100">{{ vehicleDetail.vehicle_id }}</h3>
               </div>
               <button @click="vehicleDetail = null" class="btn-ghost btn-icon btn-sm"><X class="w-4 h-4" /></button>
             </div>
             <div v-if="vehicleDetailLoading" class="flex justify-center py-8">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
             </div>
             <div v-else class="px-4 py-3 space-y-3 text-sm">
               <!-- GTFS-RT data -->
@@ -363,7 +379,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { ArrowLeft, ArrowRight, ArrowLeftRight, CalendarDays, CalendarOff, Check, ChevronDown, Moon, X } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, ArrowLeftRight, CalendarDays, CalendarOff, Check, ChevronDown, Maximize2, Moon, X } from 'lucide-vue-next'
+import { createVehicleAnimator } from '~/utils/vehicleAnimator'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -380,9 +397,10 @@ const { data: routeData, pending } = await useFetch(`/api/v1/geo/transit/routes/
 useSeoMeta({
   title: () => routeData.value?.short_name ? `${routeData.value.short_name} ${routeData.value.long_name} — Parahub` : t('transit.title'),
   ogTitle: () => routeData.value?.short_name ? `${routeData.value.short_name} ${routeData.value.long_name}` : t('transit.title'),
-  description: () => routeData.value?.long_name ? `Route ${routeData.value.short_name} — ${routeData.value.long_name}` : t('transit.title'),
-  ogDescription: () => routeData.value?.long_name ? `Route ${routeData.value.short_name} — ${routeData.value.long_name}` : t('transit.title'),
-  ogImage: '/og-image.jpg',
+  description: () => routeData.value?.long_name ? `${t('transit.route')} ${routeData.value.short_name} — ${routeData.value.long_name}` : t('transit.title'),
+  ogDescription: () => routeData.value?.long_name ? `${t('transit.route')} ${routeData.value.short_name} — ${routeData.value.long_name}` : t('transit.title'),
+  // ogImage omitted → inherits the absolute URL from app.vue (a relative one
+  // breaks Facebook/LinkedIn/Telegram preview scrapers).
   ogType: 'website',
   twitterCard: 'summary_large_image',
 })
@@ -723,7 +741,18 @@ const pulseCasingCss = computed(() =>
 )
 
 function vehicleAtStop(stopSourceId: string, dirId: number) {
-  return liveVehicles.value.find(v => v.sid === stopSourceId && v.d === dirId) || null
+  // A vehicle with a confirmed direction is placed only in its own column.
+  // A vehicle whose STT direction is still unresolved (d=null — dual state at a
+  // shared terminus, or freshly-appeared with no track yet) has a known snapped
+  // stop (sid) but no direction: place it in whichever rendered column contains
+  // that stop. This is only ever called with stops of the current column, so
+  // `v.sid === stopSourceId` already proves the sid belongs to this direction;
+  // a sid shared by both columns (terminus) shows the bus in both — the genuine
+  // ambiguity while it turns around, never hidden. Keeps the list in step with
+  // the mini-map, which plots every live vehicle regardless of direction.
+  return liveVehicles.value.find(
+    v => v.sid === stopSourceId && (v.d === dirId || v.d == null)
+  ) || null
 }
 
 let liveWsIntentionalClose = false
@@ -821,6 +850,8 @@ onUnmounted(() => {
   liveWs = null
   miniMapObserver?.disconnect()
   miniMapObserver = null
+  miniVehicleAnimator?.stop()
+  miniVehicleAnimator = null
   if (miniMap) { miniMap.remove(); miniMap = null }
 })
 
@@ -856,9 +887,7 @@ function onPurchased() {
 
 watch(() => routeData.value, () => loadTicketTypes(), { immediate: true })
 
-function showRouteOnMap(e?: MouseEvent) {
-  // Zoom +/- buttons live inside the clickable mini-map wrapper
-  if ((e?.target as HTMLElement)?.closest('.maplibregl-ctrl')) return
+function showRouteOnMap() {
   if (!routeData.value) return
   ;(window as any)._transitRouteData = routeData.value
   const c = routeCenter.value
@@ -871,6 +900,7 @@ let miniMap: any = null
 let miniMapGl: any = null         // cached maplibre-gl module (needed when rebuilding overlays)
 let miniMapCreated = false
 let miniMapObserver: IntersectionObserver | null = null
+let miniVehicleAnimator: ReturnType<typeof createVehicleAnimator> | null = null
 
 const getMiniMapStyle = () =>
   colorMode.value === 'dark'
@@ -891,12 +921,17 @@ async function createMiniMap() {
     style: getMiniMapStyle(),
     center: [c.lon, c.lat],
     zoom: 12,
-    interactive: false,
+    interactive: true,
+    // Desktop: drag-pan with the mouse, ctrl+scroll to zoom.
+    // Mobile: one finger scrolls the page (no scroll-trap), two fingers pan/zoom.
+    cooperativeGestures: true,
+    dragRotate: false,
     attributionControl: false,
     trackResize: false,
     fadeDuration: 0,
     pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
   })
+  miniMap.touchZoomRotate.disableRotation()
   miniMap.addControl(new miniMapGl.NavigationControl({ showCompass: false }), 'top-right')
 
   miniMap.once('load', () => { buildMiniMapOverlays() })
@@ -979,6 +1014,16 @@ async function buildMiniMapOverlays() {
   await _loadMiniMapIcon(miniMap, `mini-${iconName}`, `/img/transit/${iconName}.svg`, 64)
   _addRouteBarImage(miniMap, 'mini-route-bar', routeColor)
   miniMap.addSource('route-vehicles', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+  // Glide vehicles to each new WS position over 1s rather than snapping. Fresh on
+  // every (re)build — setStyle on theme toggle wipes the source; appearing in place
+  // afterward is fine (no movement happens during a restyle).
+  miniVehicleAnimator = createVehicleAnimator({
+    getKey: (f: any) => f.properties.vehicle_id,
+    apply: (fc: any) => {
+      const src = miniMap?.getSource('route-vehicles')
+      if (src) (src as any).setData(fc)
+    },
+  })
   // Route-color bar under the icon (32x3 rendered, pure color — no outline)
   miniMap.addLayer({
     id: 'route-vehicles-bar',
@@ -1017,7 +1062,12 @@ async function buildMiniMapOverlays() {
         'circle-radius': 5,
         'circle-translate': [0, -23],
         'circle-translate-anchor': 'viewport',
-        'circle-color': ['case', ['==', ['get', 'dir'], 0], DIR_DOT_COLORS[0], DIR_DOT_COLORS[1]],
+        'circle-color': [
+          'match', ['get', 'dir'],
+          0, DIR_DOT_COLORS[0],
+          1, DIR_DOT_COLORS[1],
+          DIR_DOT_UNKNOWN,  // d=null / unresolved → neutral grey
+        ],
         'circle-stroke-width': 2,
         'circle-stroke-color': '#ffffff',
       },
@@ -1028,6 +1078,9 @@ async function buildMiniMapOverlays() {
 
 // Fixed direction colors (colorblind-safe pair): 0 = outbound, 1 = inbound
 const DIR_DOT_COLORS: Record<number, string> = { 0: '#2563eb', 1: '#f97316' }
+// Unresolved STT direction (d=null): neutral grey, reads on both themes under
+// the white dot stroke — distinct from the two direction colors.
+const DIR_DOT_UNKNOWN = '#6b7280'
 
 const _ROUTE_TYPE_ICON: Record<number, string> = {
   0: 'tram', 1: 'metro', 2: 'train', 3: 'bus', 4: 'ferry',
@@ -1081,10 +1134,16 @@ function updateMiniMapVehicles() {
     features: liveVehicles.value.map((v: any) => ({
       type: 'Feature' as const,
       geometry: { type: 'Point' as const, coordinates: [v.lon, v.lat] },
-      properties: { dir: v.d ?? 0 },
+      // dir = -1 sentinel when STT direction is unresolved (d=null) → neutral
+      // grey dot, instead of falsely reading as outbound (0 = blue).
+      properties: { dir: v.d == null ? -1 : v.d, vehicle_id: v.v },
     })),
   }
-  ;(miniMap.getSource('route-vehicles') as any).setData(geojson)
+  if (miniVehicleAnimator) {
+    miniVehicleAnimator.setTarget(geojson)
+  } else {
+    ;(miniMap.getSource('route-vehicles') as any).setData(geojson)
+  }
 }
 
 watch(liveVehicles, updateMiniMapVehicles)

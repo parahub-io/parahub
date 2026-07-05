@@ -83,6 +83,7 @@ class Command(BaseCommand):
         # 3. Предупреждения за warning_hours
         # Находим активные голосования у которых end_time через [warning_hours - 1h, warning_hours + 1h]
         # (окно ±1h чтобы не пропустить при запуске каждые 30 мин)
+        # Opinion polls have no eligible voters, so the reminder pass skips them naturally.
         warned = 0
         active_with_end = Poll.objects.filter(
             status=Poll.Status.ACTIVE,
@@ -97,6 +98,25 @@ class Command(BaseCommand):
                 _send_warning_notifications(poll)
                 warned += 1
 
+        # 4. Opinion polls: aggregate-and-purge raw pseudonymous votes 30 days after end
+        # (data minimization — PK/civic-polls-system.md; frozen_results keeps the aggregates)
+        purged = 0
+        from governance import civic
+        purge_before = now - timedelta(days=30)
+        purge_candidates = Poll.objects.filter(
+            poll_class=Poll.PollClass.OPINION,
+            status=Poll.Status.ENDED,
+            end_time__isnull=False,
+            end_time__lt=purge_before,
+            frozen_results__isnull=True,
+        )
+        for poll in purge_candidates:
+            try:
+                if civic.freeze_and_purge(poll):
+                    purged += 1
+            except Exception as e:
+                logger.error(f"governance_tick: freeze_and_purge failed for {poll.id[:8]}: {e}")
+
         self.stdout.write(
-            f"governance_tick: activated={activated}, ended={len(to_end)}, warned={warned}"
+            f"governance_tick: activated={activated}, ended={len(to_end)}, warned={warned}, purged={purged}"
         )

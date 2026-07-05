@@ -36,7 +36,8 @@ LOCALES = [
     {'code': 'ru', 'lang': 'ru-RU', 'name': 'Русский'},
 ]
 
-# Locales hidden from the footer language switcher (pages still generated, hreflang preserved)
+# Locales hidden from the footer language switcher ONLY — pages still generated,
+# and they stay in hreflang + sitemap (hreflang uses the unfiltered `alternates` list).
 HIDDEN_FOOTER_LOCALES = {'ru'}
 
 FOOTER_TAGLINES = {
@@ -210,7 +211,10 @@ def generate_landing(landing_name: str, all_landings: list = None):
     # Other landings (exclude self) — cross-link URLs are built per-locale below
     other_landings = [l for l in (all_landings or []) if l['subdomain'] != subdomain]
 
-    alternates = build_alternates(subdomain, default_locale, exclude=HIDDEN_FOOTER_LOCALES)
+    # hreflang needs every locale (incl. self-reference on hidden ones);
+    # the footer switcher is the only place HIDDEN_FOOTER_LOCALES applies
+    alternates = build_alternates(subdomain, default_locale)
+    footer_alternates = build_alternates(subdomain, default_locale, exclude=HIDDEN_FOOTER_LOCALES)
     output_dir = landing_dir / 'output'
     output_dir.mkdir(exist_ok=True)
 
@@ -271,6 +275,7 @@ def generate_landing(landing_name: str, all_landings: list = None):
             subdomain=subdomain,
             og_locale=OG_LOCALE_MAP.get(locale_code, 'en_US'),
             alternates=alternates,
+            footer_alternates=footer_alternates,
             cta_url=cta_url,
             problems=problems,
             features=features,
@@ -381,6 +386,17 @@ server {{
 
     root {output_path};
 
+    # Security headers. Keep add_header OUT of child locations: a location-level
+    # add_header replaces ALL inherited ones (caching there uses `expires` instead).
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Content-Security-Policy "default-src 'none'; script-src https://parahub.io; style-src 'unsafe-inline'; img-src 'self' https://parahub.io; connect-src 'self' https://parahub.io; base-uri 'none'; form-action 'none'; frame-ancestors 'self'" always;
+
+    # HTML/sitemap/robots: short cache so regenerated copy propagates within an hour
+    expires 1h;
+
     # Default locale ({default_locale})
     location = / {{
         try_files /index.html =404;
@@ -397,12 +413,12 @@ server {{
 
     location = /og.png {{
         try_files /og.png =404;
-        add_header Cache-Control "public, max-age=604800";
+        expires 7d;
     }}
 
     location = /para.webp {{
         try_files /para.webp =404;
-        add_header Cache-Control "public, max-age=604800";
+        expires 7d;
     }}
 
     # Anything else → redirect to root

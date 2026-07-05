@@ -19,6 +19,8 @@ Post what you have (Credit) or what you need (Debit) — goods, services, skills
 - Multi-currency (fiat + Bitcoin optional)
 - AI image validation for quality
 - Geographic filtering by your location
+- Choose who sees each listing: public, or only registered members
+- Mark items "made by hand" (self-made) — a badge plus a filter for local makers
 
 **How to create a listing:**
 1. Go to Marketplace (/market)
@@ -33,9 +35,39 @@ Post what you have (Credit) or what you need (Debit) — goods, services, skills
 4. Agree on terms, optionally create a contract
 5. Payment handled directly between you (not through the platform)
 
-Manage your listings at /market/my-items.
+Manage your listings at /market/my.
 
 **Requirements:** Registered account for limited items. Verified (3 Web of Trust confirmations) for full access.
+
+---
+
+## Rentals & Booking
+
+Rent things by the day or by the slot — bikes, rooms, tools, equipment, studio time. Any item listed for rent can be booked from a live availability calendar that can never be double-booked.
+
+**How to book:**
+1. Open a rentable item — anything offered for rent shows an availability calendar
+2. Pick a date range (for stays / multi-day) or a time slot (for hourly bookings like a room)
+3. Send the booking — it's confirmed instantly or sent as a request, depending on the owner's settings
+4. Recurring weekly or monthly bookings are supported
+
+**For owners:** make any listing bookable, set opening hours, choose instant-confirm or approve-each-request, and manage incoming bookings from your inbox. You can also enter a booking by hand for a walk-in client who isn't on Parahub.
+
+The platform holds no funds and no deposit — payment is arranged directly with the owner. Manage bookings at /market/my (Requests and My bookings tabs).
+
+---
+
+## Tickets
+
+Buy digital tickets for events and public transport, paid over Lightning directly to the operator — no escrow.
+
+- Each ticket has a unique QR code; the operator scans it once to validate
+- Works even offline — the QR is cryptographically signed
+- Optionally PGP-sign your ticket as proof it's yours
+- Concession fares (student, senior, child) and network-wide transit passes
+- Prices can be shown in euros with a live conversion at purchase
+
+**How to buy:** open an event or a transit route, choose a ticket type, and pay from your Lightning wallet. Your tickets live in the wallet's "My Tickets" tab.
 
 ---
 
@@ -253,6 +285,7 @@ Parahub has a built-in blog and website builder for users and organizations.
 - Tag posts by category (News, Announcements, Minutes, etc.)
 - Comments and photo galleries on posts
 - RSS feed available
+- Mark posts as subscribers-only — only your monthly supporters can read the full text (see Recurring Support)
 
 **How to create a blog post:**
 1. Go to /blog and click "New post"
@@ -274,6 +307,21 @@ Requirements: Verified (WoT 3+) to publish posts. Drafts can be saved without ve
 3. Set your accent color and hero text
 4. Add custom pages in the Pages tab
 5. Optionally connect a custom domain
+
+---
+
+## Recurring Support (Subscriptions)
+
+Support a profile every month with a fixed Lightning amount — directly, with no platform fee and no escrow.
+
+- Open someone's profile and click "Support monthly"
+- Choose an amount and pay from your Lightning wallet
+- Each month you get a reminder to renew with one tap — payments are direct, so they can never be auto-charged
+- Cancel anytime — your access lasts until the month you already paid for ends
+
+**Subscribers-only content:** a profile can lock some blog posts so only their monthly supporters read the full text. Everyone else sees the title and a teaser with a "Support to unlock" button.
+
+Manage who you support from each person's profile page.
 
 ---
 

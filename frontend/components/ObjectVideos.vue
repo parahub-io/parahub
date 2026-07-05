@@ -138,4 +138,8 @@ function formatDuration(seconds: number): string {
 onMounted(fetchVideos)
 
 watch(() => props.objectId, fetchVideos)
+
+// Let a parent (e.g. an upload form sitting next to this list) pull a freshly
+// uploaded video into the list without a full page reload.
+defineExpose({ refresh: fetchVideos })
 </script>

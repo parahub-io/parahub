@@ -60,7 +60,7 @@ import {
   Vote, Megaphone, CalendarDays, Receipt, Building2, FileSignature,
   Bot, Camera, Radio, Brain, Video, Globe, ChevronRight, ExternalLink, Bus, Car,
   Wallet, PiggyBank, Heart, LayoutDashboard, Ticket, Package, Navigation,
-  Home, Landmark, Server, Bell,
+  Home, Landmark, Server, Bell, HeartHandshake, CalendarCheck,
 } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -79,14 +79,16 @@ const groups = [
   {
     labelKey: 'docs.group_trade',
     items: [
-      { key: 'marketplace', icon: Store },
+      { key: 'marketplace', icon: Store, to: '/docs/marketplace' },
       { key: 'barter', icon: ArrowLeftRight, to: '/docs/barter', href: 'https://troca.parahub.io' },
+      { key: 'rental', icon: CalendarCheck, to: '/docs/rental' },
       { key: 'payments', icon: Zap },
       { key: 'wallet', icon: Wallet },
       { key: 'debts', icon: Receipt },
       { key: 'contracts', icon: FileSignature, href: 'https://contratos.parahub.io' },
       { key: 'treasury', icon: PiggyBank, to: '/docs/transparency', wip: true },
       { key: 'income', icon: Heart, to: '/docs/transparency' },
+      { key: 'subscriptions', icon: HeartHandshake, to: '/docs/subscriptions' },
     ],
   },
   {
@@ -112,12 +114,12 @@ const groups = [
     items: [
       { key: 'maps', icon: MapPin },
       { key: 'property', icon: Home },
-      { key: 'directory', icon: Building2, href: 'https://directorio.parahub.io' },
+      { key: 'directory', icon: Building2, to: '/docs/directory', href: 'https://directorio.parahub.io' },
       { key: 'transit', icon: Bus, href: 'https://transporte.parahub.io' },
       { key: 'logistics', icon: Package, wip: true },
       { key: 'driver', icon: Navigation },
       { key: 'carpool', icon: Car, href: 'https://boleias.parahub.io', wip: true },
-      { key: 'tickets', icon: Ticket, wip: true },
+      { key: 'tickets', icon: Ticket, to: '/docs/tickets', wip: true },
       { key: 'dispatch', icon: LayoutDashboard },
       { key: 'mesh', icon: Wifi, to: '/docs/mesh' },
       { key: 'energy', icon: Zap, to: '/docs/energy', href: 'https://energia.parahub.io', wip: true },

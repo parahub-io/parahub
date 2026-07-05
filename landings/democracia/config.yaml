@@ -1,7 +1,8 @@
 subdomain: democracia
 default_locale: pt
 i18n_namespace: governance
-cta_path: /governance
+# /governance itself 301s to /governance/polls and drops ?from= — point straight at the public polls page
+cta_path: /governance/polls
 from_param: democracia
 problems_count: 3
 features_count: 6
