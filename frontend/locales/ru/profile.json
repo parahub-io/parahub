@@ -133,10 +133,6 @@
       "map_presence_enabled": "Включён",
       "map_presence_disabled": "Выключен",
       "map_presence_hint": "Показывать ваш аватар на карте и видеть других пользователей в реальном времени (присутствие в стиле MMORPG)",
-      "opensky_mode_label": "Режим OpenSky",
-      "opensky_mode_enabled": "Включён",
-      "opensky_mode_disabled": "Выключен",
-      "opensky_mode_hint": "Показывать элементы управления OpenSky на карте (зона миссии, ссылка на панель). Слой аэрофотосъёмки доступен всегда.",
       "map_style_label": "Стиль карты",
       "map_style_hint": "Выберите предпочитаемый стиль визуализации карты",
       "map_style_updated": "Стиль карты обновлен",
@@ -169,6 +165,12 @@
       "dev_mode_enabled": "Dev сервер",
       "dev_mode_disabled": "Production сервер",
       "dev_mode_hint": "Переключение между dev и production серверами. Страница перезагрузится.",
+      "advanced_title": "Дополнительные настройки",
+      "advanced_subtitle": "Настройки карты и инструменты разработчика",
+      "trails_label": "Кометные следы транспорта",
+      "trails_enabled": "Включены",
+      "trails_disabled": "Выключены",
+      "trails_hint": "Анимированные затухающие следы за движущимся транспортом на карте. При выключении библиотека отрисовки (~500 КБ) не загружается.",
       "language_updated": "Язык обновлён"
     },
     "association_member": "Член Ассоциации",
@@ -312,7 +314,11 @@
       "multiple_faces": "Обнаружено несколько лиц. Загрузите фото только с вашим лицом.",
       "status_ready": "Готово к верификации",
       "status_pending": "Ожидание подтверждения",
-      "delete_warning": "Удаление верификационного фото повлияет на ваш статус в Сети доверия (WoT)"
+      "delete_warning": "Удаление верификационного фото повлияет на ваш статус в Сети доверия (WoT)",
+      "access_log_title": "Кто открывал это фото",
+      "access_log_empty": "Пока никто не открывал",
+      "access_log_more": "Ещё {count}",
+      "access_log_less": "Свернуть"
     }
   },
   "profiles": {
@@ -501,6 +507,7 @@
     "create_contract": "Создать контракт",
     "record_debt": "Записать долг",
     "click_to_flip": "Нажмите для просмотра ID-фото",
+    "click_to_enlarge": "Нажмите для увеличения",
     "id_photo": "ID-фото",
     "ln_no_address": "{name} не настроил Lightning-адрес",
     "ln_no_wallet": "Сначала настройте Lightning-кошелёк",

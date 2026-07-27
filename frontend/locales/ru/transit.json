@@ -28,6 +28,7 @@
     "gps_unavailable": "Геолокация недоступна",
     "vehicle_here": "Здесь сейчас транспорт",
     "now_at_stop": "Сейчас на остановке",
+    "arriving_now": "Подходит",
     "approaching": "Приближаются",
     "min": "мин",
     "stops_short": "ост.",

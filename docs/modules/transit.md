@@ -6,6 +6,8 @@ Real-time public transport monitoring. Import transit data via GTFS standard, tr
 
 Multiple transit feeds across cities worldwide — each with real-time vehicle GPS tracking. The current list of active feeds, routes, and stops is available at `/transit` or via the API (`/api/v1/geo/transit/agencies/`). Auto-updated weekly with SHA256 hash caching. gtfstidy preprocessing for feed normalization.
 
+Static-only feeds (no GTFS-RT) are supported alongside live ones — e.g. CP rail and Transtejo ferry — so interchanges show up on multimodal routes. For feeds without shapes, route geometry is synthesized from the stop sequence with `pfaedle`. A cross-mode 150 m radius tier plus `sta`/`sto` canonicalization groups a rail platform, a bus stop, and a ferry terminal that share a location into one interchange.
+
 ## Architecture
 
 ### Data Pipeline (CQRS)
@@ -36,7 +38,7 @@ Management command: `python3 manage.py import_gtfs --url <feed_url>` or `--file 
 
 - **RouteCache**: In-memory cache of route info (color, name, place, type). 10-minute refresh from PostgreSQL.
 - **StopSnapper**: Projects vehicle GPS position onto route shape to find nearest stop. Binary search on shape points.
-- **ETA Engine (STT)**: Segment travel time tracking with rolling FIFO of last 10 observations. Direction detection. Zombie vehicle filtering (stale positions). Schedule-based fallback.
+- **ETA Engine (STT)**: Segment travel time tracking with a rolling FIFO of recent observations. Segment estimates use the FIFO **median** (robust to outliers) rather than the mean. Travel time is attributed to every segment a vehicle traverses; a vehicle moving away from a stop is treated as a stall. Near a stop, in-segment progress is subtracted from the origin ETA so the countdown doesn't overshoot, and an early-arrival nudge sharpens the "arriving now" moment. Direction detection, zombie vehicle filtering (stale positions), and schedule-based fallback. A replayable backtest harness scores STT predictions against observed ground truth to guard against regressions.
 
 ### GTFS Relay
 
@@ -46,9 +48,17 @@ Public endpoints for third-party consumers:
 - `GET /api/v1/geo/transit/gtfs-rt/vehicle-positions/{slug}/` -- protobuf (GTFS-RT spec)
 - `GET /api/v1/geo/transit/gtfs-rt/vehicle-positions/{slug}.json` -- JSON convenience
 
+### Timetable PDF Export
+
+Branded, printable timetable per route, downloaded from a modal on the route page. Seasonal services render as separate columns; where a service period carries no readable name, the column falls back to its date range. The footer links back to the route page.
+
+### Feed Health
+
+A durable feed-health log records each import/refresh outcome so downtime can be reported by cause (upstream unreachable, malformed archive, empty feed, etc.) rather than guessed. This drives the operator-facing reliability view and feeds status monitoring.
+
 ### Driver Mode Integration
 
-Verified drivers (WoT 3+) broadcast GPS from the browser. Positions injected into the same Redis pipeline (`transit:geo`, `transit:vdata`, `transit:members`). Passengers see driver vehicles on the map alongside official GTFS-RT feeds. See [Features](../features.md#driver-mode).
+Verified drivers (WoT 3+) broadcast GPS from the browser. Positions injected into the same Redis pipeline (`transit:geo`, `transit:vdata`, `transit:members`). Passengers see driver vehicles on the map alongside official GTFS-RT feeds. See [Features](../features.md#driver-mode). For feeds that ship no `tts_stop_name`, Portuguese stop names are synthesized at serve time so spoken stop announcements read naturally.
 
 ### Ticket Integration
 
@@ -67,11 +77,13 @@ Platform for transit companies to manage operations via Parahub web UI instead o
 
 ## Frontend
 
-- SEO-friendly slug URLs: `/transit/route/lisbon/carris-metropolitana-1523`
-- Route visualization: line + stops on map with "Show on map" button
-- Vehicle icons: busti.me SVG transport type icons (bus, tram, metro, train, ferry)
-- WebSocket subscription by zoom-14 map tiles for efficient updates
-- Feed overview with aggregated statistics (routes/stops/trips per feed)
+- SEO-friendly slug URLs: `/transit/route/lisbon/carris-metropolitana-1523`. Route and stop pages are listed in the sitemap (canonical-only).
+- Route visualization: line + stops on map with an explicit "Show on map" button and a draggable route mini-map. Stops reveal in a staggered sweep, gated on the map being idle, and both directions of a route are shown (circular/one-direction routes render correctly). The active route persists in the URL for deep-linking, and an active-route chip on the map dismisses it in one tap. A variant-count badge surfaces alternative percursos.
+- Live vehicles are rendered on a `deck.gl` overlay (leaving MapLibre idle for smooth panning), with an optional animated comet trail behind each vehicle. On-demand vehicle metadata opens in the live map popup.
+- Vehicle icons: busti.me SVG transport type icons (bus, tram, metro, train, ferry).
+- Branded timetable PDF download from the route page (see Timetable PDF Export).
+- WebSocket subscription by zoom-14 map tiles for efficient updates.
+- Feed overview with aggregated statistics (routes/stops/trips per feed).
 
 ## Multimodal Routing
 

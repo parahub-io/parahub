@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import {
   Wallet, Settings, Calendar, Book, Vote, Building,
-  Megaphone, FileText, PackageCheck, Package, Zap, Car,
+  Megaphone, FileText, PackageCheck, Cpu, Zap, Car,
   Shield, Info, Bot, Bell,
 } from 'lucide-vue-next'
 
@@ -15,8 +15,9 @@ import {
  *   path          — exact route the nav item links to (also drag drop-target key)
  *   iconPrefix    — override prefix for Menu-button active-icon match (default: path)
  *   activeIcon    — icon shown *inside the Menu button* when this path is active;
- *                   may differ from the dropdown NavItem's icon (intentional, see /iot, /energy)
+ *                   may differ from the dropdown NavItem's icon (intentional, see /energy)
  *   labelKey      — i18n key for the drag hover-label bar
+ *   hintKey       — i18n key for the one-line teaser under the label in the drag bar
  *   inDropdown    — true if this item lives inside the dropdown (drag hovering it
  *                   keeps the menu open instead of closing it)
  */
@@ -25,6 +26,7 @@ export interface NavMenuEntry {
   iconPrefix?: string
   activeIcon?: Component
   labelKey?: string
+  hintKey?: string
   inDropdown?: boolean
 }
 
@@ -33,37 +35,38 @@ export const PROJECTS_URL = 'https://git.parahub.io/user/login'
 
 export const NAV_MENU: NavMenuEntry[] = [
   // Top nav (visible in navbar)
-  { path: '/chat', labelKey: 'nav.messages' },
-  { path: '/market', labelKey: 'nav.market' },
-  { path: '/map', labelKey: 'nav.map' },
-  { path: '/transit', labelKey: 'nav.transit' },
+  { path: '/chat', labelKey: 'nav.messages', hintKey: 'nav.hint.messages' },
+  { path: '/login', labelKey: 'login.submit', hintKey: 'nav.hint.login' }, // anon top-nav slot
+  { path: '/market', labelKey: 'nav.market', hintKey: 'nav.hint.market' },
+  { path: '/map', labelKey: 'nav.map', hintKey: 'nav.hint.map' },
+  { path: '/transit', labelKey: 'nav.transit', hintKey: 'nav.hint.transit' },
 
   // Dropdown: profile row
-  { path: '/u/', inDropdown: true }, // dynamic — drag label resolved from display_name
-  { path: '/wallet', activeIcon: Wallet, labelKey: 'nav.wallet', inDropdown: true },
-  { path: '/profile', activeIcon: Settings, labelKey: 'zenith.settings', inDropdown: true },
+  { path: '/u/', hintKey: 'nav.hint.profile', inDropdown: true }, // dynamic — drag label resolved from display_name
+  { path: '/wallet', activeIcon: Wallet, labelKey: 'nav.wallet', hintKey: 'nav.hint.wallet', inDropdown: true },
+  { path: '/profile', activeIcon: Settings, labelKey: 'zenith.settings', hintKey: 'nav.hint.settings', inDropdown: true },
 
   // Dropdown: bento grid rows 2-4 (visual order, rows are NOT thematic groups)
-  { path: '/events', activeIcon: Calendar, labelKey: 'nav.events', inDropdown: true },
-  { path: '/directory', activeIcon: Book, labelKey: 'nav.directory', inDropdown: true },
-  { path: '/governance/polls', iconPrefix: '/governance', activeIcon: Vote, labelKey: 'nav.governance', inDropdown: true },
-  { path: '/iot', activeIcon: Package, labelKey: 'nav.iot', inDropdown: true },
-  { path: '/ads', activeIcon: Megaphone, labelKey: 'nav.ads', inDropdown: true },
-  { path: '/contracts', activeIcon: FileText, labelKey: 'nav.contracts', inDropdown: true },
-  { path: '/shipments', activeIcon: PackageCheck, labelKey: 'nav.shipments', inDropdown: true },
-  { path: '/condo', activeIcon: Building, labelKey: 'nav.condo', inDropdown: true },
-  { path: '/sos', activeIcon: Shield, labelKey: 'parasos.title', inDropdown: true },
-  { path: '/energy', activeIcon: Zap, labelKey: 'nav.energy', inDropdown: true },
-  { path: PROJECTS_URL, labelKey: 'nav.projects', inDropdown: true }, // external new-tab, no active-icon
-  { path: '/webmail', labelKey: 'nav.webmail', inDropdown: true }, // internal new-tab, no active-icon
+  { path: '/events', activeIcon: Calendar, labelKey: 'nav.events', hintKey: 'nav.hint.events', inDropdown: true },
+  { path: '/directory', activeIcon: Book, labelKey: 'nav.directory', hintKey: 'nav.hint.directory', inDropdown: true },
+  { path: '/governance/polls', iconPrefix: '/governance', activeIcon: Vote, labelKey: 'nav.governance', hintKey: 'nav.hint.governance', inDropdown: true },
+  { path: '/iot', activeIcon: Cpu, labelKey: 'nav.iot', hintKey: 'nav.hint.iot', inDropdown: true },
+  { path: '/ads', activeIcon: Megaphone, labelKey: 'nav.ads', hintKey: 'nav.hint.ads', inDropdown: true },
+  { path: '/contracts', activeIcon: FileText, labelKey: 'nav.contracts', hintKey: 'nav.hint.contracts', inDropdown: true },
+  { path: '/shipments', activeIcon: PackageCheck, labelKey: 'nav.shipments', hintKey: 'nav.hint.shipments', inDropdown: true },
+  { path: '/condo', activeIcon: Building, labelKey: 'nav.condo', hintKey: 'nav.hint.condo', inDropdown: true },
+  { path: '/sos', activeIcon: Shield, labelKey: 'parasos.title', hintKey: 'nav.hint.sos', inDropdown: true },
+  { path: '/energy', activeIcon: Zap, labelKey: 'nav.energy', hintKey: 'nav.hint.energy', inDropdown: true },
+  { path: PROJECTS_URL, labelKey: 'nav.projects', hintKey: 'nav.hint.projects', inDropdown: true }, // external new-tab, no active-icon
+  { path: '/webmail', labelKey: 'nav.webmail', hintKey: 'nav.hint.webmail', inDropdown: true }, // internal new-tab, no active-icon
 
   // Dropdown: footer pills
-  { path: '/about', activeIcon: Info, labelKey: 'about.title', inDropdown: true },
-  { path: '/notifications', activeIcon: Bell, labelKey: 'nav.notifications', inDropdown: true },
+  { path: '/about', activeIcon: Info, labelKey: 'about.title', hintKey: 'nav.hint.about', inDropdown: true },
+  { path: '/notifications', activeIcon: Bell, labelKey: 'nav.notifications', hintKey: 'nav.hint.notifications', inDropdown: true },
   { path: '/yellow-gate', activeIcon: Bot, inDropdown: true }, // "Hive" — no i18n key, not rendered in dropdown (Menu active-icon only)
 
   // Subpath-only (no navbar link of its own — lights Menu icon when user is on /transit/rides)
-  { path: '/transit/rides', activeIcon: Car, labelKey: 'nav.rides' },
+  { path: '/transit/rides', activeIcon: Car, labelKey: 'nav.rides', hintKey: 'nav.hint.rides' },
 ]
 
 /** Path-prefix → active-icon for Menu-button active-state display. */
@@ -85,6 +88,15 @@ export function makeDragLabelLookup(t: (key: string) => string): Record<string, 
   const map: Record<string, string> = {}
   for (const e of NAV_MENU) {
     if (e.labelKey) map[e.path] = t(e.labelKey)
+  }
+  return map
+}
+
+/** Build drag-bar hint lookup (one-line teaser under the label). */
+export function makeDragHintLookup(t: (key: string) => string): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const e of NAV_MENU) {
+    if (e.hintKey) map[e.path] = t(e.hintKey)
   }
   return map
 }

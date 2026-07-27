@@ -24,7 +24,11 @@ export function useMapAvatarPanel(opts: {
   const currentAvatarState = ref<'idle' | 'walking' | 'jumping' | 'sitting' | 'emoting'>('idle')
   const activeAvatarPanel = ref<'own' | 'other' | null>(null)
   const selectedOtherAvatar = ref<any>(null)
+  // Own avatar's rendered geo position (written by MapPresenceOverlay via v-model);
+  // click hit-tests must use this, not map center — the avatar lags behind during pan/run
+  const ownAvatarGeoPosition = ref<{ lat: number; lon: number } | null>(null)
   let _presenceMoveHandler: (() => void) | null = null
+  let _presenceMap: any = null
 
   const {
     connect: connectMapPresence,
@@ -72,6 +76,10 @@ export function useMapAvatarPanel(opts: {
   })
 
   async function initializeMapPresence(map: any) {
+    // KeepAlive activation can fire before the map instance exists;
+    // the map-load path re-invokes with the real instance
+    if (!map) return
+    _presenceMap = map
     const connected = await connectMapPresence()
     if (!connected) return
 
@@ -138,6 +146,16 @@ export function useMapAvatarPanel(opts: {
     selectedOtherAvatar.value = null
   }
 
+  // Disconnect + detach the moveend handler — otherwise every pan after toggle-off
+  // keeps calling updatePosition against a closed socket
+  function teardownMapPresence() {
+    if (_presenceMap && _presenceMoveHandler) {
+      _presenceMap.off('moveend', _presenceMoveHandler)
+      _presenceMoveHandler = null
+    }
+    disconnectMapPresence()
+  }
+
   return {
     mapPresenceEnabled,
     currentAvatarType,
@@ -145,6 +163,7 @@ export function useMapAvatarPanel(opts: {
     currentAvatarState,
     activeAvatarPanel,
     selectedOtherAvatar,
+    ownAvatarGeoPosition,
     nearbyAvatars,
     isMapPresenceConnected,
     panelContentType,
@@ -155,6 +174,6 @@ export function useMapAvatarPanel(opts: {
     handleAvatarClick,
     handleAvatarTypeChange,
     clearAvatarPanel,
-    disconnectMapPresence,
+    disconnectMapPresence: teardownMapPresence,
   }
 }

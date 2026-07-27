@@ -256,6 +256,32 @@ Non-custodial Bitcoin Lightning wallet in your browser. You hold your own keys.
 
 ---
 
+## Printed Bitcoin Tips
+
+Bitcoin notes you give away — as a link, or printed on paper. Each note holds real bitcoin, and whoever holds it owns it.
+
+- Funded from your own wallet — the platform never holds the money
+- The person you give it to needs no account and no wallet of their own: they open the link (or scan the QR from the paper) and cash out
+- Good for paying someone who has no bitcoin address to give you yet
+- They can send it to any Lightning or Bitcoin address, or just keep it
+- A note nobody claims comes back to your wallet by itself after the expiry you chose
+- You cannot take a note back before then — once given, it is theirs
+- Nine notes fit on one A4 sheet, with cut lines
+
+**How to make a batch:**
+1. Open your wallet at /wallet and click the gift button
+2. Choose how many notes, how many sats each, when unclaimed notes should return, and a greeting
+3. Confirm — each note is funded from your wallet, one payment per note
+4. Give them out: copy a note's link and send it, copy all the links at once, or print the sheet
+
+Treat a note like cash: whoever opens the link or holds the paper takes the money. Send each link to one person only — the first to open it gets it.
+
+The amount is fixed in sats. The euro or dollar value printed on the note is what it was worth at issue; when the note is opened weeks later it is worth whatever bitcoin is worth that day.
+
+**If someone asks about bctip.org:** that was the same idea, by the same author, running from 2013 to 2024, and it is closed. Every bctip note expired long ago and unclaimed tips were returned to whoever paid for them, so there is nothing left there to redeem; bctip.org now explains what replaced it. The difference is that bctip had to hold the coins in its own wallet until redemption, and Parahub notes never sit anywhere but on the bitcoin network.
+
+---
+
 ## Events
 
 Community events and meetups — online, offline, or hybrid.
@@ -397,6 +423,38 @@ Connect your smart home to Parahub.
 - Control devices from the platform
 - React to platform events (e.g., turn on heater when energy surplus)
 - Manage at /iot
+
+---
+
+## Weather & Air Quality Stations
+
+Connect your own weather station or air-quality sensor and see it live on the map.
+
+- Temperature, humidity, pressure, wind, rain, UV — plus particulates, CO2 and air-quality index if the sensor measures them
+- Live readings on the map, history charts for 24 hours or 7 days, and a raw CSV download
+- One year of history is kept
+- Ecowitt and AirGradient devices are supported
+- A sensor on a Parahub mesh network needs no setup at all — readings are collected automatically
+- Putting a station on the public map is your choice, and showing your name next to it is a separate choice
+
+**How to add one:**
+1. Go to /iot and open the Stations tab
+2. Click Add, give it a name, pick the device type, and place it on the map
+3. For a device that pushes data, copy the address shown on the card into the device's settings
+
+---
+
+## Sharing Your Devices
+
+Any device you own — mesh router, GPS tracker, sensor — can be shared with someone else.
+
+- **Viewer** sees the device, its status and history (for a tracker, that includes its live location)
+- **Manager** can also configure it
+- Only the owner can delete a device, manage who has access, or hand it over
+- Ownership can be transferred, optionally keeping manager access for yourself
+- A new mesh router is claimed by typing the full MAC address printed on its sticker
+
+Manage sharing on the device card at /iot.
 
 ---
 

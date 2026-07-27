@@ -19,8 +19,8 @@ from django.core.management.base import BaseCommand
 from django.db import models
 
 from core.models import (
-    Like, ObjectComment, ObjectDistribution, ObjectFile, ObjectPhoto,
-    ObjectShare, ObjectVideo,
+    Like, ObjectAccess, ObjectComment, ObjectDistribution, ObjectFile,
+    ObjectPhoto, ObjectShare, ObjectVideo,
 )
 
 CHUNK = 500
@@ -60,6 +60,7 @@ class Command(BaseCommand):
             (ObjectComment, 'object_id', 'content'),
             (ObjectVideo, 'object_id', 'content'),
             (Like, 'target_id', 'content'),
+            (ObjectAccess, 'object_id', 'content'),
             (ObjectShare, 'object_id', 'financial'),
             (ObjectDistribution, 'object_id', 'financial'),
         ]

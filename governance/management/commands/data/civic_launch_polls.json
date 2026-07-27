@@ -1,0 +1,603 @@
+{
+  "_note": "Multilingual content for create_civic_launch_polls. Base language is pt (authored); en/ru/es/de/fr are hand translations. Authoritative i18n — never machine-translated (voting legitimacy). See PK/civic-polls-system.md.",
+  "buckets": {
+    "eu": [
+      {
+        "title": {
+          "pt": "Deve o BCE adotar uma regra estrita de limite à criação de moeda?",
+          "en": "Should the ECB adopt a strict rule limiting money creation?",
+          "ru": "Должен ли ЕЦБ принять строгое правило, ограничивающее эмиссию денег?",
+          "es": "¿Debería el BCE adoptar una regla estricta que limite la creación de dinero?",
+          "de": "Sollte die EZB eine strenge Regel zur Begrenzung der Geldschöpfung einführen?",
+          "fr": "La BCE devrait-elle adopter une règle stricte limitant la création monétaire ?"
+        },
+        "description": {
+          "pt": "O Banco Central Europeu decide a emissão de euros. Uma regra fixa limitaria a criação de moeda nova para conter a inflação a longo prazo, mas reduziria a margem de resposta a crises. Qual a sua posição?",
+          "en": "The European Central Bank decides how many euros are issued. A fixed rule would limit the creation of new money to contain inflation over the long term, but would reduce the room to respond to crises. What is your position?",
+          "ru": "Европейский центральный банк решает, сколько евро выпускать. Жёсткое правило ограничило бы создание новых денег ради сдерживания инфляции в долгосрочной перспективе, но сузило бы возможности реагировать на кризисы. Какова ваша позиция?",
+          "es": "El Banco Central Europeo decide la emisión de euros. Una regla fija limitaría la creación de dinero nuevo para contener la inflación a largo plazo, pero reduciría el margen para responder a las crisis. ¿Cuál es su posición?",
+          "de": "Die Europäische Zentralbank entscheidet über die Ausgabe von Euro. Eine feste Regel würde die Schaffung neuen Geldes begrenzen, um die Inflation langfristig einzudämmen, aber den Spielraum für Krisenreaktionen verringern. Wie ist Ihre Position?",
+          "fr": "La Banque centrale européenne décide de l'émission d'euros. Une règle fixe limiterait la création de monnaie nouvelle afin de contenir l'inflation à long terme, mais réduirait la marge de réaction aux crises. Quelle est votre position ?"
+        },
+        "options": [
+          {
+            "pt": "A favor de uma regra estrita",
+            "en": "In favour of a strict rule",
+            "ru": "За строгое правило",
+            "es": "A favor de una regla estricta",
+            "de": "Für eine strenge Regel",
+            "fr": "Pour une règle stricte"
+          },
+          {
+            "pt": "Manter a política atual (discricionária)",
+            "en": "Keep the current (discretionary) policy",
+            "ru": "Сохранить нынешнюю (дискреционную) политику",
+            "es": "Mantener la política actual (discrecional)",
+            "de": "Die aktuelle (diskretionäre) Politik beibehalten",
+            "fr": "Maintenir la politique actuelle (discrétionnaire)"
+          },
+          {
+            "pt": "Mais flexibilidade, não menos",
+            "en": "More flexibility, not less",
+            "ru": "Больше гибкости, а не меньше",
+            "es": "Más flexibilidad, no menos",
+            "de": "Mehr Flexibilität, nicht weniger",
+            "fr": "Plus de flexibilité, pas moins"
+          },
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {
+          "pt": "Barómetro de opinião — sinal para o debate europeu (escala Iniciativa de Cidadania Europeia)",
+          "en": "Opinion barometer — a signal for the European debate (European Citizens' Initiative scale)",
+          "ru": "Барометр мнений — сигнал для европейской дискуссии (масштаб Европейской гражданской инициативы)",
+          "es": "Barómetro de opinión — una señal para el debate europeo (escala de la Iniciativa Ciudadana Europea)",
+          "de": "Meinungsbarometer — ein Signal für die europäische Debatte (Maßstab der Europäischen Bürgerinitiative)",
+          "fr": "Baromètre d'opinion — un signal pour le débat européen (échelle de l'Initiative citoyenne européenne)"
+        }
+      },
+      {
+        "title": {
+          "pt": "Garantir por lei o direito a pagar sempre em dinheiro físico?",
+          "en": "Guarantee by law the right to always pay in physical cash?",
+          "ru": "Закрепить законом право всегда платить наличными?",
+          "es": "¿Garantizar por ley el derecho a pagar siempre en efectivo?",
+          "de": "Das Recht, immer mit Bargeld zahlen zu können, gesetzlich garantieren?",
+          "fr": "Garantir par la loi le droit de toujours payer en espèces ?"
+        },
+        "description": {
+          "pt": "O BCE prepara o euro digital (CBDC). Consagrar o direito ao dinheiro físico protegeria a privacidade e o acesso de quem não usa meios digitais, mesmo com a chegada do euro digital. Concorda?",
+          "en": "The ECB is preparing the digital euro (CBDC). Enshrining the right to physical cash would protect privacy and access for those who do not use digital means, even as the digital euro arrives. Do you agree?",
+          "ru": "ЕЦБ готовит цифровой евро (CBDC). Закрепление права на наличные защитило бы приватность и доступ тех, кто не пользуется цифровыми средствами, даже с приходом цифрового евро. Согласны?",
+          "es": "El BCE prepara el euro digital (CBDC). Consagrar el derecho al efectivo protegería la privacidad y el acceso de quienes no usan medios digitales, incluso con la llegada del euro digital. ¿Está de acuerdo?",
+          "de": "Die EZB bereitet den digitalen Euro (CBDC) vor. Das Recht auf Bargeld zu verankern würde die Privatsphäre und den Zugang derjenigen schützen, die keine digitalen Mittel nutzen – auch mit der Einführung des digitalen Euro. Stimmen Sie zu?",
+          "fr": "La BCE prépare l'euro numérique (CBDC). Consacrer le droit à l'argent liquide protégerait la vie privée et l'accès de ceux qui n'utilisent pas les moyens numériques, même avec l'arrivée de l'euro numérique. Êtes-vous d'accord ?"
+        },
+        "options": [
+          {
+            "pt": "Sim, direito garantido ao dinheiro físico",
+            "en": "Yes, a guaranteed right to physical cash",
+            "ru": "Да, гарантированное право на наличные",
+            "es": "Sí, derecho garantizado al efectivo",
+            "de": "Ja, ein garantiertes Recht auf Bargeld",
+            "fr": "Oui, un droit garanti à l'argent liquide"
+          },
+          {
+            "pt": "Euro digital como opção, dinheiro mantido",
+            "en": "Digital euro as an option, cash retained",
+            "ru": "Цифровой евро как опция, наличные сохраняются",
+            "es": "Euro digital como opción, manteniendo el efectivo",
+            "de": "Digitaler Euro als Option, Bargeld bleibt erhalten",
+            "fr": "Euro numérique en option, espèces conservées"
+          },
+          {
+            "pt": "Avançar para uma sociedade sem dinheiro físico",
+            "en": "Move towards a cashless society",
+            "ru": "Двигаться к обществу без наличных",
+            "es": "Avanzar hacia una sociedad sin efectivo",
+            "de": "Zu einer bargeldlosen Gesellschaft übergehen",
+            "fr": "Aller vers une société sans espèces"
+          },
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {
+          "pt": "Barómetro de opinião — sinal para o debate europeu (escala Iniciativa de Cidadania Europeia)",
+          "en": "Opinion barometer — a signal for the European debate (European Citizens' Initiative scale)",
+          "ru": "Барометр мнений — сигнал для европейской дискуссии (масштаб Европейской гражданской инициативы)",
+          "es": "Barómetro de opinión — una señal para el debate europeo (escala de la Iniciativa Ciudadana Europea)",
+          "de": "Meinungsbarometer — ein Signal für die europäische Debatte (Maßstab der Europäischen Bürgerinitiative)",
+          "fr": "Baromètre d'opinion — un signal pour le débat européen (échelle de l'Initiative citoyenne européenne)"
+        }
+      },
+      {
+        "title": {
+          "pt": "Reserva de valor a 20 anos: em que confia mais?",
+          "en": "Store of value over 20 years: which do you trust most?",
+          "ru": "Сбережение стоимости на 20 лет: чему вы доверяете больше?",
+          "es": "Reserva de valor a 20 años: ¿en qué confía más?",
+          "de": "Wertaufbewahrung über 20 Jahre: worauf vertrauen Sie am meisten?",
+          "fr": "Réserve de valeur sur 20 ans : à quoi faites-vous le plus confiance ?"
+        },
+        "description": {
+          "pt": "Para preservar as suas poupanças ao longo de duas décadas, onde depositaria mais confiança?",
+          "en": "To preserve your savings over two decades, where would you place the most trust?",
+          "ru": "Чтобы сохранить сбережения на протяжении двух десятилетий, чему бы вы доверились больше всего?",
+          "es": "Para preservar sus ahorros a lo largo de dos décadas, ¿en qué depositaría más confianza?",
+          "de": "Um Ihre Ersparnisse über zwei Jahrzehnte zu bewahren, worauf würden Sie am meisten vertrauen?",
+          "fr": "Pour préserver votre épargne sur deux décennies, à quoi accorderiez-vous le plus de confiance ?"
+        },
+        "options": [
+          {"pt": "Euro", "en": "Euro", "ru": "Евро", "es": "Euro", "de": "Euro", "fr": "Euro"},
+          {"pt": "Ouro", "en": "Gold", "ru": "Золото", "es": "Oro", "de": "Gold", "fr": "Or"},
+          {"pt": "Imobiliário", "en": "Real estate", "ru": "Недвижимость", "es": "Inmobiliario", "de": "Immobilien", "fr": "Immobilier"},
+          {"pt": "Bitcoin", "en": "Bitcoin", "ru": "Биткойн", "es": "Bitcoin", "de": "Bitcoin", "fr": "Bitcoin"}
+        ],
+        "destination": {
+          "pt": "Barómetro de sentimento europeu",
+          "en": "European sentiment barometer",
+          "ru": "Барометр европейских настроений",
+          "es": "Barómetro del sentimiento europeo",
+          "de": "Barometer der europäischen Stimmung",
+          "fr": "Baromètre du sentiment européen"
+        }
+      }
+    ],
+    "country": [
+      {
+        "title": {
+          "pt": "Regular a venda de canábis para uso adulto, à semelhança do tabaco e do álcool?",
+          "en": "Regulate the sale of cannabis for adult use, like tobacco and alcohol?",
+          "ru": "Регулировать продажу каннабиса для взрослых, как табак и алкоголь?",
+          "es": "¿Regular la venta de cannabis para uso adulto, como el tabaco y el alcohol?",
+          "de": "Den Verkauf von Cannabis für Erwachsene regulieren, ähnlich wie Tabak und Alkohol?",
+          "fr": "Réguler la vente de cannabis pour un usage adulte, comme le tabac et l'alcool ?"
+        },
+        "description": {
+          "pt": "Portugal descriminalizou o consumo em 2001, mas a venda continua proibida e não regulada. Deveria passar a haver venda legal e regulada para adultos?",
+          "en": "Portugal decriminalised consumption in 2001, but sale remains prohibited and unregulated. Should there be legal, regulated sale to adults?",
+          "ru": "Португалия декриминализовала потребление в 2001 году, но продажа остаётся запрещённой и нерегулируемой. Стоит ли ввести легальную регулируемую продажу для взрослых?",
+          "es": "Portugal despenalizó el consumo en 2001, pero la venta sigue prohibida y no regulada. ¿Debería existir una venta legal y regulada para adultos?",
+          "de": "Portugal hat den Konsum 2001 entkriminalisiert, doch der Verkauf bleibt verboten und unreguliert. Sollte es einen legalen, regulierten Verkauf an Erwachsene geben?",
+          "fr": "Le Portugal a dépénalisé la consommation en 2001, mais la vente reste interdite et non réglementée. Faudrait-il une vente légale et réglementée pour les adultes ?"
+        },
+        "options": [
+          {
+            "pt": "A favor da venda regulada",
+            "en": "In favour of regulated sale",
+            "ru": "За регулируемую продажу",
+            "es": "A favor de la venta regulada",
+            "de": "Für einen regulierten Verkauf",
+            "fr": "Pour une vente réglementée"
+          },
+          {
+            "pt": "Apenas uso medicinal",
+            "en": "Medical use only",
+            "ru": "Только медицинское применение",
+            "es": "Solo uso medicinal",
+            "de": "Nur medizinische Verwendung",
+            "fr": "Usage médical uniquement"
+          },
+          {
+            "pt": "Manter como está (só descriminalização)",
+            "en": "Keep as is (decriminalisation only)",
+            "ru": "Оставить как есть (только декриминализация)",
+            "es": "Mantener como está (solo despenalización)",
+            "de": "So belassen (nur Entkriminalisierung)",
+            "fr": "Laisser tel quel (dépénalisation seulement)"
+          },
+          {
+            "pt": "Contra qualquer flexibilização",
+            "en": "Against any loosening",
+            "ru": "Против любого смягчения",
+            "es": "En contra de cualquier flexibilización",
+            "de": "Gegen jede Lockerung",
+            "fr": "Contre tout assouplissement"
+          },
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {}
+      },
+      {
+        "title": {
+          "pt": "Deve Portugal proibir as touradas?",
+          "en": "Should Portugal ban bullfighting?",
+          "ru": "Должна ли Португалия запретить корриду?",
+          "es": "¿Debería Portugal prohibir las corridas de toros?",
+          "de": "Sollte Portugal den Stierkampf verbieten?",
+          "fr": "Le Portugal devrait-il interdire la corrida ?"
+        },
+        "description": {
+          "pt": "As touradas mantêm-se legais e com apoio público em algumas regiões. Qual a sua posição sobre a sua proibição a nível nacional?",
+          "en": "Bullfighting remains legal and publicly subsidised in some regions. What is your position on banning it nationwide?",
+          "ru": "Коррида остаётся легальной и получает государственную поддержку в некоторых регионах. Какова ваша позиция по её запрету на национальном уровне?",
+          "es": "Las corridas siguen siendo legales y con apoyo público en algunas regiones. ¿Cuál es su posición sobre su prohibición a nivel nacional?",
+          "de": "Der Stierkampf ist in einigen Regionen weiterhin legal und wird öffentlich gefördert. Wie stehen Sie zu einem landesweiten Verbot?",
+          "fr": "La corrida reste légale et bénéficie de soutiens publics dans certaines régions. Quelle est votre position sur son interdiction à l'échelle nationale ?"
+        },
+        "options": [
+          {
+            "pt": "A favor da proibição",
+            "en": "In favour of a ban",
+            "ru": "За запрет",
+            "es": "A favor de la prohibición",
+            "de": "Für ein Verbot",
+            "fr": "Pour l'interdiction"
+          },
+          {
+            "pt": "Manter, mas sem apoios públicos",
+            "en": "Keep it, but without public subsidies",
+            "ru": "Сохранить, но без государственных субсидий",
+            "es": "Mantener, pero sin subvenciones públicas",
+            "de": "Beibehalten, aber ohne öffentliche Subventionen",
+            "fr": "Maintenir, mais sans subventions publiques"
+          },
+          {
+            "pt": "Manter como está",
+            "en": "Keep as is",
+            "ru": "Оставить как есть",
+            "es": "Mantener como está",
+            "de": "So belassen",
+            "fr": "Laisser tel quel"
+          },
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {}
+      },
+      {
+        "title": {
+          "pt": "Baixar a idade de voto para os 16 anos?",
+          "en": "Lower the voting age to 16?",
+          "ru": "Снизить возраст голосования до 16 лет?",
+          "es": "¿Bajar la edad de voto a los 16 años?",
+          "de": "Das Wahlalter auf 16 Jahre senken?",
+          "fr": "Abaisser l'âge de vote à 16 ans ?"
+        },
+        "description": {
+          "pt": "Vários países discutem alargar o direito de voto aos 16 anos. Concorda para as eleições em Portugal?",
+          "en": "Several countries are debating extending the right to vote to 16-year-olds. Do you agree for elections in Portugal?",
+          "ru": "Несколько стран обсуждают предоставление права голоса с 16 лет. Согласны ли вы с этим для выборов в Португалии?",
+          "es": "Varios países debaten ampliar el derecho de voto a los 16 años. ¿Está de acuerdo para las elecciones en Portugal?",
+          "de": "Mehrere Länder diskutieren, das Wahlrecht auf 16-Jährige auszuweiten. Stimmen Sie dem für Wahlen in Portugal zu?",
+          "fr": "Plusieurs pays débattent de l'extension du droit de vote aux jeunes de 16 ans. Êtes-vous d'accord pour les élections au Portugal ?"
+        },
+        "options": [
+          {"pt": "A favor", "en": "In favour", "ru": "За", "es": "A favor", "de": "Dafür", "fr": "Pour"},
+          {"pt": "Contra", "en": "Against", "ru": "Против", "es": "En contra", "de": "Dagegen", "fr": "Contre"},
+          {
+            "pt": "Só em eleições locais",
+            "en": "Only in local elections",
+            "ru": "Только на местных выборах",
+            "es": "Solo en elecciones locales",
+            "de": "Nur bei Kommunalwahlen",
+            "fr": "Uniquement aux élections locales"
+          },
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {}
+      },
+      {
+        "title": {
+          "pt": "Criar regiões administrativas no continente (descentralização)?",
+          "en": "Create administrative regions on the mainland (decentralisation)?",
+          "ru": "Создать административные регионы на континентальной части страны (децентрализация)?",
+          "es": "¿Crear regiones administrativas en el continente (descentralización)?",
+          "de": "Verwaltungsregionen auf dem Festland schaffen (Dezentralisierung)?",
+          "fr": "Créer des régions administratives sur le continent (décentralisation) ?"
+        },
+        "description": {
+          "pt": "Portugal continental continua sem regiões administrativas eleitas, ao contrário dos Açores e da Madeira. Deveriam ser criadas?",
+          "en": "Mainland Portugal still has no elected administrative regions, unlike the Azores and Madeira. Should they be created?",
+          "ru": "На континентальной части Португалии до сих пор нет выборных административных регионов, в отличие от Азорских островов и Мадейры. Стоит ли их создать?",
+          "es": "El Portugal continental sigue sin regiones administrativas electas, a diferencia de las Azores y Madeira. ¿Deberían crearse?",
+          "de": "Das portugiesische Festland hat weiterhin keine gewählten Verwaltungsregionen, anders als die Azoren und Madeira. Sollten sie geschaffen werden?",
+          "fr": "Le Portugal continental n'a toujours pas de régions administratives élues, contrairement aux Açores et à Madère. Devraient-elles être créées ?"
+        },
+        "options": [
+          {
+            "pt": "A favor da regionalização",
+            "en": "In favour of regionalisation",
+            "ru": "За регионализацию",
+            "es": "A favor de la regionalización",
+            "de": "Für die Regionalisierung",
+            "fr": "Pour la régionalisation"
+          },
+          {
+            "pt": "Contra, manter o modelo atual",
+            "en": "Against, keep the current model",
+            "ru": "Против, сохранить нынешнюю модель",
+            "es": "En contra, mantener el modelo actual",
+            "de": "Dagegen, das aktuelle Modell beibehalten",
+            "fr": "Contre, maintenir le modèle actuel"
+          },
+          {
+            "pt": "Reforçar antes os municípios",
+            "en": "Strengthen municipalities instead",
+            "ru": "Вместо этого усилить муниципалитеты",
+            "es": "Reforzar en su lugar los municipios",
+            "de": "Stattdessen die Gemeinden stärken",
+            "fr": "Renforcer plutôt les municipalités"
+          },
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {}
+      },
+      {
+        "title": {
+          "pt": "Limitar o Alojamento Local nas zonas de maior pressão habitacional?",
+          "en": "Limit short-term tourist rentals (Alojamento Local) in areas of greatest housing pressure?",
+          "ru": "Ограничить краткосрочную туристическую аренду (Alojamento Local) в районах с наибольшим давлением на жильё?",
+          "es": "¿Limitar el alojamiento turístico (Alojamento Local) en las zonas con mayor presión sobre la vivienda?",
+          "de": "Kurzzeit-Ferienvermietung (Alojamento Local) in Gebieten mit dem größten Wohnungsdruck begrenzen?",
+          "fr": "Limiter la location touristique de courte durée (Alojamento Local) dans les zones où la pression sur le logement est la plus forte ?"
+        },
+        "description": {
+          "pt": "O arrendamento turístico (Alojamento Local) é apontado como fator de pressão nos preços da habitação em certas zonas. Deveria ser mais limitado?",
+          "en": "Short-term tourist rental (Alojamento Local) is cited as a factor pushing up housing prices in certain areas. Should it be limited further?",
+          "ru": "Туристическую аренду (Alojamento Local) называют фактором роста цен на жильё в определённых районах. Стоит ли ограничить её сильнее?",
+          "es": "El alquiler turístico (Alojamento Local) se señala como un factor de presión sobre los precios de la vivienda en ciertas zonas. ¿Debería limitarse más?",
+          "de": "Die touristische Vermietung (Alojamento Local) gilt in bestimmten Gebieten als Faktor, der die Wohnungspreise antreibt. Sollte sie stärker begrenzt werden?",
+          "fr": "La location touristique (Alojamento Local) est désignée comme un facteur de pression sur les prix du logement dans certaines zones. Devrait-elle être davantage limitée ?"
+        },
+        "options": [
+          {
+            "pt": "A favor de limites nessas zonas",
+            "en": "In favour of limits in those areas",
+            "ru": "За ограничения в этих районах",
+            "es": "A favor de límites en esas zonas",
+            "de": "Für Begrenzungen in diesen Gebieten",
+            "fr": "Pour des limites dans ces zones"
+          },
+          {
+            "pt": "Limites em todo o país",
+            "en": "Limits across the whole country",
+            "ru": "Ограничения по всей стране",
+            "es": "Límites en todo el país",
+            "de": "Begrenzungen im ganzen Land",
+            "fr": "Des limites dans tout le pays"
+          },
+          {
+            "pt": "Sem novas restrições",
+            "en": "No new restrictions",
+            "ru": "Без новых ограничений",
+            "es": "Sin nuevas restricciones",
+            "de": "Keine neuen Beschränkungen",
+            "fr": "Pas de nouvelles restrictions"
+          },
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {}
+      },
+      {
+        "title": {
+          "pt": "Instituir um Rendimento Básico Incondicional em Portugal?",
+          "en": "Introduce an Unconditional Basic Income in Portugal?",
+          "ru": "Ввести безусловный базовый доход в Португалии?",
+          "es": "¿Instaurar una Renta Básica Incondicional en Portugal?",
+          "de": "Ein bedingungsloses Grundeinkommen in Portugal einführen?",
+          "fr": "Instaurer un revenu de base inconditionnel au Portugal ?"
+        },
+        "description": {
+          "pt": "Um Rendimento Básico Incondicional paga a todos um valor regular sem condições. Alarga a segurança económica, mas exige financiamento (impostos ou reafetação de apoios). Qual a sua posição?",
+          "en": "An Unconditional Basic Income pays everyone a regular amount with no conditions. It broadens economic security but requires funding (taxes or reallocation of existing benefits). What is your position?",
+          "ru": "Безусловный базовый доход выплачивает каждому регулярную сумму без условий. Он расширяет экономическую защищённость, но требует финансирования (налоги или перераспределение существующих пособий). Какова ваша позиция?",
+          "es": "Una Renta Básica Incondicional paga a todos una cantidad regular sin condiciones. Amplía la seguridad económica, pero exige financiación (impuestos o reasignación de ayudas). ¿Cuál es su posición?",
+          "de": "Ein bedingungsloses Grundeinkommen zahlt allen einen regelmäßigen Betrag ohne Bedingungen. Es erweitert die wirtschaftliche Sicherheit, erfordert aber Finanzierung (Steuern oder Umverteilung bestehender Leistungen). Wie ist Ihre Position?",
+          "fr": "Un revenu de base inconditionnel verse à chacun un montant régulier sans conditions. Il élargit la sécurité économique mais exige un financement (impôts ou réaffectation des aides existantes). Quelle est votre position ?"
+        },
+        "options": [
+          {
+            "pt": "A favor (universal)",
+            "en": "In favour (universal)",
+            "ru": "За (универсальный)",
+            "es": "A favor (universal)",
+            "de": "Dafür (universell)",
+            "fr": "Pour (universel)"
+          },
+          {
+            "pt": "Só como apoio condicionado a quem precisa",
+            "en": "Only as conditional support for those in need",
+            "ru": "Только как адресная поддержка нуждающимся",
+            "es": "Solo como ayuda condicionada a quien la necesita",
+            "de": "Nur als bedingte Unterstützung für Bedürftige",
+            "fr": "Seulement comme aide conditionnelle aux personnes dans le besoin"
+          },
+          {
+            "pt": "Testar primeiro em piloto",
+            "en": "Test it first in a pilot",
+            "ru": "Сначала испытать в пилотном проекте",
+            "es": "Probarlo primero en un piloto",
+            "de": "Zuerst in einem Pilotprojekt testen",
+            "fr": "Le tester d'abord dans un projet pilote"
+          },
+          {"pt": "Contra", "en": "Against", "ru": "Против", "es": "En contra", "de": "Dagegen", "fr": "Contre"},
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {}
+      }
+    ],
+    "local": [
+      {
+        "municipality": "1602",
+        "poll": {
+          "title": {
+            "pt": "Frente ribeirinha de Caminha sem carros aos fins de semana de verão?",
+            "en": "Caminha riverfront car-free on summer weekends?",
+            "ru": "Набережная Каминьи без машин по выходным летом?",
+            "es": "¿La ribera de Caminha sin coches los fines de semana de verano?",
+            "de": "Die Uferpromenade von Caminha an Sommerwochenenden autofrei?",
+            "fr": "Les berges de Caminha sans voitures les week-ends d'été ?"
+          },
+          "description": {
+            "pt": "Encerrar a frente ribeirinha ao trânsito automóvel aos fins de semana de verão, criando uma zona pedonal. Concorda?",
+            "en": "Close the riverfront to car traffic on summer weekends, creating a pedestrian zone. Do you agree?",
+            "ru": "Закрыть набережную для автомобильного движения по выходным летом, создав пешеходную зону. Согласны?",
+            "es": "Cerrar la ribera al tráfico de automóviles los fines de semana de verano, creando una zona peatonal. ¿Está de acuerdo?",
+            "de": "Die Uferpromenade an Sommerwochenenden für den Autoverkehr sperren und eine Fußgängerzone schaffen. Stimmen Sie zu?",
+            "fr": "Fermer les berges à la circulation automobile les week-ends d'été, en créant une zone piétonne. Êtes-vous d'accord ?"
+          },
+          "options": [
+            {"pt": "A favor", "en": "In favour", "ru": "За", "es": "A favor", "de": "Dafür", "fr": "Pour"},
+            {
+              "pt": "Só ao domingo",
+              "en": "Only on Sundays",
+              "ru": "Только по воскресеньям",
+              "es": "Solo los domingos",
+              "de": "Nur sonntags",
+              "fr": "Uniquement le dimanche"
+            },
+            {
+              "pt": "Manter aberto ao trânsito",
+              "en": "Keep it open to traffic",
+              "ru": "Оставить открытой для движения",
+              "es": "Mantenerla abierta al tráfico",
+              "de": "Für den Verkehr offen halten",
+              "fr": "La maintenir ouverte à la circulation"
+            },
+            {
+              "pt": "Sem opinião",
+              "en": "No opinion",
+              "ru": "Нет мнения",
+              "es": "Sin opinión",
+              "de": "Keine Meinung",
+              "fr": "Sans opinion"
+            }
+          ],
+          "destination": {
+            "pt": "Câmara Municipal de Caminha — sinal de opinião",
+            "en": "Caminha Municipal Council — opinion signal",
+            "ru": "Муниципалитет Каминьи — сигнал мнения",
+            "es": "Ayuntamiento de Caminha — señal de opinión",
+            "de": "Stadtverwaltung Caminha — Meinungssignal",
+            "fr": "Mairie de Caminha — signal d'opinion"
+          }
+        }
+      },
+      {
+        "municipality": "1604",
+        "poll": {
+          "title": {
+            "pt": "Prioridade do orçamento participativo de Monção 2027?",
+            "en": "Priority for Monção's 2027 participatory budget?",
+            "ru": "Приоритет партисипативного бюджета Монсана на 2027 год?",
+            "es": "¿Prioridad del presupuesto participativo de Monção 2027?",
+            "de": "Priorität für den Bürgerhaushalt von Monção 2027?",
+            "fr": "Priorité du budget participatif de Monção 2027 ?"
+          },
+          "description": {
+            "pt": "Se houvesse um orçamento participativo em Monção para 2027, que área deveria ter prioridade?",
+            "en": "If there were a participatory budget in Monção for 2027, which area should take priority?",
+            "ru": "Если бы в Монсане был партисипативный бюджет на 2027 год, какая сфера должна быть приоритетной?",
+            "es": "Si hubiera un presupuesto participativo en Monção para 2027, ¿qué área debería tener prioridad?",
+            "de": "Wenn es in Monção einen Bürgerhaushalt für 2027 gäbe, welcher Bereich sollte Vorrang haben?",
+            "fr": "S'il y avait un budget participatif à Monção pour 2027, quel domaine devrait être prioritaire ?"
+          },
+          "options": [
+            {
+              "pt": "Ciclovias e mobilidade",
+              "en": "Cycle paths and mobility",
+              "ru": "Велодорожки и мобильность",
+              "es": "Carriles bici y movilidad",
+              "de": "Radwege und Mobilität",
+              "fr": "Pistes cyclables et mobilité"
+            },
+            {
+              "pt": "Espaços verdes",
+              "en": "Green spaces",
+              "ru": "Зелёные зоны",
+              "es": "Espacios verdes",
+              "de": "Grünflächen",
+              "fr": "Espaces verts"
+            },
+            {
+              "pt": "Apoio a idosos",
+              "en": "Support for the elderly",
+              "ru": "Поддержка пожилых",
+              "es": "Apoyo a las personas mayores",
+              "de": "Unterstützung für Ältere",
+              "fr": "Soutien aux personnes âgées"
+            },
+            {
+              "pt": "Cultura e eventos",
+              "en": "Culture and events",
+              "ru": "Культура и мероприятия",
+              "es": "Cultura y eventos",
+              "de": "Kultur und Veranstaltungen",
+              "fr": "Culture et événements"
+            },
+            {
+              "pt": "Sem opinião",
+              "en": "No opinion",
+              "ru": "Нет мнения",
+              "es": "Sin opinión",
+              "de": "Keine Meinung",
+              "fr": "Sans opinion"
+            }
+          ],
+          "destination": {
+            "pt": "Câmara Municipal de Monção — sinal de opinião",
+            "en": "Monção Municipal Council — opinion signal",
+            "ru": "Муниципалитет Монсана — сигнал мнения",
+            "es": "Ayuntamiento de Monção — señal de opinión",
+            "de": "Stadtverwaltung Monção — Meinungssignal",
+            "fr": "Mairie de Monção — signal d'opinion"
+          }
+        }
+      }
+    ]
+  }
+}

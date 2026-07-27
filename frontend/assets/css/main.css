@@ -264,10 +264,6 @@ body[data-gamepad-active] .agent-slot:focus-visible {
 }
 
 /* IoT Device specific styles */
-.device-card {
-  @apply card p-6;
-}
-
 .device-status-online {
   @apply text-success font-medium;
 }
@@ -318,9 +314,12 @@ body[data-gamepad-active] .agent-slot:focus-visible {
 }
 
 /* Safe area insets for notched/punch-hole devices (Capacitor + mobile browsers).
-   --safe-area-inset-top is injected by capacitor.client.ts on Android (where env() may not work).
-   --safe-area-inset-bottom is injected by MainActivity.java via WindowInsets listener.
-   On iOS, env() works natively. On web, both fallback to 0px. */
+   On Android both --safe-area-inset-* vars are injected by Capacitor 8's built-in
+   SystemBars plugin (insetsHandling: 'css'); capacitor.client.ts only re-triggers
+   its onDOMReady as a server-mode backup. On iOS, env() works natively. On web,
+   both fall back to 0px. Any fixed bottom-edge overlay must pad its content by
+   --safe-area-inset-bottom — the edge-to-edge WebView puts the Android gesture
+   bar on top of the viewport's bottom strip. */
 .safe-area-top {
   padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 }

@@ -26,5 +26,11 @@ KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=5
 
+# Backstop against runaway RSS (in-process cache growth, native bloat):
+# reclaim pressure from 5G, hard OOM-kill at 8G (Restart=always picks it up).
+# Normal RSS is well under 2G.
+MemoryHigh=5G
+MemoryMax=8G
+
 [Install]
 WantedBy=multi-user.target

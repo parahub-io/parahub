@@ -1,7 +1,8 @@
 """
 OpenSky Mission Generator — WPML flight plans for drone aerial survey.
 
-Uses standard Web Mercator tiles (Z/X/Y) at zoom 17 (~305×240m per tile).
+Uses standard Web Mercator tiles (Z/X/Y) at zoom 17. Tiles are square on
+the ground: ~305m at the equator, shrinking by cos(lat) — ~240m in Portugal.
 Each tile generates 5 KMZ — pilot flies as many as budget allows:
 
     1_2D.kmz    — nadir (gimbal -90°)   — orthophoto (always fly)
@@ -34,7 +35,7 @@ Obliques reduced to 70% because:
   compensate for lower per-mission density — ODM matches features of
   the same wall across N+E+S+W flights
 - ~33% fewer flight lines per oblique → ~33% less flight time per
-  oblique → ~3× fewer photos per oblique → much less upload, storage,
+  oblique → ~2.2× fewer photos per oblique → much less upload, storage,
   and ODM processing load
 - Still above the 60% practical floor for SIFT matching on textured
   surfaces (walls, vegetation)
@@ -68,12 +69,12 @@ STEP_BETWEEN_POINTS_M = GROUND_HEIGHT_M * (1 - OVERLAP_PERCENT / 100)  # 20m →
 # Oblique: relaxed 70% overlap — 4 cardinal directions cross-constrain each wall,
 # so each individual oblique mission can be sparser without losing SIFT matching.
 # ~1.5× wider spacing → ~33% fewer flight lines → ~33% less flight time per oblique
-# → ~2–3× fewer photos per oblique, dramatically cutting upload/ODM load.
+# → ~2.2× fewer photos per oblique, dramatically cutting upload/ODM load.
 OBLIQUE_OVERLAP_PERCENT = 70
 OBLIQUE_STEP_BETWEEN_LINES_M = GROUND_WIDTH_M * (1 - OBLIQUE_OVERLAP_PERCENT / 100)   # ~39.9m → 70% side
 OBLIQUE_STEP_BETWEEN_POINTS_M = GROUND_HEIGHT_M * (1 - OBLIQUE_OVERLAP_PERCENT / 100)  # 30m → 70% frontal
 
-TILE_ZOOM = 17           # ~305×240m at mid-latitudes
+TILE_ZOOM = 17           # square ground tiles: ~305m at equator × cos(lat) → ~240m in Portugal
 BUFFER_M = 37            # Buffer beyond tile edge for ODM stitching overlap
 
 OBLIQUE_GIMBAL_PITCH = -45

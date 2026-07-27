@@ -1,21 +1,11 @@
 <template>
   <div>
-    <!-- Loading -->
-    <div v-if="loading" class="py-12 text-center">
-      <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" role="status"><span class="sr-only">Loading...</span></div>
-    </div>
-
     <!-- Not authenticated — show all missions -->
-    <div v-else-if="!authStore.isAuthenticated">
+    <div v-if="!authStore.isAuthenticated">
       <OpenSkyMissionGrid
         :missions="allMissions"
-        :loading="loadingAll"
+        :loading="allLoading"
       />
-      <div v-if="!loadingAll && allMissions.length === 0" class="text-center py-12 text-neutral-500">
-        <Camera class="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <h3 class="text-lg font-medium">{{ $t('opensky.no_missions', 'No missions yet') }}</h3>
-        <p class="text-sm mt-1">{{ $t('opensky.be_first', 'Be the first to contribute aerial imagery!') }}</p>
-      </div>
     </div>
 
     <!-- Authenticated -->
@@ -23,54 +13,55 @@
       <!-- Filter toggle -->
       <UiTabs v-model="activeFilter" :tabs="filterTabs" class="mb-6" />
 
-      <!-- Summary (own missions only) -->
-      <div v-if="!showAllPilots && myMissions.length > 0" class="mb-6 p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-        <div class="flex flex-wrap gap-4 text-sm">
-          <div>
-            <span class="text-neutral-500">{{ $t('opensky.total_missions', 'Total:') }}</span>
-            <span class="ml-1 font-semibold">{{ myMissions.length }}</span>
-          </div>
-          <div>
-            <span class="text-neutral-500">{{ $t('opensky.published_count', 'Published:') }}</span>
-            <span class="ml-1 font-semibold text-success">{{ publishedCount }}</span>
-          </div>
-          <div v-if="processingCount > 0">
-            <span class="text-neutral-500">{{ $t('opensky.processing_count', 'Processing:') }}</span>
-            <span class="ml-1 font-semibold text-warning">{{ processingCount }}</span>
-          </div>
-          <div v-if="failedCount > 0">
-            <span class="text-neutral-500">{{ $t('opensky.failed_count', 'Failed:') }}</span>
-            <span class="ml-1 font-semibold text-error">{{ failedCount }}</span>
+      <!-- My missions -->
+      <template v-if="!showAllPilots">
+        <!-- Summary (own missions only) — shown once loaded and non-empty -->
+        <div v-if="hasFetchedMine && myMissions.length > 0" class="mb-6 p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
+          <div class="flex flex-wrap gap-4 text-sm">
+            <div>
+              <span class="text-neutral-500">{{ $t('opensky.total_missions', 'Total:') }}</span>
+              <span class="ml-1 font-semibold">{{ myMissions.length }}</span>
+            </div>
+            <div>
+              <span class="text-neutral-500">{{ $t('opensky.published_count', 'Published:') }}</span>
+              <span class="ml-1 font-semibold text-success">{{ publishedCount }}</span>
+            </div>
+            <div v-if="processingCount > 0">
+              <span class="text-neutral-500">{{ $t('opensky.processing_count', 'Processing:') }}</span>
+              <span class="ml-1 font-semibold text-warning">{{ processingCount }}</span>
+            </div>
+            <div v-if="failedCount > 0">
+              <span class="text-neutral-500">{{ $t('opensky.failed_count', 'Failed:') }}</span>
+              <span class="ml-1 font-semibold text-error">{{ failedCount }}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Empty state (own missions) -->
-      <div v-if="!showAllPilots && !loading && myMissions.length === 0" class="text-center py-12 text-neutral-500">
-        <Upload class="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <h3 class="text-lg font-medium">{{ $t('opensky.no_your_missions', 'You haven\'t uploaded any missions yet') }}</h3>
-        <p class="text-sm mt-1">{{ $t('opensky.upload_cta', 'Upload drone photos to create your first mission!') }}</p>
-      </div>
+        <OpenSkyMissionGrid
+          :missions="myMissions"
+          :loading="mineLoading"
+          :can-delete="true"
+          :empty-icon="Upload"
+          :empty-title="$t('opensky.no_your_missions', 'You haven\'t uploaded any missions yet')"
+          :empty-text="$t('opensky.upload_cta', 'Upload drone photos to create your first mission!')"
+          @delete="handleDelete"
+          @view-3d="handleView3d"
+          @download-3d="handleDownload3d"
+          @add-photos="$emit('add-photos', $event)"
+        />
+      </template>
 
-      <!-- Grid -->
+      <!-- All pilots -->
       <OpenSkyMissionGrid
-        v-if="showAllPilots || myMissions.length > 0"
-        :missions="displayedMissions"
-        :loading="showAllPilots ? loadingAll : loading"
-        :can-delete="!showAllPilots"
-        :my-profile-id="showAllPilots ? authStore.activeProfile?.id : undefined"
+        v-else
+        :missions="allMissions"
+        :loading="allLoading"
+        :my-profile-id="authStore.activeProfile?.id"
         @delete="handleDelete"
         @view-3d="handleView3d"
         @download-3d="handleDownload3d"
         @add-photos="$emit('add-photos', $event)"
       />
-
-      <!-- Empty state (all pilots) -->
-      <div v-if="showAllPilots && !loadingAll && allMissions.length === 0" class="text-center py-12 text-neutral-500">
-        <Camera class="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <h3 class="text-lg font-medium">{{ $t('opensky.no_missions', 'No missions yet') }}</h3>
-        <p class="text-sm mt-1">{{ $t('opensky.be_first', 'Be the first to contribute aerial imagery!') }}</p>
-      </div>
     </div>
 
     <!-- Delete confirmation modal -->
@@ -105,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { Loader2, Upload, Camera, Trash2 } from 'lucide-vue-next'
+import { Upload, Trash2 } from 'lucide-vue-next'
 
 defineEmits<{
   'add-photos': [missionId: string]
@@ -113,7 +104,7 @@ defineEmits<{
 
 const { t } = useI18n()
 const authStore = useAuthStore()
-const { missions: allMissionsRef, myMissions, loading, fetchMyMissions, fetchMissions, deleteMission, downloadMesh, getMeshGlbUrl, connectRealtimeUpdates, disconnectRealtimeUpdates } = useOpenSky()
+const { missions: allMissionsRef, myMissions, loading, hasFetchedMine, hasFetchedAll, fetchMyMissions, fetchMissions, deleteMission, downloadMesh, getMeshGlbUrl, connectRealtimeUpdates, disconnectRealtimeUpdates } = useOpenSky()
 
 const activeFilter = ref('mine')
 const filterTabs = computed(() => [
@@ -123,6 +114,11 @@ const filterTabs = computed(() => [
 const showAllPilots = computed(() => activeFilter.value === 'all')
 const loadingAll = ref(false)
 const allMissions = allMissionsRef
+
+// Skeleton while a fetch is in flight OR before the first fetch completes — the
+// pre-fetch frame must never fall through to a false empty state.
+const mineLoading = computed(() => loading.value || !hasFetchedMine.value)
+const allLoading = computed(() => loadingAll.value || !hasFetchedAll.value)
 
 const displayedMissions = computed(() => showAllPilots.value ? allMissions.value : myMissions.value)
 

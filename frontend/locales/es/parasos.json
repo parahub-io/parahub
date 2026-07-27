@@ -28,8 +28,10 @@
       "no_alerts_yet": "Aún sin alertas",
       "members": "Miembros",
       "delete": "Eliminar Grupo",
+      "edit": "Editar grupo",
       "delete_confirm": "¿Estás seguro de que quieres eliminar este grupo? Esta acción es irreversible.",
-      "deleted": "Grupo eliminado"
+      "deleted": "Grupo eliminado",
+      "updated": "Grupo actualizado"
     },
 
     "create_group": {
@@ -134,7 +136,8 @@
       "delete_invite": "Error al eliminar la invitación",
       "fetch_invite": "Error al cargar la información de la invitación",
       "invite_invalid": "Este enlace de invitación no es válido o ha expirado",
-      "delete_group": "Error al eliminar grupo"
+      "delete_group": "Error al eliminar grupo",
+      "update_group": "No se pudo actualizar el grupo"
     },
 
     "response": {

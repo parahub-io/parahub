@@ -451,7 +451,6 @@ const handleExecuteSend = async () => {
     } else {
       await donation.recordDonation({
         source: 'WALLET_SEND',
-        sourceAmountSats: sourceAmountSats,
         donationAmountSats: 0,
         supportLevelAtTime: donation.supportLevel.value,
         status: 'SKIPPED',

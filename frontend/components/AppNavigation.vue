@@ -91,24 +91,24 @@
               class="w-4 h-4 opacity-70"
             />
             <span v-else class="hidden sm:block text-xs font-medium">{{ $t('nav.menu') || 'Menu' }}</span>
-            <!-- Unread-notifications badge bubbles up here (kept inside the button bounds — the button is overflow-hidden, a corner-overflowing badge would be clipped) -->
+            <!-- Unread badge (notifications + mail) bubbles up here (kept inside the button bounds — the button is overflow-hidden, a corner-overflowing badge would be clipped) -->
             <span
-              v-if="notifUnread > 0"
+              v-if="menuBadgeTotal > 0"
               class="absolute top-1 right-1 min-w-[18px] h-[18px] bg-error text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1"
               :aria-label="$t('nav.notifications') || 'Notifications'"
-            >{{ notifUnread > 99 ? '99+' : notifUnread }}</span>
+            >{{ menuBadgeTotal > 99 ? '99+' : menuBadgeTotal }}</span>
           </button>
 
           <!-- Site Menu Dropdown -->
           <div
             v-if="isSiteMenuOpen"
-            class="fixed w-[calc(100vw-2rem)] max-w-2xl bg-neutral-100 dark:bg-neutral-800 border border-t-0 border-neutral-300 dark:border-neutral-700 rounded-b-2xl z-50 shadow-2xl"
+            class="fixed sm:w-[calc(100vw-2rem)] sm:max-w-2xl bg-neutral-100/95 dark:bg-neutral-800/95 backdrop-blur-sm border-b sm:border sm:border-t-0 border-neutral-300 dark:border-neutral-700 sm:rounded-b-2xl z-50 shadow-2xl"
             :style="getSiteMenuStyle()"
             @click.stop
             @pointerenter="handleMenuHoverEnter"
             @pointerleave="handleMenuHoverLeave"
           >
-            <div class="p-6 sm:p-[1.875rem] space-y-4 sm:space-y-5">
+            <div class="p-2 sm:p-[1.875rem] space-y-3 sm:space-y-5">
 
               <!-- Guest header (anon only — full-width button above the grid) -->
               <NuxtLink
@@ -121,8 +121,11 @@
                 {{ $t('auth.login') || 'Login / Register' }}
               </NuxtLink>
 
-              <!-- === Account + navigation — bento grid (full width, aligns with footer pills) === -->
-              <div class="grid grid-cols-4 gap-px rounded-xl overflow-hidden border border-neutral-300/70 dark:border-neutral-600/70 bg-neutral-300/70 dark:bg-neutral-600/70">
+              <!-- === Account + navigation — bento grid + footer pills = one reticle matrix === -->
+              <!-- Wrapper spans grid AND footer row; it carries the reticle ticks and the
+                   hover/drag tracking that positions them (see setCrossFromEl) -->
+              <div class="relative" ref="bentoRef" @mouseover="handleBentoHover" @mouseleave="bentoCross = null">
+              <div ref="gridRef" class="grid grid-cols-4 gap-px rounded-xl overflow-hidden border border-neutral-300/70 dark:border-neutral-600/70 bg-neutral-300/70 dark:bg-neutral-600/70">
                   <!-- Profile row (authed): avatar+name (span 2) + wallet + settings -->
                   <template v-if="authStore.isAuthenticated">
                     <NuxtLink
@@ -329,14 +332,20 @@
                         : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
                     >
                       <ExternalLink class="absolute top-1 right-1 w-2.5 h-2.5 opacity-40" />
-                      <Mail class="w-8 h-8 sm:w-10 sm:h-10 mb-1" />
+                      <div v-if="mailUnread > 0" class="relative">
+                        <Mail class="w-8 h-8 sm:w-10 sm:h-10 mb-1" />
+                        <div class="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-error text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 ring-2 ring-neutral-100 dark:ring-neutral-800">
+                          {{ mailUnread > 99 ? '99+' : mailUnread }}
+                        </div>
+                      </div>
+                      <Mail v-else class="w-8 h-8 sm:w-10 sm:h-10 mb-1" />
                       <span class="block text-xs font-medium text-center max-w-full truncate px-0.5">{{ $t('nav.webmail') || 'Webmail' }}</span>
                     </NuxtLink>
                   </template>
                 </div>
 
               <!-- === Footer: equal-width meta-action pills — About + Alerts + Invite + Logout === -->
-              <div class="flex items-center gap-1 sm:gap-1.5">
+              <div ref="footerRowRef" class="flex items-center gap-1 sm:gap-1.5 mt-3 sm:mt-5">
                 <NavItem
                   to="/about"
                   :icon="Rocket"
@@ -397,6 +406,18 @@
                   <span :class="logoutConfirmPending ? 'inline' : 'hidden sm:inline'">{{ logoutConfirmPending ? ($t('profiles.logout_confirm') || 'Sure?') : ($t('profiles.logout') || 'Logout') }}</span>
                 </button>
               </div>
+
+                <!-- Reticle ticks: perpendicular to the hovered zone's edges (grid OR
+                     footer row — each has its own frame), pointing outward; their virtual
+                     extensions cross at the targeted button's center.
+                     Indigo in light theme (yellow washes out there), brand yellow in dark. -->
+                <template v-if="bentoCross">
+                  <span class="absolute h-px bg-secondary dark:bg-primary pointer-events-none" :style="{ left: `${bentoCross.left - CROSS_TICK}px`, top: `${bentoCross.y - 0.5}px`, width: `${CROSS_TICK}px` }"></span>
+                  <span class="absolute h-px bg-secondary dark:bg-primary pointer-events-none" :style="{ left: `${bentoCross.right}px`, top: `${bentoCross.y - 0.5}px`, width: `${CROSS_TICK}px` }"></span>
+                  <span class="absolute w-px bg-secondary dark:bg-primary pointer-events-none" :style="{ top: `${bentoCross.top - CROSS_TICK}px`, left: `${bentoCross.x - 0.5}px`, height: `${CROSS_TICK}px` }"></span>
+                  <span class="absolute w-px bg-secondary dark:bg-primary pointer-events-none" :style="{ top: `${bentoCross.bottom}px`, left: `${bentoCross.x - 0.5}px`, height: `${CROSS_TICK}px` }"></span>
+                </template>
+              </div>
             </div>
           </div>
         </div>
@@ -410,8 +431,14 @@
       v-if="isDragging && dragMoved && dragHoverLabel"
       class="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none"
     >
-      <div class="bg-primary py-3 flex items-center justify-center">
-        <span class="text-lg font-bold text-neutral-900">{{ dragHoverLabel }}</span>
+      <div class="drag-hover-bar bg-primary pt-3 px-4 flex flex-col items-center justify-center text-neutral-900">
+        <span
+          v-if="dragHoverIconHtml"
+          class="mb-1 [&>svg]:w-8 [&>svg]:h-8 [&>img]:w-8 [&>img]:h-8 [&>img]:rounded-full [&>img]:object-cover"
+          v-html="dragHoverIconHtml"
+        ></span>
+        <span class="text-lg font-bold leading-tight">{{ dragHoverLabel }}</span>
+        <span v-if="dragHoverHint" class="text-xs font-medium opacity-75 leading-tight text-center mt-0.5">{{ dragHoverHint }}</span>
       </div>
     </div>
   </Teleport>
@@ -441,7 +468,7 @@ import { useAuthStore } from '~/stores/auth'
 import { MessageCircle, ShoppingBag, Map, Megaphone, Menu, Book, Settings, FileText, PackageCheck, FolderGit, Wallet, Shield, LogOut, Lock, Vote, Rocket, Calendar, UserPlus, BusFront, Mail, ExternalLink, Sun, Building, Cpu, Bell } from 'lucide-vue-next'
 import { useMatrixUnread } from '~/composables/useMatrixUnread'
 import { useNotifications } from '~/composables/useNotifications'
-import { getMenuItemsMap, getSubmenuPathPrefixes, makeDragLabelLookup, PROJECTS_URL } from '~/components/nav/navMenu'
+import { getMenuItemsMap, getSubmenuPathPrefixes, makeDragLabelLookup, makeDragHintLookup, PROJECTS_URL } from '~/components/nav/navMenu'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -480,7 +507,7 @@ function isExactPath(base: string): boolean {
 // from the payload value instead (always matches the served HTML), then
 // reconcile with the live cookie after mount; on cached shells the bar pops
 // in post-mount, which is the only honest option there.
-// Raw decode: default decode destr's '1' into a number (see PreferencesSection).
+// Raw decode: default decode destr's '1' into a number (see AdvancedPreferencesSection).
 const devModeCookie = useCookie('parahub_dev', {
   decode: (v: string) => v ? decodeURIComponent(v) : v
 })
@@ -498,6 +525,11 @@ const {
   init: initNotifications,
   cleanup: cleanupNotifications,
 } = useNotifications()
+
+// Webmail unseen count — badge on the menu tile; bubbles up to the menu
+// button together with the notifications count (both live inside the menu)
+const { unseenCount: mailUnread, refresh: refreshMailUnread, reset: resetMailUnread } = useMailUnread()
+const menuBadgeTotal = computed(() => notifUnread.value + mailUnread.value)
 
 // Ads feed count (available unviewed ads, updated via WS)
 const { feedCount: adsFeedCount, loadFeedCount: loadAdsFeedCount } = useAdsState()
@@ -519,6 +551,42 @@ const {
   handleHoverLeave: handleMenuHoverLeave,
   toggle: toggleSiteMenu,
 } = useSiteMenu(siteMenuRef)
+
+// Reticle crosshair over the menu: two independent frames — the bento grid
+// and the footer pill row each get their own reticle, ticks hugging that
+// zone's edges (so footer hovers flip the top ticks down to just above the
+// row). Driven by mouse hover AND by the touch drag-select gesture.
+const CROSS_TICK = 5 // tick length in px; thickness is 1px (matches the frame border)
+const bentoRef = ref<HTMLElement | null>(null)
+const gridRef = ref<HTMLElement | null>(null)
+const footerRowRef = ref<HTMLElement | null>(null)
+// x/y = target center; left/right/top/bottom = the hovered zone's edges (wrapper coords)
+const bentoCross = ref<{ x: number; y: number; left: number; right: number; top: number; bottom: number } | null>(null)
+
+function setCrossFromEl(el: HTMLElement) {
+  if (!bentoRef.value) return
+  const zoneEl = gridRef.value?.contains(el) ? gridRef.value
+    : footerRowRef.value?.contains(el) ? footerRowRef.value : null
+  if (!zoneEl) return
+  const wrap = bentoRef.value.getBoundingClientRect()
+  const zone = zoneEl.getBoundingClientRect()
+  const rect = el.getBoundingClientRect()
+  bentoCross.value = {
+    x: rect.left - wrap.left + rect.width / 2,
+    y: rect.top - wrap.top + rect.height / 2,
+    left: zone.left - wrap.left,
+    right: zone.right - wrap.left,
+    top: zone.top - wrap.top,
+    bottom: zone.bottom - wrap.top,
+  }
+}
+
+function handleBentoHover(e: MouseEvent) {
+  const cell = (e.target as HTMLElement).closest?.('[data-nav-button]') as HTMLElement | null
+  // Ignore hovers over the 1px gap hairlines — keep the last position, clear only on frame leave
+  if (!cell || !bentoRef.value?.contains(cell)) return
+  setCrossFromEl(cell)
+}
 
 // Active-icon lookup for Menu button (single source: components/nav/navMenu.ts)
 const menuItemsMap = getMenuItemsMap()
@@ -596,6 +664,7 @@ const {
   isDragging,
   dragMoved,
   dragHoverLabel,
+  currentHoverTarget,
   releaseAnimation,
   releaseTarget,
   beamAnimating,
@@ -603,6 +672,7 @@ const {
   isDragHovered,
   getBeamPosition,
   getBeamStyle,
+  hapticSelect,
 } = useNavDragSelect({
   isSiteMenuOpen,
   cancelHoverOpen,
@@ -635,6 +705,34 @@ const {
   },
 })
 
+// Touch drag drives the same reticle: follow the dragged-over button while it
+// is inside the menu matrix, clear as soon as the drag leaves it or ends
+watch(currentHoverTarget, (el) => {
+  if (el && bentoRef.value?.contains(el)) setCrossFromEl(el)
+  else bentoCross.value = null
+})
+
+// Drag-bar teaser line for the hovered target
+const dragHints = makeDragHintLookup(t)
+const dragHoverHint = computed(() => {
+  if (!isDragging.value || !dragMoved.value || !currentHoverTarget.value) return null
+  const action = currentHoverTarget.value.getAttribute('data-nav-action')
+  if (action) return t(`nav.hint.${action === 'site-menu' ? 'menu' : action}`)
+  const path = currentHoverTarget.value.getAttribute('data-nav-path')
+  if (!path) return null
+  if (path.startsWith('/u/')) return dragHints['/u/']
+  return dragHints[path] || null
+})
+
+// Drag-bar icon: clone the hovered button's own graphic (lucide svg, or the
+// avatar img on the profile tile) — no icon map to keep in sync. Corner
+// ExternalLink minis are skipped via :not(.absolute).
+const dragHoverIconHtml = computed(() => {
+  if (!isDragging.value || !dragMoved.value || !currentHoverTarget.value) return null
+  const gfx = currentHoverTarget.value.querySelector('svg:not(.absolute), img')
+  return gfx ? gfx.outerHTML : null
+})
+
 onMounted(() => {
   // Initialize Matrix unread counter if user is authenticated
   if (authStore.isAuthenticated) {
@@ -642,6 +740,7 @@ onMounted(() => {
     loadAdsFeedCount()
     realtimeStore.connect()
     initNotifications()
+    refreshMailUnread()
   }
 })
 
@@ -652,10 +751,17 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
     loadAdsFeedCount()
     realtimeStore.connect()
     initNotifications()
+    refreshMailUnread()
   } else {
     cleanup()
     cleanupNotifications()
+    resetMailUnread()
   }
+})
+
+// Re-check mail on every menu open (server caches the IMAP count 60s)
+watch(isSiteMenuOpen, (open) => {
+  if (open) refreshMailUnread()
 })
 
 onUnmounted(() => {
@@ -667,9 +773,15 @@ onUnmounted(() => {
 // per-section: Market toggles its two views, Transit returns to its home,
 // Map & Messages "unpress" to the dashboard.
 function handleNavClick(path: string) {
+  // Confirm-pulse fires only when the tap actually changes the screen
+  const go = (p: string) => {
+    hapticSelect()
+    router.push(localePath(p))
+  }
+
   // Not on this section yet — just navigate there
   if (!isPathActive(path)) {
-    router.push(localePath(path))
+    go(path)
     return
   }
 
@@ -677,13 +789,13 @@ function handleNavClick(path: string) {
   if (path === '/market') {
     // Toggle between the marketplace and the user's own items;
     // from a detail/create subpage, the first tap returns to the list
-    router.push(localePath(isExactPath('/market') ? '/market/my' : '/market'))
+    go(isExactPath('/market') ? '/market/my' : '/market')
   } else if (path === '/transit') {
     // Return to transit home (e.g. from /transit/rides or a stop page)
-    if (!isExactPath('/transit')) router.push(localePath('/transit'))
+    if (!isExactPath('/transit')) go('/transit')
   } else {
     // Map & Messages: "unpress" back to the dashboard
-    router.push(localePath('/'))
+    go('/')
   }
 }
 
@@ -715,6 +827,7 @@ function handleSubMenuClick(path: string, event: MouseEvent) {
 
   // Normal click - let NuxtLink handle navigation
   // Close site menu after navigation
+  hapticSelect() // screen change committed
   isSiteMenuOpen.value = false
 }
 
@@ -725,6 +838,11 @@ function getSiteMenuStyle(): string {
   const header = document.querySelector('header')
   const top = header ? header.getBoundingClientRect().bottom - 2 : 56 // overlap 2px to kill sub-pixel gap
 
+  // phones: full-bleed panel fused with the top bar (no side margins)
+  if (window.innerWidth < 640) {
+    return `top: ${top}px; left: 0; right: 0;`
+  }
+
   // align the panel's right edge with the Menu button's right edge (siteMenuRef wraps the button)
   let right = 16 // fallback ≈ navbar px-4
   if (siteMenuRef.value) {
@@ -733,3 +851,11 @@ function getSiteMenuStyle(): string {
   return `top: ${top}px; right: ${right}px;`
 }
 </script>
+
+<style scoped>
+/* The strip stays flush to the physical bottom edge (edge-to-edge WebView),
+   but its content must clear the Android gesture/nav bar. */
+.drag-hover-bar {
+  padding-bottom: calc(0.75rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+</style>

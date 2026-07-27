@@ -61,6 +61,8 @@ const props = defineProps<{
   canUpload?: boolean
   buildingGeometry?: number[][][] | null
   buildingLevels?: number | null
+  /** Annotation lines drawn in the blueprint's bottom-left corner (building type, floors, address...) */
+  infoLines?: string[] | null
   /** POI class from OpenMapTiles (hospital, shop, cafe...) for icon blueprint */
   poiClass?: string | null
 }>()
@@ -278,12 +280,12 @@ function drawBuildingFrame() {
   ctx.font = '10px monospace'
   ctx.textAlign = 'right'
   ctx.textBaseline = 'top'
-  const infoLines: string[] = [fmtArea(areaM2)]
-  if (props.buildingLevels && props.buildingLevels > 0) {
-    infoLines.push(`${props.buildingLevels}F`)
+  const cornerLines: string[] = [fmtArea(areaM2)]
+  // Floors move to the bottom-left annotation block when it is present
+  if (props.buildingLevels && props.buildingLevels > 0 && !props.infoLines?.length) {
+    cornerLines.push(`${props.buildingLevels}F`)
   }
-  const infoText = infoLines.join(' · ')
-  ctx.fillText(infoText, w - 8, 8)
+  ctx.fillText(cornerLines.join(' · '), w - 8, 8)
 
   // ---- Rotated polygon ----
   ctx.save()
@@ -320,6 +322,26 @@ function drawBuildingFrame() {
   ctx.fillText('N', 0, -polyH / 2 - 6)
 
   ctx.restore()
+
+  // ---- Annotation block: building facts (bottom-left corner) ----
+  if (props.infoLines?.length) {
+    const lineH = 14
+    const textX = rulerL + 6
+    const maxTextW = w - textX - 8
+    ctx.font = '10px monospace'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'bottom'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)'
+    const lines = props.infoLines.slice(0, 5)
+    lines.forEach((line, i) => {
+      let text = line
+      if (ctx.measureText(text).width > maxTextW) {
+        while (text.length > 1 && ctx.measureText(text + '…').width > maxTextW) text = text.slice(0, -1)
+        text += '…'
+      }
+      ctx.fillText(text, textX, h - rulerB - 6 - (lines.length - 1 - i) * lineH)
+    })
+  }
 
   // Counter-clockwise
   angle -= 0.003
@@ -464,7 +486,8 @@ function drawPoiIcon() {
 
 watch(() => props.buildingGeometry, (geom) => {
   if (geom) {
-    angle = 0
+    // Keep the current angle across object switches so north stays put and the
+    // rotation continues smoothly instead of snapping back to 0 on each click.
     nextTick(() => {
       if (canvasRef.value && !animationFrame) drawBuildingFrame()
     })

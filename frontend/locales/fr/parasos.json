@@ -28,8 +28,10 @@
       "no_alerts_yet": "Aucune alerte pour le moment",
       "members": "Membres",
       "delete": "Supprimer le Groupe",
+      "edit": "Modifier le groupe",
       "delete_confirm": "Êtes-vous sûr de vouloir supprimer ce groupe ? Cette action est irréversible.",
-      "deleted": "Groupe supprimé"
+      "deleted": "Groupe supprimé",
+      "updated": "Groupe mis à jour"
     },
 
     "create_group": {
@@ -134,7 +136,8 @@
       "delete_invite": "Échec de la suppression de l'invitation",
       "fetch_invite": "Échec du chargement des informations de l'invitation",
       "invite_invalid": "Ce lien d'invitation est invalide ou a expiré",
-      "delete_group": "Échec de la suppression du groupe"
+      "delete_group": "Échec de la suppression du groupe",
+      "update_group": "Échec de la mise à jour du groupe"
     },
 
     "response": {

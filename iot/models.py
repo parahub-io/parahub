@@ -43,9 +43,50 @@ class IoTDevice(ULIDModel):
     # Yggdrasil ACL: IPv6 addresses allowed inbound from Yggdrasil overlay
     ygg_allowed_ips = models.JSONField(default=list, blank=True, help_text="IPv6 addresses allowed inbound from Yggdrasil")
 
+    # Solo-island override for the guest-VLAN gateway election: this bumblebee
+    # terminates its own guest VLAN (DHCP + VPN exit) regardless of the fleet-wide
+    # election. Only safe on a node with no batman-adv mesh neighbors — on a shared
+    # island two DHCP servers would race on the one guest VLAN. Interim knob until
+    # per-island election (heartbeat-reported originator sets) lands.
+    guest_gateway_force = models.BooleanField(default=False)
+
+    # Sharing budgets (mesh routers): how much of this node's uplink its owner
+    # donates. Delivered to the fleet via heartbeat; defaults match the printed
+    # getting-started sheet.
+    mesh_guest_rate_kbps = models.PositiveIntegerField(
+        default=512,
+        help_text="Per-guest free-tier rate in kbps, applied while this node terminates the guest VLAN",
+    )
+    mesh_host_rate_mbps = models.PositiveIntegerField(
+        default=10,
+        help_text="Total budget in Mbps for a mesh host node riding this node's uplink",
+    )
+
+    # Declared uplink passport (owner-entered; observed throughput lives in
+    # MeshRouterStats)
+    class UplinkType(models.TextChoices):
+        FIBER = 'FIBER', 'Fiber'
+        CABLE = 'CABLE', 'Cable'
+        DSL = 'DSL', 'DSL'
+        STARLINK = 'STARLINK', 'Starlink'
+        CELLULAR = 'CELLULAR', 'Cellular (4G/5G)'
+        OTHER = 'OTHER', 'Other'
+
+    uplink_type = models.CharField(max_length=10, choices=UplinkType.choices, null=True, blank=True)
+    uplink_down_mbps = models.PositiveIntegerField(null=True, blank=True)
+    uplink_up_mbps = models.PositiveIntegerField(null=True, blank=True)
+
     # User-set AP location for coverage map (independent of connection_info)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
+
+    # Owner-consented attribution on the public map panel. Off by default:
+    # device coordinates are usually a home, so linking a profile to them is
+    # the owner's explicit choice, never implied by map visibility.
+    show_owner = models.BooleanField(
+        default=False,
+        help_text="Show the owner (with a profile link) on the public map panel",
+    )
 
     # Physical location grouping
     property = models.ForeignKey('iot.Property', on_delete=models.SET_NULL,
@@ -121,36 +162,126 @@ class TrackerLocation(ULIDModel):
         ]
 
 
-class MeshSubscription(ULIDModel):
-    """Paid WiFi speed upgrade subscription for mesh guest clients."""
+class MeshPass(ULIDModel):
+    """Account-level full-speed entitlement on the mesh guest network.
+
+    One pass per profile; money (Lightning) and achievements both extend the
+    same expiry through MeshPassCredit. Enforcement is per bound device
+    (MeshDevice MAC), pushed to routers via the heartbeat response.
+    """
+
+    profile = models.OneToOneField(
+        'identity.Profile', on_delete=models.CASCADE, related_name='mesh_pass',
+    )
+    expires_at = models.DateTimeField()
+    max_devices = models.PositiveSmallIntegerField(default=5)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def is_active(self) -> bool:
+        from django.utils import timezone
+        return self.expires_at > timezone.now()
+
+    def __str__(self):
+        return f"MeshPass {self.profile_id} until {self.expires_at:%Y-%m-%d}"
+
+
+class MeshPassCredit(ULIDModel):
+    """One extension of a MeshPass: a Lightning payment, an achievement
+    reward, or a manual grant. PENDING = unpaid Lightning invoice."""
+
+    class Source(models.TextChoices):
+        LIGHTNING = 'LIGHTNING'
+        ACHIEVEMENT = 'ACHIEVEMENT'
+        GRANT = 'GRANT'
 
     class Status(models.TextChoices):
         PENDING = 'PENDING'
-        ACTIVE = 'ACTIVE'
+        APPLIED = 'APPLIED'
         EXPIRED = 'EXPIRED'
 
-    client_ip = models.GenericIPAddressField()
-    client_mac = models.CharField(max_length=17, blank=True)
-    gateway_device = models.ForeignKey(
-        IoTDevice, on_delete=models.CASCADE,
-        related_name='subscriptions',
-        limit_choices_to={'device_type': 'MESH_ROUTER'},
-    )
-    ln_payment_hash = models.CharField(max_length=64, unique=True, db_index=True)
-    ln_invoice = models.TextField()
-    amount_sats = models.BigIntegerField()
+    mesh_pass = models.ForeignKey(MeshPass, on_delete=models.CASCADE, related_name='credits')
+    source = models.CharField(max_length=12, choices=Source.choices)
+    days = models.PositiveSmallIntegerField()
+    amount_sats = models.BigIntegerField(null=True, blank=True)
+    ln_payment_hash = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    ln_invoice = models.TextField(blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
-    paid_at = models.DateTimeField(null=True, blank=True)
-    expires_at = models.DateTimeField(null=True, blank=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [
-            models.Index(fields=['gateway_device', 'status', 'expires_at']),
+            models.Index(fields=['status', 'created_at']),
         ]
 
     def __str__(self):
-        return f"MeshSub {self.client_ip} [{self.status}]"
+        return f"MeshPassCredit {self.source} +{self.days}d [{self.status}]"
+
+
+class MeshDevice(ULIDModel):
+    """A client device (WiFi MAC) bound to a MeshPass.
+
+    MAC is the durable key: modern phones keep a persistent randomized MAC
+    per SSID, so one binding covers every island of the shared guest ESSID.
+    The heartbeat translates bound MACs to current guest-lease IPs per node.
+    """
+
+    mesh_pass = models.ForeignKey(MeshPass, on_delete=models.CASCADE, related_name='devices')
+    mac = models.CharField(max_length=17, unique=True)
+    label = models.CharField(max_length=64, blank=True)
+    last_ipv4 = models.GenericIPAddressField(protocol='IPv4', null=True, blank=True)
+    last_gateway = models.ForeignKey(
+        IoTDevice, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='bound_mesh_devices',
+        limit_choices_to={'device_type': 'MESH_ROUTER'},
+    )
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"MeshDevice {self.mac} ({self.label or 'unnamed'})"
+
+
+class MeshRouterStats(models.Model):
+    """Mesh router telemetry time series (TimescaleDB hypertable).
+
+    One row per heartbeat (5-min cron) from stats-reporting firmware (ph41+);
+    older firmware sends no stats block and simply writes no rows. Raw byte
+    counters plus write-time derived rates: the heartbeat handler keeps the
+    previous sample in Redis and computes bps, treating an uptime drop or a
+    counter decrease as a reboot/reset (rates null for that sample).
+    365-day retention via TimescaleDB.
+    """
+    id = models.BigAutoField(auto_created=True, primary_key=True, serialize=False)
+    time = models.DateTimeField(db_index=True)
+    device = models.ForeignKey(
+        IoTDevice,
+        on_delete=models.CASCADE,
+        related_name="mesh_stats",
+    )
+    uplink_dev = models.CharField(max_length=16, blank=True, default='')
+    wan_rx_bytes = models.BigIntegerField(null=True, blank=True)
+    wan_tx_bytes = models.BigIntegerField(null=True, blank=True)
+    wan_rx_bps = models.BigIntegerField(null=True, blank=True)
+    wan_tx_bps = models.BigIntegerField(null=True, blank=True)
+    guest_rx_bytes = models.BigIntegerField(null=True, blank=True)
+    guest_tx_bytes = models.BigIntegerField(null=True, blank=True)
+    guest_rx_bps = models.BigIntegerField(null=True, blank=True)
+    guest_tx_bps = models.BigIntegerField(null=True, blank=True)
+    wifi_clients = models.SmallIntegerField(null=True, blank=True)
+    guest_clients = models.SmallIntegerField(null=True, blank=True)
+    load_1m = models.FloatField(null=True, blank=True)
+    mem_used_pct = models.SmallIntegerField(null=True, blank=True)
+    mesh_neighbors = models.SmallIntegerField(null=True, blank=True)
+    uptime = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'iot_mesh_router_stats'
+        indexes = [
+            models.Index(fields=['device', '-time'], name='iot_mrs_device_time'),
+        ]
 
 
 class TrackerHistory(models.Model):
@@ -297,6 +428,121 @@ class PropertyMember(ULIDModel):
 
     def __str__(self):
         return f"{self.profile_id[:8]} @ {self.property.name}"
+
+
+class EnvStation(ULIDModel):
+    """A physical environmental station (weather and/or air quality) at a fixed
+    location.
+
+    Data arrives by push — Ecowitt "Customized upload", AirGradient custom
+    server (``httpDomain``) — is stored as an ``EnvReading`` timeseries, and,
+    when ``is_public``, shared on the public map for everyone. One station may
+    report weather, air quality, or both: every reading metric is optional.
+    """
+
+    class Source(models.TextChoices):
+        ECOWITT = 'ECOWITT', 'Ecowitt / Fine Offset'
+        AIRGRADIENT = 'AIRGRADIENT', 'AirGradient'
+        GENERIC = 'GENERIC', 'Generic'
+
+    owner = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='env_stations')
+    property = models.ForeignKey('iot.Property', on_delete=models.SET_NULL,
+                                 null=True, blank=True, related_name='env_stations')
+    name = models.CharField(max_length=100)
+    source = models.CharField(max_length=12, choices=Source.choices, default=Source.GENERIC)
+
+    # Ingest identity. Ecowitt matches on the token embedded in its upload Path
+    # (the console has no way to send a bearer header); AirGradient matches on
+    # its device serial carried in the pushed body. Both are unique-indexed for
+    # an O(1) lookup on every inbound reading.
+    ingest_token = models.CharField(max_length=32, unique=True, db_index=True)
+    external_id = models.CharField(
+        max_length=64, blank=True, db_index=True,
+        help_text="Device serial (AirGradient) / PASSKEY (Ecowitt) for push matching",
+    )
+
+    location = gis_models.PointField(srid=4326, geography=True)
+    is_public = models.BooleanField(default=False, help_text="Show on the public map for everyone")
+    # Owner-consented attribution on the public map panel. Separate from
+    # is_public: publishing readings at a point is not consent to naming the
+    # profile at that point (station coordinates are usually a home).
+    show_owner = models.BooleanField(
+        default=False,
+        help_text="Show the owner (with a profile link) on the public map panel",
+    )
+    # Owner-pasted deep link to the station's page on its vendor cloud (the
+    # AirGradient/Ecowitt map ids are not derivable from serial/coords, so the
+    # link cannot be auto-built). Shown to everyone on the public map panel for
+    # independent cross-checking of our ingested readings.
+    public_url = models.URLField(
+        max_length=300, blank=True, default='',
+        help_text="Link to the station's public page (e.g. vendor cloud map), shown on the map panel",
+    )
+
+    # Fast map render: latest reading snapshot, so the public map layer never
+    # touches the (large) hypertable.
+    last_reading_at = models.DateTimeField(null=True, blank=True)
+    latest = models.JSONField(default=dict, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['owner', 'name'], name='unique_env_station_per_owner'),
+        ]
+        indexes = [
+            models.Index(fields=['is_public', 'last_reading_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.source})"
+
+
+class EnvReading(models.Model):
+    """A single environmental station reading (TimescaleDB hypertable).
+
+    Every metric is optional — a station writes the subset its sensors provide
+    (a weather console fills the top block, an air-quality monitor the bottom).
+    Float fields (not typed sensor rows) for TimescaleDB compression, mirroring
+    ``TrackerHistory``. Converted to a hypertable + retention policy out of band
+    (raw SQL, like ``iot_tracker_history``).
+    """
+
+    id = models.BigAutoField(auto_created=True, primary_key=True, serialize=False)
+    time = models.DateTimeField(db_index=True)
+    station = models.ForeignKey(EnvStation, on_delete=models.CASCADE, related_name='readings')
+
+    # Weather
+    temperature = models.FloatField(null=True, blank=True, help_text="°C")
+    humidity = models.FloatField(null=True, blank=True, help_text="%")
+    pressure = models.FloatField(null=True, blank=True, help_text="hPa (relative)")
+    wind_speed = models.FloatField(null=True, blank=True, help_text="km/h")
+    wind_gust = models.FloatField(null=True, blank=True, help_text="km/h")
+    wind_dir = models.FloatField(null=True, blank=True, help_text="degrees the wind blows FROM")
+    rain_rate = models.FloatField(null=True, blank=True, help_text="mm/h")
+    rain_daily = models.FloatField(null=True, blank=True, help_text="mm")
+    solar_radiation = models.FloatField(null=True, blank=True, help_text="W/m²")
+    uv = models.FloatField(null=True, blank=True, help_text="UV index")
+
+    # Air quality
+    pm01 = models.FloatField(null=True, blank=True, help_text="PM1.0 µg/m³")
+    pm25 = models.FloatField(null=True, blank=True, help_text="PM2.5 µg/m³")
+    pm10 = models.FloatField(null=True, blank=True, help_text="PM10 µg/m³")
+    co2 = models.FloatField(null=True, blank=True, help_text="ppm")
+    tvoc_index = models.FloatField(null=True, blank=True, help_text="VOC index (0-500)")
+    nox_index = models.FloatField(null=True, blank=True, help_text="NOx index (0-500)")
+
+    raw = models.JSONField(default=dict, blank=True, help_text="Original decoded payload")
+
+    class Meta:
+        db_table = 'iot_env_reading'
+        indexes = [
+            models.Index(fields=['station', '-time']),
+        ]
+
+    def __str__(self):
+        return f"Reading of {self.station_id} at {self.time}"
 
 
 class HAHome(ULIDModel):

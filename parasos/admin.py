@@ -1,5 +1,7 @@
 from django.contrib import admin
-from parasos.models import SafetyGroup, SafetyGroupMember, SOSAlert, SOSResponse, InactivityWatch
+from parasos.models import (
+    SafetyGroup, SafetyGroupMember, SOSAlert, SOSResponse, InactivityWatch, GroupInvite,
+)
 
 
 @admin.register(SafetyGroup)
@@ -36,3 +38,10 @@ class InactivityWatchAdmin(admin.ModelAdmin):
     list_display = ('watched_profile', 'group', 'max_inactivity_hours', 'last_activity_at', 'is_active')
     list_filter = ('is_active',)
     raw_id_fields = ('group', 'watched_profile', 'ha_home')
+
+
+@admin.register(GroupInvite)
+class GroupInviteAdmin(admin.ModelAdmin):
+    list_display = ('group', 'label', 'created_by', 'uses_count', 'max_uses', 'expires_at', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    raw_id_fields = ('group', 'created_by')

@@ -27,7 +27,7 @@
             class="w-20 h-20 sm:w-28 sm:h-28 flex-shrink-0 perspective-500 cursor-pointer rounded-full"
             :class="{ 'cursor-default': !profile.id_photo_url }"
             @click="toggleAvatarFlip"
-            :title="profile.id_photo_url ? t('user_profile.click_to_flip') : ''"
+            :title="avatarFlipTitle"
           >
             <div
               class="relative w-full h-full transition-transform duration-500 transform-style-3d"
@@ -592,6 +592,37 @@
       <UserPrivateNoteModal v-model="showNoteModal" :profile="profile" :cri="cri" @note-changed="privateNote = $event" />
       <UserVerifyModal v-model="showVerifyModal" :profile="profile" @verified="fetchProfile" />
       <UserZenithModal v-model="showZenithModal" :profile="profile" />
+
+      <!-- ID photo lightbox: second click on the flipped card zooms the already-fetched
+           blob to natural size; closing flips the card back to the avatar -->
+      <Teleport to="body">
+        <div
+          v-if="showIdPhotoLightbox && idPhotoObjectUrl"
+          class="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
+          @click.self="closeIdPhotoLightbox"
+        >
+          <button
+            @click="closeIdPhotoLightbox"
+            class="absolute top-4 right-4 p-2 text-white/80 hover:text-white"
+            :aria-label="t('user_profile.close')"
+          >
+            <X class="w-6 h-6" />
+          </button>
+          <img
+            :src="idPhotoObjectUrl"
+            :alt="t('user_profile.id_photo')"
+            class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+          />
+          <div
+            class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-sm"
+            :class="profile.id_photo_verified ? 'bg-green-500' : 'bg-amber-500'"
+          >
+            <Shield v-if="profile.id_photo_verified" class="w-4 h-4" />
+            <AlertTriangle v-else class="w-4 h-4" />
+            {{ t('user_profile.id_photo') }}
+          </div>
+        </div>
+      </Teleport>
     </div>
       </div>
     </div>
@@ -602,7 +633,7 @@
 import {
   AlertTriangle, CheckCircle, Bitcoin, Heart, HeartHandshake, Loader2, Package, Shield, ShoppingBag, Star,
   UserPlus, UserMinus, Users, MessageCircle, UserCheck, Zap, FileText, Share2, MapPin, Flag,
-  Copy, Check, StickyNote, Key, Bot, Phone,
+  Copy, Check, StickyNote, Key, Bot, Phone, X,
   ShieldCheck, Handshake, Gift, Vote, Scale, Sprout, ChevronDown, Info, CalendarClock
 } from 'lucide-vue-next'
 import QRCode from 'qrcode'
@@ -911,12 +942,45 @@ const togglePartner = async () => {
   }
 }
 
-// Toggle avatar flip to show ID photo
+// First click flips avatar → ID photo; second click zooms it in a lightbox.
+// Closing the lightbox flips the card back to the avatar.
+const showIdPhotoLightbox = ref(false)
+
+const avatarFlipTitle = computed(() => {
+  if (!profile.value?.id_photo_url) return ''
+  return showIdPhoto.value && idPhotoObjectUrl.value
+    ? t('user_profile.click_to_enlarge')
+    : t('user_profile.click_to_flip')
+})
+
 const toggleAvatarFlip = () => {
-  if (profile.value?.id_photo_url) {
+  if (!profile.value?.id_photo_url) return
+  if (showIdPhoto.value && idPhotoObjectUrl.value) {
+    showIdPhotoLightbox.value = true
+  } else {
     showIdPhoto.value = !showIdPhoto.value
   }
 }
+
+const closeIdPhotoLightbox = () => {
+  showIdPhotoLightbox.value = false
+  showIdPhoto.value = false
+}
+
+// Lightbox a11y: Esc close + body scroll lock. The overlay is Teleport'd to
+// <body> so it escapes the page stacking context and covers the fixed navbar.
+const onIdPhotoLightboxKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') closeIdPhotoLightbox()
+}
+watch(showIdPhotoLightbox, (open) => {
+  if (open) {
+    window.addEventListener('keydown', onIdPhotoLightboxKeydown)
+    document.body.style.overflow = 'hidden'
+  } else {
+    window.removeEventListener('keydown', onIdPhotoLightboxKeydown)
+    document.body.style.overflow = ''
+  }
+})
 
 // Fetch the gated id_photo as an authed blob → object URL for <img>.
 // The endpoint re-checks auth server-side (owner or WoT-verified); on 403/404
@@ -948,6 +1012,8 @@ watch(() => profile.value?.id_photo_url, (url) => {
 
 onBeforeUnmount(() => {
   if (idPhotoObjectUrl.value) URL.revokeObjectURL(idPhotoObjectUrl.value)
+  window.removeEventListener('keydown', onIdPhotoLightboxKeydown)
+  document.body.style.overflow = ''
 })
 
 // Reputation breakdown dimensions config

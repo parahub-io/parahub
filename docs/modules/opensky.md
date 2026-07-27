@@ -36,7 +36,7 @@ The KMZ generator emits all 5 missions up front; the pilot decides which subset 
 
 ## Processing Pipeline
 
-Single systemd timer-triggered job:
+The heavy processing runs on a self-hosted GPU node in Portugal (see [Architecture](../architecture.md#infrastructure)), connected to the main server over an encrypted WireGuard tunnel — ODM photogrammetry is GPU-bound and kept off the application server. Single systemd timer-triggered job:
 
 ### Merged Pipeline (`parahub-opensky-processor.timer`, 5min)
 1. Extract GPS coordinates from image EXIF data

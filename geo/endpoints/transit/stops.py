@@ -12,6 +12,7 @@ from django.db.models import Count
 from django.http import HttpResponse
 
 from geo.models import Stop, StopGroup, RouteStop, Place
+from geo.transit_tts import expand_pt_tts
 
 from parahub.ratelimit import ratelimit
 
@@ -72,6 +73,20 @@ def _build_stop_group(stop, sibling_clusters):
         "stops": rows,
     }
 
+def _tts_name(stop):
+    """The stop's TTS/aria form. Upstream tts_stop_name wins; for Portuguese
+    feeds that omit it, synthesize one from the display name so screen readers
+    say "Rua" not "R". Empty otherwise. See geo.transit_tts.expand_pt_tts."""
+    if stop.tts_name:
+        return stop.tts_name
+    lang = (stop.agency.lang or '').lower() if stop.agency_id else ''
+    if lang.startswith('pt') and stop.name:
+        expanded = expand_pt_tts(stop.name)
+        if expanded and expanded != stop.name:
+            return expanded
+    return ''
+
+
 def _build_stop_detail(stop):
     """Build TransitStopResponse from a Stop instance (shared by ULID and slug
     endpoints). Co-located cross-operator poles (the same physical boarding point)
@@ -97,7 +112,7 @@ def _build_stop_detail(stop):
         slug=stop.slug,
         place_slug=stop.place.slug if stop.place else "",
         name=stop.name,
-        tts_name=stop.tts_name,
+        tts_name=_tts_name(stop),
         source_id=stop.source_id,
         lat=stop.location.y,
         lon=stop.location.x,

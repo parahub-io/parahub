@@ -30,6 +30,7 @@ export function useMapLayerStack(opts: {
     toggleTileGrid: () => void
   }
   satellite: { setupLayer: (map: any) => void }
+  poi: { applyVisibility: (map: any) => void }
   iot: { setupLayers: (map: any) => void; setupLayersOnly: (map: any) => void }
   mesh: { setupLayers: (map: any) => void; setupLayersOnly: (map: any) => void }
   condo: { setupLayers: (map: any) => void; setupLayersOnly: (map: any) => void }
@@ -55,7 +56,7 @@ export function useMapLayerStack(opts: {
   currentOpenSkyMission: { value: string | undefined }
 }) {
   const {
-    highlight, openSky, satellite, iot, mesh, condo, hub, gov, church,
+    highlight, openSky, satellite, poi, iot, mesh, condo, hub, gov, church,
     transit, browse, drawTools, routing,
   } = opts
   const mapStore = useMapStore()
@@ -78,6 +79,7 @@ export function useMapLayerStack(opts: {
   /** First map load: full layer registration (data fetches included). */
   function setupInitial(map: any) {
     applyGlobeAndSky(map)
+    poi.applyVisibility(map) // base-style POI layers, not an overlay — order-independent
     // Layer order: highlight → markers → OpenSky → IoT → gov/church → transit → interactive (last, needs all layers)
     highlight.setupLayers(map)
     highlight.syncMarkers(map, mapStore)
@@ -98,6 +100,7 @@ export function useMapLayerStack(opts: {
   /** After setStyle wiped all sources/layers: re-register without refetching. */
   function reapplyAfterStyleChange(map: any) {
     applyGlobeAndSky(map)
+    poi.applyVisibility(map) // setStyle reset visibility to the style-JSON default
     highlight.setupLayers(map)
     openSky.setupLayers(map, opts.currentOpenSkyMission.value)
     satellite.setupLayer(map) // below OpenSky raster (OpenSky wins on top)

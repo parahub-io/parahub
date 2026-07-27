@@ -6,6 +6,11 @@ This roadmap describes features that are designed and planned but not yet implem
 
 ## High Priority
 
+### Urban Analysis (Pilot)
+**Status**: Live as a pilot for one município (Caminha). From a plot you draw on the map it returns the land-use qualification, the legal constraints, and the buildability parameters -- each traced to its source -- plus a justified viability verdict. Territorial framing, buildability, and viability (levels L1-L3) are built for urban land. See [Urban Analysis module](modules/urban.md).
+**Remaining**: validation of every curated rule by a licensed urbanista before production reliance (until then the output is explicitly not a legal opinion); rural-land rules; a live project-assistant check of a drawn building (L4); document generation (L5); and rollout to more municípios -- the slow part is curating each plan's rules, not the software.
+**Why it matters**: turns opaque municipal planning rules into a clear, sourced answer for any resident -- a copilot for citizens, technicians, and the câmara, never a replacement.
+
 ### Mobile App Store Publishing
 **Status**: Capacitor app shell works. APK available for download.
 **Remaining**: App Store (iOS) and Google Play submission, app store assets and screenshots. Firebase push notifications are fully implemented.
@@ -18,10 +23,10 @@ This roadmap describes features that are designed and planned but not yet implem
 
 ## Medium Priority
 
-### ParaTube (Decentralized Video)
-**Status**: Not started.
-**Design**: PeerTube-based decentralized video hosting. Federation with existing PeerTube instances. Monetization via Lightning micropayments. Community moderation. Integration with Parahub identity and reputation.
-**Why it matters**: YouTube alternative without algorithmic manipulation and 30% revenue share.
+### Video Monetization and Deeper Federation
+**Status**: Self-hosted PeerTube video is live -- upload, transcode, HLS streaming, OIDC single sign-on, attaching video to any object, and ActivityPub federation. See [Video module](modules/video.md).
+**Remaining**: Lightning micropayments so creators are paid directly with no platform cut, and richer cross-instance federation with other PeerTube servers.
+**Why it matters**: a YouTube alternative without algorithmic manipulation or a 30% revenue share.
 
 ### Auto-Translation for Marketplace
 **Status**: Items have auto-detected language and country. Language filter exists in UI.
@@ -46,9 +51,6 @@ Automatic Lightning payment upon ride completion. Currently, carpool payment is 
 
 ### Matrix Bot for Zenith
 AI assistant accessible via Matrix chat, not just the web interface. Natural language queries about the platform.
-
-### Route Alignment for Carpool
-**Status**: Implemented. Valhalla-based corridor search shows passengers only to drivers whose route passes through their pickup/dropoff stops. Configurable corridor width and directional filtering.
 
 ### Desktop Client
 Electron or Tauri desktop application (optional -- web app works on desktop already).

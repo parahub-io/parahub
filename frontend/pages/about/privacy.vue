@@ -8,7 +8,7 @@
 
       <div class="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-6 mb-8">
         <p class="text-neutral-700 dark:text-neutral-300 mb-0">
-          <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('privacy.version') }}:</strong> 1.0<br>
+          <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('privacy.version') }}:</strong> 1.1<br>
           <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('privacy.effective_date') }}:</strong> {{ effectiveDate }}
         </p>
       </div>
@@ -19,7 +19,7 @@
       <p class="mb-4">{{ $t('privacy.sections.controller.text') }}</p>
       <address class="not-italic bg-neutral-50 dark:bg-neutral-800 border-l-4 border-secondary dark:border-secondary-400 p-4 rounded-r mb-8">
         <strong>Parahub - Associação</strong><br>
-        NIPC: 519046161<br>
+        NIPC: 519 190 904<br>
         Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal<br>
         {{ $t('privacy.sections.controller.email_label') }}: <a href="mailto:info@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">info@parahub.io</a>
       </address>
@@ -29,7 +29,7 @@
 
       <h3 class="text-lg sm:text-xl font-semibold mt-6 sm:mt-8 mb-2 sm:mb-3">{{ $t('privacy.sections.data_collected.provided.title') }}</h3>
       <ul class="space-y-2 mb-6">
-        <li><strong>{{ $t('privacy.sections.data_collected.provided.account_label') }}:</strong> {{ $t('privacy.sections.data_collected.provided.account') }}</li>
+        <li><strong>{{ $t('privacy.sections.data_collected.provided.account_label') }}:</strong> {{ $t('privacy.sections.data_collected.provided.account', { example: 'name@parahub.io' }) }}</li>
         <li><strong>{{ $t('privacy.sections.data_collected.provided.profile_label') }}:</strong> {{ $t('privacy.sections.data_collected.provided.profile') }}</li>
         <li><strong>{{ $t('privacy.sections.data_collected.provided.pgp_label') }}:</strong> <span v-html="pgpText"></span></li>
         <li><strong>{{ $t('privacy.sections.data_collected.provided.content_label') }}:</strong> {{ $t('privacy.sections.data_collected.provided.content') }}</li>
@@ -50,7 +50,20 @@
         <li>{{ $t('privacy.sections.data_collected.not_collected.crypto') }}</li>
       </ul>
 
-      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">3. {{ $t('privacy.sections.legal_basis.title') }}</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">3. {{ $t('privacy.sections.mesh.title') }}</h2>
+      <p class="mb-6">{{ $t('privacy.sections.mesh.intro') }}</p>
+      <ul class="space-y-2 mb-4">
+        <li><strong>{{ $t('privacy.sections.mesh.node_label') }}:</strong> {{ $t('privacy.sections.mesh.node') }}</li>
+        <li><strong>{{ $t('privacy.sections.mesh.guest_label') }}:</strong> {{ $t('privacy.sections.mesh.guest') }}</li>
+        <li><strong>{{ $t('privacy.sections.mesh.retention_label') }}:</strong> {{ $t('privacy.sections.mesh.retention') }}</li>
+        <li><strong>{{ $t('privacy.sections.mesh.egress_label') }}:</strong> {{ $t('privacy.sections.mesh.egress') }}</li>
+        <li><strong>{{ $t('privacy.sections.mesh.basis_label') }}:</strong> {{ $t('privacy.sections.mesh.basis') }}</li>
+      </ul>
+      <p class="mb-8">
+        <NuxtLink :to="localePath('/mesh/peering')" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">{{ $t('mesh.peering.title') }}</NuxtLink>
+      </p>
+
+      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">4. {{ $t('privacy.sections.legal_basis.title') }}</h2>
       <ul class="space-y-2 mb-6">
         <li><strong>{{ $t('privacy.sections.legal_basis.consent_label') }} (Art. 6(1)(a) GDPR):</strong> {{ $t('privacy.sections.legal_basis.consent') }}</li>
         <li><strong>{{ $t('privacy.sections.legal_basis.contract_label') }} (Art. 6(1)(b) GDPR):</strong> {{ $t('privacy.sections.legal_basis.contract') }}</li>
@@ -58,14 +71,14 @@
         <li><strong>{{ $t('privacy.sections.legal_basis.legal_label') }} (Art. 6(1)(c) GDPR):</strong> {{ $t('privacy.sections.legal_basis.legal') }}</li>
       </ul>
 
-      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">4. {{ $t('privacy.sections.usage.title') }}</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">5. {{ $t('privacy.sections.usage.title') }}</h2>
       <ul class="space-y-2 mb-6">
         <li v-for="(purpose, index) in purposes" :key="index">
           {{ purpose }}
         </li>
       </ul>
 
-      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">5. {{ $t('privacy.sections.sharing.title') }}</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">6. {{ $t('privacy.sections.sharing.title') }}</h2>
       <ul class="space-y-2 mb-6">
         <li><strong>{{ $t('privacy.sections.sharing.federation_label') }}:</strong> {{ $t('privacy.sections.sharing.federation') }}</li>
         <li><strong>Matrix:</strong> {{ $t('privacy.sections.sharing.matrix') }}</li>
@@ -73,14 +86,14 @@
         <li><strong>{{ $t('privacy.sections.sharing.no_sale') }}</strong></li>
       </ul>
 
-      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">6. {{ $t('privacy.sections.storage.title') }}</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">7. {{ $t('privacy.sections.storage.title') }}</h2>
       <ul class="space-y-2 mb-6">
         <li>{{ $t('privacy.sections.storage.measures') }}</li>
         <li>{{ $t('privacy.sections.storage.location') }}</li>
         <li>{{ $t('privacy.sections.storage.retention') }}</li>
       </ul>
 
-      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">7. {{ $t('privacy.sections.rights.title') }}</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">8. {{ $t('privacy.sections.rights.title') }}</h2>
       <p class="mb-4">{{ $t('privacy.sections.rights.intro') }}</p>
       <ul class="space-y-2 mb-4">
         <li><strong>{{ $t('privacy.sections.rights.access_label') }} (Art. 15 GDPR):</strong> {{ $t('privacy.sections.rights.access') }}</li>
@@ -94,17 +107,17 @@
       </ul>
       <p class="mb-8" v-html="rightsContact"></p>
 
-      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">8. {{ $t('privacy.sections.cookies.title') }}</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">9. {{ $t('privacy.sections.cookies.title') }}</h2>
       <p class="mb-8">{{ $t('privacy.sections.cookies.text') }}</p>
 
-      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">9. {{ $t('privacy.sections.changes.title') }}</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">10. {{ $t('privacy.sections.changes.title') }}</h2>
       <p class="mb-8">{{ $t('privacy.sections.changes.text') }}</p>
 
-      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">10. {{ $t('privacy.sections.contact.title') }}</h2>
+      <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">11. {{ $t('privacy.sections.contact.title') }}</h2>
       <p class="mb-4">{{ $t('privacy.sections.contact.text') }}</p>
       <address class="not-italic bg-neutral-50 dark:bg-neutral-800 border-l-4 border-secondary dark:border-secondary-400 p-4 rounded-r mb-8">
         <strong>Parahub - Associação</strong><br>
-        NIPC: 519046161<br>
+        NIPC: 519 190 904<br>
         Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal<br>
         {{ $t('privacy.sections.contact.email_label') }}: <a href="mailto:info@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">info@parahub.io</a>
       </address>
@@ -118,7 +131,7 @@ const { t, tm, locale } = useI18n()
 const localePath = useLocalePath()
 
 const effectiveDate = computed(() => {
-  const date = new Date('2026-04-08')
+  const date = new Date('2026-07-27')
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'long',
@@ -127,32 +140,32 @@ const effectiveDate = computed(() => {
   return date.toLocaleDateString(locale.value === 'pt' ? 'pt-PT' : locale.value, options)
 })
 
-// Computed properties for interpolated text
-const privacyIntro = computed(() => {
-  const text = t('privacy.intro')
-  return text.replace('{operator}', 'Parahub - Associação')
-})
+// Interpolated text — values are passed as vue-i18n named params, NOT via
+// string .replace(): i18n strips unresolved {placeholders} during rendering,
+// so a later .replace() finds nothing and the value silently disappears.
+const privacyIntro = computed(() =>
+  t('privacy.intro', { operator: 'Parahub - Associação' })
+)
 
-const pgpText = computed(() => {
-  const text = t('privacy.sections.data_collected.provided.pgp')
-  const important = t('privacy.sections.data_collected.provided.pgp_important')
-  return text.replace('{important}', `<strong>${important}</strong>`)
-})
+const pgpText = computed(() =>
+  t('privacy.sections.data_collected.provided.pgp', {
+    important: `<strong>${t('privacy.sections.data_collected.provided.pgp_important')}</strong>`,
+  })
+)
 
-const automaticLogs = computed(() => {
-  const text = t('privacy.sections.data_collected.automatic.logs')
-  return text.replace('{days}', '30')
-})
+const automaticLogs = computed(() =>
+  t('privacy.sections.data_collected.automatic.logs', { days: 14 })
+)
 
-const matrixData = computed(() => {
-  const text = t('privacy.sections.data_collected.automatic.matrix')
-  return text.replace('{example}', '@local_name:instance.domain')
-})
+const matrixData = computed(() =>
+  t('privacy.sections.data_collected.automatic.matrix', { example: '@local_name:instance.domain' })
+)
 
-const rightsContact = computed(() => {
-  const text = t('privacy.sections.rights.contact')
-  return text.replace('{email}', '<a href="mailto:info@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">info@parahub.io</a>')
-})
+const rightsContact = computed(() =>
+  t('privacy.sections.rights.contact', {
+    email: '<a href="mailto:info@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">info@parahub.io</a>',
+  })
+)
 
 // Get purposes array
 const purposes = computed(() => {

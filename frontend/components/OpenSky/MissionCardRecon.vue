@@ -63,9 +63,9 @@
     </div>
 
     <!-- Readouts -->
-    <div class="px-3 pb-3">
+    <div class="px-3 pb-2.5">
       <!-- Place headline -->
-      <div class="mb-2">
+      <div class="mb-1.5">
         <div class="flex items-center gap-1.5 text-neutral-900 dark:text-neutral-100" :title="place || mission.id">
           <MapPin class="w-3.5 h-3.5 shrink-0 text-neutral-400 dark:text-neutral-500" />
           <span class="text-[15px] font-mono font-semibold uppercase tracking-wide truncate">{{ place || '— — —' }}</span>
@@ -75,54 +75,64 @@
 
       <div class="h-px bg-neutral-200 dark:bg-neutral-800" />
 
-      <!-- Readout grid -->
-      <div class="grid grid-cols-2 gap-x-3 gap-y-2 py-2.5">
-        <div class="col-span-2">
-          <div class="text-[9px] font-mono uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-600">{{ $t('opensky.r_coord', 'Coordinates') }}</div>
-          <div class="text-[12px] font-mono tabular-nums text-neutral-800 dark:text-neutral-100">{{ coord || '—' }}</div>
+      <!-- Readout block — one spec-sheet line per datum -->
+      <div class="py-2 space-y-1">
+        <OpenSkyReadoutRow :label="$t('opensky.r_coord', 'Coordinates')" :value="coord" />
+
+        <!-- Same x/y as the /map mission-planning grid labels — lets a pilot match
+             a grid cell seen on the map to the mission covering it. -->
+        <OpenSkyReadoutRow :label="$t('opensky.r_tile', 'Tile')" :value="tileLabel" />
+
+        <!-- Only the two shortest values share a row — dates and names need full width -->
+        <div class="grid grid-cols-2 gap-x-4">
+          <OpenSkyReadoutRow :label="$t('opensky.r_area', 'Area')" :value="area" />
+          <OpenSkyReadoutRow :label="$t('opensky.r_frames', 'Frames')" :value="mission.source_photos_count" />
         </div>
 
-        <div>
-          <div class="text-[9px] font-mono uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-600">{{ $t('opensky.r_area', 'Area') }}</div>
-          <div class="text-[12px] font-mono tabular-nums text-neutral-800 dark:text-neutral-100">{{ area || '—' }}</div>
-        </div>
-        <div>
-          <div class="text-[9px] font-mono uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-600">{{ $t('opensky.r_frames', 'Frames') }}</div>
-          <div class="text-[12px] font-mono tabular-nums text-neutral-800 dark:text-neutral-100">{{ mission.source_photos_count }}</div>
-        </div>
+        <OpenSkyReadoutRow :label="$t('opensky.r_survey', 'Survey')" :value="surveyDate" />
 
-        <div>
-          <div class="text-[9px] font-mono uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-600">{{ $t('opensky.r_survey', 'Survey') }}</div>
-          <div class="text-[12px] font-mono tabular-nums text-neutral-800 dark:text-neutral-100">{{ surveyDate || '—' }}</div>
-        </div>
-        <div class="min-w-0">
-          <div class="text-[9px] font-mono uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-600">{{ $t('opensky.r_pilot', 'Pilot') }}</div>
+        <OpenSkyReadoutRow v-if="mission.pilot_name && mission.pilot_id" :label="$t('opensky.r_pilot', 'Pilot')">
           <NuxtLink
-            v-if="mission.pilot_name && mission.pilot_id"
             :to="localePath(`/u/${mission.pilot_hna?.split('@')[0] || mission.pilot_id}`)"
-            class="block text-[12px] font-mono text-neutral-800 dark:text-neutral-100 truncate hover:text-secondary dark:hover:text-secondary-400 transition-colors"
+            class="hover:text-secondary dark:hover:text-secondary-400 transition-colors"
           >{{ mission.pilot_name }}</NuxtLink>
-          <div v-else class="text-[12px] font-mono text-neutral-800 dark:text-neutral-100 truncate">{{ mission.pilot_name || '—' }}</div>
-        </div>
+        </OpenSkyReadoutRow>
+        <OpenSkyReadoutRow v-else :label="$t('opensky.r_pilot', 'Pilot')" :value="mission.pilot_name" />
       </div>
 
       <div class="h-px bg-neutral-200 dark:bg-neutral-800" />
 
       <!-- Status footer — same band slot across all states keeps card rhythm aligned -->
-      <div class="mt-3">
-        <!-- Published: primary action -->
-        <button
+      <div class="mt-2">
+        <!-- Published: view channels — an equal-weight segmented control; the 2D/3D
+             mode tags carry the semantics (2D ortho on the map / 3D mesh viewer),
+             no channel outranks the other. 3D appears only for the owner with a
+             ready mesh (GLB endpoint is pilot-only, so no button for others). -->
+        <div
           v-if="published"
-          class="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-md bg-primary text-neutral-900 text-[11px] font-mono font-semibold uppercase tracking-wider whitespace-nowrap hover:bg-primary-600 transition-colors"
-          @click="viewOnMap(mission)"
+          class="flex h-8 rounded-md border border-neutral-300 dark:border-neutral-700 divide-x divide-neutral-300 dark:divide-neutral-700 overflow-hidden"
         >
-          <Map class="w-3.5 h-3.5" /> {{ $t('opensky.view_on_map', 'View on Map') }}
-        </button>
+          <button
+            class="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-100 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+            @click="viewOnMap(mission)"
+          >
+            <span class="shrink-0 rounded-[3px] bg-primary px-1 py-0.5 text-[9px] font-bold leading-none text-neutral-900">2D</span>
+            <span class="truncate">{{ show3d ? $t('opensky.ch_map', 'Map') : $t('opensky.view_on_map', 'View on Map') }}</span>
+          </button>
+          <button
+            v-if="show3d"
+            class="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-100 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+            @click="$emit('view-3d', mission.id)"
+          >
+            <span class="shrink-0 rounded-[3px] bg-secondary px-1 py-0.5 text-[9px] font-bold leading-none text-white">3D</span>
+            <span class="truncate">{{ $t('opensky.ch_model', 'Model') }}</span>
+          </button>
+        </div>
 
         <!-- Processing: live elapsed + pipeline step -->
         <div
           v-else-if="processing"
-          class="flex h-9 items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 text-warning"
+          class="flex h-8 items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 text-warning"
         >
           <Loader2 class="w-3.5 h-3.5 shrink-0 animate-spin" />
           <span class="truncate font-mono text-[11px] uppercase tracking-wider">
@@ -133,7 +143,7 @@
         <!-- Queued: waiting in line -->
         <div
           v-else-if="queued"
-          class="flex h-9 items-center gap-2 rounded-md border border-secondary/40 bg-secondary/10 px-2.5 text-secondary dark:text-secondary-400"
+          class="flex h-8 items-center gap-2 rounded-md border border-secondary/40 bg-secondary/10 px-2.5 text-secondary dark:text-secondary-400"
         >
           <Clock class="w-3.5 h-3.5 shrink-0" />
           <span class="truncate font-mono text-[11px] uppercase tracking-wider">{{ $t('opensky.waiting_in_queue', 'Waiting in queue') }}</span>
@@ -162,7 +172,6 @@
           <OpenSkyMissionDetails
             :mission="mission"
             :can-delete="canDelete"
-            @view-3d="$emit('view-3d', $event)"
             @delete="$emit('delete', $event)"
             @add-photos="$emit('add-photos', $event)"
             @download-3d="$emit('download-3d', $event)"
@@ -174,7 +183,7 @@
 </template>
 
 <script setup lang="ts">
-import { Map, MapPin, Camera, ChevronRight, Loader2, Clock, AlertTriangle } from 'lucide-vue-next'
+import { MapPin, Camera, ChevronRight, Loader2, Clock, AlertTriangle } from 'lucide-vue-next'
 import type { OpenSkyMission } from '~/composables/useOpenSky'
 
 const props = defineProps<{ mission: OpenSkyMission; canDelete?: boolean }>()
@@ -186,6 +195,7 @@ const { viewOnMap } = useMissionActions()
 const { lookup } = useReverseGeocode()
 
 const published = computed(() => props.mission.status === 'PUBLISHED')
+const show3d = computed(() => !!props.canDelete && props.mission.mesh_status === 'MESH_READY')
 const processing = computed(() => props.mission.status === 'PROCESSING')
 const queued = computed(() => props.mission.status === 'QUEUED')
 const failed = computed(() => props.mission.status === 'FAILED')
@@ -193,6 +203,11 @@ const failed = computed(() => props.mission.status === 'FAILED')
 const thumb = computed(() => missionThumbnailUrl(props.mission))
 const area = computed(() => formatArea(props.mission.area_m2 ?? 0))
 const coord = computed(() => formatCoord(props.mission.center_lat, props.mission.center_lng))
+const tileLabel = computed(() =>
+  props.mission.tile_x != null && props.mission.tile_y != null
+    ? `Z${props.mission.tile_z ?? 17} · ${props.mission.tile_x} / ${props.mission.tile_y}`
+    : null
+)
 const surveyDate = computed(() => formatShortDate(props.mission.captured_at || props.mission.uploaded_at, locale.value))
 const statusLabel = computed(() => t(`opensky.status_${props.mission.status.toLowerCase()}`, props.mission.status))
 const placeholderIcon = computed(() => (failed.value ? AlertTriangle : Camera))

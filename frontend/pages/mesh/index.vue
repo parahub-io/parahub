@@ -29,6 +29,24 @@
         </div>
       </div>
 
+      <!-- Live network map CTA -->
+      <NuxtLink
+        :to="localePath({ path: '/map', query: { fit: 'mesh', lat: '42.03', lng: '-8.43', zoom: '10' } })"
+        class="card block p-6 hover:border-secondary transition-colors group"
+      >
+        <div class="flex items-center gap-3">
+          <div class="flex-shrink-0 w-11 h-11 rounded-full bg-secondary/15 flex items-center justify-center">
+            <MapPin class="w-6 h-6 text-secondary" />
+          </div>
+          <div class="min-w-0">
+            <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 group-hover:text-secondary">
+              {{ $t('mesh.view_on_map') }}
+            </h3>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('mesh.view_on_map_desc') }}</p>
+          </div>
+        </div>
+      </NuxtLink>
+
       <!-- Downloads -->
       <div>
         <h2 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-6 flex items-center gap-2">
@@ -240,8 +258,8 @@
         <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('mesh.subscribe_cta_desc') }}</p>
       </NuxtLink>
 
-      <!-- Technical Docs + Source Code -->
-      <div class="grid sm:grid-cols-2 gap-4">
+      <!-- Technical Docs + Source Code + Peering Agreement -->
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <NuxtLink
           :to="localePath('/docs/mesh')"
           class="card p-5 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors group"
@@ -269,13 +287,26 @@
           </div>
           <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('mesh.source_desc') }}</p>
         </a>
+
+        <NuxtLink
+          :to="localePath('/mesh/peering')"
+          class="card p-5 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors group"
+        >
+          <div class="flex items-center gap-2 mb-1">
+            <Handshake class="w-5 h-5 text-neutral-400 group-hover:text-secondary" />
+            <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 group-hover:text-secondary">
+              {{ $t('mesh.peering.title') }}
+            </h3>
+          </div>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('mesh.peering.link_desc') }}</p>
+        </NuxtLink>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Radio, Download, RefreshCw, Package, Check, Zap, HardDrive, Code, ExternalLink, BookOpen, Wifi, Shield, Globe, Settings, Coins, BatteryCharging } from 'lucide-vue-next'
+import { Radio, Download, RefreshCw, Package, Check, Zap, HardDrive, Code, ExternalLink, BookOpen, Wifi, Shield, Globe, Settings, Coins, BatteryCharging, MapPin, Handshake } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -402,7 +433,7 @@ const devices = [
     role: 'bumblebee',
     recommended: false,
     powerW: 11,
-    price: '~\u20AC60',
+    price: '~\u20AC90',
     buyUrl: 'https://www.cudy.com/en-eu/products/ap3000-outdoor-1-0',
     image: '/images/mesh/ap3000outdoor.webp',
     profile: 'cudy_ap3000outdoor-v1',

@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed bottom-0 left-0 right-0 w-full md:top-[calc(5rem+72px)] md:bottom-auto md:right-auto md:left-0 md:h-[calc(100vh-5rem-72px)] md:w-96 bg-white dark:bg-neutral-900 shadow-2xl z-50 flex flex-col rounded-t-2xl md:rounded-none"
+    class="fixed bottom-0 left-0 right-0 w-full md:top-[calc(5rem+72px)] md:bottom-auto md:right-auto md:left-0 md:h-[calc(100vh-5rem-72px)] md:w-96 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 max-md:border-t md:border-r z-50 flex flex-col rounded-t-2xl md:rounded-none"
     :style="isMobile ? sheetStyle : {}"
   >
       <!-- Mobile drag handle -->
@@ -324,8 +324,6 @@ const showEdgeIndicator = (coords: { lat: number; lon: number }) => {
   edgeIndicatorEl.className = 'edge-distance-indicator'
   edgeIndicatorEl.style.cssText = `left:${ex}px;top:${ey}px`
   edgeIndicatorEl.innerHTML = `
-    <div class="edge-ind-lock edge-ind-lock-b1"></div>
-    <div class="edge-ind-lock edge-ind-lock-b2"></div>
     <div class="edge-ind-pill">
       <svg class="edge-ind-arrow" viewBox="0 0 16 16" width="14" height="14" style="transform:rotate(${angle}deg)">
         <path d="M2 8h10M8 4l4 4-4 4" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>

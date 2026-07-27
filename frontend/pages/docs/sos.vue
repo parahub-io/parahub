@@ -1,20 +1,6 @@
 <template>
   <div class="min-h-full bg-white dark:bg-neutral-950">
-    <div class="docs-header border-b border-primary/40 dark:border-primary/30 py-6 sm:py-8">
-      <div class="max-w-3xl mx-auto px-4 sm:px-6">
-        <nav class="flex items-center gap-1.5 text-sm">
-          <NuxtLink :to="localePath('/about')" class="text-neutral-900/60 hover:text-neutral-900 transition-colors">
-            {{ $t('about.title') }}
-          </NuxtLink>
-          <ChevronRight class="w-3.5 h-3.5 text-neutral-900/30" />
-          <NuxtLink :to="localePath('/docs')" class="text-neutral-900/60 hover:text-neutral-900 transition-colors">
-            {{ $t('docs.title') }}
-          </NuxtLink>
-          <ChevronRight class="w-3.5 h-3.5 text-neutral-900/30" />
-          <h1 class="inline text-neutral-900 font-semibold text-lg sm:text-xl">{{ $t('parasos.title') }}</h1>
-        </nav>
-      </div>
-    </div>
+    <DocsHeader :title="$t('parasos.title')" />
 
     <div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
 
@@ -117,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronRight, Shield, Bell, Clock, Users, Eye, Lock, Heart, Activity, Wifi, CircleCheck, Timer, EyeOff, Volume2 } from 'lucide-vue-next'
+import {Shield, Bell, Clock, Users, Eye, Lock, Heart, Activity, Wifi, CircleCheck, Timer, EyeOff, Volume2} from 'lucide-vue-next'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -149,9 +135,6 @@ definePageMeta({ order: 2 })
 </script>
 
 <style scoped>
-.docs-header {
-  background-color: var(--color-primary);
-}
 .prose-section {
   @apply text-neutral-700 dark:text-neutral-300 leading-relaxed;
 }

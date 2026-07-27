@@ -17,7 +17,7 @@
     },
     "chain": {
       "way_exchange": "{count}-сторонний обмен",
-      "swaps": "{count} обмен | {count} обмена",
+      "swaps": "{count} обмен | {count} обмена | {count} обменов",
       "propose": "Предложить обмен",
       "offers": "{user} предлагает:",
       "receives": "{user} получает:"

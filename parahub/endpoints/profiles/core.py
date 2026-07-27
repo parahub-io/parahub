@@ -79,6 +79,37 @@ def get_mail_credentials(request):
         logger.error(f'Failed to decrypt mail password for {account.username}: {e}')
         return {"error": "Failed to retrieve mail credentials"}, 500
 
+@profile_router.get("/me/mail-unread/", auth=ProfileAuth())
+@ratelimit(group='profiles:mail_unread', key=user_or_ip, rate='30/m')
+def get_mail_unread(request):
+    """
+    Unseen INBOX count for the nav badge (Redis-cached 60s per account).
+
+    `unseen` is null when the count is temporarily unavailable (IMAP hiccup) —
+    clients should keep their last known value; `has_mailbox: false` means the
+    account has no mailbox at all, so clients can stop asking.
+    """
+    from django.core.cache import cache
+    account = request.auth_profile.account
+    if not account.mail_password:
+        return {'has_mailbox': False, 'unseen': None}
+    cache_key = f'mail_unseen:{account.id}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return {'has_mailbox': True, 'unseen': cached}
+    try:
+        from parahub.services.mailcow import decrypt_mail_password, get_unseen_count
+        from django.conf import settings as djsettings
+        count = get_unseen_count(
+            f'{account.username}@{djsettings.MAILCOW_DOMAIN}',
+            decrypt_mail_password(account.mail_password),
+        )
+    except Exception as e:
+        logger.warning(f'Failed to fetch unseen mail count for {account.username}: {e}')
+        return {'has_mailbox': True, 'unseen': None}
+    cache.set(cache_key, count, 60)
+    return {'has_mailbox': True, 'unseen': count}
+
 @profile_router.patch("/me/preferences/", response={200: ProfilePrivateResponse, 500: dict}, auth=ProfileAuth())
 @ratelimit(group='profiles:preferences', key=user_or_ip, rate='30/m', method='PATCH')
 def update_my_preferences(request, data: ProfileUpdateRequest):
@@ -391,7 +422,7 @@ def search_profiles(request, q: Optional[str] = None, verified_only: bool = Fals
                 preferred_language=profile.preferred_language or '',
                 preferred_currency=profile.preferred_currency or 'EUR',
                 bio=profile.bio or '',
-                avatar_url=profile.avatar.url if profile.avatar else None,
+                avatar_url=profile.avatar_url,
                 country_code=profile.country_code or '',
                 is_partner=profile.id in partner_map,
                 items_credit_count=counts.get('CREDIT', 0),

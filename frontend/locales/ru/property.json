@@ -29,6 +29,10 @@
       "dacha": "Дача",
       "garage": "Гараж",
       "other": "Другое"
-    }
+    },
+    "entities": "HA-сущностей",
+    "mesh_label": "mesh",
+    "producer": "генерация",
+    "consumer": "потребление"
   }
 }

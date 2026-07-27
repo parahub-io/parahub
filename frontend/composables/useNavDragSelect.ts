@@ -7,6 +7,9 @@ import { computed, onMounted, onUnmounted, ref, type Ref } from 'vue'
  * Visual affordances (MUST NOT break):
  *   - button under finger highlights via isDragHovered() (yellow)
  *   - label bar at bottom of screen shows current target's label (yellow)
+ *   - haptic tick whenever the finger crosses onto a different button,
+ *     firmer pulse when release commits a screen change
+ *     (Vibration API — Android only, iOS WebView lacks it and no-ops)
  *   - on release: a colored dot appears at the target, transitions to a
  *     vertical beam 100vh tall fading to opacity 0 over 300ms
  *   - light theme = red beam, dark theme = yellow
@@ -56,6 +59,18 @@ export function useNavDragSelect(opts: NavDragOptions) {
     if (!element) return null
     if (element.hasAttribute('data-nav-button')) return element
     return element.closest('[data-nav-button]') as HTMLElement | null
+  }
+
+  // Short tick when the drag target changes. 10ms reads as a selection detent
+  // rather than a notification buzz.
+  function hapticTick() {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10)
+  }
+
+  // Firmer confirm pulse when a selection commits to a screen change —
+  // exported so tap navigation (AppNavigation) shares the same feel.
+  function hapticSelect() {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(20)
   }
 
   function handleDragStart(event: MouseEvent | TouchEvent) {
@@ -108,6 +123,7 @@ export function useNavDragSelect(opts: NavDragOptions) {
     // Skip null gaps between buttons to prevent flicker
     if (navButton !== currentHoverTarget.value && navButton !== null) {
       currentHoverTarget.value = navButton
+      hapticTick()
 
       const action = navButton.getAttribute('data-nav-action')
       const path = navButton.getAttribute('data-nav-path')
@@ -148,6 +164,7 @@ export function useNavDragSelect(opts: NavDragOptions) {
 
         // Execute action immediately — don't wait for animation
         if (path) {
+          hapticSelect() // screen change committed
           opts.onSelectPath(path)
         } else if (action === 'site-menu' || action === 'logout' || action === 'invite') {
           opts.onSelectAction(action)
@@ -207,6 +224,9 @@ export function useNavDragSelect(opts: NavDragOptions) {
     isDragging,
     dragMoved,
     dragHoverLabel,
+    // raw hovered element — lets the caller derive extra affordances
+    // (reticle ticks, drag-bar icon/hint) without duplicating hit-testing
+    currentHoverTarget,
     releaseAnimation,
     releaseTarget,
     beamAnimating,
@@ -216,5 +236,7 @@ export function useNavDragSelect(opts: NavDragOptions) {
     isDragHovered,
     getBeamPosition,
     getBeamStyle,
+    // shared haptics — tap navigation uses the same confirm pulse
+    hapticSelect,
   }
 }

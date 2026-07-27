@@ -543,3 +543,64 @@ class DirectionClassificationTest(TestCase):
         self.assertEqual(sorted(ec.keys()), sorted(DIRECTION_KEYS))
         for v in ec.values():
             self.assertEqual(v, 0)
+
+
+# ── Endpoint tile-parameter validation ───────────────────────────
+#
+# Covers _resolve_mission_tile() in geo/endpoints/opensky.py — shared by
+# /opensky/mission/ and /opensky/mission/preview/. tile_z is pinned to Z17
+# (a z10 tile would be ~1.7M waypoints / gigabytes of WPML per request) and
+# latitude is bounded to the Web Mercator domain (±85.05°: lat=-90 raises a
+# math domain error, |lat| beyond the Mercator top yields out-of-range rows).
+
+class MissionTileValidationTest(TestCase):
+    def _resolve(self, *args):
+        from geo.endpoints.opensky import _resolve_mission_tile
+        return _resolve_mission_tile(*args)
+
+    def _assert_400(self, *args):
+        from ninja.errors import HttpError
+        with self.assertRaises(HttpError) as ctx:
+            self._resolve(*args)
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_valid_tile_coords_pass_through(self):
+        self.assertEqual(self._resolve(TILE_ZOOM, 62204, 50209, None, None),
+                         (TILE_ZOOM, 62204, 50209))
+
+    def test_tile_z_pinned_to_tile_zoom(self):
+        """Only Z17 accepted — other zooms in the old 10..20 range rejected."""
+        for z in (10, 12, 16, 18, 20):
+            self._assert_400(z, 0, 0, None, None)
+
+    def test_tile_xy_out_of_range_rejected(self):
+        n = 2 ** TILE_ZOOM
+        self._assert_400(TILE_ZOOM, -1, 0, None, None)
+        self._assert_400(TILE_ZOOM, n, 0, None, None)
+        self._assert_400(TILE_ZOOM, 0, -1, None, None)
+        self._assert_400(TILE_ZOOM, 0, n, None, None)
+
+    def test_latlng_resolves_to_tile(self):
+        z, x, y = self._resolve(None, None, None, 38.75, -9.15)
+        self.assertEqual((z, (x, y)), (TILE_ZOOM, latlng_to_tile(38.75, -9.15, TILE_ZOOM)))
+
+    def test_polar_latitudes_rejected(self):
+        """lat=-90 used to 500 (math domain error); |lat|>85.05 gave garbage rows."""
+        for bad_lat in (-90.0, 90.0, 85.06, -85.06, 89.9):
+            self._assert_400(None, None, None, bad_lat, 0.0)
+
+    def test_mercator_boundary_latitudes_accepted(self):
+        n = 2 ** TILE_ZOOM
+        for boundary_lat in (85.05, -85.05):
+            z, x, y = self._resolve(None, None, None, boundary_lat, 0.0)
+            self.assertTrue(0 <= y < n, f"lat={boundary_lat}: y={y} out of range")
+
+    def test_lng_180_clamped_to_last_column(self):
+        """lng=180 sits on the east edge of the last tile column (raw x = 2^z)."""
+        z, x, y = self._resolve(None, None, None, 0.0, 180.0)
+        self.assertEqual(x, 2 ** TILE_ZOOM - 1)
+
+    def test_missing_params_rejected(self):
+        self._assert_400(None, None, None, None, None)
+        # partial tile triplet without lat/lng falls through to the same 400
+        self._assert_400(TILE_ZOOM, 62204, None, None, None)

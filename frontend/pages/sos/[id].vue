@@ -164,8 +164,8 @@
                 />
               </ClientOnly>
 
-              <!-- Alert history -->
-              <div>
+              <!-- Alert history (members only — backend gates it too) -->
+              <div v-if="group.is_member">
                 <h3 class="font-medium text-neutral-900 dark:text-neutral-100 mb-3">
                   {{ $t('parasos.groups.alert_history') }}
                 </h3>
@@ -205,8 +205,8 @@
 
             <!-- Right: members + privacy -->
             <div class="space-y-6">
-              <!-- Members -->
-              <div>
+              <!-- Members (members only — backend gates it too) -->
+              <div v-if="group.is_member">
                 <h3 class="font-medium text-neutral-900 dark:text-neutral-100 mb-3">
                   {{ $t('parasos.groups.members') }} ({{ group.members_count }})
                 </h3>
@@ -307,6 +307,16 @@
                 {{ $t('parasos.groups.leave') }}
               </button>
 
+              <!-- Edit group (admin only) -->
+              <button
+                v-if="group.is_admin"
+                @click="openEditModal"
+                class="btn-outline btn-sm w-full"
+              >
+                <Pencil :size="16" />
+                {{ $t('parasos.groups.edit') }}
+              </button>
+
               <!-- Delete group (admin only) -->
               <button
                 v-if="group.is_admin"
@@ -383,6 +393,130 @@
             </div>
           </div>
         </Teleport>
+
+        <!-- Edit Group Modal (admin only) -->
+        <Teleport to="body">
+          <div
+            v-if="showEditModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            @click.self="showEditModal = false"
+            @keydown.esc="showEditModal = false"
+          >
+            <div role="dialog" aria-modal="true" aria-labelledby="edit-group-title" class="bg-white dark:bg-neutral-900 rounded-xl shadow-xl max-w-md w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+              <h2 id="edit-group-title" class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
+                {{ $t('parasos.groups.edit') }}
+              </h2>
+
+              <div class="space-y-4">
+                <!-- Name -->
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    {{ $t('parasos.create_group.name_label') }}
+                  </label>
+                  <input
+                    v-model="editForm.name"
+                    type="text"
+                    required
+                    class="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                  />
+                </div>
+
+                <!-- Description -->
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    {{ $t('parasos.create_group.description_label') }}
+                  </label>
+                  <textarea
+                    v-model="editForm.description"
+                    rows="3"
+                    class="w-full px-3 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm resize-none"
+                  />
+                </div>
+
+                <!-- Visibility -->
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    {{ $t('parasos.create_group.visibility_label') }}
+                  </label>
+                  <div class="flex gap-3">
+                    <button
+                      v-for="opt in editVisibilityOptions"
+                      :key="opt.value"
+                      type="button"
+                      @click="editForm.visibility = opt.value"
+                      class="flex-1 p-3 rounded-lg border text-sm text-center transition-colors"
+                      :class="editForm.visibility === opt.value
+                        ? 'border-secondary bg-secondary text-white'
+                        : 'border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800'"
+                    >
+                      <div class="font-medium">{{ opt.label }}</div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Radius (location groups only) -->
+                <div v-if="group?.center">
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    {{ $t('parasos.create_group.radius_label') }}: {{ editForm.radius_m }}m
+                  </label>
+                  <input
+                    v-model.number="editForm.radius_m"
+                    type="range"
+                    min="100"
+                    max="5000"
+                    step="100"
+                    class="w-full accent-primary"
+                  />
+                </div>
+
+                <!-- Quiet hours -->
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    {{ $t('parasos.create_group.quiet_hours_label') }}
+                  </label>
+                  <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm text-neutral-500">{{ $t('parasos.create_group.quiet_start') }}</span>
+                      <select
+                        v-model.number="editForm.quiet_hours_start"
+                        class="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm"
+                      >
+                        <option :value="null">—</option>
+                        <option v-for="h in 24" :key="h - 1" :value="h - 1">{{ String(h - 1).padStart(2, '0') }}:00</option>
+                      </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm text-neutral-500">{{ $t('parasos.create_group.quiet_end') }}</span>
+                      <select
+                        v-model.number="editForm.quiet_hours_end"
+                        class="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm"
+                      >
+                        <option :value="null">—</option>
+                        <option v-for="h in 24" :key="h - 1" :value="h - 1">{{ String(h - 1).padStart(2, '0') }}:00</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex gap-3 mt-6">
+                <button @click="showEditModal = false" class="btn-ghost flex-1">
+                  {{ $t('common.cancel') }}
+                </button>
+                <UiButton
+                  variant="primary"
+                  :loading="savingGroup"
+                  :disabled="!editForm.name"
+                  class="flex-1"
+                  @click="saveGroup"
+                >
+                  {{ $t('common.save') }}
+                </UiButton>
+              </div>
+            </div>
+          </div>
+        </Teleport>
       </div>
     </div>
   </div>
@@ -409,7 +543,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, AlertTriangle, Info, AlertCircle, Eye, Navigation, MapPin as MapPinIcon, X, Link as LinkIcon, LogOut, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, AlertTriangle, Info, AlertCircle, Eye, Navigation, MapPin as MapPinIcon, X, Link as LinkIcon, LogOut, Trash2, Pencil } from 'lucide-vue-next'
 import StaticMapPreview from '~/components/IoT/StaticMapPreview.vue'
 
 definePageMeta({ middleware: 'auth' })
@@ -439,6 +573,16 @@ const sendingSOS = ref(false)
 const joining = ref(false)
 const showLeaveConfirm = ref(false)
 const showDeleteGroupConfirm = ref(false)
+const showEditModal = ref(false)
+const savingGroup = ref(false)
+const editForm = reactive({
+  name: '',
+  description: '',
+  visibility: 'PUBLIC' as 'PUBLIC' | 'PRIVATE',
+  radius_m: 1000,
+  quiet_hours_start: null as number | null,
+  quiet_hours_end: null as number | null,
+})
 const pendingDeleteInviteId = ref<string | null>(null)
 let pendingDeleteInviteTimer: ReturnType<typeof setTimeout> | null = null
 const joinPresence = ref('LOCAL')
@@ -575,10 +719,18 @@ function _onSosEvent(data: any) {
   fetchAll()
 }
 
+// Group deleted by an admin while someone else is viewing it
+function _onGroupDeleted(data: any) {
+  if (data.group_id !== groupId) return
+  toastStore.info(t('parasos.groups.deleted'))
+  navigateTo(localePath('/sos'))
+}
+
 realtimeStore.joinRoom('parasos', groupId)
 realtimeStore.on('sos.new', _onSosEvent)
 realtimeStore.on('sos.response', _onSosEvent)
 realtimeStore.on('sos.resolved', _onSosEvent)
+realtimeStore.on('group.deleted', _onGroupDeleted)
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval)
@@ -586,6 +738,7 @@ onUnmounted(() => {
   realtimeStore.off('sos.new', _onSosEvent)
   realtimeStore.off('sos.response', _onSosEvent)
   realtimeStore.off('sos.resolved', _onSosEvent)
+  realtimeStore.off('group.deleted', _onGroupDeleted)
 })
 
 const sosForm = reactive({
@@ -647,23 +800,31 @@ function timeAgo(dateStr: string) {
 }
 
 async function fetchAll() {
-  loading.value = true
+  // Full-page loading only on first load; WS-triggered refetches keep content
+  loading.value = !group.value
   try {
     await authStore.ensureToken()
     const headers = authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}
     const opts = { credentials: 'include' as const, headers }
 
-    const [groupData, membersData, alertsData] = await Promise.all([
-      $fetch<any>(`/api/v1/parasos/groups/${groupId}/`, opts),
-      $fetch<any>(`/api/v1/parasos/groups/${groupId}/members/`, opts),
-      $fetch<any>(`/api/v1/parasos/groups/${groupId}/alerts/`, opts),
-    ])
-
+    const groupData = await $fetch<any>(`/api/v1/parasos/groups/${groupId}/`, opts)
     group.value = groupData
-    members.value = Array.isArray(membersData) ? membersData : membersData.items || []
-    const allAlerts = Array.isArray(alertsData) ? alertsData : alertsData.items || []
-    alerts.value = allAlerts
-    activeAlert.value = allAlerts.find((a: any) => a.status === 'ACTIVE') || null
+
+    // Members and alert history are members-only on the backend
+    if (groupData.is_member) {
+      const [membersData, alertsData] = await Promise.all([
+        $fetch<any>(`/api/v1/parasos/groups/${groupId}/members/`, opts),
+        $fetch<any>(`/api/v1/parasos/groups/${groupId}/alerts/`, opts),
+      ])
+      members.value = Array.isArray(membersData) ? membersData : membersData.items || []
+      const allAlerts = Array.isArray(alertsData) ? alertsData : alertsData.items || []
+      alerts.value = allAlerts
+      activeAlert.value = allAlerts.find((a: any) => a.status === 'ACTIVE') || null
+    } else {
+      members.value = []
+      alerts.value = []
+      activeAlert.value = null
+    }
 
     // If there's an active alert, fetch its details (with sender info) and my response
     if (activeAlert.value) {
@@ -678,7 +839,13 @@ async function fetchAll() {
     }
     // Fetch invites for admin
     await fetchInvites()
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.status === 404 || e?.statusCode === 404) {
+      // Deleted or private group — nothing to show here
+      toastStore.error(t('parasos.errors.fetch_group'))
+      navigateTo(localePath('/sos'))
+      return
+    }
     console.error('Failed to fetch group:', e)
     toastStore.error(t('parasos.errors.fetch_group'))
   } finally {
@@ -783,6 +950,7 @@ async function leaveGroup() {
       headers: { Authorization: `Bearer ${authStore.token}` },
     })
     toastStore.success(t('parasos.groups.left'))
+    realtimeStore.leaveRoom('parasos', groupId)
     navigateTo(localePath('/sos'))
   } catch (e: any) {
     const msg = e?.data?.detail || e?.data?.message || t('parasos.errors.leave_group')
@@ -800,9 +968,56 @@ async function deleteGroup() {
       headers: { Authorization: `Bearer ${authStore.token}` },
     })
     toastStore.success(t('parasos.groups.deleted'))
+    realtimeStore.leaveRoom('parasos', groupId)
     navigateTo(localePath('/sos'))
   } catch (e: any) {
     toastStore.error(e.data?.message || e.data?.detail || t('parasos.errors.delete_group'))
+  }
+}
+
+const editVisibilityOptions = computed(() => [
+  { value: 'PUBLIC', label: t('parasos.create_group.visibility_public') },
+  { value: 'PRIVATE', label: t('parasos.create_group.visibility_private') },
+])
+
+function openEditModal() {
+  if (!group.value) return
+  editForm.name = group.value.name
+  editForm.description = group.value.description || ''
+  editForm.visibility = group.value.visibility
+  editForm.radius_m = group.value.radius_m || 1000
+  editForm.quiet_hours_start = group.value.quiet_hours_start ?? null
+  editForm.quiet_hours_end = group.value.quiet_hours_end ?? null
+  showEditModal.value = true
+}
+
+async function saveGroup() {
+  if (!editForm.name) return
+  savingGroup.value = true
+  try {
+    await authStore.ensureToken()
+    const body: Record<string, any> = {
+      name: editForm.name,
+      description: editForm.description,
+      visibility: editForm.visibility,
+      // Explicit null clears quiet hours on the backend (PATCH semantics)
+      quiet_hours_start: editForm.quiet_hours_start,
+      quiet_hours_end: editForm.quiet_hours_end,
+    }
+    if (group.value?.center) body.radius_m = editForm.radius_m
+    await $fetch(`/api/v1/parasos/groups/${groupId}/`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${authStore.token}` },
+      body,
+    })
+    showEditModal.value = false
+    toastStore.success(t('parasos.groups.updated'))
+    await fetchAll()
+  } catch (e: any) {
+    toastStore.error(e.data?.message || e.data?.detail || t('parasos.errors.update_group'))
+  } finally {
+    savingGroup.value = false
   }
 }
 
@@ -856,7 +1071,11 @@ async function deleteInvite(inviteId: string) {
 }
 
 function copyInviteLink(token: string) {
-  const url = `${window.location.origin}${localePath(`/sos/join/${token}`)}`
+  // Locale-neutral on purpose: the link goes to OTHER people. A locale-prefixed
+  // URL (e.g. /ru/...) forces the copier's language onto every recipient AND
+  // persists it via the i18n cookie; the unprefixed URL lets the recipient's
+  // own profile language apply after load.
+  const url = `${window.location.origin}/sos/join/${token}`
   navigator.clipboard.writeText(url)
   copiedToken.value = token
   setTimeout(() => { copiedToken.value = '' }, 2000)

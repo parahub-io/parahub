@@ -41,6 +41,7 @@ from .feed_pubsub import FeedPubSubManager
 from parahub.services.transit_eta import (
     parse_rstops, segment_averages, segment_infos, build_index_map,
     resolve_origin, cumulative_min_etas, zombie_keeps_eta,
+    remaining_segment_fraction, origin_with_fraction, parked_beyond_grace,
 )
 
 logger = logging.getLogger(__name__)
@@ -378,7 +379,8 @@ class TransitConsumer(AsyncWebsocketConsumer):
                         if d not in dir_data:
                             continue
                         vid = key[len(vprev_prefix):] if isinstance(key, str) else key.decode()[len(vprev_prefix):]
-                        tracked.append((vid, d, int(state.get('idx', 0)), float(state.get('mt') or 0)))
+                        tracked.append((vid, d, int(state.get('idx', 0)),
+                                        float(state.get('mt') or 0), float(state.get('dw') or 0)))
 
                 if cursor == 0:
                     break
@@ -392,9 +394,10 @@ class TransitConsumer(AsyncWebsocketConsumer):
             #     agrees with the STT idx (timing point): still a live arrival,
             #     and a consistent sid can't paint a bogus chain (zombie_keeps_eta).
             sid_by_vid = {}
+            latlon_by_vid = {}
             zombie_vids = set()
             if tracked:
-                fields = [f'{ds_id}:{vid}' for vid, _, _, _ in tracked]
+                fields = [f'{ds_id}:{vid}' for vid, *_ in tracked]
                 vals = await self._redis.hmget('transit:vdata', *fields)
                 for (vid, _, _, _), raw in zip(tracked, vals):
                     if not raw:
@@ -407,11 +410,12 @@ class TransitConsumer(AsyncWebsocketConsumer):
                         zombie_vids.add(vid)
                     if vv.get('sid'):
                         sid_by_vid[vid] = vv['sid']
+                    latlon_by_vid[vid] = (vv.get('lat'), vv.get('lon'))
 
             vehicle_by_dir = {d: [] for d in dir_data}
             useful_tracked_vids = set()  # vehicle IDs contributing non-terminal ETAs
             now_ts = time.time()
-            for vid, d, stt_idx, move_ts in tracked:
+            for vid, d, stt_idx, move_ts, dwell_s in tracked:
                 sid = sid_by_vid.get(vid)
                 # Hard feed evidence overrides an unconfirmed STT direction: a vehicle
                 # whose snapped stop is a platform of the OPPOSITE direction (a shared
@@ -427,8 +431,13 @@ class TransitConsumer(AsyncWebsocketConsumer):
                     now_ts, move_ts, sid, stt_idx, dir_idxmap[d],
                 ):
                     continue
+                # Parked past grace but never zombie-flagged (GPS micro-moves
+                # keep resetting mt): no chain — see parked_beyond_grace.
+                if parked_beyond_grace(now_ts, move_ts, dwell_s):
+                    continue
                 origin = resolve_origin(sid, stt_idx, dir_idxmap[d])
-                vehicle_by_dir[d].append(origin)
+                lat, lon = latlon_by_vid.get(vid, (None, None))
+                vehicle_by_dir[d].append(origin_with_fraction(origin, lat, lon, dir_coords[d]))
                 if origin < len(dir_data[d]) - 1:
                     useful_tracked_vids.add(vid)
 
@@ -437,7 +446,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
             #     coords). Only for vehicles not already contributing useful ETAs.
             directions_missing = [
                 d for d in dir_data
-                if not any(idx < len(dir_data[d]) - 1 for idx in vehicle_by_dir.get(d, []))
+                if not any(o < len(dir_data[d]) - 1 for o, _ in vehicle_by_dir.get(d, []))
             ]
             if directions_missing:
                 now_ts = time.time()
@@ -473,9 +482,9 @@ class TransitConsumer(AsyncWebsocketConsumer):
                         if v_dir not in directions_missing:
                             continue
                         sid = v.get('sid')
+                        vlat, vlon = v.get('lat'), v.get('lon')
                         origin = dir_idxmap[v_dir].get(sid) if sid else None
                         if origin is None:
-                            vlat, vlon = v.get('lat'), v.get('lon')
                             if vlat is None or vlon is None:
                                 continue
                             # Find nearest stop by coordinates
@@ -487,7 +496,8 @@ class TransitConsumer(AsyncWebsocketConsumer):
                                     best_dist = d2
                                     best_idx = i
                             origin = best_idx
-                        vehicle_by_dir[v_dir].append(origin)
+                        vehicle_by_dir[v_dir].append(
+                            origin_with_fraction(origin, vlat, vlon, dir_coords[v_dir]))
 
             # 4. Compute cumulative ETAs per direction
             result = {}
@@ -541,13 +551,19 @@ class TransitConsumer(AsyncWebsocketConsumer):
         # mode may expose them — but are never displayed on the map.
         cutoff = time.time() - 180
         vehicles = []
-        for raw in raw_values:
+        for member, raw in zip(members, raw_values):
             if raw:
                 try:
                     v = orjson.loads(raw)
                 except (orjson.JSONDecodeError, TypeError):
                     continue
                 if v.get('t', 0) >= cutoff:
+                    # Stamp the feed id so the client keys vehicles by
+                    # {ds}:{vid}. Fleet numbers collide across operators (Carris
+                    # and STCP both run a bus 2963); keyed on the raw vehicle_id
+                    # alone the two merge into one icon/trail that teleports
+                    # between cities. The GEO member is already '{ds_id}:{vid}'.
+                    v['ds'] = member.split(':', 1)[0]
                     vehicles.append(v)
 
         await self.send(text_data=orjson.dumps({
@@ -712,6 +728,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
             seq_results = await pipe.execute()
 
             route_seqs = {}      # (route_src, dir) → source_ids
+            route_coords = {}    # (route_src, dir) → [(lat, lon), ...]
             route_idxmap = {}
             route_sched = {}
             target_idx = {}
@@ -719,11 +736,12 @@ class TransitConsumer(AsyncWebsocketConsumer):
                 parsed = parse_rstops(raw)
                 if not parsed:
                     continue
-                source_ids, _coords, sched = parsed
+                source_ids, coords, sched = parsed
                 if stop_src not in source_ids:
                     continue
                 key = (route_src, dir_id)
                 route_seqs[key] = source_ids
+                route_coords[key] = coords
                 route_idxmap[key] = build_index_map(source_ids)
                 route_sched[key] = sched
                 target_idx[key] = source_ids.index(stop_src)
@@ -763,7 +781,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
                         pipe.hgetall(k)
                     states = await pipe.execute()
 
-                    cands = []  # (vid, route_key, v_idx, move_ts)
+                    cands = []  # (vid, route_key, v_idx, move_ts, dwell_s)
                     for k, state in zip(keys, states):
                         if not state or state.get('st') != 'c':
                             continue
@@ -771,12 +789,13 @@ class TransitConsumer(AsyncWebsocketConsumer):
                         if route_key not in target_idx:
                             continue
                         vid = k[len(vprev_prefix):] if isinstance(k, str) else k.decode()[len(vprev_prefix):]
-                        cands.append((vid, route_key, int(state.get('idx', 0)), float(state.get('mt') or 0)))
+                        cands.append((vid, route_key, int(state.get('idx', 0)),
+                                      float(state.get('mt') or 0), float(state.get('dw') or 0)))
 
                     if cands:
-                        fields = [f'{ds_id}:{vid}' for vid, _, _, _ in cands]
+                        fields = [f'{ds_id}:{vid}' for vid, *_ in cands]
                         vals = await self._redis.hmget('transit:vdata', *fields)
-                        for (vid, route_key, v_idx, move_ts), raw in zip(cands, vals):
+                        for (vid, route_key, v_idx, move_ts, dwell_s), raw in zip(cands, vals):
                             vdata = {}
                             if raw:
                                 try:
@@ -788,6 +807,10 @@ class TransitConsumer(AsyncWebsocketConsumer):
                                 now_ts, move_ts, vdata.get('sid'), v_idx, idxmap,
                             ):
                                 continue
+                            # Parked past grace but never zombie-flagged (GPS
+                            # micro-moves keep resetting mt): no chain either.
+                            if parked_beyond_grace(now_ts, move_ts, dwell_s):
+                                continue
                             origin = resolve_origin(vdata.get('sid'), v_idx, idxmap)
                             tgt = target_idx[route_key]
                             if origin >= tgt:
@@ -798,7 +821,12 @@ class TransitConsumer(AsyncWebsocketConsumer):
                             chain = (await seg_infos_for(route_key))[origin:tgt]
                             if not chain:
                                 continue
-                            eta_seconds = sum(s['avg'] for s in chain)
+                            seg_coords = route_coords[route_key]
+                            origin_frac = remaining_segment_fraction(
+                                vdata.get('lat'), vdata.get('lon'),
+                                seg_coords[origin], seg_coords[origin + 1],
+                            ) if origin + 1 < len(seg_coords) else 1.0
+                            eta_seconds = chain[0]['avg'] * origin_frac + sum(s['avg'] for s in chain[1:])
                             if eta_seconds <= 0:
                                 continue
                             results.append({

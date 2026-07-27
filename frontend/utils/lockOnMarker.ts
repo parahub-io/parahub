@@ -7,25 +7,41 @@
  *   const el = createLockOnElement()
  *   new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lon, lat]).addTo(map)
  *
- * CSS is in MapRoutingPanel.vue (unscoped, global).
+ * CSS is in MapRoutingPanel.vue (unscoped, global) — shared with createStopRevealElement.
  */
 
-export function createLockOnElement(options?: { iconUrl?: string, clickable?: boolean, noDot?: boolean }): HTMLDivElement {
+export function createLockOnElement(options?: { iconUrl?: string, clickable?: boolean }): HTMLDivElement {
   const el = document.createElement('div')
   el.className = 'geocode-preview-marker'
   if (options?.clickable) {
     el.style.pointerEvents = 'auto'
     el.style.cursor = 'pointer'
   }
-  // Flat-top hexagon (honeycomb cell) — regular hex inscribed in 100×100 viewBox
+  // Flat-top hexagon (honeycomb cell) — regular hex inscribed in 100×100 viewBox.
+  // Zoom (bracket) and spin are separate nested elements: two animations on one
+  // element's transform suppress each other's interpolation on the compositor.
   const hex = '<svg viewBox="0 0 100 100" style="width:100%;height:100%"><polygon points="27,9 73,9 97,50 73,91 27,91 3,50" fill="none" stroke="currentColor" stroke-width="5"/></svg>'
   const center = options?.iconUrl
     ? `<img src="${options.iconUrl}" alt="" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:18px;object-fit:contain;z-index:4;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.4))">`
-    : options?.noDot ? '' : '<div class="geocode-preview-dot"></div>'
+    : ''
   el.innerHTML = `<div class="geocode-preview-container">
-    <div class="geocode-preview-bracket geocode-preview-b1">${hex}</div>
+    <div class="geocode-preview-bracket geocode-preview-b1"><div class="geocode-preview-spin">${hex}</div></div>
     ${center}
   </div>`
+  return el
+}
+
+/**
+ * Transient brand-hex flourish for the staggered route-stop reveal sweep.
+ * A single flat-top hexagon that scales in from ~2.6x, settles onto the stop,
+ * then fades — one-shot, self-removed by the caller. Same honeycomb geometry as
+ * the lock-on marker; animation lives in MapRoutingPanel.vue (`stop-reveal-in`).
+ */
+export function createStopRevealElement(): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = 'stop-reveal-marker'
+  const hex = '<svg viewBox="0 0 100 100" style="width:100%;height:100%"><polygon points="27,9 73,9 97,50 73,91 27,91 3,50" fill="none" stroke="currentColor" stroke-width="6"/></svg>'
+  el.innerHTML = `<div class="stop-reveal-hex">${hex}</div>`
   return el
 }
 

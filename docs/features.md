@@ -9,6 +9,9 @@ Everything listed here is implemented and running in production at [parahub.io](
 ### Multi-Profile Identity
 One account, up to 7 profiles (1 primary + 6 additional). Profile types: personal and pseudonymous. Each profile has its own reputation, items, contracts, and activity. ULID-based identifiers (26-character, globally unique, time-sortable). Human-readable addresses: `username@parahub.io`.
 
+### Name Privacy by Default
+A profile's real name is private by default -- the public sees only the `@handle`, while the real name is revealed to the owner and to Web-of-Trust-verified viewers. The legal name is only needed at the moment of commitment (a signed contract), not while browsing. A single "show my name publicly" toggle opts out, and the gate applies consistently across listings, events, reviews, comments, contracts, condominium and treasury pages, and chat and video calls.
+
 ### Web of Trust (WoT)
 Decentralized identity verification. 3+ confirmations from verified users required. 10 hierarchical trust levels (Anonymous → Authenticated → Has Profile → Personal/Pseudonymous → Verified → Apoiante → Efetivo → Fundador → Administrator) with a granular permission matrix. Fake account verified = all 3 verifiers auto-banned.
 
@@ -58,7 +61,7 @@ Dual-channel: WebSocket (real-time, browser open) + Web Push (browser closed). P
 ## Maps and Geography
 
 ### Interactive Map
-MapLibre GL JS with self-hosted OpenStreetMap vector tiles (Martin). Self-hosted font glyphs (no external CDN). KeepAlive for instant tab switching without tile reload. Canvas snapshot restore for instant map redraw. Live local weather overlay (temperature and conditions) in the map corner.
+MapLibre GL JS with self-hosted OpenStreetMap vector tiles (Martin). Self-hosted font glyphs (no external CDN). KeepAlive for instant tab switching without tile reload. Canvas snapshot restore for instant map redraw. Live local weather overlay (temperature and conditions) in the map corner. Toggleable OpenStreetMap points of interest and, in Portugal, an opt-in DGT satellite (orthophoto) basemap. A Sun Study overlay shows the sun's position and a phase-accurate moon (illumination, rise/set) for a location and time. An Environment layer puts community weather and air-quality stations on the map, each with a live instrument readout (and a wind compass where the station measures direction).
 
 ### Geocoding
 Pelias with 213M documents, planet-wide coverage. Geographic bias via focus.point. Reverse geocoding for coordinates to addresses.
@@ -80,10 +83,13 @@ Real-time MMORPG-style avatars on the map. Redis GEOHASH for spatial indexing. W
 Multiple transit feeds across cities worldwide, each with real-time vehicle tracking. Thousands of routes and stops. Auto-updated weekly via systemd timer with SHA256 hash caching. gtfstidy preprocessing for feed normalization. Multi-URL support for agencies with split feeds.
 
 ### Real-Time Vehicle Tracking
-GTFS-RT feeds processed via asyncio pipeline. 30-second refresh cycle. Live vehicle positions on map. WebSocket broadcast by zoom-14 tiles. TimescaleDB for position history (1-day chunks, 7-day retention). Driver Mode vehicles injected into the same pipeline.
+GTFS-RT feeds processed via asyncio pipeline. 30-second refresh cycle. Live vehicle positions on map, animated smoothly with optional comet trails. WebSocket broadcast by zoom-14 tiles. TimescaleDB for position history (1-day chunks, 7-day retention). Driver Mode vehicles injected into the same pipeline. A durable feed-health log reports downtime by cause.
 
 ### ETA Engine
-Segment travel time tracking with rolling observations. Schedule-based arrival predictions. Direction detection and zombie vehicle filtering. Route visualization with stop markers. SEO-friendly slug URLs for routes and stops.
+Segment travel time tracking with rolling observations (robust median estimates). Schedule-based arrival predictions with a near-stop correction so countdowns don't overshoot. Direction detection and zombie vehicle filtering. Route visualization with dual-direction stop markers. SEO-friendly slug URLs for routes and stops. Prediction quality is checked against observed ground truth with a replayable backtest harness.
+
+### Timetables and Interchanges
+Branded, printable PDF timetables per route, with seasonal services shown as separate columns. Static-only rail and ferry feeds (e.g. CP, Transtejo) appear as interchanges on multimodal routes, and nearby rail, bus, and ferry stops that share a location are grouped into a single interchange point. Route and stop pages are indexed for search.
 
 ### GTFS Relay
 Public endpoints serve cached GTFS static ZIPs and GTFS-RT protobuf/JSON by feed slug. Third-party apps can consume Parahub's transit data without accessing upstream feeds directly.
@@ -94,6 +100,9 @@ Public endpoints serve cached GTFS static ZIPs and GTFS-RT protobuf/JSON by feed
 
 ### Liquid Democracy
 Multiple-choice polls with PGP-signed votes. Transitive delegation chains (delegate your vote to someone who delegates to someone else). Merkle tree audit log for verifiability. Security-audited (TOCTOU race conditions fixed). Real-time updates via WebSocket.
+
+### Civic Opinion Polls
+A non-binding opinion barometer scoped to where you live -- parish, município, region, country, or the whole EU. Territorial opinion votes are stored unlinked from your profile (with an explicit, plain-words consent step), results are shown only in groups (k-anonymity), and each vote comes with a counted-as-cast receipt you can verify without revealing your choice. Standing delegations let you hand your voice on a whole topic or territory to someone you trust, overridable anytime. Household and condominium ballots cover small shared decisions, a citizen-ideas pipeline promotes well-supported proposals into polls, and EU polls display an honest momentum gauge toward the European Citizens' Initiative threshold. Curated poll text is hand-authored in all six languages. See [Governance](modules/governance.md).
 
 ### Treasury
 Per-establishment participatory budgets. Median voting with interactive sliders. Monthly budget epochs with freeze mechanism. Merkle audit chain. Real-time updates via WebSocket.
@@ -158,6 +167,9 @@ Breez SDK Spark (client-side WASM, non-custodial). The wallet runs entirely in t
 ### Recurring Support (Subscriptions)
 Commit to support a profile every month with a fixed Lightning amount -- a non-custodial, no-escrow recurring-support primitive. Because Lightning is push-only, each cycle is a one-tap re-payment from a reminder, sent directly to the recipient (**no auto-pull, no platform cut** -- the recipient keeps ~100%). An active subscription can unlock the recipient's subscribers-only blog posts. "Support monthly" button on any profile; cancel anytime, with access lasting until the paid period ends. Daily background job handles lapsing and renewal reminders.
 
+### Bearer Bitcoin Notes (Printed Tips)
+Small bearer notes funded from your own wallet and given away as a link or printed on paper. Each note is its own tiny wallet: the secret is generated in your browser, and whoever holds the note can cash it out to any Lightning, Spark, or on-chain address -- no account, and no wallet of their own, needed. That makes it a way to pay someone who has no address to give you yet. A note that nobody claims comes back to you by itself when its expiry passes, and you cannot pull it back before then. Nine notes fit on an A4 sheet; a batch can equally be handed out as a list of links. See [Bearer Notes](modules/tips.md).
+
 ### Para-Ads
 P2P advertising system. Advertisers pay users directly via Lightning micropayments. Banner image upload (auto-resized 1200x630, JPEG 85%). Rich text content via TipTap editor. Linked content: campaigns can reference a marketplace Item or Establishment. Geo-targeting, interest targeting (18 interests, 26 skills), and demographic targeting. Users control which ad categories they see. Yellow reward badge on feed cards. Only verified users earn rewards.
 
@@ -165,7 +177,7 @@ P2P advertising system. Advertisers pay users directly via Lightning micropaymen
 
 ## Mesh Networking
 
-OpenWrt 25.x firmware. Two profiles: Bumblebee (L3 gateway, full stack) and Bee (L2 relay, minimal). Supported devices: AXT1800, MT3000, MT6000, AX53U, Cudy AP3000 Outdoor V1 (Bumblebee); AR300M16, CPE710 (Bee). batman-adv mesh + Yggdrasil overlay + WireGuard VPS gateway. Private WiFi with 802.11r/k/v roaming. Free WiFi with speed control (512kbps free, full speed paid via Lightning). Yggdrasil inbound ACL for secure IPv6 access. Anycast gateway for reliable node discovery. OTA auto-updates with SHA256 verification. Heartbeat API. Coverage map. Separate repository (`parahub-mesh/`).
+OpenWrt 25.x firmware. Two profiles: Bumblebee (L3 gateway, full stack) and Bee (L2 relay, minimal). Supported devices: AXT1800, MT3000, MT6000, AX53U, Cudy AP3000 Outdoor V1 (Bumblebee); AR300M16, CPE710 (Bee). batman-adv mesh + Yggdrasil overlay + WireGuard VPS gateway. Private WiFi with 802.11r/k/v roaming. Free WiFi with speed control (512 kbps per guest by default, owner-adjustable; full speed paid via Lightning). Yggdrasil inbound ACL for secure IPv6 access. Anycast gateway for reliable node discovery. OTA auto-updates with SHA256 verification. Heartbeat API. Coverage map. Separate repository (`parahub-mesh/`).
 
 ---
 
@@ -189,7 +201,7 @@ P2P solar energy distribution via ACC groups (Decreto-Lei 15/2022, Portugal). En
 
 ## Aerial Imagery (OpenSky)
 
-Community drone mapping protocol. JPG-only upload (batch up to 50 files / 500MB) with ODM (OpenDroneMap) processing. ZIP upload was removed. Automatic tile generation with auto-alignment to existing missions. 3D mesh generation with Draco compression and WebP textures (typical 12x size reduction). GLB download and fullscreen three.js viewer. KMZ flight plan generator for DJI drones (snake pattern, 75% overlap) with oblique angle support. Mission management and season comparison via web dashboard.
+Community drone mapping protocol. JPG-only upload (batch up to 50 files / 500MB) with ODM (OpenDroneMap) processing. ZIP upload was removed. Automatic tile generation with auto-alignment to existing missions. 3D mesh generation with Draco compression and WebP textures (typical 12x size reduction). GLB download and fullscreen three.js viewer. KMZ flight plan generator for DJI drones (snake pattern, 80% overlap for the nadir pass, 70% for obliques). Mission management and season comparison via web dashboard.
 
 ---
 
@@ -225,6 +237,12 @@ Browser-based GPS broadcasting for transit vehicles. Verified drivers (WoT 3+) s
 
 ### Tracker Pipeline
 Traccar integration for personal GPS trackers. Zero PostgreSQL writes in the hot path: Traccar webhook -> Redis (GEOADD/HSET/PUBLISH) -> TimescaleDB batch insert every 60 seconds. WebSocket for real-time map overlay. Transit bridge: if a tracker device has an active vehicle assignment, positions also appear on the transit layer.
+
+### Environmental Stations
+Connect your own weather station or air-quality sensor and it becomes a live point on the map. Whatever the device measures is picked up automatically: temperature, humidity, pressure, wind speed and direction, rain, solar and UV, particulates, CO2, and volatile-compound indices. Air quality is shown as a standard AQI badge with colour. Readings arrive either pushed by the device or polled over a nearby mesh node, so a sensor on a mesh network needs no configuration at all. A year of history with charts and raw CSV export. Publishing a station on the public map is opt-in, and showing your name next to it is a second, separate choice. Ecowitt and AirGradient devices supported.
+
+### Device Sharing
+Every device you register -- mesh router, GPS tracker, sensor -- can be shared with another profile as viewer or manager without giving up ownership, and handed over entirely with an ownership transfer that optionally leaves you manager access. New mesh routers are claimed by typing the full hardware address from the sticker, which proves you physically hold the device; there is deliberately no browsable list of unclaimed devices. Ownership changes are written to a log.
 
 ### Property ("My Home")
 Personal property management. 7 property types (house, apartment, land, office, dacha, garage, other). Inline map picker for location. Optional WorldObject FK with auto-filled address. Territory polygon for boundaries. Cross-system integration: IoT devices, Home Assistant homes, energy producers/consumers, and contracts can link to a property. Photo upload. GeoJSON map layer.

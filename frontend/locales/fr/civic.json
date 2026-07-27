@@ -8,9 +8,17 @@
       "municipality": "Commune",
       "region": "Région",
       "country": "Pays",
+      "eu": "UE",
       "groups": "Groupes",
       "household": "Maison",
       "condominium": "Copropriété"
+    },
+    "eci": {
+      "title": "Initiative citoyenne européenne",
+      "supporters": "{n} sur {total}",
+      "countries": "{n}/{total} pays",
+      "disclaimer": "Soutien, pas des signatures officielles",
+      "disclaimerHint": "Cette jauge montre le soutien à l'échelle d'une Initiative citoyenne européenne (1 000 000 de personnes dans au moins 7 pays). Ce sont des votes anonymes de baromètre, pas des signatures officielles vérifiées — si le soutien atteint une masse critique, une ICE formelle peut être lancée séparément."
     },
     "feed": {
       "participation": "{n} votes",
@@ -20,7 +28,11 @@
       "emptyScopeHint": "Les sondages apparaîtront ici dès qu'ils seront créés pour votre zone",
       "needResidency": "Indiquez votre paroisse pour voir les sondages locaux",
       "needResidencyAction": "Choisir l'emplacement",
-      "loginToSee": "Connectez-vous pour voir les sondages de votre zone"
+      "loginToSee": "Connectez-vous pour voir les sondages de votre zone",
+      "hideVoted": "Masquer les sondages votés",
+      "showVoted": "Afficher les sondages votés",
+      "showAll": "Tout afficher ({n})",
+      "history": "Terminés"
     },
     "destination": "Où va le résultat",
     "outcome": "Résultat final",
@@ -70,7 +82,11 @@
       "save": "Enregistrer l'emplacement",
       "saved": "Emplacement enregistré",
       "cooldown": "L'emplacement pourra être modifié après le {date}",
-      "notSet": "Non défini"
+      "notSet": "Non défini",
+      "voteAs": "Vous votez en tant que résident de {name}",
+      "change": "Modifier",
+      "suggestTitle": "Votre paroisse — d'après vos lieux",
+      "suggestHint": "Paroisses déterminées d'après l'emplacement de vos propriétés. Confirmez-en une — elle deviendra votre localisation civique pour les sondages locaux."
     },
     "privacy": {
       "title": "Mes données civiques",

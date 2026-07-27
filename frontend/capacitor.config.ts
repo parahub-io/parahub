@@ -19,7 +19,8 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchAutoHide: true,
       launchShowDuration: 1500,
-      backgroundColor: '#eab308', // Parahub yellow
+      backgroundColor: '#FFE216', // Parahub yellow
+      layoutName: 'launch_screen', // yellow bg + centered logo + wordmark, mirrors the Android 12+ system splash
       showSpinner: false,
     },
     SystemBars: {

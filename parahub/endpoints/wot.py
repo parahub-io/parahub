@@ -213,14 +213,33 @@ def search_users(request, q: str):
         return {"results": [], "error": str(e)}
 
 
+# Distinct people whose photo one verifier may open per window. Sized for the
+# heaviest real use — an in-person session at a meetup or a presentation, where a
+# verifier checks one visitor every couple of minutes — while making enumeration of
+# the member base slow, capped, logged and visible to every person enumerated.
+# Re-opening the SAME person's photo never counts: only distinct targets do.
+PHOTO_TARGETS_PER_HOUR = 60
+PHOTO_TARGETS_PER_DAY = 200
+
+
 @wot_router.get("/verification-photo/{profile_id}/", auth=ProfileAuth())
 @ratelimit(group='wot:verification_photo', key=user_or_ip, rate='30/m')
 def get_verification_photo(request, profile_id: str):
     """
     Serve verification photo to authorized verifiers only.
     Uses X-Accel-Redirect for nginx internal redirect (private media).
+
+    Every fetch is recorded in VerificationPhotoAccess and the subject is notified
+    (once per viewer per day): the endpoint takes any profile id, so the trail —
+    not the gate — is what keeps a verifier from quietly browsing everyone's
+    biometric photo. The distinct-target quota is counted off the same rows.
     """
+    from datetime import timedelta
+
     from django.http import HttpResponse
+    from django.utils import timezone
+
+    from identity.models import VerificationPhotoAccess
 
     verifier = request.auth_profile
 
@@ -237,6 +256,42 @@ def get_verification_photo(request, profile_id: str):
         vp = ProfileVerificationPhoto.objects.get(profile=target, biometric_consent=True)
     except ProfileVerificationPhoto.DoesNotExist:
         raise HttpError(404, "No verification photo found for this profile")
+
+    now = timezone.now()
+    is_owner = verifier.id == target.id
+    if not is_owner:
+        recent = VerificationPhotoAccess.objects.filter(
+            viewer=verifier, created_at__gte=now - timedelta(days=1)
+        )
+        seen_today = set(recent.values_list('target_profile_id', flat=True))
+        seen_last_hour = set(
+            recent.filter(created_at__gte=now - timedelta(hours=1))
+            .values_list('target_profile_id', flat=True)
+        )
+
+        # A repeat look at someone already opened in the window is free — the quota
+        # exists to bound how many *different* people one verifier can pull up.
+        if target.id not in seen_last_hour and len(seen_last_hour) >= PHOTO_TARGETS_PER_HOUR:
+            logger.warning(f"Verification photo quota (hour) hit by {verifier.id}")
+            raise HttpError(429, "Hourly limit on distinct verification photos reached")
+        if target.id not in seen_today and len(seen_today) >= PHOTO_TARGETS_PER_DAY:
+            logger.warning(f"Verification photo quota (day) hit by {verifier.id}")
+            raise HttpError(429, "Daily limit on distinct verification photos reached")
+
+        VerificationPhotoAccess.objects.create(
+            viewer=verifier, target_profile=target,
+            ip_address=request.META.get('REMOTE_ADDR') or None,
+        )
+        logger.info(f"Verification photo viewed: {verifier.id} -> {target.id}")
+
+        # One notice per viewer per day — a verification session reopens the photo
+        # several times, the subject should hear about it once.
+        if target.id not in seen_today:
+            try:
+                from notifications.services import notify_verification_photo_viewed
+                notify_verification_photo_viewed(target.account, verifier)
+            except Exception:
+                logger.exception("Failed to notify verification photo view")
 
     # X-Accel-Redirect for nginx (serves from internal /media/private/)
     response = HttpResponse(content_type='image/jpeg')

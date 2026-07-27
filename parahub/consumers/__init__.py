@@ -5,6 +5,7 @@ WebSocket consumers for Parahub real-time features.
 from .agent_voice import AgentVoiceConsumer
 from .base import AuthenticatedJsonWebsocketConsumer
 from .driver import DriverConsumer
+from .env import EnvStationConsumer
 from .federation import FederationConsumer
 from .map_presence import MapPresenceConsumer
 from .public import PublicConsumer
@@ -17,6 +18,7 @@ __all__ = [
     'AgentVoiceConsumer',
     'AuthenticatedJsonWebsocketConsumer',
     'DriverConsumer',
+    'EnvStationConsumer',
     'FederationConsumer',
     'MapPresenceConsumer',
     'PublicConsumer',

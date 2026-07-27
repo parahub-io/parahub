@@ -235,6 +235,11 @@ def _format_opensky_mission(mission, detailed: bool = False) -> dict:
         'processing_step': mission.processing_step or '',
         'mesh_status': mission.mesh_status,
         'satellite_align': mission.satellite_align,
+        # Z17 planning-grid cell (same numbers as the /map mission-planning grid
+        # labels and the OpenSky_Z17_{x}_{y} KMZ filename); NULL for consolidations
+        'tile_z': mission.tile_z,
+        'tile_x': mission.tile_x,
+        'tile_y': mission.tile_y,
         'license': mission.license,
     }
 
@@ -282,6 +287,43 @@ def _validate_tile_spread(gps_coords: list, tile_center_lat: float, tile_center_
 
 # ===== Endpoints =====
 
+def _resolve_mission_tile(tile_z, tile_x, tile_y, lat, lng):
+    """
+    Validate and resolve the target tile for mission generation from either
+    explicit (tile_z, tile_x, tile_y) or a (lat, lng) point.
+
+    tile_z is pinned to TILE_ZOOM: Z17 is the mission unit product-wide
+    (model tile coords, covered-tiles, ortho clipping), and lower zooms
+    would generate multi-million-waypoint patterns (a z10 tile is ~30km
+    wide — ~1.7M waypoints, gigabytes of WPML per request). Latitude is
+    bounded to the Web Mercator domain: beyond ±85.05° the slippy-map
+    math yields out-of-range rows (and a math domain error at lat=-90).
+    """
+    from geo.mission_generator import latlng_to_tile, TILE_ZOOM
+
+    if tile_z is not None and tile_x is not None and tile_y is not None:
+        if tile_z != TILE_ZOOM:
+            raise HttpError(400, f"tile_z must be {TILE_ZOOM}")
+        n = 1 << tile_z
+        if not (0 <= tile_x < n):
+            raise HttpError(400, f"tile_x must be between 0 and {n - 1}")
+        if not (0 <= tile_y < n):
+            raise HttpError(400, f"tile_y must be between 0 and {n - 1}")
+        return tile_z, tile_x, tile_y
+
+    if lat is not None and lng is not None:
+        if not (-85.05 <= lat <= 85.05):
+            raise HttpError(400, "Latitude must be between -85.05 and 85.05 (Web Mercator range)")
+        if not (-180 <= lng <= 180):
+            raise HttpError(400, "Longitude must be between -180 and 180")
+        tile_x, tile_y = latlng_to_tile(lat, lng, TILE_ZOOM)
+        # lng=180 sits on the east edge of the last column (x would land at 2^z)
+        tile_x = min(tile_x, (1 << TILE_ZOOM) - 1)
+        return TILE_ZOOM, tile_x, tile_y
+
+    raise HttpError(400, "Provide (tile_z, tile_x, tile_y) or (lat, lng)")
+
+
 @router.get("/opensky/mission/", auth=ProfileAuth())
 @ratelimit(group='opensky:generate', key=user_or_ip, rate='10/m')
 def generate_opensky_mission(
@@ -294,31 +336,15 @@ def generate_opensky_mission(
     name: Optional[str] = None
 ):
     """
-    Generate ZIP with 2 KMZ flight plans (nadir + oblique) for a single Z17 tile.
+    Generate ZIP with 5 KMZ flight plans (nadir + 4 cardinal obliques) for a single Z17 tile.
 
     Accepts (tile_z, tile_x, tile_y) or (lat, lng) which is converted to tile.
-    Returns: ZIP file with 2 KMZ files + README
+    Returns: ZIP file with 5 KMZ files + README
     """
     from django.http import HttpResponse
-    from geo.mission_generator import generate_tile_zip, calculate_tile_stats, latlng_to_tile, TILE_ZOOM
+    from geo.mission_generator import generate_tile_zip, calculate_tile_stats
 
-    if tile_z is not None and tile_x is not None and tile_y is not None:
-        n = 2 ** tile_z
-        if not (10 <= tile_z <= 20):
-            raise HttpError(400, "tile_z must be between 10 and 20")
-        if not (0 <= tile_x < n):
-            raise HttpError(400, f"tile_x must be between 0 and {n - 1}")
-        if not (0 <= tile_y < n):
-            raise HttpError(400, f"tile_y must be between 0 and {n - 1}")
-    elif lat is not None and lng is not None:
-        if not (-90 <= lat <= 90):
-            raise HttpError(400, "Latitude must be between -90 and 90")
-        if not (-180 <= lng <= 180):
-            raise HttpError(400, "Longitude must be between -180 and 180")
-        tile_z = TILE_ZOOM
-        tile_x, tile_y = latlng_to_tile(lat, lng, tile_z)
-    else:
-        raise HttpError(400, "Provide (tile_z, tile_x, tile_y) or (lat, lng)")
+    tile_z, tile_x, tile_y = _resolve_mission_tile(tile_z, tile_x, tile_y, lat, lng)
 
     base_name = name or f"OpenSky_Z{tile_z}_{tile_x}_{tile_y}"
     zip_data = generate_tile_zip(tile_z, tile_x, tile_y, base_name)
@@ -342,25 +368,9 @@ def preview_opensky_mission(
     lng: Optional[float] = None,
 ):
     """Preview single tile mission statistics without generating files."""
-    from geo.mission_generator import calculate_tile_stats, latlng_to_tile, TILE_ZOOM
+    from geo.mission_generator import calculate_tile_stats
 
-    if tile_z is not None and tile_x is not None and tile_y is not None:
-        n = 2 ** tile_z
-        if not (10 <= tile_z <= 20):
-            raise HttpError(400, "tile_z must be between 10 and 20")
-        if not (0 <= tile_x < n):
-            raise HttpError(400, f"tile_x must be between 0 and {n - 1}")
-        if not (0 <= tile_y < n):
-            raise HttpError(400, f"tile_y must be between 0 and {n - 1}")
-    elif lat is not None and lng is not None:
-        if not (-90 <= lat <= 90):
-            raise HttpError(400, "Latitude must be between -90 and 90")
-        if not (-180 <= lng <= 180):
-            raise HttpError(400, "Longitude must be between -180 and 180")
-        tile_z = TILE_ZOOM
-        tile_x, tile_y = latlng_to_tile(lat, lng, tile_z)
-    else:
-        raise HttpError(400, "Provide (tile_z, tile_x, tile_y) or (lat, lng)")
+    tile_z, tile_x, tile_y = _resolve_mission_tile(tile_z, tile_x, tile_y, lat, lng)
 
     return calculate_tile_stats(tile_z, tile_x, tile_y)
 

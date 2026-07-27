@@ -184,6 +184,21 @@ class Profile(ULIDModel):
         """Human Network Address."""
         return f"{self.local_name}@{self.instance.domain}"
 
+    @property
+    def avatar_url(self):
+        """Avatar URL carrying a cache-busting version token.
+
+        Uploads reuse the same storage path (`avatars/%Y/%m/<profile_id>.jpg`), so a
+        replaced avatar keeps the exact same URL and browsers go on serving the copy
+        cached under nginx's `expires 7d`. The `?v=` token follows `updated_at`, which
+        the avatar save bumps, so every replacement is a fresh cache key.
+        Always use this instead of `profile.avatar.url` when serializing.
+        """
+        if not self.avatar:
+            return None
+        stamp = int(self.updated_at.timestamp()) if self.updated_at else 0
+        return f"{self.avatar.url}?v={stamp}"
+
     def generate_invite_token(self, force_regenerate=False):
         """Generate or refresh invite token.
 
@@ -432,6 +447,39 @@ class ProfileVerificationPhoto(ULIDModel):
 
     def __str__(self):
         return f"VerificationPhoto({self.profile.hna})"
+
+
+class VerificationPhotoAccess(ULIDModel):
+    """One row per time a verifier opened someone's WoT verification photo.
+
+    The photo is GDPR Art.9 biometric data and the endpoint that serves it is open
+    to *any* profile with `can_verify_others()` — there is no pairing between a
+    verifier and a subject to gate on. So the control is a trail rather than a wall:
+    every view is recorded (subject can read it back, Art.15(1)(c) recipients), the
+    subject is notified, and the distinct-target quota is counted off these rows.
+
+    Rows survive the photo's deletion on purpose — the subject's record of who saw
+    it must outlive the data they erased.
+    """
+    viewer = models.ForeignKey(
+        Profile, on_delete=models.CASCADE, related_name='verification_photo_views',
+        help_text="Verifier who fetched the photo"
+    )
+    target_profile = models.ForeignKey(
+        Profile, on_delete=models.CASCADE, related_name='verification_photo_accesses',
+        help_text="Profile whose photo was fetched"
+    )
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['viewer', 'created_at']),
+            models.Index(fields=['target_profile', 'created_at']),
+        ]
+        verbose_name_plural = "Verification photo accesses"
+
+    def __str__(self):
+        return f"{self.viewer_id} viewed {self.target_profile_id} @ {self.created_at}"
 
 
 class SocialRecovery(ULIDModel):

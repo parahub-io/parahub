@@ -3,14 +3,22 @@ from core.models import ULIDModel
 
 
 class Territory(ULIDModel):
-    """Administrative territory for civic poll scoping (country/region/municipality/parish).
+    """Administrative territory for civic poll scoping.
 
     Distinct from Place (WOF gazetteer for search): Territory carries official
     administrative codes (ISO 3166-1, NUTS II, DICO, DICOFRE for PT) and a strict
-    4-level hierarchy used to resolve a voter's residency chain.
+    hierarchy used to resolve a voter's residency chain.
+
+    Two supranational levels sit above ``country`` — ``eu`` (a union whose members
+    are its child countries) and ``planet`` (the global ceiling). A voter's chain
+    rolls up into them for free via ``parent`` links, so a resident of any EU member
+    is eligible for EU-scoped opinion polls without special-case code. ``planet`` is
+    modelled but not yet wired into the UI.
     """
 
     class Level(models.TextChoices):
+        PLANET = 'planet', 'Planet'  # global ceiling — modelled, UI-hidden for now
+        EU = 'eu', 'European Union'  # supranational union, parent of member countries
         COUNTRY = 'country', 'Country'
         REGION = 'region', 'Region'
         MUNICIPALITY = 'municipality', 'Municipality'

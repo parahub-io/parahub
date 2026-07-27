@@ -319,20 +319,28 @@ class DriverConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _get_tts_names(self, source_ids):
-        """{source_id: tts_name} for these stops of this data source (only stops
-        that actually have a tts_name). One indexed query; empty when the feed
-        omits tts_stop_name. See Stop.tts_name (GTFS tts_stop_name)."""
+        """{source_id: tts_name} for these stops of this data source. One indexed
+        query, fired only on a stop transition. Upstream tts_stop_name wins; for
+        Portuguese feeds that omit it (Carris, Metro de Lisboa, CP, STCP,
+        Transtejo) a TTS form is synthesized from the display name so the
+        synthesizer says "Rua" not the letter "R". See Stop.tts_name and
+        geo.transit_tts.expand_pt_tts."""
         ids = [s for s in source_ids if s]
         if not ids or not self._ds_id:
             return {}
         from geo.models import Stop
-        return {
-            sid: tts
-            for sid, tts in Stop.objects.filter(
-                agency__data_source_id=self._ds_id, source_id__in=ids
-            ).values_list('source_id', 'tts_name')
-            if tts
-        }
+        from geo.transit_tts import expand_pt_tts
+        out = {}
+        for sid, tts, name, lang in Stop.objects.filter(
+            agency__data_source_id=self._ds_id, source_id__in=ids
+        ).values_list('source_id', 'tts_name', 'name', 'agency__lang'):
+            if tts:
+                out[sid] = tts
+            elif (lang or '').lower().startswith('pt') and name:
+                expanded = expand_pt_tts(name)
+                if expanded and expanded != name:
+                    out[sid] = expanded
+        return out
 
     def _get_stop_name(self, stop_source_id: str) -> str:
         """Get stop name from cached shape data."""

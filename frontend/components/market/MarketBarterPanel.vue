@@ -423,15 +423,16 @@ async function fetchAll() {
 
     let profileId = authStore.profile?.id
     if (!profileId) {
-      const me: any = await $fetch('/api/v1/profiles/me/', { credentials: 'include', headers })
+      const me: any = await $fetch('/api/v1/profiles/me/', { credentials: 'include', headers, timeout: 15000 })
       profileId = me?.id
     }
     myProfileId.value = profileId || null
 
+    // timeout: never leave the tab on an infinite spinner if the backend hangs
     const [opps, items] = await Promise.all([
-      $fetch<BarterOpportunities>('/api/v1/barter/opportunities', { credentials: 'include', headers }),
+      $fetch<BarterOpportunities>('/api/v1/barter/opportunities', { credentials: 'include', headers, timeout: 15000 }),
       profileId
-        ? $fetch<any>(`/api/v1/items/?owner_id=${profileId}&is_active=true&page_size=1000`, { credentials: 'include', headers })
+        ? $fetch<any>(`/api/v1/items/?owner_id=${profileId}&is_active=true&page_size=1000`, { credentials: 'include', headers, timeout: 15000 })
         : Promise.resolve({ items: [] }),
     ])
 

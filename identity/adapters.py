@@ -194,9 +194,10 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             
             logger.info(f"[OAuth] Final user data before save - Username: {user.username}, Email: {user.email}")
 
-            # Record registration IP
-            xff = request.META.get('HTTP_X_FORWARDED_FOR')
-            user.registration_ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR', '')
+            # Record registration IP. REMOTE_ADDR is the real client (uvicorn
+            # proxy-headers); the raw X-Forwarded-For left-most element is
+            # client-spoofable and would poison sybil/abuse correlation.
+            user.registration_ip = request.META.get('REMOTE_ADDR', '')
 
             # Save the user first
             user.save()

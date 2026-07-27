@@ -37,6 +37,59 @@ WebSocket room-based updates (`poll:{id}` channel):
 - Delegation changes reflected immediately
 - Connected via `usePollWebSocket` composable
 
+## Civic Opinion Polls
+
+Alongside binding group decisions, Parahub runs a non-binding **opinion barometer**
+scoped to where you live. Every civic poll is clearly badged as opinion (not a
+binding decision) and is scoped to a level of territory: your parish, município,
+region, country, or the whole EU. You see the polls for the places you belong to,
+rolled up the ladder.
+
+### Anonymous by Design
+
+Territorial opinion votes are stored **unlinked from your profile**. Before your
+first one you pass a plain-words consent screen that is honest about the limits
+(the data is de-identified, not magically anonymous). Results are only ever shown
+in groups — a breakdown needs at least five voters before it appears — and exact
+live counts stay hidden until enough people have voted, so no one can be
+identified by timing.
+
+### Verifiable Without De-anonymizing
+
+After voting you get a **counted-as-cast receipt**. Later you can check that
+receipt against the poll's audit chain to confirm your vote was included — without
+ever revealing how you voted. If you withdraw consent or delete your account, your
+opinion votes are removed and the results are recounted.
+
+### Standing Delegations
+
+Liquid democracy that persists: delegate your voice on a **whole topic** or a
+**whole territory** to someone you trust, and it applies to future polls in that
+scope until you revoke it. Delegation needs the delegate's acceptance, chains
+transitively, and is always overridden the moment you vote yourself.
+
+### Household & Condominium Ballots
+
+A lightweight, **open** (named) ballot for shared decisions among the members of
+your home or the residents of your condominium — a sandbox for the small votes
+that don't need the full binding-assembly machinery.
+
+### Citizen Ideas
+
+A proposals pipeline: suggest an idea for your territory, others support it, and
+once it gathers enough support it is flagged for review and can be promoted into a
+full poll.
+
+### EU Barometer
+
+The EU-level barometer is a public showcase — anyone can see it. EU polls also show
+an honest **momentum gauge** toward the European Citizens' Initiative threshold
+(one million supporters across at least seven countries). It measures support and
+momentum, not official ECI signatures, and says so.
+
+Curated poll text is hand-authored in all six languages (never machine-translated,
+to keep voting legitimacy) and switches instantly with the interface language.
+
 ## Treasury
 
 Per-establishment participatory budgets. Members vote on how to allocate funds.
@@ -93,4 +146,4 @@ All data is fetched live from the API.
 - **API**: `governance/api.py` -- polls CRUD, voting, delegation
 - **API**: `treasury/api.py` -- `/api/v1/treasury/{slug}/`
 - **Services**: `governance/services.py` -- VotingService (delegation resolution), AuditService (Merkle tree)
-- **Frontend**: `pages/governance/polls/` (index, [id], create, delegations-[id], audit-[id])
+- **Frontend**: `pages/governance/polls/` (index, [id], create, delegations-[id], audit-[id]), `pages/governance/delegations`, `pages/governance/ideas`, `pages/household/join`

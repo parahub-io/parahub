@@ -42,18 +42,40 @@ export type AvatarState =
   | 'emoting'
 export type AvatarType = 'p0' | 'p1' | 'p2' | 'p3' | 'p4'
 
+// Refresh cadence for the presence heartbeat; must stay well under the
+// server-side presence TTL (300s) so idle-but-connected users remain visible
+const HEARTBEAT_INTERVAL_MS = 120_000
+
 export function useMapPresence() {
   const nearbyAvatars = ref<Map<string, Avatar>>(new Map())
 
   // Debounce timer for position updates
   let positionUpdateTimer: NodeJS.Timeout | null = null
 
+  // Last position actually sent — replayed on reconnect and by the heartbeat
+  let lastSentPosition: {
+    lat: number
+    lon: number
+    zoom: number
+    avatarType: AvatarType
+    avatarState: AvatarState
+  } | null = null
+  let heartbeatTimer: NodeJS.Timeout | null = null
+
   // Create WebSocket connection immediately (not in connect())
   const wsConnection = useWebSocket({
     path: '/ws/v1/map/presence/',
     onMessage: handleMessage,
-    onOpen: () => {},
+    onOpen: () => {
+      // Re-register position after (re)connect — server-side presence may be gone
+      if (lastSentPosition) {
+        const p = lastSentPosition
+        updatePosition(p.lat, p.lon, p.zoom, p.avatarType, p.avatarState, true)
+      }
+      startHeartbeat()
+    },
     onClose: (event) => {
+      stopHeartbeat()
       nearbyAvatars.value.clear()
     },
     onError: (error) => {
@@ -61,6 +83,27 @@ export function useMapPresence() {
     },
     autoReconnect: true,
   })
+
+  function startHeartbeat() {
+    stopHeartbeat()
+    heartbeatTimer = setInterval(() => {
+      if (lastSentPosition) {
+        // Re-sending the position refreshes the server TTL AND returns a fresh
+        // nearby list, cleaning up avatars whose leave event was missed
+        const p = lastSentPosition
+        updatePosition(p.lat, p.lon, p.zoom, p.avatarType, p.avatarState, true)
+      } else {
+        sendHeartbeat()
+      }
+    }, HEARTBEAT_INTERVAL_MS)
+  }
+
+  function stopHeartbeat() {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer)
+      heartbeatTimer = null
+    }
+  }
 
   /**
    * Connect to map presence WebSocket
@@ -79,6 +122,8 @@ export function useMapPresence() {
    * Disconnect from WebSocket
    */
   function disconnect() {
+    stopHeartbeat()
+    lastSentPosition = null
     wsConnection.disconnect()
     nearbyAvatars.value.clear()
   }
@@ -114,8 +159,13 @@ export function useMapPresence() {
     const profileId = data.profile_id
     const updateType = data.update_type
 
-    if (updateType === 'position') {
-      // Full position update
+    if (updateType === 'leave') {
+      nearbyAvatars.value.delete(profileId)
+    }
+    else if (updateType === 'position') {
+      // Full position update; position broadcasts carry no speech_bubble —
+      // keep the one we already know so panning doesn't wipe it
+      const existing = nearbyAvatars.value.get(profileId)
       const avatar: Avatar = {
         profile_id: profileId,
         lat: data.lat,
@@ -123,7 +173,7 @@ export function useMapPresence() {
         zoom: 14, // Default zoom
         avatar_type: data.avatar_type,
         avatar_state: data.avatar_state,
-        speech_bubble: '',
+        speech_bubble: existing?.speech_bubble || '',
         profile_hna: data.profile_hna,
         profile_name: data.profile_name,
       }
@@ -184,12 +234,12 @@ export function useMapPresence() {
     lat: number,
     lon: number,
     zoom: number,
-    avatarType: AvatarType = 'male-suit',
+    avatarType: AvatarType = 'p1',
     avatarState: AvatarState = 'idle',
     immediate: boolean = false
   ) {
     const sendUpdate = () => {
-      wsConnection.send({
+      const sent = wsConnection.send({
         type: 'position_update',
         lat,
         lon,
@@ -197,6 +247,9 @@ export function useMapPresence() {
         avatar_type: avatarType,
         avatar_state: avatarState,
       })
+      if (sent) {
+        lastSentPosition = { lat, lon, zoom, avatarType, avatarState }
+      }
     }
 
     if (immediate) {
@@ -253,6 +306,7 @@ export function useMapPresence() {
     disconnect()
     if (positionUpdateTimer) {
       clearTimeout(positionUpdateTimer)
+      positionUpdateTimer = null
     }
   })
 

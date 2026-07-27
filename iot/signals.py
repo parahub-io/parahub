@@ -4,7 +4,6 @@
 """
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from django.conf import settings
 from django.db import transaction
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -12,17 +11,9 @@ import logging
 
 from parahub.background import spawn
 from .models import IoTDevice
+from .services import TRACCAR_DB
 
 logger = logging.getLogger(__name__)
-
-# Конфигурация базы Traccar (пароль читается из настроек/переменных окружения)
-TRACCAR_DB = {
-    'host': 'localhost',
-    'port': 5433,
-    'database': 'traccar',
-    'user': 'traccar',
-    'password': getattr(settings, 'TRACCAR_DB_PASSWORD', ''),
-}
 
 @receiver(post_save, sender=IoTDevice)
 def sync_device_to_traccar(sender, instance, created, **kwargs):

@@ -27,6 +27,8 @@ export function useMapUrlSync(opts: {
   currentOpenSkyMission: Ref<string | undefined>
   transit: {
     transitEnabled: Ref<boolean>
+    activeRouteFilter: Ref<string | null>
+    getActiveRoute: () => { city: string, slug: string } | null
     enableLayerVisibility: (map: any) => void
     connectWs: () => void
     showRouteOnMap: (map: any, routeCity: string, routeSlug: string) => void
@@ -40,8 +42,10 @@ export function useMapUrlSync(opts: {
   }
   browse: { browseVisible: Ref<boolean>; closePanel: () => void }
   closeFeaturePanel: () => void
+  /** ?device=<kind>:<id> for the open entity panel (useMapDeviceDeepLink) */
+  getDeviceParam?: () => string | null
 }) {
-  const { getMap, isActive, currentOpenSkyMission, transit, routing, browse, closeFeaturePanel } = opts
+  const { getMap, isActive, currentOpenSkyMission, transit, routing, browse, closeFeaturePanel, getDeviceParam } = opts
 
   const router = useRouter()
   const route = useRoute()
@@ -70,6 +74,21 @@ export function useMapUrlSync(opts: {
     if (feature && route.query.establishmentId) query.establishmentId = route.query.establishmentId
     if (currentOpenSkyMission.value) query.opensky_mission = currentOpenSkyMission.value
     if (route.query.returnTo) query.returnTo = route.query.returnTo
+    // Open entity panel (IoT / env / condo / hub / POI / vehicle) → shareable
+    // link. While a deep-link restore is still waiting for its data (layer
+    // fetch / vehicle WS tick), keep the pending param so a mid-wait moveend
+    // save doesn't strip it from the URL.
+    const device = getDeviceParam?.() || (typeof window !== 'undefined' ? (window as any)._pendingDeviceRestore : null)
+    if (device) query.device = device
+    // Persist the active single-route overlay so F5 and shared links restore
+    // it (bare ?transit=1 stop markers stay ephemeral — re-adding that param
+    // on every pan would re-drop the marker at the map center on reload).
+    const activeRoute = transit.getActiveRoute()
+    if (activeRoute) {
+      query.transit = '1'
+      query.routeCity = activeRoute.city
+      query.routeSlug = activeRoute.slug
+    }
     return query
   }
 
@@ -144,6 +163,11 @@ export function useMapUrlSync(opts: {
   // deep-link pendings (?transit=1 marker/route, feature restore params).
   const parseInitialQuery = () => {
     if (!route.query) return
+    // Entity-panel deep link — consumed by useMapDeviceDeepLink once the map
+    // and its layer data are ready (works with or without a lat/lng in the URL)
+    if (route.query.device) {
+      ;(window as any)._pendingDeviceRestore = String(route.query.device)
+    }
     const lat = parseFloat(route.query.lat as string)
     const lng = parseFloat(route.query.lng as string)
     const zoom = parseFloat(route.query.zoom as string)
@@ -268,6 +292,11 @@ export function useMapUrlSync(opts: {
   // applyPendingTransitMarker once the caller's nextTick runs.
   const reapplyQueryNavigation = () => {
     const map = getMap()
+    // Entity-panel deep link into the kept-alive map (MapView calls
+    // restorePendingDevice right after this)
+    if (route.query.device) {
+      ;(window as any)._pendingDeviceRestore = String(route.query.device)
+    }
     if (map && route.query.transit !== '1' && !applyDirectionsFromQuery()) {
       const lat = parseFloat(route.query.lat as string)
       const lng = parseFloat(route.query.lng as string)
@@ -303,6 +332,16 @@ export function useMapUrlSync(opts: {
       transit.connectWs()
     }
   }
+
+  // Reflect route-overlay set/clear in the query string immediately — the
+  // moveend save only fires on pans, so without this clearing the route via
+  // the transit toggle would leave stale routeCity/routeSlug for the next F5.
+  watch(transit.activeRouteFilter, () => {
+    const map = getMap()
+    if (!map || !isActive.value) return
+    const c = map.getCenter()
+    updateUrlWithMapState(c.lat, c.lng, selectedFeature.value)
+  })
 
   return {
     updateUrlWithMapState,

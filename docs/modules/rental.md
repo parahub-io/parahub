@@ -21,6 +21,8 @@ Overlapping bookings are rejected at the database level, not just in the interfa
 
 Make any listing bookable: choose range or slots, set opening hours, decide whether to instant-confirm or approve each request, and set buffers and how far ahead people can book. A live inbox shows incoming requests with one-tap confirm, complete, or cancel, and you can record a reason when cancelling. Owners can also enter a booking by hand for a walk-in client who isn't on Parahub, keeping the calendar accurate.
 
+**Blackout dates.** Owners can block out days when the item is unavailable — maintenance, a holiday, or personal use — and those days are closed to booking just like an existing reservation, without cancelling anything.
+
 ## Lightweight by Design
 
 A booking sits beneath the heavier signed-contract layer. Most rentals never need more than a booking. For high-value rentals, a booking can still be formalized into a PGP-signed rental contract. As always, the platform holds no funds and no deposit — any payment is arranged directly between renter and owner.

@@ -83,7 +83,7 @@
       <p class="mb-4" v-html="contactText"></p>
       <address class="not-italic bg-neutral-50 dark:bg-neutral-800 border-l-4 border-secondary dark:border-secondary-400 p-4 rounded-r mb-8">
         <strong>Parahub - Associação</strong><br>
-        NIPC: 519046161<br>
+        NIPC: 519 190 904<br>
         Rua das Regueiras 78, Podame, Monção, 4950-670, Portugal<br>
         Email: <a href="mailto:info@parahub.io" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">info@parahub.io</a>
       </address>

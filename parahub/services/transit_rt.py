@@ -17,6 +17,8 @@ import logging
 import math
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone as dt_timezone
+from zoneinfo import ZoneInfo
 
 from asgiref.sync import sync_to_async
 from django.contrib.gis.geos import GEOSGeometry, LineString, Point
@@ -84,6 +86,7 @@ class RouteCache:
         self.headsign_info: dict[tuple[str, int | None], str] = {}
         self.shapes: dict[tuple[str, int | None], ShapeData] = {}
         self.stop_seqs: dict[tuple[str, int | None], list[StopPoint]] = {}  # (route_src, dir) → ordered stops
+        self.ds_tz: dict[str, ZoneInfo] = {}  # data_source_id → feed-local timezone (GTFS agency_timezone)
         self._last_refresh = 0.0
         self._version = 0  # incremented on each refresh (for change detection)
 
@@ -106,13 +109,14 @@ class RouteCache:
         t0 = time.monotonic()
         include_sched = redis_conn is not None
         load_fn = lambda: self._load_all(data_source_ids, include_sched_offsets=include_sched)
-        route_info, headsign_info, shapes, stop_seqs = await sync_to_async(
+        route_info, headsign_info, shapes, stop_seqs, ds_tz = await sync_to_async(
             load_fn, thread_sensitive=True
         )()
         self.route_info = route_info
         self.headsign_info = headsign_info
         self.shapes = shapes
         self.stop_seqs = stop_seqs
+        self.ds_tz = ds_tz
         self._version += 1
         self._last_refresh = time.monotonic()
 
@@ -275,8 +279,23 @@ class RouteCache:
             stop_seqs[key] = [sp for _, sp in items]
 
     def _load_all(self, data_source_ids=None, include_sched_offsets=True):
-        from geo.models import Route
+        from geo.models import Agency, Route
         from django.db import connection
+
+        # 0. Feed-local timezones (GTFS agency_timezone) — the segment-prior
+        # hour buckets follow service-local time, not server UTC.
+        ds_tz = {}
+        tz_qs = Agency.objects.exclude(timezone='').values_list('data_source_id', 'timezone')
+        if data_source_ids:
+            tz_qs = tz_qs.filter(data_source_id__in=data_source_ids)
+        for ds_id, tz_name in tz_qs:
+            key = str(ds_id)
+            if key in ds_tz:
+                continue
+            try:
+                ds_tz[key] = ZoneInfo(tz_name)
+            except (KeyError, ValueError):
+                logger.warning(f'Unknown agency timezone {tz_name!r} for ds {key}, using UTC')
 
         # Resolve route IDs for filtering (Route→Agency→TransitDataSource)
         route_ids = None
@@ -286,7 +305,7 @@ class RouteCache:
                 .values_list('id', flat=True)
             )
             if not route_ids:
-                return {}, {}, {}, {}
+                return {}, {}, {}, {}, ds_tz
 
         # 1. Route info (with place_slug for city-based WS broadcasting)
         route_info = {}
@@ -397,7 +416,7 @@ class RouteCache:
                     length_m=length_m,
                 )
 
-        return route_info, headsign_info, shapes, stop_seqs
+        return route_info, headsign_info, shapes, stop_seqs, ds_tz
 
 
 class StopSnapper:
@@ -505,9 +524,24 @@ STT_MIN_TRAVEL_S = 10        # reject segment times below this
 STT_ZOMBIE_THRESHOLD_S = 120 # no movement for this long → zombie
 STT_ZOMBIE_MOVE_M = 10       # minimum movement to count as "moved"
 STT_GPS_JUMP_M = 2000        # re-initialize if vehicle is this far from expected stop
-STT_STALL_POLLS = 3          # re-initialize direction after this many polls with no progress
+STT_STALL_POLLS = 3          # re-initialize direction after this many polls moving AWAY from the next stop
+STT_STALL_AWAY_M = 20        # d(next) must grow by more than this per poll to count as moving away (GPS-noise dead zone)
 STT_VPREV_TTL = 300          # Redis TTL for vehicle state
 STT_SEGMENT_TTL = 1800       # Redis TTL for segment FIFO
+STT_DWELL_KEEP_S = 120       # stationary seconds per segment window kept in the recorded time; excess (layover) is subtracted
+STT_PRIOR_TTL = 120 * 86400  # Redis TTL for per-segment historical priors (refreshed on write)
+
+
+def prior_bucket(now: float, tz=None) -> str:
+    """Hour-of-day × day-class bucket id for segment-prior aggregates.
+
+    ``'{HH}{w|s|u}'`` in feed-local time (w=Mon-Fri, s=Sat, u=Sun) — transit
+    traffic regimes follow service-local clock, not server UTC.
+    """
+    ldt = datetime.fromtimestamp(now, tz or dt_timezone.utc)
+    wd = ldt.weekday()
+    dc = 'w' if wd < 5 else ('s' if wd == 5 else 'u')
+    return f'{ldt.hour:02d}{dc}'
 
 
 class SttProcessor:
@@ -603,11 +637,20 @@ class SttProcessor:
             if moved:
                 mt = now
 
+            # Accumulate stationary time within the current segment window
+            # (reset on stop transition). Feeds the dwell-excess subtraction
+            # at segment recording and the readers' parked-bus gate — see
+            # transit_eta.parked_beyond_grace.
+            dwell_acc = float(state.get('dw', 0) or 0)
+            if not moved:
+                dwell_acc += max(0.0, now - float(state.get('pt', now) or now))
+            state['dw'] = str(dwell_acc)
+
             is_zombie = (now - mt) > STT_ZOMBIE_THRESHOLD_S
             if is_zombie:
                 v['z'] = 1
                 # Update position + mt only, don't process transitions
-                state.update({'lat': str(vlat), 'lon': str(vlon), 'mt': str(mt)})
+                state.update({'lat': str(vlat), 'lon': str(vlon), 'mt': str(mt), 'pt': str(now)})
                 writes.append((vprev_key, state))
                 continue
 
@@ -625,7 +668,7 @@ class SttProcessor:
 
             if result is None:
                 # Couldn't process (no stop sequence etc) — just update position
-                state.update({'lat': str(vlat), 'lon': str(vlon), 'mt': str(mt)})
+                state.update({'lat': str(vlat), 'lon': str(vlon), 'mt': str(mt), 'pt': str(now)})
                 writes.append((vprev_key, state))
                 continue
 
@@ -633,15 +676,14 @@ class SttProcessor:
             new_state['lat'] = str(vlat)
             new_state['lon'] = str(vlon)
             new_state['mt'] = str(mt)
+            new_state['pt'] = str(now)
 
             if action == 'delete':
                 deletes.append(vprev_key)
             elif action == 'segment':
-                # Segment traversal recorded
-                seg_key = new_state.pop('_seg_key', None)
-                seg_time = new_state.pop('_seg_time', None)
-                if seg_key and seg_time:
-                    segments.append((seg_key, seg_time))
+                # Segment traversal(s) recorded — a multi-stop advance yields
+                # one share per traversed segment (see _track_forward).
+                segments.extend(new_state.pop('_segs', []))
                 writes.append((vprev_key, new_state))
             else:
                 writes.append((vprev_key, new_state))
@@ -696,10 +738,21 @@ class SttProcessor:
             for key, data in writes:
                 pipe.hset(key, mapping=data)
                 pipe.expire(key, STT_VPREV_TTL)
+            # Segment priors: every recorded travel time also feeds a persistent
+            # per-segment × hour × day-class accumulator (n + Σln x per bucket:
+            # exp(Σln/n) is the geometric mean ≈ the median for lognormal travel
+            # times, and increment-only fields keep the write pipelined — no
+            # read-modify-write). Long-horizon ETA chains will read these as a
+            # historical fallback where the 30-min live FIFOs are empty.
+            bucket = prior_bucket(now, self.cache.ds_tz.get(ds_id))
             for stt_key, travel_time in segments:
                 pipe.lpush(stt_key, str(int(travel_time)))
                 pipe.ltrim(stt_key, 0, STT_FIFO_SIZE - 1)
                 pipe.expire(stt_key, STT_SEGMENT_TTL)
+                prior_key = 'transit:prior:' + stt_key[len('transit:stt:'):]
+                pipe.hincrby(prior_key, f'{bucket}:n', 1)
+                pipe.hincrbyfloat(prior_key, f'{bucket}:l', math.log(travel_time))
+                pipe.expire(prior_key, STT_PRIOR_TTL)
             for key in deletes:
                 pipe.delete(key)
             await pipe.execute()
@@ -723,6 +776,7 @@ class SttProcessor:
                 'r': route_src, 'd': '0', 'st': ST_CONFIRMED,
                 'idx': str(idx), 't': str(now), 'stall': '0',
                 'lat': str(lat), 'lon': str(lon), 'mt': str(now),
+                'dw': '0', 'pt': str(now),
             }
         if seq1 and not seq0:
             idx = self._nearest_stop_idx(seq1, lat, lon, dist)
@@ -730,6 +784,7 @@ class SttProcessor:
                 'r': route_src, 'd': '1', 'st': ST_CONFIRMED,
                 'idx': str(idx), 't': str(now), 'stall': '0',
                 'lat': str(lat), 'lon': str(lon), 'mt': str(now),
+                'dw': '0', 'pt': str(now),
             }
 
         # Both directions exist
@@ -747,6 +802,7 @@ class SttProcessor:
                 'idx': str(primary_idx), 'idx_alt': str(alt_idx), 'd_alt': alt_d,
                 't': str(now), 'stall': '0',
                 'lat': str(lat), 'lon': str(lon), 'mt': str(now),
+                'dw': '0', 'pt': str(now),
             }
 
         # Case 2: no direction hint
@@ -755,6 +811,7 @@ class SttProcessor:
             'idx0': str(idx0), 'idx1': str(idx1),
             't': str(now), 'stall': '0',
             'lat': str(lat), 'lon': str(lon), 'mt': str(now),
+            'dw': '0', 'pt': str(now),
         }
 
     def _verify_tentative(self, state, lat, lon, route_src, ds_id, stall):
@@ -883,15 +940,23 @@ class SttProcessor:
         new_state = dict(state)
 
         if d_nxt < d_cur:
-            # Forward progress — record segment
-            travel_time = now - t_last
-            stop_from = seq[idx].source_id
-            stop_to = seq[idx + 1].source_id
+            # Forward progress — record traversed segment(s).
+            # Subtract accumulated stationary time beyond a normal dwell:
+            # boarding/lights/short timing points (<= STT_DWELL_KEEP_S total)
+            # stay in the observation — every bus repeats them — while a
+            # layover/driver break would otherwise bake a 15-25 min giant
+            # into the FIFO that poisons the segment for the next ten
+            # traversals (and, at n=1, defeats any robust aggregation).
+            dwell_acc = float(state.get('dw', 0) or 0)
+            travel_time = now - t_last - max(0.0, dwell_acc - STT_DWELL_KEEP_S)
+            travel_time = max(0.0, travel_time)
+            start_idx = idx
 
             idx += 1
             new_state['idx'] = str(idx)
             new_state['t'] = str(now)
             new_state['stall'] = '0'
+            new_state['dw'] = '0'  # dwell window is per segment; consumed above
 
             # Check for skip (bus passed multiple stops in one poll)
             while idx + 1 < len(seq):
@@ -911,20 +976,59 @@ class SttProcessor:
                 else:
                     return ('delete', new_state)
 
-            # Validate and record segment time
-            seg_dist = dist(seq[idx - 1].lat, seq[idx - 1].lon,
-                           seq[idx].lat, seq[idx].lon) if idx > 0 else 500
-            # Dynamic max: distance / 3 m/s (≈10 km/h, crawling in traffic)
-            max_travel = max(seg_dist / 3.0, 60)
-            if STT_MIN_TRAVEL_S < travel_time < max_travel:
-                stt_key = f'transit:stt:{ds_id}:{stop_from}:{stop_to}'
-                new_state['_seg_key'] = stt_key
-                new_state['_seg_time'] = travel_time
+            # Split travel_time across ALL traversed segments and validate each
+            # share against ITS OWN segment. Attributing the whole time to the
+            # first segment (and validating against the last one) selectively
+            # inflated short segments: with 30 s polls, multi-stop advances are
+            # common, and dense-urban segments showed observed/scheduled p90
+            # ≈1.8 while every longer class ran below schedule. Weights are the
+            # scheduled per-segment durations when the whole span has them,
+            # else inter-stop distances (uniform-speed assumption). A bonus of
+            # per-share validation: a GPS-teleport advance (tens of stops in
+            # one poll) yields shares below STT_MIN_TRAVEL_S, so it no longer
+            # writes a bogus whole-poll time into one segment.
+            weights = None
+            if all(seq[j].sched_offset is not None and seq[j + 1].sched_offset is not None
+                   and seq[j + 1].sched_offset > seq[j].sched_offset
+                   for j in range(start_idx, idx)):
+                weights = [seq[j + 1].sched_offset - seq[j].sched_offset
+                           for j in range(start_idx, idx)]
+            if weights is None:
+                weights = [max(dist(seq[j].lat, seq[j].lon, seq[j + 1].lat, seq[j + 1].lon), 1.0)
+                           for j in range(start_idx, idx)]
+            total_w = sum(weights)
+            segs = []
+            for k, j in enumerate(range(start_idx, idx)):
+                share = travel_time * weights[k] / total_w
+                seg_dist = dist(seq[j].lat, seq[j].lon, seq[j + 1].lat, seq[j + 1].lon)
+                # Dynamic max: distance / 3 m/s (≈10 km/h, crawling in traffic)
+                max_travel = max(seg_dist / 3.0, 60)
+                if STT_MIN_TRAVEL_S < share < max_travel:
+                    segs.append((f'transit:stt:{ds_id}:{seq[j].source_id}:{seq[j + 1].source_id}',
+                                 share))
+            if segs:
+                new_state['_segs'] = segs
 
             return ('segment', new_state)
 
-        # No progress
-        stall += 1
+        # No forward transition this poll. "Stalled" means moving AWAY from
+        # the next stop for consecutive polls (wrong direction / wrong
+        # sequence anchor) — NOT merely the absence of a transition. A dwell
+        # (d_next static) or a long segment being traversed (d_next shrinking)
+        # is healthy tracking; the old any-no-progress counter re-inited
+        # mid-dwell and mid-segment, wiping the time anchor `t` and truncating
+        # recorded times at ~STT_STALL_POLLS×poll seconds — observed as
+        # sched>=180s segments averaging a third of their scheduled duration
+        # while short ones ran near schedule.
+        try:
+            prev_lat, prev_lon = float(state['lat']), float(state['lon'])
+            prev_d_nxt = dist(prev_lat, prev_lon, seq[idx + 1].lat, seq[idx + 1].lon)
+        except (KeyError, TypeError, ValueError):
+            prev_d_nxt = None
+        if prev_d_nxt is None or d_nxt > prev_d_nxt + STT_STALL_AWAY_M:
+            stall += 1
+        elif d_nxt < prev_d_nxt - STT_STALL_AWAY_M:
+            stall = 0
         new_state['stall'] = str(stall)
 
         # GPS jump check

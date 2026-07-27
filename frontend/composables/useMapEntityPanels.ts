@@ -39,6 +39,7 @@ export function useMapEntityPanels(opts: {
 
   const selectedVehicle = ref<any>(null)
   const selectedIoTDevice = ref<any>(null)
+  const selectedEnvStation = ref<any>(null)
   const selectedCondominium = ref<any>(null)
   const selectedHub = ref<any>(null)
   const selectedEstablishment = ref<any>(null)
@@ -47,6 +48,7 @@ export function useMapEntityPanels(opts: {
   const panelContentTypeWithVehicle = computed(() => {
     if (selectedVehicle.value) return 'vehicle'
     if (selectedIoTDevice.value) return 'iot_device'
+    if (selectedEnvStation.value) return 'env_station'
     if (selectedCondominium.value) return 'condominium'
     if (selectedHub.value) return 'hub'
     if (selectedEstablishment.value) return 'establishment'
@@ -54,7 +56,7 @@ export function useMapEntityPanels(opts: {
   })
 
   const entityPanelOpen = computed(() =>
-    !!selectedVehicle.value || !!selectedIoTDevice.value
+    !!selectedVehicle.value || !!selectedIoTDevice.value || !!selectedEnvStation.value
     || !!selectedCondominium.value || !!selectedHub.value || !!selectedEstablishment.value
     || avatar.activeAvatarPanel.value !== null
   )
@@ -66,6 +68,7 @@ export function useMapEntityPanels(opts: {
     avatar.clearAvatarPanel()
     selectedVehicle.value = null
     selectedIoTDevice.value = null
+    selectedEnvStation.value = null
     selectedCondominium.value = null
     selectedHub.value = null
     selectedEstablishment.value = null
@@ -114,6 +117,7 @@ export function useMapEntityPanels(opts: {
   return {
     selectedVehicle,
     selectedIoTDevice,
+    selectedEnvStation,
     selectedCondominium,
     selectedHub,
     selectedEstablishment,

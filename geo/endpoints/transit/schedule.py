@@ -7,6 +7,8 @@ stop day rows and the stop schedule payload.
 from ninja.errors import HttpError
 import json
 import logging
+import pickle
+import zlib
 from django.core.cache import cache
 from django.db.models import Q
 from datetime import datetime, timedelta
@@ -114,6 +116,21 @@ def _timeline_positions(svc_id, dep_secs, today_services, yest_services, now_sec
             out.append(p)
     return out
 
+def _pack_day_rows(rows):
+    """Day rows are stored zlib-compressed: route fields repeat on every row,
+    so the ~11KB pickles shrink ~15x (family-wide: 437MB -> ~29MB of Redis).
+    ~150us to pack once per 6h vs the ~200ms join each entry saves."""
+    return zlib.compress(pickle.dumps(rows, pickle.HIGHEST_PROTOCOL), 6)
+
+
+def _unpack_day_rows(blob):
+    if isinstance(blob, bytes):
+        return pickle.loads(zlib.decompress(blob))
+    # Pre-compression entry (plain list) written by older code; ages out
+    # within the 6h TTL.
+    return blob
+
+
 def _stop_day_rows(stop, service_ids, query_date):
     """Flattened stop-times of one pole for one service day. The
     StopTime⋈Trip⋈Route⋈Place join is the hottest DB query on the platform
@@ -121,29 +138,30 @@ def _stop_day_rows(stop, service_ids, query_date):
     cache entry per (pole, date) serves every schedule view that day. TTL 6h
     caps how long a mid-day feed re-import can stay stale."""
     ck = f"transit:sched:{stop.id}:{query_date}"
-    rows = cache.get(ck)
-    if rows is None:
-        rows = [
-            {
-                "eff": _dep_secs(st.departure_secs, st.departure_time),
-                "svc": st.trip.service_id,
-                "hs": st.trip.headsign,
-                "dir": st.trip.direction_id if st.trip.direction_id is not None else 0,
-                "tid": st.trip.id,
-                "rsn": st.trip.route.short_name,
-                "rln": st.trip.route.long_name,
-                "rc": st.trip.route.route_color,
-                "rt": st.trip.route.route_type,
-                "rsid": st.trip.route.source_id,
-                "rslug": st.trip.route.slug,
-                "rps": st.trip.route.place.slug if st.trip.route.place else "",
-            }
-            for st in StopTime.objects.filter(
-                stop=stop,
-                trip__service_id__in=service_ids,
-            ).select_related("trip__route__place")
-        ]
-        cache.set(ck, rows, 6 * 3600)
+    cached = cache.get(ck)
+    if cached is not None:
+        return _unpack_day_rows(cached)
+    rows = [
+        {
+            "eff": _dep_secs(st.departure_secs, st.departure_time),
+            "svc": st.trip.service_id,
+            "hs": st.trip.headsign,
+            "dir": st.trip.direction_id if st.trip.direction_id is not None else 0,
+            "tid": st.trip.id,
+            "rsn": st.trip.route.short_name,
+            "rln": st.trip.route.long_name,
+            "rc": st.trip.route.route_color,
+            "rt": st.trip.route.route_type,
+            "rsid": st.trip.route.source_id,
+            "rslug": st.trip.route.slug,
+            "rps": st.trip.route.place.slug if st.trip.route.place else "",
+        }
+        for st in StopTime.objects.filter(
+            stop=stop,
+            trip__service_id__in=service_ids,
+        ).select_related("trip__route__place")
+    ]
+    cache.set(ck, _pack_day_rows(rows), 6 * 3600)
     return rows
 
 def _get_stop_schedule_data(stop, date_param=None):

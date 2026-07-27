@@ -28,6 +28,7 @@
     "gps_unavailable": "Geolocation unavailable",
     "vehicle_here": "Vehicle here now",
     "now_at_stop": "Now at this stop",
+    "arriving_now": "Arriving",
     "approaching": "Approaching",
     "min": "min",
     "stops_short": "stops",

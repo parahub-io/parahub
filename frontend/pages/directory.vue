@@ -69,8 +69,11 @@
               </button>
             </div>
 
-            <!-- Loading skeletons -->
-            <div v-if="loading" class="space-y-2">
+            <!-- Loading skeletons — only when nothing is on screen yet. On KeepAlive
+                 re-activation onActivated refetches (loading=true) while results still
+                 hold the old cards; guard on results.length so we don't flash skeletons
+                 over good content and instead swap fresh data in place. -->
+            <div v-if="loading && results.length === 0" class="space-y-2">
               <DirectoryCardSkeleton v-for="n in 6" :key="n" />
             </div>
 
@@ -529,6 +532,17 @@ onMounted(() => {
   }
   // No unconditional load here — the setup-level useAsyncData already ran
   // (SSR or client) and its payload hydrates the first render.
+})
+
+// Pages are KeepAlive-cached globally (app.vue): setup/useAsyncData do NOT
+// re-run on cached back-navigation, so refresh here or the list goes stale
+// (e.g. an org deleted via /org/[slug]/edit — deleteOrg redirects here).
+// onActivated also fires once right after the initial mount — skip that one,
+// the setup-level useAsyncData already loaded.
+let firstActivation = true
+onActivated(() => {
+  if (firstActivation) { firstActivation = false; return }
+  loadResults()
 })
 
 const getInitials = (name: string) => {

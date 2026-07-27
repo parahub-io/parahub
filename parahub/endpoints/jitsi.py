@@ -170,7 +170,7 @@ def create_room(request, payload: CreateRoomRequest = None):
                         "id": profile.id,
                         "display_name": display_name,
                         "local_name": profile.local_name,
-                        "avatar_url": profile.avatar.url if profile.avatar else None,
+                        "avatar_url": profile.avatar_url,
                     },
                     "room_name": room_name,
                 })

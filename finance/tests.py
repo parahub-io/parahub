@@ -10,6 +10,8 @@ platform's financial memory — no ledger sits behind them):
 - the lifecycle command lapses/cancels exactly once and reminds once per cycle
 - donations: is_supporter flips only on COMPLETED; SKIPPED stays out of
   history and totals; transparency counts COMPLETED only
+- a SKIPPED donation stores no source amount (data minimisation — we do not
+  keep a per-user log of outbound transfer volume)
 """
 
 from datetime import timedelta
@@ -193,6 +195,29 @@ class DonationEndpointTests(TestCase):
             support_level_at_time=Decimal('0')))
         self.alice.refresh_from_db()
         self.assertFalse(self.alice.is_supporter)
+
+    def test_skipped_donation_stores_no_source_amount(self):
+        """A skip donates nothing, so the underlying transfer amount is not kept.
+
+        Enforced server-side: a stale cached client still sending the amount must
+        not be able to reintroduce a per-user outbound-volume log."""
+        record_donation(self._request(), self._donation(
+            status='SKIPPED', source_amount_sats=100_000,
+            donation_amount_sats=0, support_level_at_time=Decimal('0')))
+        self.assertEqual(Donation.objects.get().source_amount_sats, 0)
+
+    def test_source_amount_is_optional_in_request(self):
+        payload = DonationCreateRequest(
+            source='WALLET_SEND', donation_amount_sats=0,
+            support_level_at_time=Decimal('0'), status='SKIPPED')
+        self.assertEqual(payload.source_amount_sats, 0)
+        record_donation(self._request(), payload)
+        self.assertEqual(Donation.objects.get().source_amount_sats, 0)
+
+    def test_completed_donation_keeps_source_amount(self):
+        """The base the donation was derived from stays on real donations."""
+        record_donation(self._request(), self._donation(source_amount_sats=100_000))
+        self.assertEqual(Donation.objects.get().source_amount_sats, 100_000)
 
     def test_invalid_status_and_source_rejected(self):
         with self.assertRaises(HttpError):

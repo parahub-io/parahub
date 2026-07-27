@@ -81,15 +81,26 @@ def server_health(request):
     except Exception:
         pass
 
-    # Docker containers
+    # Docker containers. One-shot jobs that finished successfully (Exited (0),
+    # e.g. Pelias importers) are not services — excluded from both counts, so
+    # running < total only when something actually needs attention.
     try:
         out = subprocess.check_output(
-            ['docker', 'ps', '-a', '--format', '{{.State}}'],
+            ['docker', 'ps', '-a', '--format', '{{.State}}\t{{.Status}}'],
             timeout=5, text=True
         )
-        states = out.strip().split('\n') if out.strip() else []
-        result['containers_total'] = len(states)
-        result['containers_running'] = sum(1 for s in states if s == 'running')
+        running = total = 0
+        for line in out.strip().split('\n'):
+            if not line.strip():
+                continue
+            state, _, status = line.partition('\t')
+            if state == 'exited' and status.startswith('Exited (0)'):
+                continue
+            total += 1
+            if state == 'running':
+                running += 1
+        result['containers_total'] = total
+        result['containers_running'] = running
     except Exception:
         pass
 

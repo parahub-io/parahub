@@ -10,8 +10,8 @@ export function useMapIoTBridge(opts: {
   clearEntityPanels: () => void
   iot: {
     iotPopoverOpen: Ref<boolean>
-    showIoTLockOn: (lat: number, lon: number) => void
-    replayIoTLockOn: (lat: number, lon: number) => void
+    showIoTLockOn: (lat: number, lon: number, offsetPx?: [number, number] | null) => void
+    replayIoTLockOn: (lat: number, lon: number, offsetPx?: [number, number] | null) => void
     hideIoTPreview: () => void
     flyToTracker: (lat: number, lon: number, name: string) => void
     enableFollow: () => void
@@ -36,6 +36,8 @@ export function useMapIoTBridge(opts: {
       firmware_role: data.firmware_role || '',
       hardware_profile: data.hardware_profile || '',
       price: data.price || '',
+      owner_name: data.owner_name || '',
+      owner_cri: data.owner_cri || '',
       lngLat: data.latitude != null ? { lat: data.latitude, lng: data.longitude } : null,
       last_update: data.last_update || null,
     }
@@ -97,7 +99,7 @@ export function useMapIoTBridge(opts: {
     if (!dev?.lngLat) return
     iot.enableFollow()
     iot.flyToTracker(dev.lngLat.lat, dev.lngLat.lng, dev.name || '')
-    iot.replayIoTLockOn(dev.lngLat.lat, dev.lngLat.lng)
+    iot.replayIoTLockOn(dev.lngLat.lat, dev.lngLat.lng, dev.lockOnOffset || null)
   }
 
   return {

@@ -6,6 +6,9 @@ interface Tab {
   label: string
   icon?: Component
   badge?: string | number
+  alertBadge?: string | number   // secondary count needing attention (e.g. offline), shown in error color
+  alertIcon?: Component           // optional glyph rendered inside the alert badge
+  alertLabel?: string             // a11y label for the alert badge (visible number alone is ambiguous)
 }
 
 interface Props {
@@ -110,6 +113,22 @@ function tabClass(tab: Tab) {
           size="sm"
         >
           {{ tab.badge }}
+        </UiBadge>
+        <UiBadge
+          v-if="tab.alertBadge !== undefined"
+          variant="error"
+          type="soft"
+          size="sm"
+          class="gap-1"
+          :aria-label="tab.alertLabel"
+        >
+          <component
+            :is="tab.alertIcon"
+            v-if="tab.alertIcon"
+            class="w-3 h-3"
+            :aria-hidden="true"
+          />
+          {{ tab.alertBadge }}
         </UiBadge>
       </button>
     </div>

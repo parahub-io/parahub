@@ -73,7 +73,9 @@ export function useDonation() {
   // Record donation on server
   const recordDonation = async (params: {
     source: 'WALLET_SEND' | 'ADS_CAMPAIGN' | 'MANUAL'
-    sourceAmountSats: number
+    // Omit for SKIPPED — nothing was donated, so the underlying transfer amount
+    // is not ours to keep. The server zeroes it for SKIPPED regardless.
+    sourceAmountSats?: number
     donationAmountSats: number
     supportLevelAtTime: number
     lnPaymentHash?: string

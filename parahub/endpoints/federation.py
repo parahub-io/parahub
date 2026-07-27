@@ -208,7 +208,7 @@ def resolve_hna(request, hna: str):
         'node': my_domain,
         'pgp_fingerprint': fingerprint,
         'wot_level': wot_count,
-        'avatar_url': profile.avatar.url if profile.avatar else '',
+        'avatar_url': profile.avatar_url or '',
         'migrated_to': '',
     }
 
@@ -1008,7 +1008,7 @@ def federated_search(request, q: str, timeout: int = 5):
             'node': domain,
             'is_local': True,
             'is_verified': p.is_verified_wot,
-            'avatar_url': p.avatar.url if p.avatar else '',
+            'avatar_url': p.avatar_url or '',
         })
 
     # 2. Local organization search (from registry)

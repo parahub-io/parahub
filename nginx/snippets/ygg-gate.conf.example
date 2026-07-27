@@ -1,0 +1,12 @@
+# Template for nginx/snippets/ygg-gate.conf (the real file is gitignored — it
+# holds a secret). Copy to ygg-gate.conf and set X-Ygg-Gate to the value of
+# MESH_YGG_GATE_TOKEN in Django .env (openssl rand -hex 32). Included only from
+# the ygg [200:abb9:...] server blocks; lets the backend trust the client
+# IP/port headers for mesh device binding (POST /api/v1/iot/mesh/bind).
+proxy_set_header X-Ygg-Gate "REPLACE_WITH_MESH_YGG_GATE_TOKEN";
+proxy_set_header X-Ygg-Client-IP $remote_addr;
+proxy_set_header X-Ygg-Client-Port $remote_port;
+# Stamp X-Forwarded-For with the real ygg source (replaces any client-sent
+# value). Without it get_ip() falls back to REMOTE_ADDR=127.0.0.1 and the
+# ratelimit wrapper's localhost skip disables ALL rate limiting on this path.
+proxy_set_header X-Forwarded-For $remote_addr;

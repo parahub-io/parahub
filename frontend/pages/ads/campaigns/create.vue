@@ -830,7 +830,8 @@ async function createCampaign() {
     const donationSats = donation.calcDonationSats(form.value.budgetSats)
     await donation.recordDonation({
       source: 'ADS_CAMPAIGN',
-      sourceAmountSats: form.value.budgetSats,
+      // Only when something was actually donated — a skip keeps no source amount
+      sourceAmountSats: donationSats > 0 ? form.value.budgetSats : undefined,
       donationAmountSats: donationSats,
       supportLevelAtTime: donation.supportLevel.value,
       status: donationSats > 0 ? 'COMPLETED' : 'SKIPPED',

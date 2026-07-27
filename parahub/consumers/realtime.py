@@ -339,7 +339,16 @@ class RealtimeConsumer(AuthenticatedJsonWebsocketConsumer):
                 id__in=list(all_ids),
                 **{config['owner']: self.user},
             ).values_list('id', flat=True))
-            denied |= (all_ids - owned_ids)
+            unowned = all_ids - owned_ids
+            if unowned:
+                # ObjectAccess grants (shared devices etc.) count as access
+                from core.models import ObjectAccess
+                granted_ids = set(ObjectAccess.objects.filter(
+                    object_id__in=list(unowned),
+                    profile__account=self.user,
+                ).values_list('object_id', flat=True))
+                unowned -= granted_ids
+            denied |= unowned
             remaining -= all_ids
 
         return denied
@@ -420,6 +429,6 @@ class RealtimeConsumer(AuthenticatedJsonWebsocketConsumer):
             'hna': p.hna,
             'local_name': p.local_name,
             'name': p.display_name or p.local_name,
-            'avatar': p.avatar.url if p.avatar else None,
+            'avatar': p.avatar_url,
         }
 

@@ -4,10 +4,10 @@
       <Title>{{ prop?.name || '...' }} - Parahub</Title>
     </Head>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
       <!-- Back + loading -->
-      <NuxtLink :to="localePath('/iot')" class="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 mb-4">
+      <NuxtLink :to="localePath({ path: '/iot', query: { tab: 'objects' } })" class="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 mb-4">
         <ArrowLeft class="w-4 h-4" />
         {{ $t('property.title') }}
       </NuxtLink>
@@ -27,20 +27,17 @@
             <div class="flex items-center gap-3 mb-1">
               <component :is="typeIcon" class="w-6 h-6 text-primary" />
               <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{{ prop.name }}</h1>
-              <span class="badge-sm bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
-                {{ $t(`property.types.${prop.property_type}`) }}
-              </span>
+              <UiBadge size="sm">{{ $t(`property.types.${prop.property_type}`) }}</UiBadge>
             </div>
             <p v-if="prop.address" class="text-neutral-500 dark:text-neutral-400 ml-9">{{ prop.address }}</p>
           </div>
           <div class="flex gap-2">
-            <button @click="showEditForm = !showEditForm" class="btn-secondary btn-sm gap-1">
-              <Pencil class="w-4 h-4" />
+            <UiButton variant="secondary" size="sm" :icon="Pencil" @click="showEditForm = !showEditForm">
               {{ $t('property.edit') }}
-            </button>
-            <button @click="confirmDelete" class="btn-secondary btn-sm gap-1 text-red-500 hover:text-red-600">
-              <Trash2 class="w-4 h-4" />
-            </button>
+            </UiButton>
+            <UiButton variant="outline-error" size="sm" :icon="Trash2" @click="confirmDelete">
+              {{ $t('common.delete') }}
+            </UiButton>
           </div>
         </div>
 
@@ -115,13 +112,13 @@
             <IoTHAHomeForm v-if="showHAForm" @submit="onHAAdded" @cancel="showHAForm = false" class="mt-4" />
           </section>
 
-          <!-- ═══ Devices Section ═══ -->
-          <section v-if="sensorDevices.length > 0 || showDeviceForm">
+          <!-- ═══ Devices Section (all non-mesh devices incl. trackers) ═══ -->
+          <section v-if="generalDevices.length > 0">
             <button @click="devicesExpanded = !devicesExpanded" class="section-header w-full">
               <div class="flex items-center gap-2">
                 <Cpu class="w-5 h-5 text-blue-500" />
                 <span>{{ $t('iot.title') }}</span>
-                <span class="text-xs text-neutral-400">({{ sensorDevices.length }})</span>
+                <span class="text-xs text-neutral-400">({{ generalDevices.length }})</span>
               </div>
               <ChevronDown class="w-4 h-4 text-neutral-400 transition-transform" :class="{ 'rotate-180': devicesExpanded }" />
             </button>
@@ -129,17 +126,29 @@
             <div v-show="devicesExpanded" class="mt-4 space-y-4">
               <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <IoTDeviceCard
-                  v-for="device in sensorDevices" :key="device.id"
+                  v-for="device in generalDevices" :key="device.id"
                   :device="device"
                   @delete="handleDeleteDevice"
                   @refresh="loadPropertyData"
                 />
               </div>
-              <button v-if="!showDeviceForm" @click="showDeviceForm = true" class="btn-secondary btn-sm gap-1">
-                <Plus class="w-4 h-4" />
+              <UiButton variant="secondary" size="sm" :icon="Plus" @click="showDeviceForm = true">
                 {{ $t('iot.add_device') }}
-              </button>
+              </UiButton>
             </div>
+          </section>
+
+          <!-- Devices empty — add-device CTA -->
+          <section v-else>
+            <button @click="showDeviceForm = true" class="w-full text-left bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-600 p-4 hover:border-blue-400 transition-colors">
+              <div class="flex items-center gap-3">
+                <Cpu class="w-5 h-5 text-blue-500 opacity-50" />
+                <div>
+                  <span class="font-medium text-neutral-700 dark:text-neutral-300">{{ $t('iot.title') }}</span>
+                  <p class="text-sm text-neutral-400">{{ $t('iot.no_devices_hint') }}</p>
+                </div>
+              </div>
+            </button>
           </section>
 
           <!-- ═══ Network Section (Mesh) ═══ -->
@@ -163,7 +172,7 @@
                 />
               </div>
 
-              <NuxtLink :to="localePath('/mesh')" class="inline-flex items-center gap-2 text-sm text-emerald-600 hover:text-emerald-500">
+              <NuxtLink :to="localePath('/mesh')" class="inline-flex items-center gap-2 text-sm text-link">
                 <Radio class="w-4 h-4" />
                 {{ $t('home.features.mesh.title', 'Mesh firmware downloads') }}
               </NuxtLink>
@@ -331,10 +340,10 @@ const propertyDevices = computed(() =>
   iotStore.devices.filter(d => d.property_id === propertyId.value)
 )
 
-const sensorDevices = computed(() =>
-  propertyDevices.value.filter(d =>
-    d.device_type !== 'MESH_ROUTER' && d.device_type !== 'TRACKER'
-  )
+// All non-mesh devices incl. trackers — a tracker assigned to this property
+// must stay visible here, otherwise it vanishes right after creation
+const generalDevices = computed(() =>
+  propertyDevices.value.filter(d => d.device_type !== 'MESH_ROUTER')
 )
 
 const meshDevices = computed(() =>
@@ -372,7 +381,10 @@ async function loadPropertyData() {
   try {
     await Promise.all([
       propertyStore.fetchProperties(),
-      iotStore.fetchDevices({ propertyId: propertyId.value }),
+      // Full inventory, not {propertyId}: the store holds ONE global devices
+      // list shared with /iot, and propertyDevices filters client-side anyway.
+      // A scoped fetch here clobbered the hub's devices tab (empty after back-nav).
+      iotStore.fetchDevices(),
       haStore.fetchHomes({ propertyId: propertyId.value }),
     ])
     // Load entities for each HA home
@@ -400,7 +412,7 @@ async function doDeleteProperty() {
   if (!prop.value) return
   showDeletePropertyConfirm.value = false
   await propertyStore.deleteProperty(prop.value.id)
-  router.push(localePath('/iot'))
+  router.push(localePath({ path: '/iot', query: { tab: 'objects' } }))
 }
 
 // HA actions

@@ -437,8 +437,11 @@
         </div>
       </UiAlert>
 
-      <!-- Loading state with skeletons -->
-      <div v-if="pending || loading || isInitialRefetch" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <!-- Loading state with skeletons — only when nothing is on screen yet.
+           If items are already rendered (KeepAlive re-activation, background refetch,
+           infinite-scroll append), keep them visible and swap fresh data in place
+           instead of flashing skeletons over good content. -->
+      <div v-if="(pending || loading || isInitialRefetch) && items.length === 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <MarketItemSkeleton v-for="n in 8" :key="n" />
       </div>
 

@@ -214,6 +214,10 @@ server {{
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
+        # Scrub client-sent X-Ygg-* (see nginx/snippets/proxy-common.conf).
+        proxy_set_header X-Ygg-Gate "";
+        proxy_set_header X-Ygg-Client-IP "";
+        proxy_set_header X-Ygg-Client-Port "";
     }}
 
     location /static/ {{
@@ -239,6 +243,10 @@ server {{
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
+        # Scrub client-sent X-Ygg-* (see nginx/snippets/proxy-common.conf).
+        proxy_set_header X-Ygg-Gate "";
+        proxy_set_header X-Ygg-Client-IP "";
+        proxy_set_header X-Ygg-Client-Port "";
     }}
 }}
 

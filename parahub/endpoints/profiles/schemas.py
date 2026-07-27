@@ -92,7 +92,7 @@ class ProfilePublicResponse(BaseModel):
             'contracts_completed_count': contracts_completed_count,
             'debts_active_count': debts_active_count,
             'debts_settled_count': debts_settled_count,
-            'avatar_url': obj.avatar.url if obj.avatar else None,
+            'avatar_url': obj.avatar_url,
             'id_photo_url': id_photo_url,
             'id_photo_verified': (obj.id_photo_verified if viewer_can_see_id_photo and hasattr(obj, 'id_photo_verified') else False),
             'is_supporter': obj.is_supporter if hasattr(obj, 'is_supporter') else False,
@@ -159,7 +159,7 @@ class ProfilePrivateResponse(ProfilePublicResponse):
             'map_style': obj.map_style or 'osm-liberty',
             'animation_enabled': obj.animation_enabled if hasattr(obj, 'animation_enabled') else True,
             'is_staff': obj.account.is_staff if hasattr(obj, 'account') else False,
-            'avatar_url': obj.avatar.url if obj.avatar else None,
+            'avatar_url': obj.avatar_url,
             # Owner viewing their own profile — always allowed; served via the gated endpoint
             'id_photo_url': (f"/api/v1/profiles/{obj.id}/id-photo/" if obj.id_photo else None),
             'id_photo_verified': obj.id_photo_verified if hasattr(obj, 'id_photo_verified') else False,

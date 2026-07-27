@@ -34,8 +34,11 @@
             <!-- Not authenticated -->
             <div v-if="!authStore.isAuthenticated" class="text-center">
               <p class="text-sm text-neutral-500 mb-3">{{ $t('parasos.member.login_to_join') }}</p>
-              <NuxtLink :to="localePath('/login')" class="btn-primary">
-                {{ $t('common.login') }}
+              <NuxtLink
+                :to="{ path: localePath('/login'), query: { redirect: localePath(`/sos/join/${token}`) } }"
+                class="btn-primary"
+              >
+                {{ $t('auth.login') }}
               </NuxtLink>
             </div>
 
@@ -78,7 +81,9 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+// No auth middleware: invite links land on anonymous recipients (family
+// without accounts) — they see the group preview and a login link that
+// returns them here after signing in.
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -123,6 +128,9 @@ async function joinGroup() {
 }
 
 onMounted(async () => {
+  // Without the auth middleware the session may not be reconciled yet —
+  // do it here so a logged-in visitor sees the join form, not the login link
+  authStore.ensureSession().catch(() => { /* anonymous */ })
   try {
     const data = await $fetch<any>(`/api/v1/parasos/invites/${token}/info/`)
     if (!data.is_valid) {

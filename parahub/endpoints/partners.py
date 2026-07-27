@@ -261,9 +261,10 @@ def quick_signup_via_invite(request, data: QuickSignupRequest):
         password = generate_password()
         email = f"{username}@parahub.io"
 
-        # Get client IP for registration tracking
-        xff = request.META.get('HTTP_X_FORWARDED_FOR')
-        reg_ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR', '')
+        # Client IP for registration tracking. REMOTE_ADDR is the real client
+        # (uvicorn proxy-headers); the raw X-Forwarded-For left-most element is
+        # client-spoofable.
+        reg_ip = request.META.get('REMOTE_ADDR', '')
 
         # Create account (instance already defined above)
         account = Account.objects.create_user(

@@ -17,36 +17,85 @@
       <!-- Cached screenshot overlay for instant KeepAlive restore -->
       <img class="map-snapshot-overlay" style="display: none" alt="" aria-hidden="true">
 
+      <!-- Effective camera-center reticle: marks where zoom buttons / flyTo
+           center, shifting with panel padding so it always sits in the visual
+           center of the unobscured map area -->
+      <div v-if="!webglError" class="map-center-reticle" :style="reticleStyle" aria-hidden="true">
+        <svg width="9" height="9" viewBox="0 0 9 9" shape-rendering="crispEdges">
+          <g stroke="var(--color-primary)" stroke-width="1">
+            <line x1="4.5" y1="0" x2="4.5" y2="3" />
+            <line x1="4.5" y1="6" x2="4.5" y2="9" />
+            <line x1="0" y1="4.5" x2="3" y2="4.5" />
+            <line x1="6" y1="4.5" x2="9" y2="4.5" />
+          </g>
+        </svg>
+      </div>
+
       <!-- Weather HUD: current conditions near the map centre (Open-Meteo).
-           Top-right, offset left of the zoom/layer controls strip so it never
-           sits under them. -->
+           Desktop: top-right, offset left of the zoom/layer controls strip.
+           Mobile (<768px): the search row spans the full top edge, so the HUD
+           drops below it; when the back-button/route-chip row occupies that
+           band, the HUD yields (same priority rule as open panels). -->
       <div
         v-if="weatherHudVisible"
-        class="absolute top-[10px] right-16 z-[1000]"
+        class="weather-hud-wrap"
+        :class="{ crowded: !!(route.query.returnTo || transit.activeRouteInfo.value) }"
       >
         <MapWeatherWidget :data="weatherData" />
       </div>
 
-      <!-- Back button + browse toggle row (when returnTo) -->
+      <!-- Back button row (when returnTo) + active transit-route chip -->
       <div
-        v-if="route.query.returnTo && !selectedFeature && activeAvatarPanel === null && !selectedVehicle && !selectedIoTDevice && !selectedCondominium && !selectedEstablishment"
-        class="absolute top-[4.5rem] left-4 z-[1001] flex items-center gap-2"
+        v-if="(route.query.returnTo || transit.activeRouteInfo.value) && !selectedFeature && activeAvatarPanel === null && !selectedVehicle && !selectedIoTDevice && !selectedEnvStation && !selectedCondominium && !selectedHub && !selectedEstablishment"
+        class="absolute top-[4.5rem] left-4 z-[1001] flex flex-col items-start gap-2"
       >
-        <button
-          v-if="!browseVisible && !routingVisible"
-          @click="openBrowsePanel"
-          class="p-2.5 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-all"
-          :title="$t('map.browse.toggle_tooltip')"
+        <div v-if="route.query.returnTo" class="flex items-center gap-2">
+          <button
+            v-if="!browseVisible && !routingVisible"
+            @click="openBrowsePanel"
+            class="p-2.5 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-xl transition-all"
+            :title="$t('map.browse.toggle_tooltip')"
+          >
+            <Building2 class="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
+          </button>
+          <button
+            @click.stop="router.push(localePath(route.query.returnTo as string))"
+            class="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg shadow-lg hover:shadow-xl transition-all border border-neutral-200 dark:border-neutral-700"
+          >
+            <ArrowLeft class="w-4 h-4" />
+            <span class="text-sm font-medium">{{ $t('map.back_to_page') }}</span>
+          </button>
+        </div>
+
+        <!-- Chip: which single route the map is focused on (vehicles are
+             filtered to it) — body re-fits the camera, X dismisses -->
+        <div
+          v-if="transit.activeRouteInfo.value"
+          class="flex items-center bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden"
         >
-          <Building2 class="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
-        </button>
-        <button
-          @click.stop="router.push(localePath(route.query.returnTo as string))"
-          class="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg shadow-lg hover:shadow-xl transition-all border border-neutral-200 dark:border-neutral-700"
-        >
-          <ArrowLeft class="w-4 h-4" />
-          <span class="text-sm font-medium">{{ $t('map.back_to_page') }}</span>
-        </button>
+          <button
+            @click.stop="fitActiveTransitRoute"
+            class="flex items-center gap-2 pl-2.5 pr-2 py-2 min-w-0 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+            :title="$t('map.transit.route_chip_fit')"
+          >
+            <span
+              class="px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0"
+              :style="routeBadgeStyle(transit.activeRouteInfo.value)"
+            >{{ transit.activeRouteInfo.value.short_name }}</span>
+            <span
+              v-if="transit.activeRouteInfo.value.long_name"
+              class="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate max-w-[13rem]"
+            >{{ transit.activeRouteInfo.value.long_name }}</span>
+          </button>
+          <button
+            @click.stop="clearActiveTransitRoute"
+            class="p-2 flex-shrink-0 text-neutral-500 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+            :title="$t('map.transit.route_chip_clear')"
+            :aria-label="$t('map.transit.route_chip_clear')"
+          >
+            <X class="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <!-- Browse Panel (left sidebar) -->
@@ -71,7 +120,7 @@
       />
 
       <!-- Unified Search bar with Browse + Directions buttons -->
-      <div class="search-with-directions" :class="{ 'panel-open': browseVisible || routingVisible, 'detail-panel-open': !!selectedFeature || activeAvatarPanel !== null || !!selectedVehicle || !!selectedIoTDevice || !!selectedCondominium || !!selectedEstablishment || (urbanActive && !!urbanResult) }">
+      <div class="search-with-directions" :class="{ 'panel-open': browseVisible || routingVisible, 'detail-panel-open': !!selectedFeature || activeAvatarPanel !== null || !!selectedVehicle || !!selectedIoTDevice || !!selectedEnvStation || !!selectedCondominium || !!selectedHub || !!selectedEstablishment || (urbanActive && !!urbanResult) || tileGridMode }">
         <button
           v-if="!route.query.returnTo"
           @click="openBrowsePanel"
@@ -99,6 +148,17 @@
         </button>
       </div>
 
+      <!-- OpenSky mission planning (tile-grid tool) — standard side panel with
+           flight budgets + dashboard link. Rendered before the main instance so
+           an entity panel opened from the IoT console paints on top. -->
+      <MapFeaturePanel
+        content-type="opensky"
+        :opensky-active="tileGridMode"
+        :opensky-budget="openSky.hoveredTileBudget.value"
+        :opensky-generating="openSky.missionGenerating.value"
+        @close="openSky.toggleTileGrid()"
+      />
+
       <!-- Unified Feature Panel (OSM, avatar controls, profile view, vehicle) -->
       <MapFeaturePanel
         ref="featurePanelRef"
@@ -108,8 +168,10 @@
         :content-type="panelContentTypeWithVehicle"
         :avatar-data="panelAvatarData"
         :vehicle-data="selectedVehicle"
+        :vehicle-following="vehicleFollowing"
         :iot-device-data="selectedIoTDevice"
         :iot-following="iot.isFollowing.value"
+        :env-station-data="selectedEnvStation"
         :condominium-data="selectedCondominium"
         :hub-data="selectedHub"
         :establishment-data="selectedEstablishment"
@@ -124,6 +186,7 @@
         @clear-trail="handleClearTrail"
         @trail-cursor="handleTrailCursor"
         @recenter-iot="handleRecenterIoT"
+        @toggle-vehicle-follow="toggleVehicleFollow"
         @osm-resolved="handleOsmResolved"
       />
 
@@ -158,13 +221,13 @@
         :own-avatar-state="currentAvatarState"
         :is-keyboard-moving="keyboard.isKeyboardMoving.value"
         :keyboard-direction="keyboard.keyboardDirection.value"
-        @avatar-click="handleAvatarClick"
+        v-model:own-geo-position="ownAvatarGeoPosition"
       />
 
       <!-- Right control strip (layers / tools / IoT popovers, OpenSky group) + mission plan bar -->
       <MapControls
         :top="customControlsTop"
-        :open-sky="openSky" :satellite="satellite" :tiles3d="tiles3d" :transit="transit"
+        :open-sky="openSky" :satellite="satellite" :poi="poi" :tiles3d="tiles3d" :transit="transit"
         :gov="gov" :church="church" :condo="condo" :hub="hub" :mesh="mesh" :iot="iot"
         :measure="measure" :sun-study="sunStudy" :isochrone="isochrone" :drone-reach="droneReach" :urban="urban"
         @select-tracker="selectAndFlyToTracker"
@@ -181,7 +244,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, Building2, Route } from 'lucide-vue-next'
+import { ArrowLeft, Building2, Route, X } from 'lucide-vue-next'
 import { createGeolocationControl } from '~/composables/useGeolocationControl'
 import { useMapKeyboard } from '~/composables/useMapKeyboard'
 import { useMapHighlight } from '~/composables/useMapHighlight'
@@ -205,6 +268,7 @@ import { useMapUrbanAnalysis } from '~/composables/useMapUrbanAnalysis'
 const router = useRouter()
 const localePath = useLocalePath()
 const route = useRoute()
+const { t } = useI18n()
 const mapStore = useMapStore()
 const authStore = useAuthStore()
 
@@ -256,7 +320,7 @@ const avatar = useMapAvatarPanel({
 })
 const {
   mapPresenceEnabled, currentAvatarType, currentSpeechBubble, currentAvatarState,
-  activeAvatarPanel, nearbyAvatars, isMapPresenceConnected,
+  activeAvatarPanel, nearbyAvatars, isMapPresenceConnected, ownAvatarGeoPosition,
   panelAvatarData,
   wrappedSetState, wrappedSetSpeechBubble,
 } = avatar
@@ -265,13 +329,26 @@ const {
 const currentOpenSkyMission = computed(() => route.query.opensky_mission as string | undefined)
 
 const openSky = useMapOpenSky(currentOpenSkyMission)
+const { tileGridMode } = openSky
 
 const iot = useMapIoTLayers()
 
 const transit = useMapTransitLayers()
+const { routeBadgeStyle } = useTransitHelpers()
+
+// Active transit-route chip actions (body tap re-fits, X dismisses)
+const fitActiveTransitRoute = () => {
+  const m = mapStore.mapInstance
+  if (m) transit.fitActiveRoute(m)
+}
+const clearActiveTransitRoute = () => {
+  const m = mapStore.mapInstance
+  if (m) transit.removeRouteOverlay(m)
+}
 
 const mesh = useMapMeshLayer()
 const satellite = useMapSatelliteLayer()
+const poi = useMapPoiVisibility()
 const condo = useMapCondoLayers()
 const hub = useMapHubLayers()
 const gov = useMapGovernmentLayer()
@@ -285,7 +362,8 @@ const isActive = ref(true)
 
 const panels = useMapEntityPanels({ avatar, routing, browse, iot, openSky, isActive })
 const {
-  selectedVehicle, selectedIoTDevice, selectedCondominium, selectedHub, selectedEstablishment,
+  selectedVehicle, selectedIoTDevice, selectedEnvStation,
+  selectedCondominium, selectedHub, selectedEstablishment,
   panelContentTypeWithVehicle, entityPanelOpen,
   clearEntityPanels, closeFeaturePanel, handleFeaturePanelBack,
 } = panels
@@ -296,6 +374,10 @@ transit.setVehicleClickHandler((vehicle: any) => {
   selectedVehicle.value = vehicle
 })
 
+// Entering mission planning claims the panel slot — close entity panels
+// (the reverse direction is covered by closeFeaturePanel, which exits grid mode)
+watch(tileGridMode, (on) => { if (on) clearEntityPanels() })
+
 const iotBridge = useMapIoTBridge({ selectedIoTDevice, clearEntityPanels, iot, animationEnabled })
 const {
   selectAndFlyToTracker, selectAndFlyToProperty,
@@ -303,6 +385,10 @@ const {
 } = iotBridge
 
 const trackerPanelWs = useMapTrackerPanelWs({ selectedIoTDevice, iot })
+const envLiveWs = useMapEnvLiveWs({ selectedEnvStation, iot })
+
+// Selected station carries the lock-on hex — mute its compass bezel meanwhile
+watch(() => selectedEnvStation.value?.id || null, (id) => iot.setEnvHudLockDim(id))
 
 // ======== Map Tools ========
 
@@ -337,7 +423,7 @@ const customControlsTop = ref('250px') // updated dynamically after map init
 // ======== Layer stack (initial registration + style-reload re-registration) ========
 
 const layerStack = useMapLayerStack({
-  highlight, openSky, satellite, iot, mesh, condo, hub, gov, church,
+  highlight, openSky, satellite, poi, iot, mesh, condo, hub, gov, church,
   transit, browse,
   // Draw tools in z-order; one list feeds both registration paths
   drawTools: [measure, sunStudy, isochrone, droneReach, urban],
@@ -361,7 +447,6 @@ const closeBrowsePanel = () => browse.closePanel()
 const updateBrowseMarkers = (results: any[]) => browse.updateMarkers(results)
 const handleBrowseSelect = (est: any) => browse.handleSelect(est)
 const handleBrowseCategoryCleared = () => browse.handleCategoryCleared()
-const handleAvatarClick = avatar.handleAvatarClick
 const handleAvatarTypeChange = avatar.handleAvatarTypeChange
 
 const openBrowsePanel = () => {
@@ -415,6 +500,39 @@ const keyboard = useMapKeyboard({
   featurePanelRef,
 })
 
+// ======== Entity-panel deep links (?device=) + vehicle follow ========
+
+const deepLink = useMapDeviceDeepLink({
+  getMap: () => miniMap,
+  animationEnabled,
+  panels: {
+    selectedVehicle, selectedIoTDevice, selectedEnvStation,
+    selectedCondominium, selectedHub, selectedEstablishment,
+    clearEntityPanels,
+  },
+  iot,
+  layers: { mesh, condo, hub, gov, church },
+  transit,
+})
+const { vehicleFollowing, toggleVehicleFollow } = deepLink
+
+// ======== Camera padding for docked panels + center reticle ========
+
+// Any left-docked (desktop) / bottom-sheet (mobile) panel that obscures the map
+const anyDockedPanelOpen = computed(() =>
+  !!selectedFeature.value || entityPanelOpen.value || browseVisible.value
+  || routingVisible.value || (urbanActive.value && !!urbanResult.value)
+  || tileGridMode.value
+)
+const cameraPadding = useMapCameraPadding({
+  getMap: () => miniMap,
+  panelOpen: anyDockedPanelOpen,
+  getPanelPadding: iot.getPanelPadding,
+})
+const reticleStyle = computed(() => ({
+  transform: `translate(calc(-50% + ${cameraPadding.paddingOffset.value.x}px), calc(-50% + ${cameraPadding.paddingOffset.value.y}px))`,
+}))
+
 // ======== URL ⇄ map sync (query building, deep-link pendings, position saves) ========
 
 const urlSync = useMapUrlSync({
@@ -425,6 +543,7 @@ const urlSync = useMapUrlSync({
   routing,
   browse,
   closeFeaturePanel,
+  getDeviceParam: () => deepLink.deviceParam.value,
 })
 const handleOsmResolved = urlSync.handleOsmResolved
 const handleEstablishmentSelected = urlSync.handleEstablishmentSelected
@@ -434,8 +553,9 @@ const handleEstablishmentSelected = urlSync.handleEstablishmentSelected
 const clickDispatcher = useMapClickDispatcher({
   animationEnabled,
   searchLanguage,
-  // Tools that own map clicks while active (sun study is slider-driven)
-  interceptWhenActive: [measureActive, isochroneActive, droneReachActive, urbanActive],
+  // Tools that own map clicks while active (sun study is slider-driven;
+  // tile-grid mode handles its own clicks inside useMapOpenSky)
+  interceptWhenActive: [measureActive, isochroneActive, droneReachActive, urbanActive, tileGridMode],
   routing,
   browse,
   panels,
@@ -443,6 +563,7 @@ const clickDispatcher = useMapClickDispatcher({
   avatar,
   highlight,
   updateUrlWithMapState: urlSync.updateUrlWithMapState,
+  transitPick: transit.hasVehicleAt,
 })
 
 // ======== Search handlers ========
@@ -465,7 +586,7 @@ const onLocationSelected = async (location: any) => {
     const maplibreModule = await import('maplibre-gl')
     const maplibregl = maplibreModule.default || maplibreModule
     const { createLockOnElement } = await import('~/utils/lockOnMarker')
-    const marker = new maplibregl.Marker({ element: createLockOnElement({ noDot: true }), anchor: 'center' }).setLngLat(lngLat).addTo(miniMap)
+    const marker = new maplibregl.Marker({ element: createLockOnElement(), anchor: 'center' }).setLngLat(lngLat).addTo(miniMap)
     setCurrentMarker(marker)
   } catch (err) {
     console.error('[MapView] Failed to add marker:', err)
@@ -514,7 +635,7 @@ const onEscapeKey = (e: KeyboardEvent) => {
   const tag = (e.target as HTMLElement)?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA') return
 
-  if (selectedFeature.value || selectedVehicle.value || selectedIoTDevice.value || selectedCondominium.value || selectedHub.value || selectedEstablishment.value) {
+  if (selectedFeature.value || selectedVehicle.value || selectedIoTDevice.value || selectedEnvStation.value || selectedCondominium.value || selectedHub.value || selectedEstablishment.value) {
     closeFeaturePanel()
   } else if (avatar.activeAvatarPanel.value !== null) {
     avatar.clearAvatarPanel()
@@ -533,6 +654,10 @@ const onEscapeKey = (e: KeyboardEvent) => {
     droneReach.stopDroneReach()
   } else if (urbanActive.value) {
     urban.stopUrban()
+  } else if (tileGridMode.value) {
+    openSky.toggleTileGrid()
+  } else if (transit.activeRouteInfo.value) {
+    clearActiveTransitRoute()
   } else {
     return // nothing to close
   }
@@ -582,7 +707,7 @@ onMounted(async () => {
     const navControl = new maplibregl.NavigationControl({ showCompass: true })
     miniMap.addControl(navControl, 'top-right')
 
-    const GeolocationControl = createGeolocationControl(mapStore, animationEnabled)
+    const GeolocationControl = createGeolocationControl(mapStore, animationEnabled, t)
     const geoControl = new GeolocationControl()
     miniMap.addControl(geoControl, 'top-right')
 
@@ -619,8 +744,8 @@ onMounted(async () => {
       }
     })
 
-    // Disable IoT follow mode when user drags the map
-    miniMap.on('dragstart', () => { iot.disableFollow() })
+    // Disable IoT / vehicle follow modes when user drags the map
+    miniMap.on('dragstart', () => { iot.disableFollow(); deepLink.disableVehicleFollow() })
 
     miniMap.on('load', () => {
       // Attribution: remove auto-expand, enable user-toggled expand via attrib-ready marker
@@ -642,6 +767,13 @@ onMounted(async () => {
         openSky.fitMissionBounds(miniMap, currentOpenSkyMission.value, { animate: false })
       }
 
+      // Frame all mesh nodes when arriving from /mesh "View on map" (?fit=mesh).
+      // The link seeds a Minho-region center so there's no long jump before the
+      // async fitBounds resolves.
+      if (route.query.fit === 'mesh') {
+        mesh.fitBounds(miniMap, { animate: false })
+      }
+
       // Auto-enable transit + marker/route from /transit "Show on map"
       // (fresh mount: parseInitialQuery already centered the map → no recenter)
       urlSync.applyPendingTransitMarker({ recenter: false })
@@ -653,9 +785,10 @@ onMounted(async () => {
         avatar.initializeMapPresence(miniMap)
       }
 
-      // Restore feature panel / open directions from URL
+      // Restore feature panel / entity panel / open directions from URL
       urlSync.restorePendingFeature()
       urlSync.applyDirectionsFromQuery()
+      deepLink.restorePendingDevice()
 
       // Dynamic 2D/3D building switching based on pitch
       miniMap.on('pitch', () => {
@@ -768,6 +901,13 @@ onActivated(() => {
   // Re-apply query-driven navigation when re-entering the kept-alive map
   // (onMounted parses the query only on the first mount) — see useMapUrlSync.
   urlSync.reapplyQueryNavigation()
+  deepLink.restorePendingDevice()
+
+  // Re-frame mesh nodes for a /map?fit=mesh deep-link into the kept-alive map
+  // (the 'load' handler above runs only on the first mount).
+  if (route.query.fit === 'mesh' && miniMap) {
+    mesh.fitBounds(miniMap, { animate: true })
+  }
 
   if (authStore.isAuthenticated && mapPresenceEnabled.value) {
     avatar.initializeMapPresence(miniMap)
@@ -797,6 +937,7 @@ onDeactivated(() => {
   if (urbanActive.value) urban.stopUrban()
   transit.disconnectWs()
   trackerPanelWs.disconnect()
+  envLiveWs.disconnect()
   avatar.disconnectMapPresence?.()
   weatherHud.stopTimer()
 })
@@ -819,6 +960,7 @@ onBeforeUnmount(() => {
   mesh.pauseRefresh()
   transit.disconnectWs()
   trackerPanelWs.disconnect()
+  envLiveWs.disconnect()
   tiles3d.dispose()
   if (isMapPresenceConnected.value) avatar.disconnectMapPresence()
   miniMap = null
@@ -898,6 +1040,22 @@ onBeforeUnmount(() => {
   object-fit: cover;
   z-index: 1;
   pointer-events: none;
+}
+
+/* Effective camera-center reticle — minimal hollow brand-yellow crosshair
+   (3px hairline arms, no halo) marking where zoom buttons / flyTo center.
+   transform-only motion (compositor); the transition mirrors the 250ms
+   padding ease of useMapCameraPadding. */
+.map-center-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 30;
+  pointer-events: none;
+  transition: transform 250ms ease;
+}
+.map-center-reticle svg {
+  display: block;
 }
 
 /* User location marker (MapLibre marker) */
@@ -1029,6 +1187,30 @@ onBeforeUnmount(() => {
   display: block;
 }
 
+/* Weather HUD wrapper — desktop: top row, left of the zoom/control strip */
+.weather-hud-wrap {
+  position: absolute;
+  top: 10px;
+  right: 4rem;
+  z-index: 1000;
+}
+
+/* Below the desktop breakpoint the search bar spans the full top edge and
+   would cover the HUD — move it to the band below (right edge still clear
+   of the nav-control strip at right: 10px) */
+@media (max-width: 767px) {
+  .weather-hud-wrap {
+    top: 72px;
+  }
+  .weather-hud-wrap.crowded {
+    display: none;
+  }
+  /* Search suggestions dropdown opens into the same band — yield to it too */
+  .mini-map-container:has(.search-results) .weather-hud-wrap {
+    display: none;
+  }
+}
+
 /* Search + Directions FAB wrapper — aligned with feature panel (md:left-0 md:w-96) */
 .search-with-directions {
   position: absolute;
@@ -1126,4 +1308,108 @@ onBeforeUnmount(() => {
   }
 }
 
+</style>
+
+<style>
+/* Device HUD markers (utils/envHudMarker.ts) — unscoped: the elements are
+   created outside Vue and appended by MapLibre. Instrument readout column
+   beside each device hexagon (env stations + mesh routers) plus a
+   transparent compass bezel around weather hexes; dark mono text with a
+   white halo (same legibility scheme as GL map labels). The marker root is a
+   0×0 box centered on the rendered (ensemble-offset) point — every part
+   hangs off it absolutely. Placement classes come from the ensemble layout
+   (useMapDeviceEnsembles.ts); the numeric gaps below must stay in sync with
+   its HUD_GAP_* constants. */
+.env-hud { pointer-events: none; width: 0; height: 0; }
+/* Fade opacity sits on the inner wrapper — MapLibre owns inline styles on
+   the marker root element itself. */
+.env-hud-inner { opacity: 1; transition: opacity 0.25s; }
+.env-hud-stale .env-hud-inner { opacity: 0.45; }
+/* Hidden below ENV_HUD_MINZOOM — class toggled on the map container */
+.env-hud-below-zoom .env-hud-inner { opacity: 0; }
+
+/* Compass bezel: transparent ring around the hex itself (the map shows
+   through); counter-rotates by the map bearing so the red north tick stays
+   geo-aligned */
+.env-hud-ring {
+  position: absolute;
+  left: -28px;
+  top: -28px;
+  width: 56px;
+  height: 56px;
+  filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.9));
+  transform: rotate(var(--map-bearing-neg, 0deg));
+  transition: transform 0.3s linear;
+}
+/* Base-scale (22 px, non-ensemble) hexes wear a proportionally smaller bezel */
+.env-hud-base .env-hud-ring { left: -22px; top: -22px; width: 44px; height: 44px; }
+/* Selected station wears the lock-on hex right over the bezel — mute the ring
+   and ticks so the hex reads clean. The wind pointer stays at full opacity:
+   the panel shows direction only as a number, the dart is the live readout. */
+.env-hud-ring circle,
+.env-hud-ring line { transition: opacity 0.25s; }
+.env-hud-lockdim .env-hud-ring circle,
+.env-hud-lockdim .env-hud-ring line { opacity: 0.12; }
+.env-hud-pointer {
+  transform-box: view-box;
+  transform-origin: 28px 28px;
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Instrument readout column */
+.env-hud-col {
+  position: absolute;
+  top: 0;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  user-select: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  color: #111827;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.env-hud-side-r .env-hud-col { left: 19px; align-items: flex-start; }
+.env-hud-side-l .env-hud-col { right: 19px; align-items: flex-end; }
+.env-hud-ringed.env-hud-side-r .env-hud-col { left: 24px; }
+.env-hud-ringed.env-hud-side-l .env-hud-col { right: 24px; }
+.env-hud-base.env-hud-side-r .env-hud-col { left: 16px; }
+.env-hud-base.env-hud-side-l .env-hud-col { right: 16px; }
+.env-hud-base.env-hud-ringed.env-hud-side-r .env-hud-col { left: 19px; }
+.env-hud-base.env-hud-ringed.env-hud-side-l .env-hud-col { right: 19px; }
+/* Diagonal ring slots push their readout outward so stacked columns never kiss */
+.env-hud-up .env-hud-col { top: -7px; }
+.env-hud-down .env-hud-col { top: 7px; }
+/* Pure-top slot: bottom-anchor the column so it grows upward, clear of the
+   lower slots' bezel. Left may be overridden inline by the right-rail
+   alignment (the column's edge lines up with the columns below). */
+.env-hud-topslot .env-hud-col { top: -2px; transform: translateY(-100%); }
+.env-hud-topslot.env-hud-side-r .env-hud-col { left: 26px; }
+.env-hud-primary {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff, 0 1px 2px #fff;
+}
+.env-hud-rows { display: flex; flex-direction: column; }
+.env-hud-row {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+  line-height: 1.3;
+  text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff, 0 1px 2px #fff;
+}
+.env-hud-side-l .env-hud-row { justify-content: flex-end; }
+.env-hud-k { font-size: 8px; font-weight: 700; opacity: 0.5; letter-spacing: 0.08em; }
+.env-hud-v { font-size: 10px; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .env-hud-inner,
+  .env-hud-ring,
+  .env-hud-ring circle,
+  .env-hud-ring line,
+  .env-hud-pointer { transition: none; }
+}
 </style>

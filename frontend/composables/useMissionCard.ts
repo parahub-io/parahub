@@ -2,9 +2,11 @@
  * Shared display helpers for OpenSky mission cards (recon-instrument design).
  *
  * The card reads like a flight-instrument readout: terse labelled values
- * (place, coordinates, area, frame count, survey date, pilot). These helpers
- * derive those values; engineering artifacts (ortho pixel size, tile indices)
- * are intentionally not surfaced.
+ * (place, coordinates, planning-grid tile, area, frame count, survey date,
+ * pilot). These helpers derive those values; other engineering artifacts
+ * (e.g. ortho pixel size) are intentionally not surfaced. The tile x/y IS
+ * surfaced — it matches the /map mission-planning grid labels, so a pilot
+ * can find the mission covering a grid cell they see on the map.
  *
  * Pure functions + a couple of composables, auto-imported by Nuxt.
  */

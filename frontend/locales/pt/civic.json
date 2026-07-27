@@ -8,9 +8,17 @@
       "municipality": "Município",
       "region": "Região",
       "country": "País",
+      "eu": "UE",
       "groups": "Grupos",
       "household": "Casa",
       "condominium": "Condomínio"
+    },
+    "eci": {
+      "title": "Iniciativa de Cidadania Europeia",
+      "supporters": "{n} de {total}",
+      "countries": "{n}/{total} países",
+      "disclaimer": "Apoio, não assinaturas oficiais",
+      "disclaimerHint": "Este medidor mostra o apoio à escala de uma Iniciativa de Cidadania Europeia (1 000 000 de pessoas em pelo menos 7 países). São votos anónimos de barómetro, não assinaturas oficiais verificadas — se o apoio atingir massa crítica, pode lançar-se uma ICE formal em separado."
     },
     "feed": {
       "participation": "{n} votos",
@@ -20,7 +28,11 @@
       "emptyScopeHint": "As sondagens aparecem aqui quando forem criadas para a sua área",
       "needResidency": "Indique a sua freguesia para ver sondagens locais",
       "needResidencyAction": "Escolher localização",
-      "loginToSee": "Inicie sessão para ver sondagens da sua área"
+      "loginToSee": "Inicie sessão para ver sondagens da sua área",
+      "hideVoted": "Ocultar já votadas",
+      "showVoted": "Mostrar já votadas",
+      "showAll": "Mostrar todas ({n})",
+      "history": "Concluídas"
     },
     "destination": "Para onde vai o resultado",
     "outcome": "Resultado final",
@@ -70,7 +82,11 @@
       "save": "Guardar localização",
       "saved": "Localização guardada",
       "cooldown": "A localização pode ser alterada novamente após {date}",
-      "notSet": "Não definida"
+      "notSet": "Não definida",
+      "voteAs": "A votar como residente de {name}",
+      "change": "Alterar",
+      "suggestTitle": "A sua freguesia — a partir dos seus locais",
+      "suggestHint": "Freguesias determinadas pela localização dos seus imóveis. Confirme uma — passará a ser a sua localização cívica para sondagens locais."
     },
     "privacy": {
       "title": "Os meus dados cívicos",

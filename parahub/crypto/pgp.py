@@ -6,13 +6,42 @@ Provides secure signature verification and key management using python-gnupg lib
 import gnupg
 from typing import Optional, Tuple, Dict, Any
 from datetime import datetime, timedelta
+import atexit
 import json
 import base64
 import logging
+import shutil
+import subprocess
 import tempfile
 import os
 
 logger = logging.getLogger(__name__)
+
+
+def _cleanup_gpg_home(gpg_home: str, owner_pid: int) -> None:
+    """
+    Kill the gpg-agent bound to a temporary GPG home and remove the directory.
+
+    GnuPG >= 2.1 daemonizes a gpg-agent per home directory on the first keyring
+    operation; it outlives the process that started it. Without an explicit kill
+    every management command / uvicorn worker leaks an orphan agent (~1.8 MB RSS)
+    plus its /tmp directory.
+
+    Idempotent and fork-safe: a forked child must not remove a home owned by its
+    parent, so cleanup is a no-op unless the caller is the process that created it.
+    """
+    if owner_pid != os.getpid():
+        return
+    if not gpg_home or not os.path.isdir(gpg_home):
+        return
+    try:
+        subprocess.run(
+            ['gpgconf', '--homedir', gpg_home, '--kill', 'gpg-agent'],
+            capture_output=True, timeout=5,
+        )
+    except Exception:
+        pass
+    shutil.rmtree(gpg_home, ignore_errors=True)
 
 
 class PGPVerificationError(Exception):
@@ -43,6 +72,8 @@ class PGPCrypto:
         # Initialize GPG with temporary home directory
         # This ensures isolation and no interference with system keyring
         self.gpg_home = tempfile.mkdtemp(prefix='parahub_gpg_')
+        self._owner_pid = os.getpid()
+        atexit.register(_cleanup_gpg_home, self.gpg_home, self._owner_pid)
         self.gpg = gnupg.GPG(gnupghome=self.gpg_home)
 
         # Configure GPG for headless operation (no pinentry prompts)
@@ -57,6 +88,14 @@ class PGPCrypto:
             f.write('allow-loopback-pinentry\n')
 
         logger.info(f"Initialized GPG with home directory: {self.gpg_home}")
+
+    def __del__(self):
+        # Short-lived instances (tests) release their agent as soon as they are
+        # collected; the atexit hook stays registered as an idempotent backstop.
+        try:
+            _cleanup_gpg_home(self.gpg_home, self._owner_pid)
+        except Exception:
+            pass  # interpreter shutdown may already have torn down globals
 
     def load_public_key(self, public_key_data: str) -> str:
         """

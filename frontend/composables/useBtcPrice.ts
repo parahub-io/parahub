@@ -6,6 +6,14 @@ const lastFetchTime = ref(0)
 const loading = ref(false)
 const CACHE_DURATION = 60 * 1000 // 1 minute cache
 
+// Failed fetches self-retry with backoff: consumers call fetchBtcPrice once per
+// page lifecycle, so without a retry a single failure (offline blip, CoinGecko
+// 429) hides all fiat display until the next full remount.
+const RETRY_BASE_DELAY = 5 * 1000
+const MAX_RETRIES = 5
+let retryCount = 0
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+
 // CoinGecko API (free, no key needed)
 const COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/price'
 
@@ -30,6 +38,13 @@ export function useBtcPrice() {
       return
     }
 
+    // A fresh (non-retry) call supersedes any pending retry chain
+    if (!force) retryCount = 0
+    if (retryTimer) {
+      clearTimeout(retryTimer)
+      retryTimer = null
+    }
+
     loading.value = true
     try {
       const currencies = supportedFiat.join(',')
@@ -37,12 +52,21 @@ export function useBtcPrice() {
         `${COINGECKO_API}?ids=bitcoin&vs_currencies=${currencies}`
       )
 
-      if (response?.bitcoin) {
-        btcPrices.value = response.bitcoin
-        lastFetchTime.value = now
-      }
+      if (!response?.bitcoin) throw new Error('Malformed CoinGecko response')
+
+      btcPrices.value = response.bitcoin
+      lastFetchTime.value = now
+      retryCount = 0
     } catch (error) {
       console.error('Failed to fetch BTC price:', error)
+      if (retryCount < MAX_RETRIES) {
+        const delay = RETRY_BASE_DELAY * 2 ** retryCount
+        retryCount++
+        retryTimer = setTimeout(() => {
+          retryTimer = null
+          fetchBtcPrice(true)
+        }, delay)
+      }
     } finally {
       loading.value = false
     }

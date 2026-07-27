@@ -28,8 +28,10 @@
       "no_alerts_yet": "Ainda sem alertas",
       "members": "Membros",
       "delete": "Eliminar Grupo",
+      "edit": "Editar grupo",
       "delete_confirm": "Tem a certeza que quer eliminar este grupo? Esta ação é irreversível.",
-      "deleted": "Grupo eliminado"
+      "deleted": "Grupo eliminado",
+      "updated": "Grupo atualizado"
     },
 
     "create_group": {
@@ -134,7 +136,8 @@
       "delete_invite": "Falha ao eliminar convite",
       "fetch_invite": "Falha ao carregar informação do convite",
       "invite_invalid": "Este link de convite é inválido ou expirou",
-      "delete_group": "Falha ao eliminar grupo"
+      "delete_group": "Falha ao eliminar grupo",
+      "update_group": "Falha ao atualizar o grupo"
     },
 
     "response": {

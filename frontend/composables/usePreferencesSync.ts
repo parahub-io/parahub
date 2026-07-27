@@ -2,7 +2,7 @@
  * Syncs UI preferences between localStorage (fast, reactive) and backend profile.
  *
  * Server-synced keys: preferred_currency, animation_enabled, map_style
- * Client-only keys: opensky_mode, map_presence_enabled, opensky_enabled, transit_enabled, etc.
+ * Client-only keys: map_presence_enabled, opensky_enabled, transit_enabled, etc.
  *
  * On login/page load: server values overwrite localStorage.
  * On change: localStorage updates instantly, PATCH debounced to backend.

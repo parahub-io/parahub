@@ -9,7 +9,7 @@ export default function globalTeardown() {
   try {
     const dataResult = execSync(
       `python3 /opt/parahub/manage.py shell -c "
-from identity.models import Contract
+from contracts.models import Contract
 from geo.models import Event
 from cms.models import Post
 e_count, _ = Event.objects.filter(organizer__account__is_test=True, title__startswith='E2E-').delete()

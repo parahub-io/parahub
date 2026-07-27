@@ -6,7 +6,7 @@
 |-------|-----------|
 | **Backend** | Django 5 + Django Ninja (REST API) |
 | **Frontend** | Nuxt 4.3 (Vue 3, SSR) |
-| **Database** | PostgreSQL 16 + PostGIS + TimescaleDB |
+| **Database** | PostgreSQL 18 + PostGIS + TimescaleDB |
 | **Cache/Realtime** | Redis |
 | **Graph** | Neo4j (barter cycle detection) |
 | **Chat** | Synapse (Matrix homeserver) |
@@ -21,7 +21,9 @@
 
 ## Infrastructure
 
-Single server: Hetzner dedicated (<VPS_IP>) -> LXC container (<LXC_IP>) -> parahub.io
+Two-node topology. The **primary application server** -- a Hetzner dedicated machine (<VPS_IP>) -> LXC container (<LXC_IP>) -> parahub.io -- runs everything in the user-request hot path (all services below).
+
+A second, self-hosted **GPU processing node** in Portugal handles heavy offline batch work that doesn't belong on the application server: OpenDroneMap photogrammetry for OpenSky (orthophoto tiles + 3D meshes on a consumer GPU) and fetching Portugal-geoblocked planning data for Urban Analysis. It connects to the primary server over an encrypted WireGuard tunnel and serves processed aerial artifacts back. Nothing user-facing blocks on it -- if it is offline, only new drone and urban-analysis processing pauses.
 
 ### Services
 
@@ -154,7 +156,7 @@ Example -- tracker pipeline (same CQRS):
 | `ads` | AdsProfile, AdsInterest, AdsSkill, AdsProfileSkill, AdsChildrenAge, AdCampaign, AdView | P2P advertising |
 | `energy` | EnergyCell, EnergyProducer, EnergyConsumer, EnergyRelay, EnergyBillingRecord, GridInfrastructure | P2P solar energy |
 | `treasury` | BudgetCategory, BudgetAllocation, BudgetEpoch, Expense, TreasuryAuditLog | Participatory budgets |
-| `iot` | IoTDevice, TrackerHistory, TrackerLocation, TraccarUser, MeshSubscription, VehicleAssignment, Property, HAHome, HAEntity | GPS trackers, mesh nodes, dispatch, property, Home Assistant |
+| `iot` | IoTDevice, TrackerHistory, TrackerLocation, TraccarUser, MeshPass, MeshPassCredit, MeshDevice, VehicleAssignment, Property, HAHome, HAEntity | GPS trackers, mesh nodes, dispatch, property, Home Assistant |
 | `tickets` | TicketType, Ticket | Unified ticketing (events + transit) |
 | `cms` | Post, Site, SitePage | Blog posts and mini-sites |
 | `notifications` | PushSubscription, FCMDevice | Web Push, Firebase Cloud Messaging |

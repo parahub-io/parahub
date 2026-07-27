@@ -53,19 +53,19 @@ const getIcon = (type: string) => {
 
 const toastClasses = (type: string) => {
   const classes = {
-    success: 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700',
-    error: 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700',
-    warning: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700',
-    info: 'bg-secondary-50 dark:bg-secondary-900/20 border-secondary-300 dark:border-secondary-700'
+    success: 'bg-success-50 dark:bg-success-900 border-success-300 dark:border-success-700',
+    error: 'bg-error-50 dark:bg-error-900 border-error-300 dark:border-error-700',
+    warning: 'bg-warning-50 dark:bg-warning-900 border-warning-300 dark:border-warning-700',
+    info: 'bg-secondary-50 dark:bg-secondary-900 border-secondary-300 dark:border-secondary-700'
   }
   return classes[type as keyof typeof classes] || classes.info
 }
 
 const iconClasses = (type: string) => {
   const classes = {
-    success: 'text-green-600 dark:text-green-400',
-    error: 'text-red-600 dark:text-red-400',
-    warning: 'text-yellow-600 dark:text-yellow-400',
+    success: 'text-success-600 dark:text-success-400',
+    error: 'text-error-600 dark:text-error-400',
+    warning: 'text-warning-600 dark:text-warning-400',
     info: 'text-secondary dark:text-secondary-400'
   }
   return classes[type as keyof typeof classes] || classes.info
@@ -73,9 +73,9 @@ const iconClasses = (type: string) => {
 
 const titleClasses = (type: string) => {
   const classes = {
-    success: 'text-green-900 dark:text-green-100',
-    error: 'text-red-900 dark:text-red-100',
-    warning: 'text-yellow-900 dark:text-yellow-100',
+    success: 'text-success-900 dark:text-success-100',
+    error: 'text-error-900 dark:text-error-100',
+    warning: 'text-warning-900 dark:text-warning-100',
     info: 'text-secondary-900 dark:text-secondary-100'
   }
   return classes[type as keyof typeof classes] || classes.info
@@ -83,9 +83,9 @@ const titleClasses = (type: string) => {
 
 const messageClasses = (type: string) => {
   const classes = {
-    success: 'text-green-800 dark:text-green-200',
-    error: 'text-red-800 dark:text-red-200',
-    warning: 'text-yellow-800 dark:text-yellow-200',
+    success: 'text-success-800 dark:text-success-200',
+    error: 'text-error-800 dark:text-error-200',
+    warning: 'text-warning-800 dark:text-warning-200',
     info: 'text-secondary-800 dark:text-secondary-200'
   }
   return classes[type as keyof typeof classes] || classes.info
@@ -93,9 +93,9 @@ const messageClasses = (type: string) => {
 
 const closeClasses = (type: string) => {
   const classes = {
-    success: 'text-green-600 dark:text-green-400',
-    error: 'text-red-600 dark:text-red-400',
-    warning: 'text-yellow-600 dark:text-yellow-400',
+    success: 'text-success-600 dark:text-success-400',
+    error: 'text-error-600 dark:text-error-400',
+    warning: 'text-warning-600 dark:text-warning-400',
     info: 'text-secondary dark:text-secondary-400'
   }
   return classes[type as keyof typeof classes] || classes.info

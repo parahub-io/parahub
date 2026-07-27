@@ -12,6 +12,7 @@ from django.utils.crypto import get_random_string
 from django.http import HttpRequest
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
+from core.access import accessible_q
 from django.conf import settings
 from ..models import IoTDevice, TraccarUser
 from ..services import TraccarService
@@ -34,34 +35,34 @@ class TraccarSSOTicketOut(Schema):
 @router.get("/traccar/credentials", response=TraccarCredentialsOut, auth=ProfileAuth())
 @ratelimit(group='iot:traccar_credentials', key=user_or_ip, rate='10/m')
 def get_traccar_credentials(request):
-    """Получение учетных данных для Traccar - автоматически создает аккаунт если его нет"""
+    """Get Traccar credentials — auto-creates the account if it doesn't exist."""
     # Get authenticated user's profile
     profile = request.auth_profile
     if not profile:
         raise HttpError(401, "Authentication required")
-    
-    # Проверяем есть ли аккаунт, если нет - создаем автоматически
+
+    # Check for an existing account, create one automatically if absent
     try:
-        # Попытка получить существующий аккаунт
+        # Try to fetch the existing account
         traccar_account = profile.traccar_account
     except TraccarUser.DoesNotExist:
-        # Аккаунта нет, пытаемся создать автоматически
+        # No account yet — try to create one automatically
         try:
             traccar_service = TraccarService()
             traccar_service.create_or_update_user(profile)
-            # Обновляем объект профиля из БД чтобы получить новую связь
+            # Refresh the profile from the DB to pick up the new relation
             profile.refresh_from_db()
             traccar_account = profile.traccar_account
         except Exception as e:
             logger.error(f"Failed to create Traccar user: {e}")
-            raise HttpError(503, f"Не удалось создать аккаунт в Traccar: {str(e)}")
-    
-    # Расшифровываем пароль для отображения пользователю
+            raise HttpError(503, f"Failed to create Traccar account: {str(e)}")
+
+    # Decrypt the password for display to the user
     try:
         decrypted_password = TraccarService.decrypt_password(traccar_account.traccar_password_encrypted)
     except Exception as e:
         logger.error(f"Failed to decrypt Traccar password: {e}")
-        decrypted_password = "Ошибка получения пароля"
+        decrypted_password = "Failed to retrieve password"
     
     # Compute the login email from username + domain
     login_email = f"{traccar_account.traccar_username}@{settings.TRACCAR_EMAIL_DOMAIN}"
@@ -76,18 +77,18 @@ def get_traccar_credentials(request):
 @router.get("/traccar/sso-redirect")
 @ratelimit(group='iot:traccar_sso', key='ip', rate='30/m')
 def traccar_sso_redirect(request):
-    """Инициирует OAuth2 flow для Traccar через OIDC"""
+    """Initiate the OAuth2 flow for Traccar via OIDC."""
     from django.http import HttpResponseRedirect
     from urllib.parse import urlencode
     import hashlib
     import time
-    
-    # Генерируем state для защиты от CSRF
-    # Используем hash от времени и случайной строки
+
+    # Generate a state value for CSRF protection
+    # Use a hash of the current time and a random string
     state_source = f"{time.time()}:{get_random_string(16)}"
     state = hashlib.sha256(state_source.encode()).hexdigest()[:32]
-    
-    # Параметры для OAuth2 авторизации
+
+    # OAuth2 authorization parameters
     params = {
         'response_type': 'code',
         'client_id': 'traccar-sso-client',
@@ -96,7 +97,7 @@ def traccar_sso_redirect(request):
         'state': state,
     }
     
-    # Редирект на OAuth2 authorize endpoint
+    # Redirect to the OAuth2 authorize endpoint
     authorize_url = f"https://parahub.io/o/authorize/?{urlencode(params)}"
     return HttpResponseRedirect(authorize_url)
 
@@ -112,11 +113,12 @@ def traccar_webhook(request: HttpRequest):
     """
     import json as _json
 
-    # Restrict to localhost / internal networks only
-    client_ip = (
-        request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-        or request.META.get('REMOTE_ADDR', '')
-    )
+    # Restrict to localhost / internal networks only. Use REMOTE_ADDR (set by
+    # uvicorn proxy-headers to the real client), NOT the raw X-Forwarded-For:
+    # nginx appends to a client-sent value, so its left-most element is
+    # attacker-controlled — forging "X-Forwarded-For: 127.0.0.1" would
+    # otherwise pass this internal-only allowlist from the public internet.
+    client_ip = request.META.get('REMOTE_ADDR', '')
     if not any(client_ip.startswith(prefix) for prefix in _TRACCAR_ALLOWED_NETS):
         raise HttpError(403, "Forbidden")
 
@@ -147,9 +149,10 @@ def get_tracker_positions(request):
     if not profile:
         raise HttpError(401, "Authentication required")
 
+    # Own trackers + trackers shared via ObjectAccess grants
     devices = list(
         IoTDevice.objects.filter(
-            owner=profile,
+            accessible_q(profile),
             device_type='TRACKER',
         ).values_list('id', 'name')
     )

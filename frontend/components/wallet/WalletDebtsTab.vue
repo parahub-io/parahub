@@ -383,7 +383,9 @@ async function createDebt() {
     const payload = {
       creditor_id: creditorId,
       debtor_id: debtorId,
-      amount: newDebt.value.amount,
+      // Send the exact string that was signed: backend rebuilds the canonical
+      // payload via str(Decimal(amount)), so "100" vs "100.00" breaks the signature
+      amount: amountStr,
       currency: newDebt.value.currency,
       description: newDebt.value.description,
       pgp_signature: pgpSignature,

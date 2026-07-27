@@ -28,8 +28,10 @@
       "no_alerts_yet": "No alerts yet",
       "members": "Members",
       "delete": "Delete Group",
+      "edit": "Edit Group",
       "delete_confirm": "Are you sure you want to delete this group? This cannot be undone.",
-      "deleted": "Group deleted"
+      "deleted": "Group deleted",
+      "updated": "Group updated"
     },
 
     "create_group": {
@@ -134,7 +136,8 @@
       "delete_invite": "Failed to delete invite",
       "fetch_invite": "Failed to load invite info",
       "invite_invalid": "This invite link is invalid or expired",
-      "delete_group": "Failed to delete group"
+      "delete_group": "Failed to delete group",
+      "update_group": "Failed to update group"
     },
 
     "response": {

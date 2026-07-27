@@ -494,3 +494,42 @@ class DistributionLine(ULIDModel):
 
     def __str__(self):
         return f"{self.profile_id} {self.amount} {self.distribution.currency} ({self.status})"
+
+
+class ObjectAccess(ULIDModel):
+    """Universal access grant: gives a profile a role on any ULID entity.
+
+    Complements the host model's owning FK (which stays the single source of
+    ownership); rows here add shared visibility (VIEWER) or shared management
+    (MANAGER). Role capabilities are defined per host type by the endpoints
+    that check access — see ``core.access``. First consumer: iot.IoTDevice
+    (mesh routers handed to partners, GPS trackers shared with other people).
+    """
+
+    class Role(models.TextChoices):
+        VIEWER = 'VIEWER', 'Viewer'
+        MANAGER = 'MANAGER', 'Manager'
+
+    object_id = models.CharField(max_length=26, db_index=True,
+                                  help_text="ULID of the shared entity")
+    profile = models.ForeignKey('identity.Profile', on_delete=models.CASCADE,
+                                 related_name='access_grants')
+    role = models.CharField(max_length=10, choices=Role.choices,
+                             default=Role.VIEWER)
+    granted_by = models.ForeignKey('identity.Profile', null=True, blank=True,
+                                    on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['object_id', 'profile'],
+                name='unique_access_per_profile',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['profile', 'role']),
+        ]
+
+    def __str__(self):
+        return f"{self.profile_id} {self.role} on {self.object_id}"

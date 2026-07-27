@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed bottom-0 left-0 right-0 w-full md:top-[calc(5rem+72px)] md:bottom-auto md:right-auto md:left-0 md:h-[calc(100vh-5rem-72px)] md:w-96 bg-white dark:bg-neutral-900 shadow-2xl z-50 flex flex-col rounded-t-2xl md:rounded-none"
+    class="fixed bottom-0 left-0 right-0 w-full md:top-[calc(5rem+72px)] md:bottom-auto md:right-auto md:left-0 md:h-[calc(100vh-5rem-72px)] md:w-96 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 max-md:border-t md:border-r z-50 flex flex-col rounded-t-2xl md:rounded-none"
     :style="isMobile ? sheetStyle : {}"
   >
     <!-- Mobile drag handle -->
@@ -795,22 +795,13 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
 }
-.geocode-preview-dot {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  background: #f4c110;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 4;
-  box-shadow: 0 0 8px rgba(244, 193, 16, 0.6);
-}
 .geocode-preview-bracket {
   position: absolute;
   top: 50%;
   left: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
   color: #f4c110;
   opacity: 0;
   transition: color 0.15s ease;
@@ -819,43 +810,50 @@ onUnmounted(() => {
 .geocode-preview-marker.lockon-hot .geocode-preview-bracket {
   color: #ef4444;
 }
-.geocode-preview-marker.lockon-hot .geocode-preview-dot {
-  background: #ef4444;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
-}
+/* Zoom (bracket) and spin (inner) are separate elements — two animations on one
+   element's transform suppress each other's interpolation on the compositor.
+   transform/opacity only: a width/height zoom is main-thread-driven and starves
+   while the feature panel mounts during the lock-in. */
 .geocode-preview-b1 {
-  animation: geocode-lock-in 0.5s 0s cubic-bezier(0, 0.55, 0.45, 1) forwards,
-             geocode-lock-spin 12s 0.5s linear infinite;
+  animation: geocode-lock-in 0.5s cubic-bezier(0, 0.55, 0.45, 1) both;
+}
+.geocode-preview-spin {
+  width: 100%;
+  height: 100%;
+  animation: geocode-lock-spin 12s linear infinite;
 }
 @keyframes geocode-lock-in {
-  0% {
-    width: 400px;
-    height: 400px;
-    transform: translate(-50%, -50%);
-    opacity: 0.3;
-  }
+  0% { transform: scale(6); opacity: 0.3; }
   60% { opacity: 1; }
-  100% {
-    width: 36px;
-    height: 36px;
-    transform: translate(-50%, -50%);
-    opacity: 1;
-  }
+  100% { transform: scale(1); opacity: 1; }
 }
 @keyframes geocode-lock-spin {
-  from {
-    width: 36px;
-    height: 36px;
-    transform: translate(-50%, -50%) rotate(0deg);
-    opacity: 1;
-  }
-  to {
-    width: 36px;
-    height: 36px;
-    transform: translate(-50%, -50%) rotate(360deg);
-    opacity: 1;
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
+/* Staggered route-stop reveal hex (transient — one per stop, self-removed) */
+.stop-reveal-marker {
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+}
+.stop-reveal-hex {
+  position: absolute;
+  inset: 0;
+  color: #f4c110;
+  transform-origin: center;
+  animation: stop-reveal-in 0.85s cubic-bezier(0, 0.55, 0.45, 1) forwards;
+}
+@keyframes stop-reveal-in {
+  0%   { transform: scale(2.6) rotate(-20deg); opacity: 0; }
+  35%  { opacity: 1; }
+  65%  { transform: scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stop-reveal-hex { animation: none; opacity: 0; }
+}
+
 /* Lock-on crosshair flash lines */
 .lockon-crosshair {
   position: absolute;

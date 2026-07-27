@@ -1153,7 +1153,7 @@ def get_item(request, id: str, target_currency: Optional[str] = None):
             **data,
             owner_reputation=item.owner.reputation_score,
             owner_is_verified=item.owner.is_verified_wot,
-            owner_avatar_url=item.owner.avatar.url if item.owner.avatar else None,
+            owner_avatar_url=item.owner.avatar_url,
             owner_created_at=item.owner.created_at,
             owner_verifications_count=item.owner.received_verifications.filter(is_active=True).count(),
             exact_location={

@@ -96,7 +96,7 @@ def upload_avatar(request, image: UploadedFile):
 
         logger.info(f"Avatar uploaded for profile {profile.id}")
 
-        return PhotoUploadResponse(url=profile.avatar.url)
+        return PhotoUploadResponse(url=profile.avatar_url)
 
     except Exception as e:
         logger.error(f"Error uploading avatar: {e}", exc_info=True)
@@ -457,6 +457,84 @@ def verification_photo_status(request):
     except Exception as e:
         logger.error(f"Error getting verification photo status: {e}", exc_info=True)
         raise HttpError(500, "Failed to get verification photo status")
+
+@profile_router.get("/me/verification-photo/file/", auth=ProfileAuth())
+@ratelimit(group='profiles:my_verification_photo', key=user_or_ip, rate='60/m')
+def my_verification_photo(request):
+    """
+    Serve the owner their own WoT verification photo (private media, X-Accel-Redirect).
+
+    Verifiers read the photo through /wot/verification-photo/{profile_id}/; this is the
+    owner-only twin, so the profile page can show which photo is actually stored — the
+    WoT photo is otherwise invisible to the person it belongs to.
+    """
+    from django.http import HttpResponse
+    from identity.models import ProfileVerificationPhoto
+
+    profile = request.auth_profile
+
+    try:
+        vp = ProfileVerificationPhoto.objects.get(profile=profile)
+    except ProfileVerificationPhoto.DoesNotExist:
+        raise HttpError(404, "No verification photo")
+
+    if not vp.photo:
+        raise HttpError(404, "No verification photo")
+
+    response = HttpResponse(content_type='image/jpeg')
+    response['X-Accel-Redirect'] = f'/media/{vp.photo.name}'
+    response['Cache-Control'] = 'no-store, no-cache'
+    return response
+
+@profile_router.get("/me/verification-photo/access-log/", response={200: dict}, auth=ProfileAuth())
+@ratelimit(group='profiles:verification_photo_access_log', key=user_or_ip, rate='60/m')
+def verification_photo_access_log(request):
+    """
+    Who opened the owner's WoT verification photo, newest first.
+
+    The counterpart to the notification: GDPR Art.15(1)(c) recipients, readable at
+    any time. Rows outlive the photo itself, so this stays answerable after erasure.
+    """
+    from django.db.models import Count, Max
+    from django.db.models.functions import TruncDate
+
+    from identity.models import Profile as ProfileModel, VerificationPhotoAccess
+
+    profile = request.auth_profile
+
+    # Grouped per viewer per day: one verification session reopens the photo
+    # several times and a raw feed of those would bury the next viewer. Every
+    # single access stays in the table for a forensic/legal read.
+    groups = list(
+        VerificationPhotoAccess.objects
+        .filter(target_profile=profile)
+        .annotate(day=TruncDate('created_at'))
+        .values('viewer_id', 'day')
+        .annotate(views=Count('id'), last_at=Max('created_at'))
+        .order_by('-last_at')[:50]
+    )
+
+    viewers = {
+        p.id: p for p in ProfileModel.objects.filter(
+            id__in={g['viewer_id'] for g in groups}
+        ).select_related('instance')
+    }
+
+    return {
+        "accesses": [
+            {
+                "object_type": "verification_photo_access",
+                "viewer_id": g['viewer_id'],
+                "viewer_hna": viewers[g['viewer_id']].hna if g['viewer_id'] in viewers else '',
+                "viewer_display_name": (
+                    viewers[g['viewer_id']].display_name or viewers[g['viewer_id']].local_name
+                ) if g['viewer_id'] in viewers else '',
+                "viewed_at": g['last_at'].isoformat(),
+                "views": g['views'],
+            }
+            for g in groups
+        ]
+    }
 
 def _validate_id_photo_with_ai(image_bytes: bytes, profile) -> dict:
     """

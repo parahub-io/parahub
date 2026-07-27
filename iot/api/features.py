@@ -5,16 +5,23 @@ LAN VPN, wired mesh, diagnostics.
 
 
 from typing import List, Optional
+from datetime import datetime, timedelta
+import csv
 import logging
 import subprocess
 import shlex
 from ninja import Schema
 from ninja.errors import HttpError
+from django.db import connection
+from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
-from ..models import IoTDevice
+from core.access import ROLE_MANAGER
+from ..models import IoTDevice, MeshRouterStats
 
+from .access import get_device_for
 from .base import router
 from .mesh import _mesh_ssh
 
@@ -76,13 +83,7 @@ class WiredMeshToggleOut(Schema):
 @ratelimit(group='iot:mullvad_status', key=user_or_ip, rate='30/m')
 def get_mullvad_status(request, device_id: str):
     """Get Mullvad VPN status from mesh router via SSH."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
     if (device.connection_info or {}).get('firmware_role') != 'bumblebee':
         raise HttpError(400, "Mullvad is only available on Bumblebee routers")
 
@@ -135,13 +136,7 @@ def get_mullvad_status(request, device_id: str):
 @ratelimit(group='iot:mullvad_setup', key=user_or_ip, rate='5/m', method='POST')
 def mullvad_setup(request, device_id: str, payload: MullvadSetupIn):
     """Setup Mullvad VPN on mesh router via SSH."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
     if (device.connection_info or {}).get('firmware_role') != 'bumblebee':
         raise HttpError(400, "Mullvad is only available on Bumblebee routers")
 
@@ -202,13 +197,7 @@ def mullvad_setup(request, device_id: str, payload: MullvadSetupIn):
 @ratelimit(group='iot:mullvad_remove', key=user_or_ip, rate='5/m', method='POST')
 def mullvad_remove(request, device_id: str):
     """Remove Mullvad VPN from mesh router, revert to VPS gateway."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
 
     ygg_addr = (device.connection_info or {}).get('yggdrasil_address')
     if not ygg_addr or ygg_addr == 'unknown':
@@ -236,13 +225,7 @@ def mullvad_remove(request, device_id: str):
 @ratelimit(group='iot:speed_limit_status', key=user_or_ip, rate='30/m')
 def get_speed_limit_status(request, device_id: str):
     """Get speed limit status from mesh router via SSH."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
     if (device.connection_info or {}).get('firmware_role') != 'bumblebee':
         raise HttpError(400, "Speed limit is only available on Bumblebee routers")
 
@@ -270,13 +253,7 @@ def get_speed_limit_status(request, device_id: str):
 @ratelimit(group='iot:speed_limit_toggle', key=user_or_ip, rate='10/m', method='POST')
 def speed_limit_toggle(request, device_id: str, payload: SpeedLimitToggleIn):
     """Enable or disable speed limit on mesh router via SSH."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
     if (device.connection_info or {}).get('firmware_role') != 'bumblebee':
         raise HttpError(400, "Speed limit is only available on Bumblebee routers")
 
@@ -310,13 +287,7 @@ def speed_limit_toggle(request, device_id: str, payload: SpeedLimitToggleIn):
 @ratelimit(group='iot:lan_vpn_status', key=user_or_ip, rate='30/m')
 def get_lan_vpn_status(request, device_id: str):
     """Get LAN VPN routing status from mesh router via SSH."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
     if (device.connection_info or {}).get('firmware_role') != 'bumblebee':
         raise HttpError(400, "LAN VPN is only available on Bumblebee routers")
 
@@ -344,13 +315,7 @@ def get_lan_vpn_status(request, device_id: str):
 @ratelimit(group='iot:lan_vpn_toggle', key=user_or_ip, rate='10/m', method='POST')
 def lan_vpn_toggle(request, device_id: str, payload: LanVpnToggleIn):
     """Enable or disable LAN VPN routing on mesh router via SSH."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
     if (device.connection_info or {}).get('firmware_role') != 'bumblebee':
         raise HttpError(400, "LAN VPN is only available on Bumblebee routers")
 
@@ -421,13 +386,7 @@ def lan_vpn_toggle(request, device_id: str, payload: LanVpnToggleIn):
 @ratelimit(group='iot:wired_mesh_status', key=user_or_ip, rate='30/m')
 def get_wired_mesh_status(request, device_id: str):
     """Get wired mesh (batman-adv on LAN port) status from Bumblebee router via SSH."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
     if (device.connection_info or {}).get('firmware_role') not in ('bumblebee', 'bee'):
         raise HttpError(400, "Wired mesh is only available on mesh routers")
 
@@ -456,13 +415,7 @@ def get_wired_mesh_status(request, device_id: str):
 @ratelimit(group='iot:wired_mesh_toggle', key=user_or_ip, rate='10/m', method='POST')
 def wired_mesh_toggle(request, device_id: str, payload: WiredMeshToggleIn):
     """Enable or disable wired mesh (batman-adv on LAN port) on Bumblebee router via SSH."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
     if (device.connection_info or {}).get('firmware_role') not in ('bumblebee', 'bee'):
         raise HttpError(400, "Wired mesh is only available on mesh routers")
 
@@ -526,6 +479,180 @@ def wired_mesh_toggle(request, device_id: str, payload: WiredMeshToggleIn):
         logger.error(f"Wired mesh toggle error for {device_id}: {e}")
         raise HttpError(503, "Failed to connect to router")
 
+class LiveStatsOut(Schema):
+    available: bool = False
+    uplink_dev: Optional[str] = None
+    rx_bps: Optional[int] = None
+    tx_bps: Optional[int] = None
+    load_1m: Optional[float] = None
+    mem_used_pct: Optional[int] = None
+    wifi_clients: Optional[int] = None
+
+# Two byte-counter samples 2s apart on the default-route device (bees have no
+# WAN — their default route via the mesh gateway lands on bat0, which is the
+# honest "uplink" for them). BusyBox ash: `ip route | grep '^default'`, not
+# `ip route show default` (BusyBox doesn't filter).
+_LIVE_STATS_CMD = (
+    "DEV=$(ip route | grep '^default' | head -1 | sed -n 's/.* dev \\([^ ]*\\).*/\\1/p'); "
+    "[ -z \"$DEV\" ] && DEV=bat0; "
+    "R1=$(cat /sys/class/net/$DEV/statistics/rx_bytes 2>/dev/null || echo 0); "
+    "T1=$(cat /sys/class/net/$DEV/statistics/tx_bytes 2>/dev/null || echo 0); "
+    "sleep 2; "
+    "R2=$(cat /sys/class/net/$DEV/statistics/rx_bytes 2>/dev/null || echo 0); "
+    "T2=$(cat /sys/class/net/$DEV/statistics/tx_bytes 2>/dev/null || echo 0); "
+    "LOAD=$(cut -d' ' -f1 /proc/loadavg); "
+    "MEMT=$(awk '/MemTotal/ {print $2}' /proc/meminfo); "
+    "MEMA=$(awk '/MemAvailable/ {print $2}' /proc/meminfo); "
+    "CL=0; for w in $(iwinfo 2>/dev/null | awk '/ESSID/ {print $1}'); do "
+    "iwinfo $w info 2>/dev/null | grep -q 'Mode: Master' || continue; "
+    "n=$(iwinfo $w assoclist 2>/dev/null | grep -c '^[0-9A-Fa-f][0-9A-Fa-f]:'); CL=$((CL+n)); done; "
+    "echo \"STATS|$DEV|$R1|$T1|$R2|$T2|$LOAD|$MEMT|$MEMA|$CL\""
+)
+
+@router.get("/devices/{device_id}/live-stats", response=LiveStatsOut, auth=ProfileAuth())
+@ratelimit(group='iot:live_stats', key=user_or_ip, rate='10/m')
+def get_live_stats(request, device_id: str):
+    """Live uplink throughput + system stats read from a mesh router via SSH."""
+    # Telemetry read — any access role (VIEWER+) may sample it
+    device = get_device_for(request.auth_profile, device_id, require_mesh=True)
+
+    ygg_addr = (device.connection_info or {}).get('yggdrasil_address')
+    if not ygg_addr or ygg_addr == 'unknown':
+        return LiveStatsOut(available=False)
+
+    try:
+        result = _mesh_ssh(ygg_addr, _LIVE_STATS_CMD, timeout=20)
+        line = next((l for l in result.stdout.splitlines() if l.startswith('STATS|')), None)
+        if not line:
+            return LiveStatsOut(available=False)
+        _, dev, r1, t1, r2, t2, load, memt, mema, clients = line.strip().split('|')
+        memt_i, mema_i = int(memt or 0), int(mema or 0)
+        return LiveStatsOut(
+            available=True,
+            uplink_dev=dev,
+            rx_bps=max(0, (int(r2) - int(r1)) * 8 // 2),
+            tx_bps=max(0, (int(t2) - int(t1)) * 8 // 2),
+            load_1m=float(load),
+            mem_used_pct=round((memt_i - mema_i) * 100 / memt_i) if memt_i > 0 else None,
+            wifi_clients=int(clients or 0),
+        )
+    except (subprocess.TimeoutExpired, ValueError):
+        return LiveStatsOut(available=False)
+    except Exception as e:
+        logger.warning(f"Live stats error for {device_id}: {e}")
+        return LiveStatsOut(available=False)
+
+class RouterStatsPoint(Schema):
+    t: datetime
+    wan_rx_bps: Optional[int] = None
+    wan_tx_bps: Optional[int] = None
+    guest_rx_bps: Optional[int] = None
+    guest_tx_bps: Optional[int] = None
+    wifi_clients: Optional[int] = None
+    guest_clients: Optional[int] = None
+    load_1m: Optional[float] = None
+    mem_used_pct: Optional[int] = None
+    mesh_neighbors: Optional[int] = None
+
+class RouterStatsOut(Schema):
+    points: List[RouterStatsPoint]
+    bucket_minutes: int = 0  # 0 = raw rows
+
+
+def _owned_router(request, device_id: str) -> IoTDevice:
+    return get_device_for(request.auth_profile, device_id, require_mesh=True)
+
+
+@router.get("/devices/{device_id}/stats", response=RouterStatsOut, auth=ProfileAuth())
+@ratelimit(group='iot:router_stats', key=user_or_ip, rate='60/m')
+def get_router_stats(request, device_id: str, hours: int = 24):
+    """Telemetry history for a mesh router (owner only, ph41+ firmware).
+    Raw rows up to 48 h; 30-min buckets beyond (avg rates, peak clients)."""
+    device = _owned_router(request, device_id)
+
+    hours = max(1, min(hours, 168))
+    since = timezone.now() - timedelta(hours=hours)
+
+    if hours <= 48:
+        rows = MeshRouterStats.objects.filter(device=device, time__gte=since).order_by('time')
+        return RouterStatsOut(points=[
+            RouterStatsPoint(
+                t=r.time,
+                wan_rx_bps=r.wan_rx_bps, wan_tx_bps=r.wan_tx_bps,
+                guest_rx_bps=r.guest_rx_bps, guest_tx_bps=r.guest_tx_bps,
+                wifi_clients=r.wifi_clients, guest_clients=r.guest_clients,
+                load_1m=r.load_1m, mem_used_pct=r.mem_used_pct,
+                mesh_neighbors=r.mesh_neighbors,
+            ) for r in rows
+        ])
+
+    with connection.cursor() as cur:
+        cur.execute(
+            "SELECT time_bucket(interval '30 minutes', time) AS bt, "
+            "avg(wan_rx_bps) AS wan_rx_bps, avg(wan_tx_bps) AS wan_tx_bps, "
+            "avg(guest_rx_bps) AS guest_rx_bps, avg(guest_tx_bps) AS guest_tx_bps, "
+            "max(wifi_clients) AS wifi_clients, max(guest_clients) AS guest_clients, "
+            "avg(load_1m) AS load_1m, avg(mem_used_pct) AS mem_used_pct, "
+            "max(mesh_neighbors) AS mesh_neighbors "
+            "FROM iot_mesh_router_stats WHERE device_id = %s AND time >= %s "
+            "GROUP BY bt ORDER BY bt",
+            [device.id, since],
+        )
+        names = [c[0] for c in cur.description]
+        points = []
+        for row in cur.fetchall():
+            data = dict(zip(names, row))
+            points.append(RouterStatsPoint(
+                t=data['bt'],
+                wan_rx_bps=None if data['wan_rx_bps'] is None else int(data['wan_rx_bps']),
+                wan_tx_bps=None if data['wan_tx_bps'] is None else int(data['wan_tx_bps']),
+                guest_rx_bps=None if data['guest_rx_bps'] is None else int(data['guest_rx_bps']),
+                guest_tx_bps=None if data['guest_tx_bps'] is None else int(data['guest_tx_bps']),
+                wifi_clients=data['wifi_clients'], guest_clients=data['guest_clients'],
+                load_1m=data['load_1m'],
+                mem_used_pct=None if data['mem_used_pct'] is None else int(data['mem_used_pct']),
+                mesh_neighbors=data['mesh_neighbors'],
+            ))
+    return RouterStatsOut(points=points, bucket_minutes=30)
+
+
+_STATS_CSV_COLUMNS = [
+    'time', 'uplink_dev', 'wan_rx_bytes', 'wan_tx_bytes', 'wan_rx_bps', 'wan_tx_bps',
+    'guest_rx_bytes', 'guest_tx_bytes', 'guest_rx_bps', 'guest_tx_bps',
+    'wifi_clients', 'guest_clients', 'load_1m', 'mem_used_pct', 'mesh_neighbors', 'uptime',
+]
+
+
+class _CsvEcho:
+    """Write-through buffer: csv.writer formats a row, we yield it as-is."""
+
+    def write(self, value):
+        return value
+
+
+@router.get("/devices/{device_id}/stats.csv", auth=ProfileAuth())
+@ratelimit(group='iot:router_stats_csv', key=user_or_ip, rate='10/m')
+def get_router_stats_csv(request, device_id: str, hours: int = 720):
+    """Raw telemetry as a streamed CSV for offline analysis — up to the full
+    365-day retention window (owner only)."""
+    device = _owned_router(request, device_id)
+    hours = max(1, min(hours, 24 * 366))
+    since = timezone.now() - timedelta(hours=hours)
+
+    def rows():
+        writer = csv.writer(_CsvEcho())
+        yield writer.writerow(_STATS_CSV_COLUMNS)
+        qs = MeshRouterStats.objects.filter(device=device, time__gte=since) \
+            .order_by('time').values_list(*_STATS_CSV_COLUMNS) \
+            .iterator(chunk_size=5000)
+        for row in qs:
+            yield writer.writerow(
+                [row[0].isoformat()] + ['' if v is None else v for v in row[1:]])
+
+    resp = StreamingHttpResponse(rows(), content_type='text/csv; charset=utf-8')
+    resp['Content-Disposition'] = f'attachment; filename="router-{device.id}-{hours}h.csv"'
+    return resp
+
 class DiagSectionOut(Schema):
     title: str
     output: str
@@ -572,13 +699,7 @@ _BUMBLEBEE_TABS = {'mesh', 'wifi', 'network', 'vpn', 'system'}
 @ratelimit(group='iot:diagnostics', key=user_or_ip, rate='30/m')
 def get_diagnostics(request, device_id: str, tab: str):
     """Run diagnostic commands on a mesh router via SSH and return output."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
 
     firmware_role = (device.connection_info or {}).get('firmware_role', 'bee')
     allowed_tabs = _BUMBLEBEE_TABS if firmware_role == 'bumblebee' else _BEE_TABS

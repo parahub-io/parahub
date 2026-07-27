@@ -5,9 +5,12 @@ Creates/deletes @parahub.io mailboxes via Mailcow HTTP API.
 """
 import base64
 import hashlib
-import secrets
-import string
+import imaplib
 import logging
+import re
+import secrets
+import ssl
+import string
 
 import httpx
 from cryptography.fernet import Fernet
@@ -31,6 +34,28 @@ def encrypt_mail_password(password: str) -> str:
 
 def decrypt_mail_password(encrypted: str) -> str:
     return _get_fernet().decrypt(encrypted.encode()).decode()
+
+
+def get_unseen_count(email: str, password: str, timeout: float = 5.0) -> int:
+    """UNSEEN count of INBOX via Dovecot IMAP on loopback (self-signed cert, so no verify)."""
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    imap = imaplib.IMAP4_SSL('127.0.0.1', 993, ssl_context=ctx, timeout=timeout)
+    try:
+        imap.login(email, password)
+        status, data = imap.status('INBOX', '(UNSEEN)')
+        if status != 'OK' or not data:
+            raise RuntimeError(f'IMAP STATUS returned {status}')
+        match = re.search(rb'UNSEEN\s+(\d+)', data[0])
+        if not match:
+            raise RuntimeError(f'unparseable IMAP STATUS response: {data[0]!r}')
+        return int(match.group(1))
+    finally:
+        try:
+            imap.logout()
+        except Exception:
+            pass
 
 
 class MailcowService:

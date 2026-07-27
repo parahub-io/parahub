@@ -118,19 +118,18 @@ class SupportVoiceConsumer(AsyncWebsocketConsumer):
         self.pipeline = None
 
     def _get_client_ip(self) -> str:
-        """Extract client IP from WebSocket scope."""
-        headers = dict(self.scope.get('headers', []))
-        # Check X-Forwarded-For (behind nginx)
-        xff = headers.get(b'x-forwarded-for', b'').decode()
-        if xff:
-            return xff.split(',')[0].strip()
-        # Check X-Real-IP
-        xri = headers.get(b'x-real-ip', b'').decode()
-        if xri:
-            return xri.strip()
-        # Fallback to direct connection
+        """Real client IP for the WebSocket. uvicorn proxy-headers rewrites
+        scope['client'] to the right-most untrusted X-Forwarded-For host (the
+        one our nginx appended), so it is the real client and not spoofable.
+        Fall back to nginx's X-Real-IP ($remote_addr, also not spoofable).
+        Never trust the raw X-Forwarded-For left-most element — a client can
+        prepend anything and mint a fresh concurrency/rate-limit bucket."""
         client = self.scope.get('client')
-        return client[0] if client else '0.0.0.0'
+        if client and client[0]:
+            return client[0]
+        headers = dict(self.scope.get('headers', []))
+        xri = headers.get(b'x-real-ip', b'').decode()
+        return xri.strip() if xri else '0.0.0.0'
 
     def _conn_lock_key(self) -> str:
         return f'support:conn:{self._session_id}'

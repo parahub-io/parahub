@@ -37,6 +37,7 @@ Disallow: /events/create
 Disallow: /governance/polls/create
 Disallow: /blog/create
 Disallow: /voice/
+Disallow: /transit/rides
 
 # Private paths (locale-prefixed)
 Disallow: /pt/profile/
@@ -73,6 +74,7 @@ Disallow: /pt/events/create
 Disallow: /pt/governance/polls/create
 Disallow: /pt/blog/create
 Disallow: /pt/voice/
+Disallow: /pt/transit/rides
 
 Disallow: /es/profile/
 Disallow: /es/login
@@ -108,6 +110,7 @@ Disallow: /es/events/create
 Disallow: /es/governance/polls/create
 Disallow: /es/blog/create
 Disallow: /es/voice/
+Disallow: /es/transit/rides
 
 Disallow: /fr/profile/
 Disallow: /fr/login
@@ -143,6 +146,7 @@ Disallow: /fr/events/create
 Disallow: /fr/governance/polls/create
 Disallow: /fr/blog/create
 Disallow: /fr/voice/
+Disallow: /fr/transit/rides
 
 Disallow: /de/profile/
 Disallow: /de/login
@@ -178,6 +182,7 @@ Disallow: /de/events/create
 Disallow: /de/governance/polls/create
 Disallow: /de/blog/create
 Disallow: /de/voice/
+Disallow: /de/transit/rides
 
 Disallow: /ru/profile/
 Disallow: /ru/login
@@ -213,6 +218,7 @@ Disallow: /ru/events/create
 Disallow: /ru/governance/polls/create
 Disallow: /ru/blog/create
 Disallow: /ru/voice/
+Disallow: /ru/transit/rides
 
 Sitemap: https://parahub.io/sitemap.xml
 Sitemap: https://boleias.parahub.io/sitemap.xml

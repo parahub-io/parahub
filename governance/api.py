@@ -16,8 +16,9 @@ from decimal import Decimal
 import hashlib
 import logging
 from django.conf import settings
-from parahub.auth import ProfileAuth
+from parahub.auth import ProfileAuth, OptionalProfileAuth
 from parahub.ratelimit import ratelimit
+from .access import viewer_is_privileged, exclude_demo_polls
 from parahub.crypto.pgp import verify_profile_signature
 from identity.models import Profile
 from geo.models import EstablishmentMembership
@@ -126,6 +127,7 @@ class PollContextSchema(BaseModel):
 class PollOptionSchema(BaseModel):
     id: str
     text: str
+    text_i18n: Dict[str, str] = {}  # authoritative {lang: text}; empty = fall back to `text`
     description: str = ""
     order: int
 
@@ -136,7 +138,9 @@ class PollListItemSchema(BaseModel):
     id: str
     object_type: str = "poll"
     title: str
+    title_i18n: Dict[str, str] = {}  # curated-text i18n; empty = fall back to base fields
     description: str
+    description_i18n: Dict[str, str] = {}
     status: str
     poll_type: str
     start_time: datetime
@@ -153,11 +157,13 @@ class PollListItemSchema(BaseModel):
     quorum_percent: Decimal
     quorum_met: bool = False
     is_demo: bool = False
+    has_voted: bool = False  # viewer's own direct vote (delegated votes excluded)
 
     # Civic (PK/civic-polls-system.md)
     poll_class: str = 'decision'
     ballot_mode: str = 'open'
     civic_destination: str = ''
+    civic_destination_i18n: Dict[str, str] = {}
     civic_outcome: str = ''
     scope_level: Optional[str] = None  # territory level when context is TERRITORY
     scope_name: str = ''
@@ -318,7 +324,7 @@ class AuditLogEntrySchema(BaseModel):
 # Endpoints
 # ============================================================================
 
-@polls_router.get("/", response=List[PollListItemSchema], auth=None)
+@polls_router.get("/", response=List[PollListItemSchema], auth=OptionalProfileAuth())
 @ratelimit(group='governance:polls_list', key='ip', rate='30/m')
 @paginate(PageNumberPagination, page_size=20)
 def list_polls(
@@ -337,6 +343,10 @@ def list_polls(
     # Opinion (civic) polls live in /governance/civic/feed/ — excluded here so the
     # group listing doesn't duplicate them
     queryset = Poll.objects.exclude(poll_class=Poll.PollClass.OPINION)
+
+    # Seed/demo polls are staff/test-only — the public sees a clean feed
+    if not viewer_is_privileged(request):
+        queryset = exclude_demo_polls(queryset)
 
     if status:
         queryset = queryset.filter(status=status)
@@ -362,8 +372,16 @@ def list_polls(
         ),
     ).order_by('-created_at')
 
+    polls = list(queryset)
+    profile = getattr(request, 'auth_profile', None)
+    voted_ids = set()
+    if profile and polls:
+        voted_ids = set(PollVote.objects.filter(
+            voter=profile, poll__in=[p.id for p in polls]
+        ).values_list('poll_id', flat=True))
+
     results = []
-    for poll in queryset:
+    for poll in polls:
         total_eligible = poll._total_eligible or 0
         total_voted = poll._total_voted or 0
 
@@ -396,6 +414,7 @@ def list_polls(
             quorum_percent=poll.quorum_percent,
             quorum_met=quorum_met,
             is_demo=bool(poll.attributes.get('__demo_seed') or poll.attributes.get('demo')),
+            has_voted=poll.id in voted_ids,
         )
         results.append(item)
 
@@ -470,6 +489,7 @@ def get_poll(request, poll_id: str):
         PollOptionSchema(
             id=opt.id,
             text=opt.text,
+            text_i18n=opt.text_i18n,
             description=opt.description,
             order=opt.order
         )
@@ -486,7 +506,9 @@ def get_poll(request, poll_id: str):
     detail = PollDetailSchema(
         id=poll.id,
         title=poll.title,
+        title_i18n=poll.title_i18n,
         description=poll.description,
+        description_i18n=poll.description_i18n,
         status=poll.status,
         poll_type=poll.poll_type,
         start_time=poll.start_time,
@@ -517,6 +539,7 @@ def get_poll(request, poll_id: str):
         poll_class=poll.poll_class,
         ballot_mode=poll.ballot_mode,
         civic_destination=poll.civic_destination,
+        civic_destination_i18n=poll.civic_destination_i18n,
         civic_outcome=poll.civic_outcome,
         scope_level=scope_level,
         scope_name=scope_name,

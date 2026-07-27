@@ -28,8 +28,10 @@
       "no_alerts_yet": "Noch keine Alarme",
       "members": "Mitglieder",
       "delete": "Gruppe löschen",
+      "edit": "Gruppe bearbeiten",
       "delete_confirm": "Möchten Sie diese Gruppe wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
-      "deleted": "Gruppe gelöscht"
+      "deleted": "Gruppe gelöscht",
+      "updated": "Gruppe aktualisiert"
     },
 
     "create_group": {
@@ -134,7 +136,8 @@
       "delete_invite": "Einladung konnte nicht gelöscht werden",
       "fetch_invite": "Einladungsinformationen konnten nicht geladen werden",
       "invite_invalid": "Dieser Einladungslink ist ungültig oder abgelaufen",
-      "delete_group": "Gruppe konnte nicht gelöscht werden"
+      "delete_group": "Gruppe konnte nicht gelöscht werden",
+      "update_group": "Gruppe konnte nicht aktualisiert werden"
     },
 
     "response": {

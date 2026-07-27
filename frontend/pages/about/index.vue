@@ -24,6 +24,9 @@
 
         <!-- Action buttons -->
         <div class="flex flex-wrap gap-3">
+          <UiButton v-if="!authStore.isAuthenticated" variant="secondary" size="sm" :to="localePath('/login')" :icon="LogIn">
+            {{ $t('about.cta.start') }}
+          </UiButton>
           <UiButton variant="secondary" size="sm" :to="localePath('/docs')" :icon="BookOpen">
             {{ $t('docs.title') }}
           </UiButton>
@@ -48,19 +51,18 @@
         <div class="space-y-4 text-sm text-neutral-700 dark:text-neutral-300">
           <div>
             <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{{ $t('imprint.operator.title') }}</h3>
-            <p class="font-mono"><NuxtLink :to="localePath('/org/parahub-associacao')" class="text-link">Parahub - Associação</NuxtLink>, Portugal</p>
-          </div>
-
-          <div>
-            <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{{ $t('imprint.responsible.title') }}</h3>
-            <p><NuxtLink :to="localePath('/org/parahub-associacao')" class="text-link">Parahub - Associação</NuxtLink>, {{ $t('imprint.responsible.country') }}</p>
+            <p><NuxtLink :to="localePath('/org/parahub-associacao')" class="text-link">Parahub - Associação</NuxtLink>, {{ $t('imprint.operator.country') }}</p>
           </div>
 
           <div>
             <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{{ $t('imprint.disclaimer.title') }}</h3>
             <div class="space-y-2">
-              <p><span class="font-medium text-neutral-900 dark:text-neutral-100">{{ $t('imprint.disclaimer.content.title') }}:</span> {{ $t('imprint.disclaimer.content.text') }}</p>
-              <p><span class="font-medium text-neutral-900 dark:text-neutral-100">{{ $t('imprint.disclaimer.links.title') }}:</span> {{ $t('imprint.disclaimer.links.text') }}</p>
+              <i18n-t keypath="imprint.disclaimer.p2p" tag="p" scope="global">
+                <template #link>
+                  <NuxtLink :to="localePath('/about/terms')" class="text-link">{{ $t('imprint.disclaimer.p2p_link') }}</NuxtLink>
+                </template>
+              </i18n-t>
+              <p>{{ $t('imprint.disclaimer.text') }}</p>
             </div>
           </div>
         </div>
@@ -72,13 +74,6 @@
           <Mail class="w-5 h-5 text-neutral-400" />
           {{ $t('about.contact.title') }}
         </h2>
-
-        <div v-if="!authStore.isAuthenticated" class="mb-4">
-          <p class="text-sm text-neutral-700 dark:text-neutral-300 mb-2">{{ $t('about.cta.text') }}</p>
-          <NuxtLink :to="localePath('/login')" class="text-link text-sm font-medium">
-            {{ $t('about.cta.start') }} &rarr;
-          </NuxtLink>
-        </div>
 
         <div class="space-y-2 text-sm">
           <div class="flex gap-3">
@@ -145,7 +140,7 @@
       <section class="card p-6">
         <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
           <Scale class="w-5 h-5 text-neutral-400" />
-          {{ $t('footer.legal') }}
+          {{ $t('about.documents') }}
         </h2>
         <div class="space-y-2">
           <NuxtLink :to="localePath('/about/terms')" class="text-link text-sm flex items-center gap-2">
@@ -155,6 +150,10 @@
           <NuxtLink :to="localePath('/about/privacy')" class="text-link text-sm flex items-center gap-2">
             <ChevronRight class="w-4 h-4" />
             {{ $t('footer.privacy') }}
+          </NuxtLink>
+          <NuxtLink :to="localePath('/about/data')" class="text-link text-sm flex items-center gap-2">
+            <ChevronRight class="w-4 h-4" />
+            {{ $t('data_rights.title') }}
           </NuxtLink>
           <NuxtLink :to="localePath('/about/code-of-conduct')" class="text-link text-sm flex items-center gap-2">
             <ChevronRight class="w-4 h-4" />
@@ -174,9 +173,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
-import { BookOpen, Smartphone, Headphones, FileText, Mail, Scale, ChevronRight, Server, ExternalLink, Video, Activity, ShieldCheck } from 'lucide-vue-next'
+import { BookOpen, Smartphone, Headphones, FileText, LogIn, Mail, Scale, ChevronRight, Server, ExternalLink, Video, Activity, ShieldCheck } from 'lucide-vue-next'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const localePath = useLocalePath()
 
@@ -185,10 +184,10 @@ const { data: stats } = await useAsyncData('about-stats', () =>
   $fetch('/api/v1/dashboard/stats')
 )
 
-useHead({ title: computed(() => `${t('about.hero.subtitle')} — Parahub`) })
+useHead({ title: computed(() => t('about.title')) })
 useSeoMeta({
   description: computed(() => t('about.meta.description')),
-  ogTitle: computed(() => `${t('about.hero.subtitle')} — Parahub`),
+  ogTitle: computed(() => t('about.title')),
   ogDescription: computed(() => t('about.meta.description')),
 })
 
@@ -201,7 +200,7 @@ const config = useRuntimeConfig()
 const version = computed(() => config.public.appVersion)
 const buildDate = computed(() => {
   const date = new Date(config.public.buildDate)
-  return date.toLocaleString('en-US', {
+  return date.toLocaleString(locale.value, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -216,16 +215,15 @@ const buildDate = computed(() => {
 const platformStats = computed(() => {
   if (!stats.value) return []
   return [
-    { key: 'total_profiles', value: stats.value.total_profiles || 0, label: t('about.community.profiles') },
-    { key: 'active_items', value: stats.value.active_items || 0, label: t('about.community.active_items') },
-    { key: 'establishments', value: stats.value.establishments || 0, label: t('about.community.establishments') },
-    { key: 'contracts', value: stats.value.contracts || 0, label: t('about.community.contracts') },
-  ].filter(s => s.value > 0)
+    { key: 'total_profiles', value: stats.value.total_profiles || 0, labelKey: 'about.community.profiles' },
+    { key: 'active_items', value: stats.value.active_items || 0, labelKey: 'about.community.active_items' },
+    { key: 'establishments', value: stats.value.establishments || 0, labelKey: 'about.community.establishments' },
+    { key: 'contracts', value: stats.value.contracts || 0, labelKey: 'about.community.contracts' },
+  ].filter(s => s.value > 0).map(s => ({ ...s, label: t(s.labelKey, s.value) }))
 })
 
 function formatNumber(n: number): string {
-  if (n >= 1000) return n.toLocaleString()
-  return String(n)
+  return n.toLocaleString(locale.value)
 }
 
 definePageMeta({

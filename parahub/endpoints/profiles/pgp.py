@@ -52,14 +52,11 @@ def upload_pgp_key(request, data: PGPKeyRequest):
             logger.warning(f"Invalid PGP key upload attempt: {e}")
             raise HttpError(400, f"Invalid PGP public key: {str(e)}")
 
-        # Get client IP and user agent for audit
-        def get_client_ip(request):
-            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-            if x_forwarded_for:
-                return x_forwarded_for.split(',')[0].strip()
-            return request.META.get('REMOTE_ADDR')
-
-        client_ip = get_client_ip(request)
+        # Client IP for the audit trail. REMOTE_ADDR is set by uvicorn
+        # proxy-headers to the real client and is not spoofable; the raw
+        # X-Forwarded-For left-most element is (nginx appends to it), so never
+        # record that into a non-repudiation audit record.
+        client_ip = request.META.get('REMOTE_ADDR', '')
         user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
 
         now = timezone.now()

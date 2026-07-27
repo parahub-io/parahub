@@ -5,9 +5,9 @@ Defines WebSocket endpoints and maps them to consumers.
 
 from django.urls import re_path
 from parahub.consumers import (
-    AgentVoiceConsumer, DriverConsumer, FederationConsumer, MapPresenceConsumer,
-    PublicConsumer, RealtimeConsumer, SupportVoiceConsumer, TrackerConsumer,
-    TransitConsumer,
+    AgentVoiceConsumer, DriverConsumer, EnvStationConsumer, FederationConsumer,
+    MapPresenceConsumer, PublicConsumer, RealtimeConsumer, SupportVoiceConsumer,
+    TrackerConsumer, TransitConsumer,
 )
 
 # WebSocket URL patterns
@@ -23,6 +23,9 @@ websocket_urlpatterns = [
 
     # Transit vehicle positions (public, no auth) — tile-based pub/sub
     re_path(r'ws/v1/transit/$', TransitConsumer.as_asgi()),
+
+    # Environmental stations: live readings for the open map panel (public, no auth)
+    re_path(r'ws/v1/env/$', EnvStationConsumer.as_asgi()),
 
     # Driver Mode: driver GPS broadcasting (auth required)
     re_path(r'ws/v1/driver/$', DriverConsumer.as_asgi()),

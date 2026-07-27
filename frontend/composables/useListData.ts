@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, onActivated, ref, watch } from 'vue'
 import type { WatchSource } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 
@@ -50,6 +50,11 @@ export interface UseListDataOptions<T> {
   watch?: WatchSource[] | false
   /** Explicit cache key (lets a prefetcher warm the exact same entry). */
   key?: string
+  /** Stale-while-revalidate: a cache hit still renders instantly, but a
+   *  background refetch follows to catch changes made while the page was
+   *  unmounted (e.g. a delete performed on a detail page). Use for lists
+   *  without a WS subscription keeping the cache fresh. */
+  revalidate?: boolean
   headers?: Record<string, string>
   immediate?: boolean
   credentials?: RequestCredentials
@@ -63,6 +68,19 @@ export function useListData<T = any>(
   // token is client-only, so an SSR fetch would 401). The await barrier still
   // blocks client navigation regardless of server flag.
   const authStore = options.auth ? useAuthStore() : null
+
+  // revalidate: after serving a cache hit, refetch once in the background.
+  // Queued as a microtask so the initial execute() resolves from cache first
+  // (instant render), then refresh() bypasses the cache via the cause guard.
+  let revalidateQueued = false
+  function scheduleRevalidate() {
+    if (revalidateQueued) return
+    revalidateQueued = true
+    queueMicrotask(async () => {
+      try { await res.refresh() } catch { /* keep stale data on failure */ }
+      revalidateQueued = false
+    })
+  }
 
   const res = useFetch<T>(url as any, {
     query: options.query,
@@ -87,11 +105,32 @@ export function useListData<T = any>(
       }
     },
     // Cache-first: reuse the session payload so revisits render instantly
-    // instead of refetching + flashing a skeleton.
-    getCachedData(key, nuxtApp) {
-      return nuxtApp.payload.data[key] ?? nuxtApp.static.data[key]
+    // instead of refetching + flashing a skeleton. Explicit refresh() must
+    // bypass the cache (same contract as Nuxt's default getCachedData) —
+    // otherwise refresh()/refreshNuxtData() short-circuit to the cached
+    // payload and never hit the network.
+    getCachedData(key, nuxtApp, ctx) {
+      if (ctx?.cause === 'refresh:manual' || ctx?.cause === 'refresh:hook') return undefined
+      const cached = nuxtApp.payload.data[key] ?? nuxtApp.static.data[key]
+      if (options.revalidate && cached !== undefined
+          && import.meta.client && !nuxtApp.isHydrating) {
+        scheduleRevalidate()
+      }
+      return cached
     },
   })
+
+  // revalidate, KeepAlive path: pages are KeepAlive-cached (app.vue), so a
+  // revisit reactivates the component without re-running setup — no fetch of
+  // any kind happens and the list shows whatever it displayed on deactivation.
+  // The getCachedData hook above only covers remounts after LRU eviction.
+  if (options.revalidate) {
+    let activatedOnce = false
+    onActivated(() => {
+      if (!activatedOnce) { activatedOnce = true; return }
+      res.refresh().catch(() => { /* keep stale data on failure */ })
+    })
+  }
 
   const { status } = res
 

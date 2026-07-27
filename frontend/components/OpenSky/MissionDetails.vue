@@ -1,15 +1,9 @@
 <template>
   <div class="space-y-3 font-mono">
-    <!-- Readouts: tiles + logged date -->
-    <div class="grid grid-cols-2 gap-x-3 gap-y-2">
-      <div v-if="mission.tiles_count">
-        <div class="text-[9px] uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-600">{{ $t('opensky.r_tiles', 'Tiles') }}</div>
-        <div class="text-[12px] tabular-nums text-neutral-700 dark:text-neutral-200">{{ formatTilesCount(mission.tiles_count) }}</div>
-      </div>
-      <div>
-        <div class="text-[9px] uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-600">{{ $t('opensky.r_logged', 'Uploaded') }}</div>
-        <div class="text-[12px] tabular-nums text-neutral-700 dark:text-neutral-200">{{ loggedDate || '—' }}</div>
-      </div>
+    <!-- Readouts: tiles + logged date (full rows — dates don't fit half-width) -->
+    <div class="space-y-1">
+      <OpenSkyReadoutRow v-if="mission.tiles_count" :label="$t('opensky.r_tiles', 'Tiles')" :value="formatTilesCount(mission.tiles_count)" />
+      <OpenSkyReadoutRow :label="$t('opensky.r_logged', 'Uploaded')" :value="loggedDate" />
     </div>
 
     <!-- Coverage compass rose (per-direction frame counts) -->
@@ -29,36 +23,30 @@
       </div>
     </div>
 
-    <!-- Actions (owner only) — uniform grid so columns always line up -->
+    <!-- Actions (owner only) — uniform grid so columns always line up.
+         View 3D lives in the card footer next to the map button, not here. -->
     <div v-if="canDelete" class="grid grid-cols-2 gap-2 pt-1">
-      <UiButton
+      <OpenSkyConsoleButton
         v-if="mission.mesh_status === 'MESH_READY'"
-        variant="outline" size="sm" :icon="Box" class="w-full text-xs"
-        @click="$emit('view-3d', mission.id)"
-      >
-        {{ $t('opensky.view_3d', 'View 3D') }}
-      </UiButton>
-      <UiButton
-        v-if="mission.mesh_status === 'MESH_READY'"
-        variant="outline" size="sm" :icon="Download" class="w-full text-xs"
+        :icon="Download"
         @click="$emit('download-3d', mission.id)"
       >
         {{ $t('opensky.download_3d', 'Download 3D') }}
-      </UiButton>
-      <UiButton
+      </OpenSkyConsoleButton>
+      <OpenSkyConsoleButton
         v-if="mission.status === 'PUBLISHED'"
-        variant="outline" size="sm" :icon="Plus" class="w-full text-xs"
+        :icon="Plus"
         @click="$emit('add-photos', mission.id)"
       >
         {{ $t('opensky.add_photos', 'Add photos') }}
-      </UiButton>
-      <UiButton
-        variant="outline-error" size="sm" :icon="Trash2" class="w-full text-xs"
-        :class="{ 'col-span-2': mission.status !== 'PUBLISHED' }"
+      </OpenSkyConsoleButton>
+      <OpenSkyConsoleButton
+        danger :icon="Trash2"
+        :class="{ 'col-span-2': mission.status !== 'PUBLISHED' || mission.mesh_status === 'MESH_READY' }"
         @click="$emit('delete', mission.id)"
       >
         {{ $t('opensky.delete', 'Delete') }}
-      </UiButton>
+      </OpenSkyConsoleButton>
     </div>
 
     <!-- Satellite alignment (staff only, published missions only) -->
@@ -85,20 +73,20 @@
         <Loader2 class="w-3.5 h-3.5 animate-spin" />
         {{ $t('opensky.satellite_aligning', 'Aligning & retiling...') }}
       </div>
-      <UiButton
+      <OpenSkyConsoleButton
         v-else
-        variant="outline" size="sm" :icon="Satellite" class="w-full text-xs"
+        :icon="Satellite" class="w-full"
         @click="doCheckSatelliteAlign"
       >
         {{ $t('opensky.satellite_align_btn', 'Check GPS Offset') }}
-      </UiButton>
+      </OpenSkyConsoleButton>
       <p v-if="satAlignError" class="text-[11px] text-error mt-1">{{ satAlignError }}</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Box, Download, Loader2, Plus, Satellite, Trash2 } from 'lucide-vue-next'
+import { Download, Loader2, Plus, Satellite, Trash2 } from 'lucide-vue-next'
 import type { OpenSkyMission } from '~/composables/useOpenSky'
 
 const props = defineProps<{
@@ -109,7 +97,6 @@ const props = defineProps<{
 defineEmits<{
   'add-photos': [missionId: string]
   'download-3d': [missionId: string]
-  'view-3d': [missionId: string]
   'delete': [missionId: string]
 }>()
 

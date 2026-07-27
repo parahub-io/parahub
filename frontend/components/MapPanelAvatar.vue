@@ -34,7 +34,7 @@
 
       <!-- Action Buttons (LPC Animations) -->
       <div>
-        <label class="block text-sm font-medium mb-2 dark:text-neutral-100">{{ t('map.presence.actions') }} <span class="text-neutral-400 dark:text-neutral-500 font-normal">(E/R/T)</span></label>
+        <label class="block text-sm font-medium mb-2 dark:text-neutral-100">{{ t('map.presence.actions') }} <span class="text-neutral-400 dark:text-neutral-500 font-normal">(Space/R/T)</span></label>
         <div class="grid grid-cols-3 gap-2">
           <button
             @click="setAvatarState('jumping')"
@@ -42,7 +42,7 @@
             :class="{ 'bg-secondary-50 border-secondary-600 dark:bg-secondary-900 dark:border-secondary-500': currentAvatarState === 'jumping' }"
           >
             <Zap :size="18" />
-            <span class="text-xs">{{ t('map.presence.jump') }} (E)</span>
+            <span class="text-xs">{{ t('map.presence.jump') }} (Space)</span>
           </button>
           <button
             @click="setAvatarState('sitting')"

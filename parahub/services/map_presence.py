@@ -111,7 +111,7 @@ class MapPresenceService:
             True if successful
         """
         try:
-            redis = cls._get_redis()
+            r = cls._get_redis()
 
             # Validate inputs
             if avatar_type not in cls.AVATAR_TYPES:
@@ -120,7 +120,7 @@ class MapPresenceService:
                 avatar_state = 'idle'
 
             # Add to GEOHASH (values must be a sequence: [lon, lat, member])
-            redis.geoadd(cls.POSITIONS_KEY, values=[lon, lat, profile_id])
+            r.geoadd(cls.POSITIONS_KEY, values=[lon, lat, profile_id])
 
             # Store user data
             user_data_key = cls._get_user_data_key(profile_id)
@@ -137,8 +137,8 @@ class MapPresenceService:
                 'last_update': datetime.now(timezone.utc).isoformat(),
             }
 
-            redis.hset(user_data_key, mapping=user_data)
-            redis.expire(user_data_key, cls.USER_TTL)
+            r.hset(user_data_key, mapping=user_data)
+            r.expire(user_data_key, cls.USER_TTL)
 
             logger.debug(f"Updated map presence for {profile_id} at ({lat}, {lon})")
             return True
@@ -168,43 +168,43 @@ class MapPresenceService:
             List of user presence data dicts
         """
         try:
-            redis = cls._get_redis()
+            r = cls._get_redis()
 
-            # GEORADIUS query
-            nearby_members = redis.georadius(
+            # GEOSEARCH query; format: [[member, distance], ...]
+            nearby_members = r.geosearch(
                 cls.POSITIONS_KEY,
-                lon,
-                lat,
-                radius_km,
+                longitude=lon,
+                latitude=lat,
+                radius=radius_km,
                 unit='km',
                 withdist=True,
-                withcoord=True,
-                count=limit
+                count=limit,
             )
-
-            # Parse GEORADIUS result
-            # Format: [[member, distance, (lon, lat)], ...]
-            users = []
 
             if not nearby_members:
                 return []
 
-            for item in nearby_members:
-                # item format: [member, distance, (lon, lat)]
-                if len(item) >= 3:
-                    member = item[0]
-                    distance = float(item[1])
-                    coords = item[2]  # (lon, lat) tuple
+            # Fetch all user hashes in one round-trip
+            pipe = r.pipeline(transaction=False)
+            for member, _distance in nearby_members:
+                pipe.hgetall(cls._get_user_data_key(member))
+            user_hashes = pipe.execute()
 
-                    profile_id = member.decode('utf-8') if isinstance(member, bytes) else member
-                    user_data = cls.get_user_data(profile_id)
+            users = []
+            stale_members = []
 
-                    if user_data:
-                        user_data['distance_km'] = round(distance, 2)
-                        # Ensure lat/lon are floats (coords is tuple (lon, lat))
-                        user_data['lat'] = float(user_data.get('lat', 0))
-                        user_data['lon'] = float(user_data.get('lon', 0))
-                        users.append(user_data)
+            for (member, distance), user_data in zip(nearby_members, user_hashes):
+                if not user_data:
+                    # Hash expired (TTL) but member survived in the zset — clean up lazily
+                    stale_members.append(member)
+                    continue
+                user_data['distance_km'] = round(float(distance), 2)
+                user_data['lat'] = float(user_data.get('lat', 0))
+                user_data['lon'] = float(user_data.get('lon', 0))
+                users.append(user_data)
+
+            if stale_members:
+                r.zrem(cls.POSITIONS_KEY, *stale_members)
 
             return users
 
@@ -221,19 +221,11 @@ class MapPresenceService:
             User data dict or None if not found
         """
         try:
-            redis = cls._get_redis()
+            r = cls._get_redis()
             user_data_key = cls._get_user_data_key(profile_id)
 
-            data = redis.hgetall(user_data_key)
-            if not data:
-                return None
-
-            # Decode bytes to strings
-            return {
-                k.decode('utf-8') if isinstance(k, bytes) else k:
-                v.decode('utf-8') if isinstance(v, bytes) else v
-                for k, v in data.items()
-            }
+            data = r.hgetall(user_data_key)
+            return data or None
 
         except Exception as e:
             logger.error(f"Failed to get user data: {e}")
@@ -248,20 +240,35 @@ class MapPresenceService:
             True if successful
         """
         try:
-            redis = cls._get_redis()
+            r = cls._get_redis()
 
             # Remove from GEOHASH
-            redis.zrem(cls.POSITIONS_KEY, profile_id)
+            r.zrem(cls.POSITIONS_KEY, profile_id)
 
             # Delete user data
             user_data_key = cls._get_user_data_key(profile_id)
-            redis.delete(user_data_key)
+            r.delete(user_data_key)
 
             logger.debug(f"Removed map presence for {profile_id}")
             return True
 
         except Exception as e:
             logger.error(f"Failed to remove user: {e}")
+            return False
+
+    @classmethod
+    def touch(cls, profile_id: str) -> bool:
+        """
+        Refresh presence TTL for a connected-but-idle user (heartbeat).
+
+        Returns:
+            True if the user's presence data exists and TTL was refreshed
+        """
+        try:
+            r = cls._get_redis()
+            return bool(r.expire(cls._get_user_data_key(profile_id), cls.USER_TTL))
+        except Exception as e:
+            logger.error(f"Failed to touch presence: {e}")
             return False
 
     @classmethod
@@ -275,7 +282,7 @@ class MapPresenceService:
 
         Args:
             profile_id: Profile ULID
-            avatar_state: New state (idle, walking, dancing, jumping)
+            avatar_state: New state (idle, walking, jumping, sitting, emoting)
 
         Returns:
             True if successful
@@ -284,13 +291,13 @@ class MapPresenceService:
             if avatar_state not in cls.AVATAR_STATES:
                 return False
 
-            redis = cls._get_redis()
+            r = cls._get_redis()
             user_data_key = cls._get_user_data_key(profile_id)
 
             # Update only state field
-            redis.hset(user_data_key, 'avatar_state', avatar_state)
-            redis.hset(user_data_key, 'last_update', datetime.now(timezone.utc).isoformat())
-            redis.expire(user_data_key, cls.USER_TTL)
+            r.hset(user_data_key, 'avatar_state', avatar_state)
+            r.hset(user_data_key, 'last_update', datetime.now(timezone.utc).isoformat())
+            r.expire(user_data_key, cls.USER_TTL)
 
             return True
 
@@ -315,16 +322,16 @@ class MapPresenceService:
             True if successful
         """
         try:
-            redis = cls._get_redis()
+            r = cls._get_redis()
             user_data_key = cls._get_user_data_key(profile_id)
 
             # Truncate to 200 chars
             speech_bubble = speech_bubble[:200] if speech_bubble else ''
 
             # Update speech bubble field
-            redis.hset(user_data_key, 'speech_bubble', speech_bubble)
-            redis.hset(user_data_key, 'last_update', datetime.now(timezone.utc).isoformat())
-            redis.expire(user_data_key, cls.USER_TTL)
+            r.hset(user_data_key, 'speech_bubble', speech_bubble)
+            r.hset(user_data_key, 'last_update', datetime.now(timezone.utc).isoformat())
+            r.expire(user_data_key, cls.USER_TTL)
 
             return True
 
@@ -341,8 +348,8 @@ class MapPresenceService:
             Number of active users
         """
         try:
-            redis = cls._get_redis()
-            return redis.zcard(cls.POSITIONS_KEY)
+            r = cls._get_redis()
+            return r.zcard(cls.POSITIONS_KEY)
         except Exception as e:
             logger.error(f"Failed to get active users count: {e}")
             return 0

@@ -11,7 +11,6 @@ ar300m16: 'GL.iNet AR300M16',
 
 export const useIoT = () => {
   const store = useIoTStore()
-  const config = useRuntimeConfig()
   const { t, locale } = useI18n()
 
   // Reactive state
@@ -22,14 +21,7 @@ export const useIoT = () => {
 
   // Device type labels for UI
   const getDeviceTypeLabel = (type: string): string => {
-    const labels: Record<string, string> = {
-      'TRACKER': 'GPS Tracker',
-      'SENSOR': 'Sensor',
-      'ACTUATOR': 'Actuator',
-      'GATEWAY': 'Gateway',
-      'MESH_ROUTER': 'Mesh Router'
-    }
-    return labels[type] || type
+    return type ? t(`iot.device_types.${type}`, type) : type
   }
 
   // Format device status (mesh routers: 10min threshold due to 5min heartbeat)
@@ -40,14 +32,20 @@ export const useIoT = () => {
       const diffMinutes = (now.getTime() - lastSeen.getTime()) / (1000 * 60)
 
       const onlineThreshold = device.device_type === 'MESH_ROUTER' ? 10 : 5
-      if (diffMinutes < onlineThreshold) return { status: 'online', text: 'Online' }
-      if (diffMinutes < 30) return { status: 'recent', text: 'Recently' }
-      return { status: 'offline', text: 'Offline' }
+      if (diffMinutes < onlineThreshold) return { status: 'online', text: t('iot.status_online') }
+      if (diffMinutes < 30) return { status: 'recent', text: t('iot.status_recently') }
+      return { status: 'offline', text: t('iot.status_offline') }
     }
-    return { status: 'never', text: 'Never connected' }
+    return { status: 'never', text: t('iot.status_never') }
   }
 
   // Format uptime in human-readable form
+  const fmtBps = (bps: number): string => {
+    if (bps >= 1_000_000) return `${(bps / 1_000_000).toFixed(1)} Mbit/s`
+    if (bps >= 1_000) return `${Math.round(bps / 1_000)} kbit/s`
+    return `${Math.round(bps)} bit/s`
+  }
+
   const formatUptime = (seconds?: number): string => {
     if (!seconds || seconds <= 0) return 'N/A'
     const d = Math.floor(seconds / 86400)
@@ -106,17 +104,6 @@ export const useIoT = () => {
     return await store.getDevice(deviceCri)
   }
 
-  // Get Traccar dashboard URL for device
-  const getTraccarDeviceUrl = (device: IoTDevice) => {
-    if (!device.traccar_device_id) {
-      return '#' // Return # instead of null to prevent navigation issues
-    }
-    
-    // Use hardcoded URL if config is not available
-    const traccarUrl = config.public?.traccarUrl || 'https://traccar.parahub.io'
-    return `${traccarUrl}/#device=${device.traccar_device_id}`
-  }
-
   // Check if device has location data
   const hasLocationData = (device: IoTDevice) => {
     return device.latitude !== undefined && device.longitude !== undefined
@@ -163,20 +150,20 @@ export const useIoT = () => {
   // Validation helpers
   const validateDeviceName = (name: string) => {
     if (!name || name.trim().length < 2) {
-      return 'Name must contain at least 2 characters'
+      return t('iot.validation.name_min')
     }
     if (name.length > 100) {
-      return 'Name cannot be longer than 100 characters'
+      return t('iot.validation.name_max')
     }
     return null
   }
 
   const validateIMEI = (imei?: string) => {
     if (!imei) return null // IMEI is optional
-    
+
     // Basic IMEI validation (15 digits)
     if (!/^\d{15}$/.test(imei)) {
-      return 'IMEI must contain exactly 15 digits'
+      return t('iot.validation.imei_digits')
     }
     return null
   }
@@ -225,11 +212,11 @@ export const useIoT = () => {
     formatCoordinates,
     formatDate,
     formatRelativeTime,
-    getTraccarDeviceUrl,
     hasLocationData,
     getBatteryInfo,
     getSpeedInfo,
     formatUptime,
+    fmtBps,
     getHardwareName,
     filterDevicesByType,
     getActiveDevices,

@@ -8,9 +8,17 @@
       "municipality": "Kommune",
       "region": "Region",
       "country": "Land",
+      "eu": "EU",
       "groups": "Gruppen",
       "household": "Zuhause",
       "condominium": "Wohnanlage"
+    },
+    "eci": {
+      "title": "Europäische Bürgerinitiative",
+      "supporters": "{n} von {total}",
+      "countries": "{n}/{total} Länder",
+      "disclaimer": "Zuspruch, keine offiziellen Unterschriften",
+      "disclaimerHint": "Diese Anzeige zeigt die Unterstützung auf der Skala einer Europäischen Bürgerinitiative (1.000.000 Menschen in mindestens 7 Ländern). Es sind anonyme Barometer-Stimmen, keine geprüften offiziellen Unterschriften — erreicht die Unterstützung eine kritische Masse, kann separat eine formelle EBI gestartet werden."
     },
     "feed": {
       "participation": "{n} Stimmen",
@@ -20,7 +28,11 @@
       "emptyScopeHint": "Umfragen erscheinen hier, sobald sie für Ihr Gebiet erstellt werden",
       "needResidency": "Geben Sie Ihre Gemeinde an, um lokale Umfragen zu sehen",
       "needResidencyAction": "Standort wählen",
-      "loginToSee": "Melden Sie sich an, um Umfragen Ihrer Region zu sehen"
+      "loginToSee": "Melden Sie sich an, um Umfragen Ihrer Region zu sehen",
+      "hideVoted": "Abgestimmte ausblenden",
+      "showVoted": "Abgestimmte anzeigen",
+      "showAll": "Alle anzeigen ({n})",
+      "history": "Abgeschlossen"
     },
     "destination": "Wohin das Ergebnis geht",
     "outcome": "Ergebnis",
@@ -70,7 +82,11 @@
       "save": "Standort speichern",
       "saved": "Standort gespeichert",
       "cooldown": "Der Standort kann nach dem {date} erneut geändert werden",
-      "notSet": "Nicht festgelegt"
+      "notSet": "Nicht festgelegt",
+      "voteAs": "Sie stimmen ab als Einwohner von {name}",
+      "change": "Ändern",
+      "suggestTitle": "Ihre Gemeinde — aus Ihren Orten",
+      "suggestHint": "Gemeinden wurden aus den Standorten Ihrer Objekte abgeleitet. Bestätigen Sie eine — sie wird Ihr Bürgerstandort für lokale Umfragen."
     },
     "privacy": {
       "title": "Meine zivischen Daten",

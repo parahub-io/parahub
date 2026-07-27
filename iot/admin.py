@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import IoTDevice, TraccarUser, TrackerLocation, TrackerHistory, MeshSubscription, VehicleAssignment
+from .models import (
+    IoTDevice, TraccarUser, TrackerLocation, TrackerHistory,
+    MeshPass, MeshPassCredit, MeshDevice, VehicleAssignment,
+)
 
 
 @admin.register(IoTDevice)
@@ -34,13 +37,31 @@ class TrackerHistoryAdmin(admin.ModelAdmin):
     date_hierarchy = 'time'
 
 
-@admin.register(MeshSubscription)
-class MeshSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'client_ip', 'client_mac', 'gateway_device', 'status',
-                    'amount_sats', 'paid_at', 'expires_at', 'created_at']
-    list_filter = ['status', 'created_at', 'gateway_device']
-    search_fields = ['client_ip', 'client_mac', 'ln_payment_hash']
-    readonly_fields = ['id', 'ln_payment_hash', 'ln_invoice', 'created_at']
+class MeshDeviceInline(admin.TabularInline):
+    model = MeshDevice
+    extra = 0
+    readonly_fields = ['id', 'mac', 'last_ipv4', 'last_gateway', 'last_seen_at', 'created_at']
+
+
+class MeshPassCreditInline(admin.TabularInline):
+    model = MeshPassCredit
+    extra = 0
+    readonly_fields = ['id', 'source', 'days', 'amount_sats', 'ln_payment_hash', 'status', 'applied_at', 'created_at']
+
+
+@admin.register(MeshPass)
+class MeshPassAdmin(admin.ModelAdmin):
+    list_display = ['id', 'profile', 'expires_at', 'max_devices', 'created_at']
+    search_fields = ['profile__local_name']
+    readonly_fields = ['id', 'created_at', 'updated_at']
+    inlines = [MeshDeviceInline, MeshPassCreditInline]
+
+
+@admin.register(MeshDevice)
+class MeshDeviceAdmin(admin.ModelAdmin):
+    list_display = ['mac', 'label', 'mesh_pass', 'last_ipv4', 'last_gateway', 'last_seen_at', 'created_at']
+    search_fields = ['mac', 'label', 'mesh_pass__profile__local_name']
+    readonly_fields = ['id', 'created_at']
 
 
 @admin.register(VehicleAssignment)

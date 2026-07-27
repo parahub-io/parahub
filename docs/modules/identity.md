@@ -21,6 +21,19 @@ One account can have up to 7 profiles (1 primary + 6 additional):
 
 Each profile has its own reputation, items, contracts, partners, and activity history. Users can switch between profiles.
 
+### Name Privacy
+
+By default a profile's real name is **not** public — only the `@handle` is. The
+real name is revealed to the owner and to Web-of-Trust-verified viewers, while
+anonymous and unverified visitors see just the handle. The reasoning: trust on
+Parahub is identity-linked, but the legal name is only needed at the moment of
+commitment (a signed contract), not while browsing.
+
+A single **"show my name publicly"** toggle opts out of this and displays the real
+name to everyone. The gate is applied consistently everywhere a name could
+otherwise leak — listings, events, reviews, comments, contracts, condominium and
+treasury pages, and chat and video calls.
+
 ### Partners
 One-way contact relationships. Invite via token, QR code, or quick signup link. Accepting creates mutual partnership. Auto-creates Matrix DM between partners.
 

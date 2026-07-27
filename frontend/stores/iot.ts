@@ -15,6 +15,15 @@ export interface IoTDevice {
   battery_level?: number
   last_update?: string
   latest_firmware_version?: string
+  // Mesh routers: backend ygg:22 probe verdict; false = heartbeats flow but
+  // inbound is wedged (self-heal running), null/undefined = not probed
+  ygg_inbound_ok?: boolean | null
+  // Viewer's effective role; shared devices carry the owner reference
+  access_role?: 'OWNER' | 'MANAGER' | 'VIEWER' | null
+  owner_hna?: string | null
+  owner_name?: string | null
+  // Owner attribution opt-in for the public map panel
+  show_owner?: boolean
   connection_info?: {
     yggdrasil_address?: string
     hostname?: string
@@ -28,6 +37,14 @@ export interface IoTDevice {
     latitude?: number
     longitude?: number
   }
+}
+
+export interface MeshSettings {
+  guest_rate_kbps: number
+  host_rate_mbps: number
+  uplink_type: string | null
+  uplink_down_mbps: number | null
+  uplink_up_mbps: number | null
 }
 
 export interface WifiConfigResult {
@@ -64,6 +81,32 @@ export interface DeviceLocation {
   altitude?: number
   battery_level?: number
   device_timestamp: string
+}
+
+export interface AccessGrant {
+  id: string
+  profile_id: string
+  profile_hna?: string | null
+  profile_name?: string | null
+  role: 'VIEWER' | 'MANAGER'
+  created_at?: string
+}
+
+export interface DeviceAccess {
+  device_id: string
+  owner_hna?: string | null
+  owner_name?: string | null
+  is_owner: boolean
+  grants: AccessGrant[]
+}
+
+export interface ClaimPreview {
+  name: string
+  hardware_profile?: string | null
+  firmware_role?: string | null
+  online: boolean
+  last_seen?: string | null
+  first_seen?: string | null
 }
 
 export const useIoTStore = defineStore('iot', {
@@ -191,6 +234,25 @@ export const useIoTStore = defineStore('iot', {
         return data
       } catch (error: any) {
         throw new Error(error.data?.detail || 'Failed to rename device')
+      }
+    },
+
+    async setShowOwner(deviceId: string, showOwner: boolean) {
+      try {
+        const headers = await this.getAuthHeaders()
+        const data = await $fetch<{ status: string; show_owner: boolean }>(`/api/v1/iot/devices/${deviceId}/show-owner`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers,
+          body: { show_owner: showOwner },
+        })
+        const device = this.devices.find(d => d.id === deviceId)
+        if (device) {
+          device.show_owner = data.show_owner
+        }
+        return data
+      } catch (error: any) {
+        throw new Error(error.data?.detail || 'Failed to update owner visibility')
       }
     },
 
@@ -369,6 +431,32 @@ export const useIoTStore = defineStore('iot', {
       }
     },
 
+    async getMeshSettings(deviceId: string) {
+      try {
+        const headers = await this.getAuthHeaders()
+        return await $fetch<MeshSettings>(`/api/v1/iot/devices/${deviceId}/mesh-settings`, {
+          credentials: 'include',
+          headers,
+        })
+      } catch (error: any) {
+        throw new Error(error.data?.detail || 'Failed to load mesh settings')
+      }
+    },
+
+    async updateMeshSettings(deviceId: string, settings: Partial<MeshSettings>) {
+      try {
+        const headers = await this.getAuthHeaders()
+        return await $fetch<MeshSettings>(`/api/v1/iot/devices/${deviceId}/mesh-settings`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers,
+          body: settings,
+        })
+      } catch (error: any) {
+        throw new Error(error.data?.detail || 'Failed to save mesh settings')
+      }
+    },
+
     async getLanVpnStatus(deviceId: string) {
       try {
         const headers = await this.getAuthHeaders()
@@ -530,6 +618,69 @@ export const useIoTStore = defineStore('iot', {
       if (trackerIds.length > 0) {
         realtimeStore.unsubscribe(trackerIds)
       }
+    },
+
+    // ---- Sharing / claim / transfer ----
+
+    async claimPreview(mac: string) {
+      const headers = await this.getAuthHeaders()
+      return await $fetch<ClaimPreview>('/api/v1/iot/devices/claim/preview', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: { mac },
+      })
+    },
+
+    async claimDevice(mac: string) {
+      const headers = await this.getAuthHeaders()
+      const data = await $fetch<{ status: string; device_id: string; name: string }>('/api/v1/iot/devices/claim', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: { mac },
+      })
+      await this.fetchDevices()
+      return data
+    },
+
+    async getDeviceAccess(deviceId: string) {
+      const headers = await this.getAuthHeaders()
+      return await $fetch<DeviceAccess>(`/api/v1/iot/devices/${deviceId}/access`, {
+        credentials: 'include',
+        headers,
+      })
+    },
+
+    async grantDeviceAccess(deviceId: string, handle: string, role: 'VIEWER' | 'MANAGER') {
+      const headers = await this.getAuthHeaders()
+      return await $fetch<AccessGrant>(`/api/v1/iot/devices/${deviceId}/access`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: { handle, role },
+      })
+    },
+
+    async revokeDeviceAccess(deviceId: string, grantId: string) {
+      const headers = await this.getAuthHeaders()
+      return await $fetch(`/api/v1/iot/devices/${deviceId}/access/${grantId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers,
+      })
+    },
+
+    async transferDevice(deviceId: string, handle: string, keepAccess: boolean) {
+      const headers = await this.getAuthHeaders()
+      const data = await $fetch<DeviceAccess>(`/api/v1/iot/devices/${deviceId}/transfer`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: { handle, keep_access: keepAccess },
+      })
+      await this.fetchDevices()
+      return data
     },
 
     // Helper method to get authentication headers

@@ -1,0 +1,10 @@
+[Unit]
+Description=Parahub OpenSky tile mirror rsync from skystore
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=norn
+ExecStart=/usr/bin/rsync -a --delete --timeout=300 deploy@<SKYSTORE_IP>:/skystore/opensky-tiles/latest/ /mnt/opensky-mirror/tiles-latest/
+ExecStart=/usr/bin/rsync -a --delete --timeout=300 deploy@<SKYSTORE_IP>:/skystore/opensky-3dtiles/ /mnt/opensky-mirror/3dtiles/
+Nice=10

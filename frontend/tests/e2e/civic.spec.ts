@@ -11,20 +11,25 @@ const PARISH_POLL = 'Saturday use of the junta hall?';
 const MUNI_POLL = 'Budget remainder: solar panels or road repair?';
 
 test.describe('Civic opinion polls', () => {
-  test('feed shows civic polls with scope badges and participation', async ({ authenticatedPage: page }) => {
+  test('feed groups by scope with real territory names, hide-voted works', async ({ authenticatedPage: page }) => {
     await page.goto('/governance/polls');
 
     // Municipal seed poll in the merged feed
     await expect(page.getByText(MUNI_POLL)).toBeVisible({ timeout: 20000 });
-    // Scope badge with territory name
-    await expect(page.getByText(/Municipality · Monção/).first()).toBeVisible();
+    // Sections are headed by real territory names, not generic level words
+    await expect(page.locator('h2', { hasText: 'Monção' })).toBeVisible();
+    await expect(page.locator('h2', { hasText: 'Barbeita' })).toBeVisible();
     // Opinion badge present
     await expect(page.getByText('Opinion').first()).toBeVisible();
+    // Parish poll sits in the same feed — no tab switching needed
+    await expect(page.getByText(PARISH_POLL)).toBeVisible();
 
-    // Scope filter narrows the feed: Parish tab hides the country poll
-    await page.getByRole('tab', { name: 'Parish', exact: true }).click();
-    await expect(page.getByText(PARISH_POLL)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Test country-level question (seed)')).not.toBeVisible();
+    // Hide-voted: alice's seeded municipal vote disappears, unvoted parish poll stays
+    await page.getByRole('button', { name: 'Hide voted' }).click();
+    await expect(page.getByText(MUNI_POLL)).not.toBeVisible();
+    await expect(page.getByText(PARISH_POLL)).toBeVisible();
+    await page.getByRole('button', { name: 'Show voted' }).click();
+    await expect(page.getByText(MUNI_POLL)).toBeVisible();
   });
 
   test('hide-until-vote, voting, live bars and receipt verification', async ({ authenticatedPage: page }) => {

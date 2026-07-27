@@ -1,4 +1,4 @@
-"""Auto-resolve SOS alerts that have been active for more than 2 hours with no responses."""
+"""Auto-resolve SOS alerts that have been active for more than 2 hours."""
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -6,7 +6,7 @@ from datetime import timedelta
 
 
 class Command(BaseCommand):
-    help = 'Auto-resolve stale SOS alerts (active > 2h without response)'
+    help = 'Auto-resolve stale SOS alerts (active > 2h)'
 
     def handle(self, *args, **options):
         from parasos.models import SOSAlert
@@ -17,7 +17,7 @@ class Command(BaseCommand):
         stale = SOSAlert.objects.filter(
             status=SOSAlert.Status.ACTIVE,
             created_at__lt=cutoff,
-        )
+        ).select_related('group')
 
         count = 0
         for alert in stale:
@@ -25,9 +25,12 @@ class Command(BaseCommand):
             alert.resolved_at = timezone.now()
             alert.save(update_fields=['status', 'resolved_at'])
 
-            # Notify via WS
+            # Notify via WS — top-level group_id/group_name are part of the
+            # event contract (group page filters on group_id)
             ws_publish(f"parasos:{alert.group_id}", {
                 "type": "sos.resolved",
+                "group_id": alert.group_id,
+                "group_name": alert.group.name,
                 "alert": {
                     "id": alert.id,
                     "status": "RESOLVED",

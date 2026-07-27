@@ -8,9 +8,17 @@
       "municipality": "Municipio",
       "region": "Región",
       "country": "País",
+      "eu": "UE",
       "groups": "Grupos",
       "household": "Casa",
       "condominium": "Comunidad"
+    },
+    "eci": {
+      "title": "Iniciativa Ciudadana Europea",
+      "supporters": "{n} de {total}",
+      "countries": "{n}/{total} países",
+      "disclaimer": "Apoyo, no firmas oficiales",
+      "disclaimerHint": "Este indicador muestra el apoyo a escala de una Iniciativa Ciudadana Europea (1.000.000 de personas en al menos 7 países). Son votos anónimos de barómetro, no firmas oficiales verificadas; si el apoyo alcanza masa crítica, puede lanzarse una ICE formal por separado."
     },
     "feed": {
       "participation": "{n} votos",
@@ -20,7 +28,11 @@
       "emptyScopeHint": "Las encuestas aparecerán aquí cuando se creen para tu zona",
       "needResidency": "Indica tu parroquia para ver encuestas locales",
       "needResidencyAction": "Elegir ubicación",
-      "loginToSee": "Inicia sesión para ver encuestas de tu zona"
+      "loginToSee": "Inicia sesión para ver encuestas de tu zona",
+      "hideVoted": "Ocultar ya votadas",
+      "showVoted": "Mostrar ya votadas",
+      "showAll": "Mostrar todas ({n})",
+      "history": "Finalizadas"
     },
     "destination": "Adónde va el resultado",
     "outcome": "Resultado final",
@@ -70,7 +82,11 @@
       "save": "Guardar ubicación",
       "saved": "Ubicación guardada",
       "cooldown": "La ubicación podrá cambiarse de nuevo después del {date}",
-      "notSet": "Sin definir"
+      "notSet": "Sin definir",
+      "voteAs": "Votando como residente de {name}",
+      "change": "Cambiar",
+      "suggestTitle": "Tu parroquia — según tus lugares",
+      "suggestHint": "Parroquias determinadas por la ubicación de tus propiedades. Confirma una: será tu ubicación cívica para las encuestas locales."
     },
     "privacy": {
       "title": "Mis datos cívicos",

@@ -72,14 +72,17 @@ class Command(BaseCommand):
                             'group_id': watch.group_id,
                             'requireInteraction': True,
                         },
-                        url=f"/parasos/{watch.group_id}",
+                        url=f"/sos/{watch.group_id}",
                     )
                 except Exception:
                     pass
 
-            # WS broadcast
+            # WS broadcast — top-level group_id/group_name are part of the
+            # event contract (group page filters on group_id, toast shows name)
             ws_publish(f"parasos:{watch.group_id}", {
                 "type": "sos.new",
+                "group_id": watch.group_id,
+                "group_name": watch.group.name,
                 "alert": {
                     "id": alert.id,
                     "level": "WARNING",

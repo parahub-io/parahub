@@ -33,22 +33,56 @@ const mapMarkers = new Map<string, any>()
 // keyed by map instance stays correct when the map is destroyed & recreated.
 const hoverHexAttached = new WeakMap<any, Set<string>>()
 
+/**
+ * Screen-px fan-out offset of a rendered point feature (co-located markers
+ * spread via data-driven `icon-offset`, e.g. env station ensembles).
+ * Null when the feature renders on its own geometry.
+ */
+export function renderedPointOffset(feature: any): [number, number] | null {
+  // queryRenderedFeatures JSON-encodes array-valued geojson properties
+  let off = feature?.properties?.iconOffset
+  if (typeof off === 'string') { try { off = JSON.parse(off) } catch { off = null } }
+  if (!Array.isArray(off) || (!off[0] && !off[1])) return null
+  return [off[0], off[1]]
+}
+
+/**
+ * Rendered position of a point feature: its geometry plus any `iconOffset`
+ * applied via project/unproject. Zoom-dependent — the px offset is baked in
+ * at the CURRENT zoom, so only use the result for camera targets and other
+ * one-shot math. Anything persistent (lock-on markers) must anchor on the
+ * geometry and carry the px offset separately (renderedPointOffset), or it
+ * drifts off the icon as soon as the zoom changes.
+ */
+export function renderedPointCoords(map: any, feature: any): [number, number] | null {
+  const coords = feature?.geometry?.coordinates
+  if (!coords || coords.length !== 2) return null
+  const off = renderedPointOffset(feature)
+  if (!off) return coords as [number, number]
+  const p = map.project(coords)
+  const ll = map.unproject([p.x + off[0], p.y + off[1]])
+  return [ll.lng, ll.lat]
+}
+
 export function attachHoverHex(map: any, layerId: string, iconSize = 1.2, getLockOnMarker?: () => any) {
   const attached = hoverHexAttached.get(map) ?? new Set<string>()
   if (attached.has(layerId)) return
   attached.add(layerId)
   hoverHexAttached.set(map, attached)
-  // Screen-distance check (rendered geojson coords are tile-quantized, exact match won't hold)
+  // Screen-distance check (rendered geojson coords are tile-quantized, exact match won't hold).
+  // The marker anchors on the geo point and carries any ensemble fan-out as a
+  // px offset — add it, getLngLat() alone is the un-fanned anchor.
   const lockOnAt = (coords: [number, number]) => {
     const marker = getLockOnMarker?.()
     if (!marker) return null
     const a = map.project(coords)
     const b = map.project(marker.getLngLat())
-    return Math.hypot(a.x - b.x, a.y - b.y) < 24 ? marker : null
+    const off = marker.getOffset?.() || { x: 0, y: 0 }
+    return Math.hypot(a.x - (b.x + off.x), a.y - (b.y + off.y)) < 24 ? marker : null
   }
   map.on('mouseenter', layerId, (e: any) => {
     map.getCanvas().style.cursor = 'pointer'
-    const coords = e.features?.[0]?.geometry?.coordinates
+    const coords = e.features?.[0] ? renderedPointCoords(map, e.features[0]) : null
     const locked = coords && coords.length === 2 ? lockOnAt(coords as [number, number]) : null
     if (locked) {
       locked.getElement().classList.add('lockon-hot')

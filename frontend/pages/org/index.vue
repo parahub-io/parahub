@@ -7,8 +7,10 @@
       :create-label="canCreateOrg ? $t('directory.organizations.create_button') : undefined"
     />
 
-    <!-- Loading -->
-    <div v-if="loading" class="py-12 text-center" role="status">
+    <!-- Loading — only when nothing is on screen yet. onActivated refetches on
+         KeepAlive return (loading=true) while orgs still hold the old list; guard
+         on orgs.length so the spinner never replaces already-rendered orgs. -->
+    <div v-if="loading && orgs.length === 0" class="py-12 text-center" role="status">
       <div class="inline-block h-12 w-12 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100"></div>
       <span class="sr-only">{{ $t('common.loading') }}</span>
     </div>
@@ -179,4 +181,14 @@ const fetchOrgs = async () => {
 }
 
 onMounted(fetchOrgs)
+
+// Pages are KeepAlive-cached globally (app.vue) — onMounted does NOT fire on
+// cached back-navigation, so refetch here or the list goes stale (e.g. an org
+// deleted via /org/[slug]/edit would still be shown). onActivated also fires
+// once right after the initial mount — skip that one, onMounted just fetched.
+let firstActivation = true
+onActivated(() => {
+  if (firstActivation) { firstActivation = false; return }
+  fetchOrgs()
+})
 </script>

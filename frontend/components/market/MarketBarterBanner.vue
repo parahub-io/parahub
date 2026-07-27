@@ -116,7 +116,9 @@ const fetchBarterOpportunities = async () => {
       credentials: 'include',
       headers: {
         'Authorization': `Bearer ${authStore.token}`
-      }
+      },
+      // timeout: banner silently degrades instead of loading forever if the backend hangs
+      timeout: 15000
     })
 
     barterOpportunities.value = response

@@ -132,6 +132,7 @@ const otherPropertiesWithCoords = computed(() =>
 )
 
 const flyToProperty = (p: { latitude: number; longitude: number }) => {
+  placeMarker(p.latitude, p.longitude)
   if (map) {
     map.flyTo({ center: [p.longitude, p.latitude], zoom: 17, essential: true, speed: 4.5 })
   }
@@ -140,6 +141,19 @@ const flyToProperty = (p: { latitude: number; longitude: number }) => {
 const mapContainer = ref<HTMLElement | null>(null)
 let map: any = null
 let marker: any = null
+let maplibregl: any = null
+
+const placeMarker = (lat: number, lng: number) => {
+  form.latitude = Math.round(lat * 1e6) / 1e6
+  form.longitude = Math.round(lng * 1e6) / 1e6
+  if (marker) {
+    marker.setLngLat([lng, lat])
+  } else if (map && maplibregl) {
+    marker = new maplibregl.Marker({ color: '#FFE216' })
+      .setLngLat([lng, lat])
+      .addTo(map)
+  }
+}
 
 const getStyleUrl = () =>
   colorMode.value === 'dark'
@@ -150,7 +164,7 @@ onMounted(async () => {
   if (!mapContainer.value) return
 
   const mod = await import('maplibre-gl')
-  const maplibregl = mod.default || mod
+  maplibregl = mod.default || mod
   await import('maplibre-gl/dist/maplibre-gl.css')
 
   const hasCoords = form.latitude != null && form.longitude != null
@@ -178,17 +192,7 @@ onMounted(async () => {
   }
 
   map.on('click', (e: any) => {
-    const { lng, lat } = e.lngLat
-    form.latitude = Math.round(lat * 1e6) / 1e6
-    form.longitude = Math.round(lng * 1e6) / 1e6
-
-    if (marker) {
-      marker.setLngLat([lng, lat])
-    } else {
-      marker = new maplibregl.Marker({ color: '#FFE216' })
-        .setLngLat([lng, lat])
-        .addTo(map)
-    }
+    placeMarker(e.lngLat.lat, e.lngLat.lng)
   })
 })
 

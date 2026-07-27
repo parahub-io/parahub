@@ -435,11 +435,16 @@ class Command(BaseCommand):
                         or stop_changes["location_changed"]
                     )
                     if has_place_changes or options["reset"]:
-                        # Reset route.place_id for routes with stops that lost their place
+                        # Reset route.place_id for routes with stops that lost their place.
+                        # Clear the slug too (as stops do on place change): a route that then
+                        # moves to a new place keeps its old slug otherwise, which can collide
+                        # with an existing route's (place, slug) there and roll back the whole
+                        # atomic feed import. Slug generation only revisits slug='' routes, so
+                        # a moved-but-non-empty slug is never regenerated to stay unique.
                         Route.objects.filter(
                             agency__in=all_agencies,
                             route_stops__stop__place_id__isnull=True,
-                        ).distinct().update(place_id=None)
+                        ).distinct().update(place_id=None, slug="")
 
                         # Stops use primary agency; routes need all agencies
                         self._assign_place_fks(agency)
@@ -677,9 +682,14 @@ class Command(BaseCommand):
         """Import stops.txt with upsert + change detection. Returns ({source_id: Stop.pk}, changes_dict)."""
         self.stdout.write("\n[3/9] Importing stops...")
 
-        # Read feed data
-        stops_data = []
-        feed_source_ids = set()
+        # Read feed data. GTFS requires stop_id to be unique, but some feeds
+        # (e.g. Carris Metropolitana) list a stop twice with slightly corrected
+        # data. Dedupe by stop_id, last occurrence winning (typically the
+        # corrected row) -- a duplicate (agency, source_id) otherwise raises
+        # IntegrityError on the bulk_create below, aborting the whole batch so
+        # none of that cohort's stops persist (they then thrash create/remove
+        # every import and never appear in the DB).
+        stops_by_id = {}
         for row in self._read_csv(zf, "stops.txt"):
             gtfs_id = row.get("stop_id", "").strip()
             lat = row.get("stop_lat", "").strip()
@@ -690,7 +700,7 @@ class Command(BaseCommand):
             loc_type = int(row.get("location_type", "0").strip() or "0")
             parent_id = row.get("parent_station", "").strip()
 
-            stops_data.append({
+            stops_by_id[gtfs_id] = {
                 "gtfs_id": gtfs_id,
                 "name": row.get("stop_name", "").strip(),
                 "tts_name": row.get("tts_stop_name", "").strip(),
@@ -698,8 +708,9 @@ class Command(BaseCommand):
                 "lon": float(lon),
                 "location_type": loc_type,
                 "parent_gtfs_id": parent_id,
-            })
-            feed_source_ids.add(gtfs_id)
+            }
+        stops_data = list(stops_by_id.values())
+        feed_source_ids = set(stops_by_id.keys())
 
         # Load existing stops for this agency
         existing = {s.source_id: s for s in Stop.objects.filter(agency=agency)}

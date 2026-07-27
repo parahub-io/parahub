@@ -829,7 +829,7 @@ def _board_owner_from_profile(profile) -> RentalBoardOwner:
         id=profile.id,
         name=profile.display_name or profile.local_name or profile.hna,
         slug=profile.local_name or '',
-        logo_url=(profile.avatar.url if profile.avatar else ''),
+        logo_url=profile.avatar_url or '',
         description=profile.bio or '',
         is_verified=profile.is_verified_wot,
         hna=profile.hna or '',

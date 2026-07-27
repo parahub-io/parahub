@@ -34,7 +34,36 @@
 
     <!-- Controls hint -->
     <div v-if="modelLoaded && !isLoading" class="absolute bottom-3 left-3 z-10 text-xs text-neutral-400 bg-neutral-900/60 px-2 py-1 rounded">
-      {{ $t('opensky.viewer_controls', 'Drag to rotate, scroll to zoom, right-click to pan') }}
+      <div>{{ $t('opensky.viewer_controls', 'Drag to rotate, scroll to zoom, right-click to pan') }}</div>
+      <div :class="{ 'text-primary': demoMode > 0 }">{{ $t('opensky.viewer_demo_hint', '1/2/3 — auto-rotate demo (same key stops)') }}</div>
+    </div>
+
+    <!-- Demo rotation buttons — touch-friendly mirror of keys 1/2/3 -->
+    <div v-if="modelLoaded && !isLoading" class="absolute bottom-3 right-3 z-10 flex gap-1.5">
+      <button
+        @click="setDemoMode(1)"
+        class="p-2 rounded transition-colors"
+        :class="demoMode === 1 ? 'bg-primary text-neutral-900' : 'bg-neutral-900/60 text-neutral-300 hover:bg-neutral-900/90 hover:text-white'"
+        :title="$t('opensky.demo_spin', 'Slow spin (key 1)')"
+      >
+        <RotateCcw class="w-4 h-4" />
+      </button>
+      <button
+        @click="setDemoMode(2)"
+        class="p-2 rounded transition-colors"
+        :class="demoMode === 2 ? 'bg-primary text-neutral-900' : 'bg-neutral-900/60 text-neutral-300 hover:bg-neutral-900/90 hover:text-white'"
+        :title="$t('opensky.demo_spin_reverse', 'Slow spin, opposite direction (key 2)')"
+      >
+        <RotateCw class="w-4 h-4" />
+      </button>
+      <button
+        @click="setDemoMode(3)"
+        class="p-2 rounded transition-colors"
+        :class="demoMode === 3 ? 'bg-primary text-neutral-900' : 'bg-neutral-900/60 text-neutral-300 hover:bg-neutral-900/90 hover:text-white'"
+        :title="$t('opensky.demo_random', 'Random direction & center every 30 s (key 3)')"
+      >
+        <Shuffle class="w-4 h-4" />
+      </button>
     </div>
 
     <!-- Fullscreen button -->
@@ -54,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { Loader2, AlertTriangle, Maximize, Minimize } from 'lucide-vue-next'
+import { Loader2, AlertTriangle, Maximize, Minimize, RotateCcw, RotateCw, Shuffle } from 'lucide-vue-next'
 import { ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 
 const props = defineProps<{
@@ -90,6 +119,78 @@ const toggleFullscreen = async () => {
     await viewerRef.value.requestFullscreen()
   } else {
     await document.exitFullscreen()
+  }
+}
+
+// ===== Demo auto-rotation (keys 1/2/3) =====
+// 1 — slow spin around the model's own center; 2 — same, opposite direction;
+// 3 — every 30 s pick a random direction AND a random pivot point on the map.
+// The MODEL rotates (not the camera), so zoom/pan/rotate stay usable during demo.
+const DEMO_ROT_SPEED = 0.08 // rad/s ≈ full turn in ~80 s
+const DEMO_SHUFFLE_MS = 30000
+const demoMode = ref<0 | 1 | 2 | 3>(0)
+let demoTHREE: any = null
+let demoModel: any = null
+let demoBounds: { x: number; z: number; maxDim: number } | null = null // footprint at load
+let demoDir = 1
+let demoPivot: any = null
+let demoQuat: any = null
+let demoAxis: any = null
+let demoShuffleTimer: ReturnType<typeof setInterval> | null = null
+
+const currentModelCenter = () => {
+  const box = new demoTHREE.Box3().setFromObject(demoModel)
+  return box.getCenter(new demoTHREE.Vector3())
+}
+
+const shuffleDemo = () => {
+  // Random direction + random pivot near the viewport center (the model starts
+  // centered at the origin, so this is a random point on the map). Sampling in a
+  // FIXED region — not around the model's current center — keeps the action in
+  // frame; the leash below stops the residual drift once it exceeds one model size.
+  demoDir = Math.random() < 0.5 ? 1 : -1
+  const center = currentModelCenter()
+  if (!demoBounds || center.length() > demoBounds.maxDim) {
+    demoPivot = center // wandered too far: spin in place, no further drift
+  } else {
+    demoPivot = new demoTHREE.Vector3(
+      (Math.random() - 0.5) * demoBounds.x * 0.7,
+      center.y,
+      (Math.random() - 0.5) * demoBounds.z * 0.7,
+    )
+  }
+}
+
+const setDemoMode = (mode: 1 | 2 | 3) => {
+  if (!demoModel || !demoTHREE) return
+  if (demoShuffleTimer) { clearInterval(demoShuffleTimer); demoShuffleTimer = null }
+  if (demoMode.value === mode) { demoMode.value = 0; return } // same key again = stop
+  demoMode.value = mode
+  demoAxis = demoAxis || new demoTHREE.Vector3(0, 1, 0)
+  demoQuat = demoQuat || new demoTHREE.Quaternion()
+  if (mode === 3) {
+    shuffleDemo()
+    demoShuffleTimer = setInterval(shuffleDemo, DEMO_SHUFFLE_MS)
+  } else {
+    demoDir = mode === 1 ? 1 : -1
+    demoPivot = currentModelCenter()
+  }
+}
+
+const updateDemoRotation = (dt: number) => {
+  if (!demoMode.value || !demoModel || !demoPivot) return
+  // Clamp: after rAF throttling (backgrounded tab) the first delta spans the
+  // whole pause — without the cap the model snaps tens of degrees at once.
+  const q = demoQuat.setFromAxisAngle(demoAxis, demoDir * DEMO_ROT_SPEED * Math.min(dt, 0.1))
+  // Rotate the model around a vertical axis through the pivot (world space)
+  demoModel.position.sub(demoPivot).applyQuaternion(q).add(demoPivot)
+  demoModel.applyQuaternion(q)
+}
+
+const onKeyDown = (e: KeyboardEvent) => {
+  if (!modelLoaded.value) return
+  if (e.key === '1' || e.key === '2' || e.key === '3') {
+    setDemoMode(Number(e.key) as 1 | 2 | 3)
   }
 }
 
@@ -208,7 +309,12 @@ const loadModel = async () => {
     const model = gltf.scene
     scene.add(model)
 
-    // Auto-center and scale model to fit viewport
+    // ODM meshes are Z-up (local ENU frame passed through obj2gltf as-is);
+    // three.js is Y-up — without this the terrain plane stands vertical.
+    model.rotation.x = -Math.PI / 2
+
+    // Auto-center and scale model to fit viewport (bbox computed after the
+    // up-axis rotation so centering and camera framing see the upright model)
     const box = new THREE.Box3().setFromObject(model)
     const boxCenter = box.getCenter(new THREE.Vector3())
     const boxSize = box.getSize(new THREE.Vector3())
@@ -229,9 +335,16 @@ const loadModel = async () => {
     modelLoaded.value = true
     isLoading.value = false
 
+    // Wire up demo auto-rotation (keys 1/2/3) — needs THREE + the model root
+    demoTHREE = THREE
+    demoModel = model
+    demoBounds = { x: boxSize.x, z: boxSize.z, maxDim }
+
     // Animation loop
+    const clock = new THREE.Clock()
     const animate = () => {
       animationId = requestAnimationFrame(animate)
+      updateDemoRotation(clock.getDelta())
       controls.update()
       renderer.render(scene, camera)
     }
@@ -260,6 +373,10 @@ const loadModel = async () => {
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', onFullscreenChange)
+  document.addEventListener('keydown', onKeyDown)
+  // Open maximized right away — the "View 3D" click's transient activation is
+  // still valid here; if the browser refuses, the viewer just stays in the modal.
+  try { viewerRef.value?.requestFullscreen?.()?.catch(() => {}) } catch {}
   // Auto-start loading for small models
   if (!props.glbSizeMb || props.glbSizeMb <= 100) {
     loadStarted.value = true
@@ -269,6 +386,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', onFullscreenChange)
+  document.removeEventListener('keydown', onKeyDown)
+  if (demoShuffleTimer) { clearInterval(demoShuffleTimer); demoShuffleTimer = null }
+  demoModel = null
+  demoTHREE = null
   // Cleanup three.js resources
   if (animationId !== null) {
     cancelAnimationFrame(animationId)

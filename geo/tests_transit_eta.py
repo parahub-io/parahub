@@ -19,6 +19,8 @@ from parahub.services.transit_eta import (
     resolve_origin,
     cumulative_min_etas,
     zombie_keeps_eta,
+    remaining_segment_fraction,
+    origin_with_fraction,
 )
 
 
@@ -144,6 +146,50 @@ class CumulativeMinEtasTest(SimpleTestCase):
         self.assertEqual(cumulative_min_etas(self.IDS, self.SEG, [3]), {})
         self.assertEqual(cumulative_min_etas(self.IDS, self.SEG, [None, -1]), {})
 
+    def test_fraction_scales_only_first_segment(self):
+        # vehicle at 0, half of its current segment already done -> first seg halved
+        self.assertEqual(
+            cumulative_min_etas(self.IDS, self.SEG, [(0, 0.5)]),
+            {"b": 5, "c": 25, "d": 55},  # 10*.5=5, +20=25, +30=55
+        )
+
+    def test_bare_int_and_full_fraction_equivalent(self):
+        self.assertEqual(
+            cumulative_min_etas(self.IDS, self.SEG, [(0, 1.0)]),
+            cumulative_min_etas(self.IDS, self.SEG, [0]),
+        )
+
+    def test_fraction_none_treated_as_full(self):
+        self.assertEqual(
+            cumulative_min_etas(self.IDS, self.SEG, [(0, None)]),
+            cumulative_min_etas(self.IDS, self.SEG, [0]),
+        )
+
+    def test_min_across_mixed_int_and_tuple(self):
+        # v0 full (d=60) vs v2 with half of its segment (d=15) -> min keeps 15
+        self.assertEqual(
+            cumulative_min_etas(self.IDS, self.SEG, [0, (2, 0.5)]),
+            {"b": 10, "c": 30, "d": 15},
+        )
+
+
+class OriginWithFractionTest(SimpleTestCase):
+    COORDS = [(38.70, -9.10), (38.70, -9.00), (38.70, -8.90)]
+
+    def test_midpoint_first_segment(self):
+        o, f = origin_with_fraction(0, 38.70, -9.05, self.COORDS)
+        self.assertEqual(o, 0)
+        self.assertAlmostEqual(f, 0.5, places=6)
+
+    def test_last_stop_degrades_to_whole(self):
+        self.assertEqual(origin_with_fraction(2, 38.70, -8.90, self.COORDS), (2, 1.0))
+
+    def test_missing_position_degrades_to_whole(self):
+        self.assertEqual(origin_with_fraction(0, None, None, self.COORDS), (0, 1.0))
+
+    def test_none_origin_passthrough(self):
+        self.assertEqual(origin_with_fraction(None, 38.70, -9.05, self.COORDS), (None, 1.0))
+
 
 class ZombieKeepsEtaTest(SimpleTestCase):
     NOW = 1_000_000.0
@@ -173,3 +219,106 @@ class ZombieKeepsEtaTest(SimpleTestCase):
         self.assertFalse(zombie_keeps_eta(self.NOW, None, "s2", 2, self.MAP))   # no mt
         self.assertFalse(zombie_keeps_eta(self.NOW, self.NOW - 150, None, 2, self.MAP))  # no sid
         self.assertFalse(zombie_keeps_eta(self.NOW, self.NOW - 150, "zz", 2, self.MAP))  # off-sequence
+
+
+class RemainingSegmentFractionTest(SimpleTestCase):
+    # Horizontal segment (constant latitude): the cos-latitude scale is identical
+    # for both endpoint distances, so the ratio is exact and easy to reason about.
+    A = (38.70, -9.10)
+    B = (38.70, -9.00)
+
+    def test_at_origin_charges_whole_segment(self):
+        self.assertAlmostEqual(
+            remaining_segment_fraction(38.70, -9.10, self.A, self.B), 1.0, places=6)
+
+    def test_at_next_stop_charges_nothing(self):
+        self.assertAlmostEqual(
+            remaining_segment_fraction(38.70, -9.00, self.A, self.B), 0.0, places=6)
+
+    def test_midpoint_is_half(self):
+        self.assertAlmostEqual(
+            remaining_segment_fraction(38.70, -9.05, self.A, self.B), 0.5, places=6)
+
+    def test_quarter_and_three_quarter(self):
+        # 25% along -> 75% still ahead
+        self.assertAlmostEqual(
+            remaining_segment_fraction(38.70, -9.075, self.A, self.B), 0.75, places=6)
+        # 75% along -> 25% still ahead
+        self.assertAlmostEqual(
+            remaining_segment_fraction(38.70, -9.025, self.A, self.B), 0.25, places=6)
+
+    def test_lateral_offset_pulls_toward_half_and_stays_bounded(self):
+        # A perpendicular GPS offset over the midpoint stays ~0.5
+        self.assertAlmostEqual(
+            remaining_segment_fraction(38.71, -9.05, self.A, self.B), 0.5, places=6)
+        # Always within [0, 1] anywhere along (and off) the segment
+        for lon in (-9.10, -9.08, -9.05, -9.02, -9.00):
+            f = remaining_segment_fraction(38.70, lon, self.A, self.B)
+            self.assertGreaterEqual(f, 0.0)
+            self.assertLessEqual(f, 1.0)
+
+    def test_missing_or_degenerate_degrades_to_whole_segment(self):
+        self.assertEqual(remaining_segment_fraction(None, -9.05, self.A, self.B), 1.0)
+        self.assertEqual(remaining_segment_fraction(38.70, None, self.A, self.B), 1.0)
+        self.assertEqual(remaining_segment_fraction(38.70, -9.05, None, self.B), 1.0)
+        self.assertEqual(remaining_segment_fraction(38.70, -9.05, self.A, ()), 1.0)
+        self.assertEqual(remaining_segment_fraction(38.70, -9.05, ("x", "y"), self.B), 1.0)
+        # from == to at the vehicle's position (zero-length) -> no division by zero
+        self.assertEqual(remaining_segment_fraction(38.70, -9.10, self.A, self.A), 1.0)
+
+
+class MedianRobustnessTest(SimpleTestCase):
+    """The observed estimate is the FIFO median: a single layover-inflated
+    observation (dwell included in recorded times) must not drag the segment
+    estimate nor peg the route delay factor."""
+
+    OFFSETS = [0, 120, 240, 360, 480]
+
+    def test_giant_observation_does_not_drag_estimate(self):
+        # 40/45/1500 s on a 120 s-scheduled segment: median 45 blended with
+        # the prior stays near schedule; a mean (528 s) would have landed ~324.
+        infos = segment_infos([["40", "45", "1500"], [], [], []], self.OFFSETS)
+        self.assertLess(infos[0]["avg"], 110)
+
+    def test_majority_regime_change_is_tracked(self):
+        # When most of the window says ~900 s (real jam / recurring dwell),
+        # the estimate must follow, not reject it as an outlier.
+        infos = segment_infos([["900", "880", "920", "40"], [], [], []], self.OFFSETS)
+        self.assertGreater(infos[0]["avg"], 500)
+
+    def test_factor_robust_to_giant(self):
+        # Two observed segments, one poisoned by a layover: factor from
+        # medians stays moderate instead of clamping at ETA_FACTOR_MAX, so
+        # unobserved segments are not doubled.
+        infos = segment_infos([["40", "45", "1500"], ["130"], [], []], self.OFFSETS)
+        unobserved = infos[2]
+        self.assertEqual(unobserved["source"], "scheduled")
+        self.assertLess(unobserved["avg"], 120 * 1.2)
+
+
+class ParkedBeyondGraceTest(SimpleTestCase):
+    """Reader gate for buses parked past the ETA grace: cumulative segment
+    dwell (dw) catches what GPS micro-moves hide from the zombie clock (mt),
+    while the move-recency condition keeps a bus that just pulled out of a
+    layover (dw not yet reset) chaining normally."""
+
+    def test_long_parked_and_still_is_blocked(self):
+        from parahub.services.transit_eta import parked_beyond_grace
+        # dwelled 8 min this segment, last move 2 min ago -> no chain
+        self.assertTrue(parked_beyond_grace(1000.0, 1000.0 - 120, 480.0))
+
+    def test_short_dwell_passes(self):
+        from parahub.services.transit_eta import parked_beyond_grace
+        # 4 min at a timing point (below grace) -> keeps chaining
+        self.assertFalse(parked_beyond_grace(1000.0, 1000.0 - 120, 240.0))
+
+    def test_just_departed_after_layover_passes(self):
+        from parahub.services.transit_eta import parked_beyond_grace
+        # dw still large (no transition yet) but moving right now -> chains
+        self.assertFalse(parked_beyond_grace(1000.0, 1000.0 - 10, 900.0))
+
+    def test_missing_data_passes(self):
+        from parahub.services.transit_eta import parked_beyond_grace
+        self.assertFalse(parked_beyond_grace(1000.0, None, 900.0))
+        self.assertFalse(parked_beyond_grace(1000.0, 1000.0 - 120, None))
+        self.assertFalse(parked_beyond_grace(1000.0, 1000.0 - 120, 0))

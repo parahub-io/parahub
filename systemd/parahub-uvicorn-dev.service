@@ -42,7 +42,7 @@ ReadWritePaths=/opt/parahub
 
 # Resource limits
 LimitNOFILE=65536
-LimitNPROC=4096
+LimitNPROC=16384
 
 [Install]
 WantedBy=multi-user.target

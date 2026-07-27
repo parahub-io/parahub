@@ -31,7 +31,9 @@ Detailed documentation for individual Parahub subsystems. See [Features](../feat
 | [Governance](governance.md) | Liquid democracy, polls, treasury, transparency |
 | [Condominium](condominium.md) | Condominium management (Lei 8/2022), fractions, weighted voting |
 | [Property](property.md) | Personal property management ("My Home"), cross-system integration |
+| [Urban Analysis](urban.md) | Pilot planning copilot: land qualification, constraints, buildability from a plot |
 | [Home Assistant](home-assistant.md) | Smart home integration, entity discovery and control |
+| [Environmental Stations](stations.md) | Personal weather and air-quality sensors on the public map |
 | [Carpool](carpool.md) | Passenger-driven rideshare at transit stops |
 | [Mesh Network](mesh-network.md) | OpenWrt firmware, batman-adv, Yggdrasil, paid WiFi |
 | [ParaSOS](parasos.md) | Neighborhood emergency mutual aid (SOS alerts, safety groups) |
@@ -39,5 +41,6 @@ Detailed documentation for individual Parahub subsystems. See [Features](../feat
 | [OpenSky](opensky.md) | Community drone mapping, 3D mesh generation |
 | [Ads](ads.md) | P2P advertising with Lightning payments |
 | [Wallet](wallet.md) | Non-custodial Lightning wallet |
+| [Bearer Notes](tips.md) | Bitcoin notes given as a link or printed, funded from your own wallet, returning by themselves |
 | [Subscriptions](subscriptions.md) | Recurring P2P support, subscribers-only content (Lightning, no escrow) |
 | [AI](ai.md) | Image analysis, Zenith assistant, image generation, Psycho-Hash, support voice |

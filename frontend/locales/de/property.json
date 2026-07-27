@@ -29,6 +29,10 @@
       "dacha": "Ferienhaus",
       "garage": "Garage",
       "other": "Sonstiges"
-    }
+    },
+    "entities": "HA-Entitäten",
+    "mesh_label": "mesh",
+    "producer": "Erzeuger",
+    "consumer": "Verbraucher"
   }
 }

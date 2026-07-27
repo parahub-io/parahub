@@ -75,6 +75,7 @@ LABELS = {
            "outbound": "Outbound", "inbound": "Inbound", "special": "Special service",
            "days": "days",
            "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+           "mon": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
            "modes": {"metro": "Metro", "rail": "Rail", "tram": "Tram", "ferry": "Ferry",
                      "funicular": "Funicular", "bus": "Bus", "air": "Air"},
            "daytypes": {"weekday": "Weekdays", "sat": "Saturdays",
@@ -88,6 +89,7 @@ LABELS = {
            "outbound": "Ida", "inbound": "Volta", "special": "Serviço especial",
            "days": "dias",
            "weekdays": ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
+           "mon": ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
            "modes": {"metro": "Metro", "rail": "Comboio", "tram": "Elétrico", "ferry": "Barco",
                      "funicular": "Funicular", "bus": "Autocarro", "air": "Avião"},
            "daytypes": {"weekday": "Dias úteis", "sat": "Sábados",
@@ -101,6 +103,7 @@ LABELS = {
            "outbound": "Ida", "inbound": "Vuelta", "special": "Servicio especial",
            "days": "días",
            "weekdays": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+           "mon": ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
            "modes": {"metro": "Metro", "rail": "Tren", "tram": "Tranvía", "ferry": "Ferry",
                      "funicular": "Funicular", "bus": "Autobús", "air": "Avión"},
            "daytypes": {"weekday": "Días laborables", "sat": "Sábados",
@@ -114,6 +117,7 @@ LABELS = {
            "outbound": "Aller", "inbound": "Retour", "special": "Service spécial",
            "days": "jours",
            "weekdays": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+           "mon": ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"],
            "modes": {"metro": "Métro", "rail": "Train", "tram": "Tram", "ferry": "Ferry",
                      "funicular": "Funiculaire", "bus": "Bus", "air": "Avion"},
            "daytypes": {"weekday": "Jours ouvrables", "sat": "Samedis",
@@ -127,6 +131,7 @@ LABELS = {
            "outbound": "Hinfahrt", "inbound": "Rückfahrt", "special": "Sonderverkehr",
            "days": "Tage",
            "weekdays": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+           "mon": ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
            "modes": {"metro": "U-Bahn", "rail": "Bahn", "tram": "Tram", "ferry": "Fähre",
                      "funicular": "Standseilbahn", "bus": "Bus", "air": "Flug"},
            "daytypes": {"weekday": "Werktags", "sat": "Samstags",
@@ -140,6 +145,7 @@ LABELS = {
            "outbound": "Туда", "inbound": "Обратно", "special": "Особый режим",
            "days": "дн.",
            "weekdays": ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+           "mon": ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"],
            "modes": {"metro": "Метро", "rail": "Поезд", "tram": "Трамвай", "ferry": "Паром",
                      "funicular": "Фуникулёр", "bus": "Автобус", "air": "Самолёт"},
            "daytypes": {"weekday": "Будни", "sat": "Суббота",
@@ -192,6 +198,27 @@ def _season_text(L, col):
     for raw, key in zip(col.get("seasons", []), col.get("season_keys", [])):
         parts.append(L["seasons"].get(key, raw) if key else raw)
     return " · ".join(p for p in parts if p)
+
+
+def _span_text(L, col):
+    """Localized date-range label for a column with no named season, e.g.
+    "8 jul – 11 set". Fallback for feeds whose service_ids carry no readable
+    period name (Carris Metropolitana); tells day-type-split columns apart by the
+    dates they actually cover."""
+    span = col.get("span")
+    if not span or len(span) != 2:
+        return ""
+    mon = L.get("mon") or []
+
+    def fmt(iso):
+        try:
+            y, m, d = iso.split("-")
+            return f"{int(d)} {mon[int(m) - 1]}" if mon else iso
+        except (ValueError, IndexError):
+            return iso
+
+    a, b = fmt(span[0]), fmt(span[1])
+    return a if a == b else f"{a} – {b}"
 
 
 def _truncate(c, text, font, size, max_w):
@@ -409,7 +436,7 @@ def _draw_seasonal_table(c, L, columns):
         c.setFont(FONT_BOLD, hsz)
         c.drawString(cx, hy, _truncate(c, dt_label, FONT_BOLD, hsz, col_w - 1.5 * mm))
         if col.get("show_seasons"):
-            season = _season_text(L, col)
+            season = _season_text(L, col) or _span_text(L, col)
             c.setFillColor(MUTED)
             c.setFont(FONT_REGULAR, 6.2)
             # season hint may wrap to 2 lines
@@ -496,7 +523,7 @@ def _draw_footnotes(c, L, specials, variants, y):
     for sp in (specials or []):
         if y < _body_bottom():
             break
-        season = _season_text(L, sp) or L["daytypes"].get(sp.get("day_type"), "")
+        season = _season_text(L, sp) or _span_text(L, sp) or L["daytypes"].get(sp.get("day_type"), "")
         txt = f"{L['special']}: {season} ({sp.get('n_dates', 0)} {L['days']})"
         c.setFillColor(MUTED)
         c.setFont(FONT_REGULAR, 7.5)

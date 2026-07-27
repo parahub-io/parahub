@@ -1,6 +1,13 @@
 {
   "skipToContent": "Aller au contenu principal",
   "docs": {
+    "wallet_desc": "Bitcoin dans votre navigateur — les clés ne quittent jamais votre appareil",
+    "tips_desc": "Des billets papier avec de vrais bitcoins, alimentés depuis votre portefeuille",
+    "communication_desc": "Chat chiffré, appels vidéo et notifications push — sur un protocole ouvert",
+    "blog_desc": "Un blog pour vous, un site complet pour votre organisation — jusqu'au domaine personnalisé",
+    "smart_home_desc": "Reliez Home Assistant et pilotez votre maison depuis Parahub",
+    "stations_desc": "Vos capteurs météo et qualité de l'air, en direct sur la carte",
+    "property_desc": "Votre maison, pivot des appareils, de l'énergie et des contrats",
     "title": "Documentation",
     "mission_desc": "Pourquoi Parahub existe et quel problème il résout",
     "features_desc": "Un aperçu complet des capacités de la plateforme",
@@ -25,6 +32,10 @@
     "tickets_desc": "Achetez des billets numériques pour événements et transports via Lightning",
     "driver_desc": "Diffusez votre position GPS en temps réel en conduisant une ligne de transport",
     "intro": "Concepts et principes qui distinguent Parahub des autres plateformes",
+    "group_start": "Commencer",
+    "group_city": "Ville et transports",
+    "group_home": "Maison et énergie",
+    "group_platform": "Réseau et plateforme",
     "group_trade": "Commerce",
     "group_trust": "Confiance et sécurité",
     "group_community": "Communauté",
@@ -42,6 +53,7 @@
     "save": "Enregistrer",
     "cancel": "Annuler",
     "confirm": "Confirmer",
+    "ok": "OK",
     "continue": "Continuer",
     "create": "Créer",
     "creating": "Création...",
@@ -63,6 +75,34 @@
     "saved": "Enregistré"
   },
   "nav": {
+    "hint": {
+      "messages": "Discussions chiffrées, vraies personnes",
+      "login": "La clé de tout le reste",
+      "market": "Achetez, vendez, troquez — sans intermédiaires",
+      "map": "Votre quartier en direct",
+      "transit": "Chaque bus en temps réel",
+      "rides": "Covoiturage depuis votre arrêt",
+      "menu": "Toute la plateforme en une grille",
+      "profile": "Votre visage dans la communauté",
+      "wallet": "Des sats, vos clés seulement",
+      "settings": "Réglez Parahub à votre goût",
+      "events": "Rencontres de la communauté en vrai",
+      "directory": "Tous les lieux autour de vous",
+      "governance": "Votez, déléguez, décidez ensemble",
+      "iot": "Vos appareils sur un seul tableau",
+      "ads": "Offres locales, zéro spam",
+      "contracts": "Poignées de main à force cryptographique",
+      "shipments": "Colis portés par des gens de confiance",
+      "condo": "Votre immeuble, géré ensemble",
+      "sos": "Un geste, les vôtres sont prévenus",
+      "energy": "Partagez le soleil avec vos voisins",
+      "projects": "Le code derrière tout ça",
+      "webmail": "Votre boîte privée {'@'}parahub.io",
+      "about": "Pourquoi tout ça existe",
+      "notifications": "Tout ce que vous avez manqué, en un fil",
+      "invite": "Invitez quelqu'un de confiance",
+      "logout": "Partez — vos données restent vôtres"
+    },
     "notifications": "Notifications",
     "messages": "Messages",
     "market": "Marché",
@@ -132,7 +172,9 @@
   },
   "update": {
     "new_version": "Une nouvelle version est disponible",
-    "refresh": "Rafraichir"
+    "refresh": "Rafraîchir",
+    "app_new_version": "Mise à jour de l'application disponible",
+    "download": "Télécharger"
   },
   "choose_username": {
     "title": "Choisissez votre nom d'utilisateur",

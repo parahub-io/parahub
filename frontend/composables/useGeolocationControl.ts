@@ -7,7 +7,8 @@
 
 export function createGeolocationControl(
   mapStore: ReturnType<typeof useMapStore>,
-  animationEnabled: { value: boolean }
+  animationEnabled: { value: boolean },
+  t: (key: string) => string
 ) {
   return class GeolocationControl {
     _map: any
@@ -26,10 +27,15 @@ export function createGeolocationControl(
       this._button = document.createElement('button')
       this._button.className = 'maplibregl-ctrl-geolocate'
       this._button.type = 'button'
-      this._button.title = 'Track my location'
+      this._button.title = t('map.geolocate.find')
+      // lucide `locate-fixed` — standard "my location" crosshair glyph
       this._button.innerHTML = `
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="2" x2="5" y1="12" y2="12"></line>
+          <line x1="19" x2="22" y1="12" y2="12"></line>
+          <line x1="12" x2="12" y1="2" y2="5"></line>
+          <line x1="12" x2="12" y1="19" y2="22"></line>
+          <circle cx="12" cy="12" r="7"></circle>
           <circle cx="12" cy="12" r="3"></circle>
         </svg>
       `
@@ -122,7 +128,7 @@ export function createGeolocationControl(
       this._isTracking = true
       this._isFirstPosition = true
       this._button.classList.add('maplibregl-ctrl-geolocate-active')
-      this._button.title = 'Click to recenter, long press to stop'
+      this._button.title = t('map.geolocate.active')
 
       this._watchId = navigator.geolocation.watchPosition(
         async (position) => {
@@ -199,7 +205,7 @@ export function createGeolocationControl(
       }
       this._isTracking = false
       this._button.classList.remove('maplibregl-ctrl-geolocate-active')
-      this._button.title = 'Track my location'
+      this._button.title = t('map.geolocate.find')
     }
   }
 }

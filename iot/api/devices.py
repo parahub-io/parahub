@@ -11,11 +11,13 @@ from ninja.errors import HttpError
 from django.shortcuts import get_object_or_404
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
+from core.access import ROLE_MANAGER, ROLE_OWNER, accessible_q
 from ..models import IoTDevice
 from ..services import TraccarService
 
+from .access import get_device_for
 from .base import router
-from .mesh import _get_latest_firmware_version
+from .mesh import _get_latest_firmware_version, ygg_inbound_status
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,16 @@ class IoTDeviceOut(Schema):
     last_update: Optional[datetime] = None
     connection_info: dict = {}
     latest_firmware_version: Optional[str] = None
+    # Mesh routers: backend ygg:22 probe verdict. False = node heartbeats but
+    # inbound is wedged (self-heal running); None = unknown / not probed.
+    ygg_inbound_ok: Optional[bool] = None
+    # Viewer's effective role (OWNER/MANAGER/VIEWER); shared devices carry the
+    # owner reference so the UI can show who shared them.
+    access_role: Optional[str] = None
+    owner_hna: Optional[str] = None
+    owner_name: Optional[str] = None
+    # Owner attribution opt-in for the public map panel
+    show_owner: bool = False
 
     @staticmethod
     def from_orm(device: IoTDevice):
@@ -56,7 +68,9 @@ class IoTDeviceOut(Schema):
             "traccar_device_id": device.traccar_device_id,
             "property_id": device.property_id,
             "last_seen": device.last_seen,
-            "connection_info": device.connection_info or {}
+            "connection_info": device.connection_info or {},
+            "access_role": getattr(device, 'access_role', None),
+            "show_owner": device.show_owner,
         }
 
         # Добавляем данные о местоположении если есть
@@ -79,6 +93,7 @@ class IoTDeviceOut(Schema):
         # Add latest firmware version for mesh routers
         if device.device_type == 'MESH_ROUTER':
             data['latest_firmware_version'] = _get_latest_firmware_version()
+            data['ygg_inbound_ok'] = ygg_inbound_status(device.device_id)
 
         return IoTDeviceOut(**data)
 
@@ -108,26 +123,10 @@ def create_device(request, device_in: IoTDeviceIn):
         device_id=device_in.device_id,
         property=prop,
     )
-    
-    # Если это трекер, пробуем зарегистрировать в Traccar
-    if device.device_type == "TRACKER":
-        try:
-            traccar_service = TraccarService()
-            
-            # Создаем пользователя в Traccar если нет
-            if not hasattr(profile, 'traccar_account'):
-                traccar_service.create_or_update_user(profile)
-            
-            # Регистрируем устройство
-            traccar_service.register_device(device, profile.traccar_account)
-            traccar_device_id = device.traccar_device_id
-            
-            device.traccar_device_id = traccar_device_id
-            device.save()
-            
-        except Exception as e:
-            logger.error(f"Failed to register device in Traccar: {e}")
-    
+    device.access_role = 'OWNER'
+
+    # Trackers are registered in Traccar asynchronously by the post_save
+    # signal (iot/signals.py) — traccar_device_id appears on a later fetch
     return IoTDeviceOut.from_orm(device)
 
 @router.get("/devices", response=List[IoTDeviceOut], auth=ProfileAuth())
@@ -151,12 +150,20 @@ def list_devices(request, property_id: Optional[str] = None, unassigned: Optiona
     except Exception as e:
         logger.error(f"Traccar sync failed: {e}")
 
-    qs = IoTDevice.objects.filter(owner=profile)
+    # Own devices + devices shared via ObjectAccess grants
+    qs = IoTDevice.objects.filter(accessible_q(profile)).select_related('owner__instance')
     if property_id:
         qs = qs.filter(property_id=property_id)
     elif unassigned:
         qs = qs.filter(property__isnull=True)
     devices = list(qs.order_by('-created_at'))
+
+    # Grant role per shared device (single query; owner beats any grant row)
+    from core.models import ObjectAccess
+    grant_roles = dict(ObjectAccess.objects.filter(
+        profile=profile,
+        object_id__in=[d.id for d in devices if d.owner_id != profile.id],
+    ).values_list('object_id', 'role'))
 
     # Batch-read live positions from Redis for trackers
     tracker_ulids = [str(d.id) for d in devices if d.device_type == 'TRACKER']
@@ -169,6 +176,7 @@ def list_devices(request, property_id: Optional[str] = None, unassigned: Optiona
 
     result = []
     for device in devices:
+        is_own = device.owner_id == profile.id
         data = {
             "id": device.id,
             "object_type": "iot_device",
@@ -180,6 +188,9 @@ def list_devices(request, property_id: Optional[str] = None, unassigned: Optiona
             "property_id": device.property_id,
             "last_seen": device.last_seen,
             "connection_info": device.connection_info or {},
+            "access_role": 'OWNER' if is_own else grant_roles.get(device.id, 'VIEWER'),
+            "owner_hna": None if is_own else (device.owner.hna or None),
+            "owner_name": None if is_own else (device.owner.display_name or device.owner.local_name),
         }
 
         # Inject Redis position for trackers
@@ -205,6 +216,7 @@ def list_devices(request, property_id: Optional[str] = None, unassigned: Optiona
 
         if device.device_type == 'MESH_ROUTER':
             data['latest_firmware_version'] = _get_latest_firmware_version()
+            data['ygg_inbound_ok'] = ygg_inbound_status(device.device_id)
 
         result.append(IoTDeviceOut(**data))
 
@@ -215,14 +227,8 @@ def list_devices(request, property_id: Optional[str] = None, unassigned: Optiona
 def get_device(request, device_id: str):
     """Получение информации об IoT устройстве"""
     profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(
-        IoTDevice,
-        id=device_id,
-        owner=profile,
-    )
+    device = get_device_for(profile, device_id)
+    is_own = device.owner_id == profile.id
 
     # Read live position from Redis
     data = {
@@ -233,8 +239,12 @@ def get_device(request, device_id: str):
         "imei": device.imei,
         "device_id": device.device_id,
         "traccar_device_id": device.traccar_device_id,
+        "property_id": device.property_id,
         "last_seen": device.last_seen,
         "connection_info": device.connection_info or {},
+        "access_role": device.access_role,
+        "owner_hna": None if is_own else (device.owner.hna or None),
+        "owner_name": None if is_own else (device.owner.display_name or device.owner.local_name),
     }
 
     if device.device_type == "TRACKER":
@@ -257,6 +267,7 @@ def get_device(request, device_id: str):
             data['latitude'] = device.latitude
             data['longitude'] = device.longitude
         data['latest_firmware_version'] = _get_latest_firmware_version()
+        data['ygg_inbound_ok'] = ygg_inbound_status(device.device_id)
 
     return IoTDeviceOut(**data)
 
@@ -264,23 +275,18 @@ def get_device(request, device_id: str):
 @ratelimit(group='iot:delete_device', key=user_or_ip, rate='10/m', method='DELETE')
 def delete_device(request, device_id: str):
     """Удаление IoT устройства"""
-    # Get authenticated user's profile
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
+    device = get_device_for(request.auth_profile, device_id, ROLE_OWNER)
 
     # Clean up Redis tracker data
     if device.device_type == 'TRACKER':
         TraccarService.cleanup_device_redis(str(device.id))
 
-    # Удаляем из Traccar если зарегистрировано
+    # Remove from Traccar first: if its row survives, the auto-sync in
+    # list_devices resurrects the device on the next fetch, so a failed
+    # cleanup must abort the delete instead of faking success
     if device.traccar_device_id:
-        try:
-            TraccarService.delete_device(device.traccar_device_id)
-        except Exception as e:
-            logger.error(f"Failed to delete device from Traccar: {e}")
+        if not TraccarService.delete_device(device.traccar_device_id):
+            raise HttpError(502, "Failed to remove device from Traccar, try again later")
 
     device.delete()
     return {"success": True}
@@ -305,14 +311,7 @@ class DeviceLocationOut(Schema):
 @ratelimit(group='iot:set_location', key=user_or_ip, rate='30/m', method='PUT')
 def set_device_location(request, device_id: str, payload: DeviceLocationIn):
     """Set AP coordinates for coverage map."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
-
-    if device.device_type != 'MESH_ROUTER':
-        raise HttpError(400, "Not a mesh router")
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
 
     # Validate coordinate ranges
     if not (-90 <= payload.latitude <= 90) or not (-180 <= payload.longitude <= 180):
@@ -328,11 +327,7 @@ def set_device_location(request, device_id: str, payload: DeviceLocationIn):
 @ratelimit(group='iot:rename_device', key=user_or_ip, rate='10/m', method='PATCH')
 def rename_device(request, device_id: str, payload: DeviceRenameIn):
     """Rename an IoT device."""
-    profile = request.auth_profile
-    if not profile:
-        raise HttpError(401, "Authentication required")
-
-    device = get_object_or_404(IoTDevice, id=device_id, owner=profile)
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER)
 
     name = payload.name.strip()
     if len(name) < 2 or len(name) > 100:
@@ -342,3 +337,111 @@ def rename_device(request, device_id: str, payload: DeviceRenameIn):
     device.save(update_fields=['name'])
 
     return DeviceRenameOut(name=device.name)
+
+
+class MeshSettingsIn(Schema):
+    # None = leave unchanged; uplink_type='' / down/up=0 = clear
+    guest_rate_kbps: Optional[int] = None
+    host_rate_mbps: Optional[int] = None
+    uplink_type: Optional[str] = None
+    uplink_down_mbps: Optional[int] = None
+    uplink_up_mbps: Optional[int] = None
+
+
+class MeshSettingsOut(Schema):
+    status: str = "ok"
+    guest_rate_kbps: int
+    host_rate_mbps: int
+    uplink_type: Optional[str] = None
+    uplink_down_mbps: Optional[int] = None
+    uplink_up_mbps: Optional[int] = None
+
+
+def _mesh_settings_out(device: IoTDevice) -> MeshSettingsOut:
+    return MeshSettingsOut(
+        guest_rate_kbps=device.mesh_guest_rate_kbps,
+        host_rate_mbps=device.mesh_host_rate_mbps,
+        uplink_type=device.uplink_type,
+        uplink_down_mbps=device.uplink_down_mbps,
+        uplink_up_mbps=device.uplink_up_mbps,
+    )
+
+
+@router.get("/devices/{device_id}/mesh-settings", response=MeshSettingsOut, auth=ProfileAuth())
+@ratelimit(group='iot:mesh_settings', key=user_or_ip, rate='30/m')
+def get_mesh_settings(request, device_id: str):
+    """Sharing budgets + declared uplink of a mesh router (DB-backed, no SSH)."""
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
+    if (device.connection_info or {}).get('firmware_role') != 'bumblebee':
+        raise HttpError(400, "Mesh settings are only available on Bumblebee routers")
+    return _mesh_settings_out(device)
+
+
+@router.put("/devices/{device_id}/mesh-settings", response=MeshSettingsOut, auth=ProfileAuth())
+@ratelimit(group='iot:mesh_settings_set', key=user_or_ip, rate='10/m', method='PUT')
+def set_mesh_settings(request, device_id: str, payload: MeshSettingsIn):
+    """Update sharing budgets / uplink passport. Budgets reach the fleet via
+    the next heartbeats (≤5 min): guest_rate applies where this node
+    terminates the guest VLAN, host_rate feeds the island-min host budget."""
+    device = get_device_for(request.auth_profile, device_id, ROLE_MANAGER, require_mesh=True)
+    if (device.connection_info or {}).get('firmware_role') != 'bumblebee':
+        raise HttpError(400, "Mesh settings are only available on Bumblebee routers")
+
+    fields = []
+    if payload.guest_rate_kbps is not None:
+        if not (64 <= payload.guest_rate_kbps <= 102400):
+            raise HttpError(400, "guest_rate_kbps must be between 64 and 102400")
+        device.mesh_guest_rate_kbps = payload.guest_rate_kbps
+        fields.append('mesh_guest_rate_kbps')
+    if payload.host_rate_mbps is not None:
+        if not (1 <= payload.host_rate_mbps <= 10000):
+            raise HttpError(400, "host_rate_mbps must be between 1 and 10000")
+        device.mesh_host_rate_mbps = payload.host_rate_mbps
+        fields.append('mesh_host_rate_mbps')
+    if payload.uplink_type is not None:
+        if payload.uplink_type == '':
+            device.uplink_type = None
+        elif payload.uplink_type in IoTDevice.UplinkType.values:
+            device.uplink_type = payload.uplink_type
+        else:
+            raise HttpError(400, "Invalid uplink_type")
+        fields.append('uplink_type')
+    if payload.uplink_down_mbps is not None:
+        if payload.uplink_down_mbps < 0 or payload.uplink_down_mbps > 100000:
+            raise HttpError(400, "uplink_down_mbps out of range")
+        device.uplink_down_mbps = payload.uplink_down_mbps or None
+        fields.append('uplink_down_mbps')
+    if payload.uplink_up_mbps is not None:
+        if payload.uplink_up_mbps < 0 or payload.uplink_up_mbps > 100000:
+            raise HttpError(400, "uplink_up_mbps out of range")
+        device.uplink_up_mbps = payload.uplink_up_mbps or None
+        fields.append('uplink_up_mbps')
+
+    if fields:
+        device.save(update_fields=fields)
+    return _mesh_settings_out(device)
+
+
+class DeviceShowOwnerIn(Schema):
+    show_owner: bool
+
+
+class DeviceShowOwnerOut(Schema):
+    status: str = "ok"
+    show_owner: bool
+
+
+@router.patch("/devices/{device_id}/show-owner", response=DeviceShowOwnerOut, auth=ProfileAuth())
+@ratelimit(group='iot:show_owner', key=user_or_ip, rate='10/m', method='PATCH')
+def set_device_show_owner(request, device_id: str, payload: DeviceShowOwnerIn):
+    """Toggle owner attribution on the public map panel.
+
+    ROLE_OWNER, not MANAGER: the toggle discloses the owner's identity, so
+    only the owner may consent.
+    """
+    device = get_device_for(request.auth_profile, device_id, ROLE_OWNER)
+
+    device.show_owner = payload.show_owner
+    device.save(update_fields=['show_owner'])
+
+    return DeviceShowOwnerOut(show_owner=device.show_owner)

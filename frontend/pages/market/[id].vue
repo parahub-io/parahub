@@ -5,6 +5,7 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const localePath = useLocalePath()
+const switchLocalePath = useSwitchLocalePath()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { fetchCategoryTree } = useCategories()
@@ -476,7 +477,11 @@ function editItem() {
 
 // Share
 async function shareItem() {
-  const url = window.location.href
+  // Locale-neutral on purpose: the link goes to OTHER people. The raw href
+  // carries the sharer's locale prefix (e.g. /ru/...), which forces their
+  // language onto every recipient and persists it via the i18n cookie.
+  // switchLocalePath('en') is the unprefixed path of the current route.
+  const url = `${window.location.origin}${switchLocalePath('en')}`
   if (navigator.share) {
     await navigator.share({ title: item.value.title, url })
   } else {
@@ -1004,17 +1009,32 @@ useHead({
             </div>
           </div>
 
-          <!-- Actions -->
-          <div v-if="item.owner_id === authStore.profile?.id" class="grid grid-cols-3 gap-3">
-            <UiButton variant="outline" :icon="Edit" class="!whitespace-normal min-w-0 text-center" @click="editItem">
-              {{ t('market.actions.edit') }}
+          <!-- Actions. The owner of a rent-priced listing needs the rental page too:
+               it is the only entry to the "make this item bookable" setup form, the
+               booking inbox and the walk-in entry (a booking taken over the phone).
+               Visitors reach it through the Book CTA below; without this the owner
+               had no link at all. -->
+          <div v-if="item.owner_id === authStore.profile?.id" class="space-y-3">
+            <UiButton
+              v-if="isRental"
+              variant="primary"
+              :icon="CalendarClock"
+              class="w-full"
+              :to="localePath(`/rental/${itemId}`)"
+            >
+              {{ t('booking.board.link') }}
             </UiButton>
-            <UiButton variant="outline" :icon="item.is_active ? EyeOff : Eye" class="!whitespace-normal min-w-0 text-center" @click="toggleActive">
-              {{ item.is_active ? t('market.actions.hide') : t('market.actions.activate') }}
-            </UiButton>
-            <UiButton variant="outline-error" :icon="Trash2" class="!whitespace-normal min-w-0 text-center" @click="showDeleteItemConfirm = true">
-              {{ t('market.actions.delete') }}
-            </UiButton>
+            <div class="grid grid-cols-3 gap-3">
+              <UiButton variant="outline" :icon="Edit" class="!whitespace-normal min-w-0 text-center" @click="editItem">
+                {{ t('market.actions.edit') }}
+              </UiButton>
+              <UiButton variant="outline" :icon="item.is_active ? EyeOff : Eye" class="!whitespace-normal min-w-0 text-center" @click="toggleActive">
+                {{ item.is_active ? t('market.actions.hide') : t('market.actions.activate') }}
+              </UiButton>
+              <UiButton variant="outline-error" :icon="Trash2" class="!whitespace-normal min-w-0 text-center" @click="showDeleteItemConfirm = true">
+                {{ t('market.actions.delete') }}
+              </UiButton>
+            </div>
           </div>
           <!-- Visitor actions. For a rental the structured booking flow is the
                primary path → a full-width Book CTA leads, with "make offer" + message

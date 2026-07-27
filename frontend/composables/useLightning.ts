@@ -375,8 +375,9 @@ export const useLightning = () => {
     amount?: bigint
   ): Promise<PrepareSendPaymentResponse> => {
     if (!sdkInstance.value) throw new Error('SDK not initialized')
+    // SDK 0.19 takes a PaymentRequest union here, not a bare string
     return sdkInstance.value.prepareSendPayment({
-      paymentRequest,
+      paymentRequest: { type: 'input', input: paymentRequest },
       amount
     })
   }
@@ -390,6 +391,38 @@ export const useLightning = () => {
     if (!sdkInstance.value) throw new Error('SDK not initialized')
     const result = await sdkInstance.value.sendPayment({ prepareResponse })
     await refreshBalance()
+    return result.payment
+  }
+
+  /**
+   * Send a prepared Spark payment locked behind a hash and an expiry.
+   *
+   * The receiver claims it with the preimage; if nobody does, the transfer
+   * returns here when `expiryDurationSecs` elapses — enforced by the network,
+   * not by us, and the sender cannot pull it back early. This is what makes a
+   * printed bearer note safe on both sides.
+   */
+  const executeSendHtlc = async (
+    prepareResponse: PrepareSendPaymentResponse,
+    paymentHash: string,
+    expiryDurationSecs: number
+  ): Promise<Payment> => {
+    if (!sdkInstance.value) throw new Error('SDK not initialized')
+    const result = await sdkInstance.value.sendPayment({
+      prepareResponse,
+      options: { type: 'sparkAddress', htlcOptions: { paymentHash, expiryDurationSecs } }
+    })
+    await refreshBalance()
+    return result.payment
+  }
+
+  /**
+   * Look one payment up by id — how a tip batch learns whether each note is
+   * still waiting, claimed, or already returned.
+   */
+  const getPayment = async (paymentId: string): Promise<Payment> => {
+    if (!sdkInstance.value) throw new Error('SDK not initialized')
+    const result = await sdkInstance.value.getPayment({ paymentId })
     return result.payment
   }
 
@@ -557,6 +590,7 @@ export const useLightning = () => {
     parseInput,
     prepareSend,
     executeSend,
+    executeSendHtlc,
     prepareLnurlPay,
     executeLnurlPay,
 
@@ -566,6 +600,7 @@ export const useLightning = () => {
 
     // History
     listPayments,
+    getPayment,
     paymentEventVersion,
 
     // Lightning Address

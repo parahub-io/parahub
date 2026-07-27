@@ -8,9 +8,17 @@
       "municipality": "Municipality",
       "region": "Region",
       "country": "Country",
+      "eu": "EU",
       "groups": "Groups",
       "household": "Home",
       "condominium": "Condominium"
+    },
+    "eci": {
+      "title": "European Citizens' Initiative",
+      "supporters": "{n} of {total}",
+      "countries": "{n}/{total} countries",
+      "disclaimer": "Momentum, not official signatures",
+      "disclaimerHint": "This gauge shows support on the scale of a European Citizens' Initiative (1,000,000 people across at least 7 countries). These are anonymous barometer votes, not verified ECI signatures — if support reaches critical mass, a formal ECI can be launched separately."
     },
     "feed": {
       "participation": "{n} votes",
@@ -20,7 +28,11 @@
       "emptyScopeHint": "Polls appear here when they are created for your area",
       "needResidency": "Set your parish to see local polls",
       "needResidencyAction": "Choose location",
-      "loginToSee": "Sign in to see polls for your area"
+      "loginToSee": "Sign in to see polls for your area",
+      "hideVoted": "Hide voted",
+      "showVoted": "Show voted",
+      "showAll": "Show all ({n})",
+      "history": "Completed"
     },
     "destination": "Where this goes",
     "outcome": "Outcome",
@@ -70,7 +82,11 @@
       "save": "Save location",
       "saved": "Location saved",
       "cooldown": "Location can be changed again after {date}",
-      "notSet": "Not set"
+      "notSet": "Not set",
+      "voteAs": "Voting as a resident of {name}",
+      "change": "Change",
+      "suggestTitle": "Your parish — from your places",
+      "suggestHint": "Parishes derived from your property locations. Confirm one — it becomes your civic location for local polls."
     },
     "privacy": {
       "title": "My civic data",

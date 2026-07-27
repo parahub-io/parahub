@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bctip — printable bitcoin tips, now at Parahub</title>
+<meta name="description" content="bctip ran from 2013 to 2024 and is now closed. Printable bitcoin tips live on at Parahub as bearer notes: funded from your own wallet, held by nobody.">
+<link rel="canonical" href="https://bctip.org/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="bctip">
+<meta property="og:url" content="https://bctip.org/">
+<meta property="og:title" content="bctip — printable bitcoin tips, now at Parahub">
+<meta property="og:description" content="bctip ran from 2013 to 2024. The idea did not stop: printable bearer notes live on at Parahub, with nobody holding the money in between.">
+<meta property="og:image" content="https://bctip.org/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="bctip — printable bitcoin tips, now at Parahub">
+<meta name="twitter:description" content="bctip ran from 2013 to 2024. The idea did not stop: printable bearer notes live on at Parahub, with nobody holding the money in between.">
+<meta name="twitter:image" content="https://bctip.org/og.jpg">
+<link rel="icon" href="/favicon.ico" sizes="16x16">
+<style>
+  :root {
+    --ink: #171717;
+    --muted: #575757;
+    --line: #e2e2e2;
+    --paper: #ffffff;
+    --wash: #fafafa;
+    --yellow: #FFE216;
+    /* The colour the site itself ran on, from bctip-1.css. */
+    --bctip: #e16b0a;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+  a { color: var(--ink); }
+
+  /* The 2013 logo is a knockout — it only exists in white, so it needs the
+     orange field the site always gave it. */
+  .topbar { background: var(--bctip); }
+  .topbar .wrap {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px;
+    padding-top: 13px; padding-bottom: 13px;
+  }
+  .topbar img { height: 44px; width: auto; display: block; }
+  /* White would only reach 3.3:1 on this orange; the brown clears AA at 4.7:1. */
+  .years { font-size: 13px; font-weight: 600; color: #3d1a02; }
+
+  h1 {
+    font-size: 40px; line-height: 1.12; letter-spacing: -0.025em;
+    margin: 48px 0 0; font-weight: 800;
+  }
+  .lede { font-size: 19px; color: var(--muted); margin: 18px 0 0; }
+  h2 { font-size: 24px; letter-spacing: -0.015em; margin: 52px 0 0; font-weight: 700; }
+  h3 { font-size: 17px; margin: 0 0 4px; font-weight: 700; }
+  p { margin: 14px 0 0; }
+
+  figure { margin: 32px 0 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+  /* A note is portrait and small in the hand; full column width would make it a poster. */
+  .note-shot img { max-width: 320px; margin: 0 auto; }
+  .note-shot figcaption { text-align: center; }
+
+  .note {
+    margin: 36px 0 0; padding: 20px 22px;
+    background: var(--wash); border: 1px solid var(--line);
+    border-left: 4px solid var(--yellow); border-radius: 8px;
+  }
+  .note h2 { margin: 0; font-size: 20px; }
+  .note p:first-of-type { margin-top: 10px; }
+
+  ol.points { list-style: none; counter-reset: p; margin: 24px 0 0; padding: 0; }
+  ol.points li { counter-increment: p; position: relative; padding-left: 44px; margin-top: 26px; }
+  ol.points li::before {
+    content: counter(p);
+    position: absolute; left: 0; top: 1px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--yellow); color: var(--ink);
+    font-size: 14px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.points p { margin: 0; color: var(--muted); }
+
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 40px 0 0; }
+  .btn {
+    display: inline-block; padding: 13px 22px; border-radius: 9px;
+    font-weight: 700; text-decoration: none; border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--yellow); color: var(--ink); }
+  .btn-ghost { border-color: var(--line); color: var(--ink); }
+  .btn:hover { opacity: 0.85; }
+
+  footer { margin-top: 72px; background: var(--ink); color: #d4d4d4; }
+  footer .wrap { padding-top: 34px; padding-bottom: 40px; }
+  footer a { color: var(--yellow); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  footer p { font-size: 14px; margin: 10px 0 0; }
+  footer .links { font-size: 14px; margin-top: 16px; }
+  footer .links a { margin-right: 18px; display: inline-block; }
+
+  @media (max-width: 560px) {
+    h1 { font-size: 31px; margin-top: 36px; }
+    .lede { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <img src="/bctip-logo.png" width="258" height="110" alt="bctip">
+    <span class="years">printable bitcoin tips · 2013 – 2024</span>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <h1>bctip is closed. Its notes live on at Parahub.</h1>
+  <p class="lede">
+    For more than a decade this site turned bitcoin into small paper notes you could print, cut
+    out and hand to someone — a tip, a gift, a way to put a first coin in a stranger's pocket. It
+    stopped working in 2024. The idea moved to <a href="https://parahub.io/docs/tips?from=bctip">Parahub</a>,
+    and it works better there than it could here.
+  </p>
+
+  <figure>
+    <img src="/notes-2013.webp" width="1200" height="684" alt="Four printed bctip notes on a table, 2013">
+    <figcaption>bctip notes, printed and cut. 2013.</figcaption>
+  </figure>
+
+  <div class="note">
+    <h2>Holding a paper tip?</h2>
+    <p>
+      Then it has expired. Every bctip note carried an expiry date printed on its face, and unclaimed
+      tips were sent back to whoever paid for them — that was the whole promise of the service. There
+      is nothing on this domain left to redeem, and no wallet here that holds anything.
+    </p>
+    <p>
+      If you believe you are holding a note that never went back, write to
+      <a href="mailto:info@parahub.io">info@parahub.io</a> with a photo of it.
+    </p>
+  </div>
+
+  <h2>What replaced it</h2>
+  <p>
+    A Parahub note does the same job: a small amount of bitcoin you can give to someone who has no
+    wallet, no account and no address to send you first. Three things are different.
+  </p>
+
+  <ol class="points">
+    <li>
+      <h3>Nobody holds the money</h3>
+      <p>
+        bctip kept your coins in a hot wallet on this server until someone redeemed them — you had to
+        trust the site with the balance. A Parahub note is funded straight from your own wallet, and
+        the amount waits in a lock on the bitcoin network itself. There is no pot for anyone to walk
+        away with, ours included.
+      </p>
+    </li>
+    <li>
+      <h3>It still comes back by itself</h3>
+      <p>
+        Nobody claims it, and at the expiry date it returns to you. That used to be a nightly job on
+        this machine that had to keep running; now it is a property of the network, and it happens
+        whether or not anyone is watching.
+      </p>
+    </li>
+    <li>
+      <h3>Paper is optional</h3>
+      <p>
+        A note is also a link. Send one by email or messenger and the person opens it in a browser —
+        no printer, no scissors, and no asking anyone for a wallet address first. Print nine on an
+        A4 sheet when you want the paper.
+      </p>
+    </li>
+  </ol>
+
+  <figure class="note-shot">
+    <img src="/note-today.webp" width="752" height="1056" alt="A Parahub bearer note as printed today: amount, QR code, typeable code and expiry date">
+    <figcaption>The same thing today, on parahub.io.</figcaption>
+  </figure>
+
+  <div class="cta">
+    <a class="btn btn-primary" href="https://parahub.io/docs/tips?from=bctip">See how it works</a>
+    <a class="btn btn-ghost" href="https://parahub.io/?from=bctip">Open Parahub</a>
+  </div>
+
+  <h2>What is Parahub</h2>
+  <p>
+    A community platform — a local marketplace, neighbourhood governance, live transit, and a bitcoin
+    wallet whose keys never leave your browser. It is built on the rule that no part of it ever holds
+    anyone's money or keys, which is exactly the rule bctip could not keep. The notes are one small
+    corner of it.
+  </p>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>bctip.org — printable bitcoin tips, 2013 – 2024. Archived; the service no longer runs.</p>
+    <div class="links">
+      <a href="https://parahub.io/docs/tips?from=bctip">Bearer notes on Parahub</a>
+      <a href="https://github.com/norn/bctip">Original source</a>
+      <a href="https://github.com/parahub-io">Parahub source</a>
+      <a href="mailto:info@parahub.io">info@parahub.io</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

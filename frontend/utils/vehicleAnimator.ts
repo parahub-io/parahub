@@ -60,6 +60,14 @@ export function createVehicleAnimator(opts: VehicleAnimatorOptions) {
   let startTs = 0
   let raf: number | null = null
 
+  // Each interpolated frame does a full GeoJSON source replace (setData) → a
+  // full MapLibre scene repaint. Running that at rAF rate (60fps) pins the CPU
+  // in dense cities where vehicles glide continuously; ~45ms steps (~22fps)
+  // look identically smooth for slow-moving vehicles. The final landing frame
+  // is never skipped, so icons always settle exactly on target.
+  const MIN_FRAME_MS = 45
+  let lastRenderTs = 0
+
   const canRaf = typeof requestAnimationFrame !== 'undefined'
 
   function render(features: any[]) {
@@ -75,17 +83,23 @@ export function createVehicleAnimator(opts: VehicleAnimatorOptions) {
   }
 
   function frame(ts: number) {
-    if (!startTs) startTs = ts
+    if (!startTs) { startTs = ts; lastRenderTs = 0 }
     const t = Math.min((ts - startTs) / duration, 1)
-    const features = segments.map((s) => {
-      const lon = s.from[0] + (s.to[0] - s.from[0]) * t
-      const lat = s.from[1] + (s.to[1] - s.from[1]) * t
-      const pos: LngLat = [lon, lat]
-      displayed.set(s.key, pos)
-      return { type: 'Feature', geometry: { type: 'Point', coordinates: pos }, properties: s.feature.properties }
-    })
-    render(features)
-    if (t < 1) {
+    const done = t >= 1
+    // Throttle the expensive setData to MIN_FRAME_MS, but always emit the final
+    // frame — a dropped last frame would leave icons a step short of target.
+    if (done || ts - lastRenderTs >= MIN_FRAME_MS) {
+      lastRenderTs = ts
+      const features = segments.map((s) => {
+        const lon = s.from[0] + (s.to[0] - s.from[0]) * t
+        const lat = s.from[1] + (s.to[1] - s.from[1]) * t
+        const pos: LngLat = [lon, lat]
+        displayed.set(s.key, pos)
+        return { type: 'Feature', geometry: { type: 'Point', coordinates: pos }, properties: s.feature.properties }
+      })
+      render(features)
+    }
+    if (!done) {
       raf = requestAnimationFrame(frame)
     } else {
       raf = null

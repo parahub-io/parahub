@@ -39,6 +39,8 @@ Seed encrypted with user's PIN via PBKDF2 + AES-256-GCM. Encrypted blob stored i
 
 - **Debts**: P2P debt tracking as a wallet tab (`/wallet/debts`). Create, confirm, repay debts. Clearing via barter cycles
 - **Tickets**: purchase event and transit tickets via Lightning (no escrow -- direct buyer to operator)
+- **Printed tips**: fund printable bearer notes from this wallet; unclaimed ones return here by themselves (see [Printed Tips](tips.md))
+- **Subscriptions**: monthly one-tap support payments straight to the recipient (see [Recurring Support](subscriptions.md))
 - **Para-Ads**: micropayments for ad views
 - **Mesh WiFi**: paid internet access via Lightning
 - **Marketplace**: optional payment method for items

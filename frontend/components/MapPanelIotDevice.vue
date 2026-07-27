@@ -69,6 +69,133 @@
           <span class="text-neutral-500 dark:text-neutral-400">{{ t('map.iot.price') }}</span>
           <span class="text-neutral-900 dark:text-neutral-100">{{ iotDeviceData.price }} €/kWh</span>
         </div>
+        <!-- Owner attribution (owner opt-in via show_owner) -->
+        <div v-if="iotDeviceData.owner_cri" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">{{ t('map.panel.owner') }}</span>
+          <NuxtLink :to="localePath(`/u/${iotDeviceData.owner_cri}`)" class="text-link font-medium truncate">{{ iotDeviceData.owner_name }}</NuxtLink>
+        </div>
+      </div>
+
+      <!-- Owner mesh router details (owner-gated fetch; absent for strangers) -->
+      <div v-if="meshDetail" class="space-y-2 text-sm border-t border-neutral-200 dark:border-neutral-700 pt-3">
+        <div v-if="!iotDeviceData.firmware_role && meshCi.firmware_role && meshCi.firmware_role !== 'unknown'" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">{{ t('map.iot.role') }}</span>
+          <span class="text-neutral-900 dark:text-neutral-100">{{ meshCi.firmware_role }}</span>
+        </div>
+        <div v-if="meshCi.firmware_version" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">{{ t('iot.firmware') }}</span>
+          <span class="font-mono text-neutral-900 dark:text-neutral-100">
+            {{ meshCi.firmware_version }}
+            <span
+              v-if="meshHasUpdate"
+              class="text-amber-600 dark:text-amber-400"
+              :title="t('iot.firmware_update_banner', { current: meshCi.firmware_version, latest: meshDetail.latest_firmware_version })"
+            >↑ {{ meshDetail.latest_firmware_version }}</span>
+          </span>
+        </div>
+        <div v-if="meshCi.uptime" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">{{ t('iot.uptime') }}</span>
+          <span class="text-neutral-900 dark:text-neutral-100">{{ formatUptime(meshCi.uptime) }}</span>
+        </div>
+        <div v-if="meshDetail.last_seen" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">{{ t('iot.last_heartbeat') }}</span>
+          <span class="text-neutral-900 dark:text-neutral-100" :title="formatDate(meshDetail.last_seen)">{{ formatRelativeTime(meshDetail.last_seen) }}</span>
+        </div>
+        <div v-if="meshVpnLabel" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">VPN</span>
+          <span class="text-neutral-900 dark:text-neutral-100">{{ meshVpnLabel }}</span>
+        </div>
+        <div v-if="meshCi.private_ssid" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">SSID</span>
+          <span class="font-mono text-neutral-900 dark:text-neutral-100">{{ meshCi.private_ssid }}</span>
+        </div>
+        <div v-if="meshNeighborCount !== null" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">{{ t('map.iot.mesh_neighbors') }}</span>
+          <span class="text-neutral-900 dark:text-neutral-100">{{ meshNeighborCount }}</span>
+        </div>
+
+        <!-- Live stats (SSH sample) -->
+        <div class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">{{ t('map.iot.uplink_load') }}</span>
+          <span v-if="liveLoading" class="inline-block w-3.5 h-3.5 border-2 border-neutral-300 border-t-neutral-600 dark:border-neutral-600 dark:border-t-neutral-300 rounded-full animate-spin"></span>
+          <span v-else-if="liveStats?.available" class="flex items-center gap-1.5 text-neutral-900 dark:text-neutral-100" :title="liveStats.uplink_dev">
+            <span class="font-mono">↓ {{ fmtBps(liveStats.rx_bps) }} · ↑ {{ fmtBps(liveStats.tx_bps) }}</span>
+            <button @click="loadLiveStats" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300" :aria-label="t('map.iot.uplink_load')">
+              <RefreshCw :size="13" />
+            </button>
+          </span>
+          <span v-else class="flex items-center gap-1.5 text-neutral-400 dark:text-neutral-500">
+            {{ t('map.iot.live_unavailable') }}
+            <button @click="loadLiveStats" class="hover:text-neutral-600 dark:hover:text-neutral-300" :aria-label="t('map.iot.uplink_load')">
+              <RefreshCw :size="13" />
+            </button>
+          </span>
+        </div>
+        <div v-if="liveStats?.available" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">{{ t('map.iot.wifi_clients') }}</span>
+          <span class="text-neutral-900 dark:text-neutral-100">{{ liveStats.wifi_clients }}</span>
+        </div>
+        <div v-if="liveStats?.available" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400">Load · RAM</span>
+          <span class="font-mono text-neutral-900 dark:text-neutral-100">{{ liveStats.load_1m }}<template v-if="liveStats.mem_used_pct !== null"> · {{ liveStats.mem_used_pct }}%</template></span>
+        </div>
+
+        <!-- 24h uplink sparkline (telemetry history, ph41+) -->
+        <div v-if="panelUplinkSeries" class="py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <div class="text-neutral-500 dark:text-neutral-400 mb-1">{{ t('map.iot.uplink_24h') }}</div>
+          <UiTimeChart :series="panelUplinkSeries" :height="56" compact :format="fmtBps" />
+        </div>
+
+        <!-- Guest clients (as of last heartbeat) -->
+        <div v-if="meshGuestLeases !== null" class="py-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-neutral-500 dark:text-neutral-400">{{ t('map.iot.guest_clients') }}</span>
+            <span class="text-neutral-900 dark:text-neutral-100">{{ meshGuestLeases.length }}</span>
+          </div>
+          <ul v-if="meshGuestLeases.length" class="mt-1.5 space-y-0.5">
+            <li v-for="lease in meshGuestLeases" :key="lease.mac" class="flex items-center justify-between gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+              <span class="truncate">{{ lease.host || lease.mac }}</span>
+              <span class="font-mono shrink-0">{{ lease.ip }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Network identifiers -->
+        <div v-if="meshDetail.device_id" class="flex justify-between items-center gap-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400 shrink-0">MAC</span>
+          <div class="flex items-center gap-1 min-w-0">
+            <span class="font-mono text-neutral-900 dark:text-neutral-100 truncate">{{ meshDetail.device_id }}</span>
+            <button @click="copyWithToast(meshDetail.device_id)" class="shrink-0 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300" :aria-label="t('iot.copy')">
+              <Copy :size="14" />
+            </button>
+          </div>
+        </div>
+        <div v-if="meshCi.yggdrasil_address" class="flex justify-between items-center gap-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400 shrink-0">Yggdrasil</span>
+          <div class="flex items-center gap-1 min-w-0">
+            <span class="font-mono text-xs text-neutral-900 dark:text-neutral-100 break-all">{{ meshCi.yggdrasil_address }}</span>
+            <button @click="copyWithToast(meshCi.yggdrasil_address)" class="shrink-0 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300" :aria-label="t('iot.copy')">
+              <Copy :size="14" />
+            </button>
+          </div>
+        </div>
+        <div v-if="meshCi.mesh_ip" class="flex justify-between items-center gap-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+          <span class="text-neutral-500 dark:text-neutral-400 shrink-0">Mesh IP</span>
+          <div class="flex items-center gap-1 min-w-0">
+            <span class="font-mono text-neutral-900 dark:text-neutral-100">{{ meshCi.mesh_ip }}</span>
+            <button @click="copyWithToast(meshCi.mesh_ip)" class="shrink-0 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300" :aria-label="t('iot.copy')">
+              <Copy :size="14" />
+            </button>
+          </div>
+        </div>
+
+        <UiButton
+          variant="outline" size="sm" :icon="Settings"
+          :to="localePath(meshDetail.property_id ? `/iot/${meshDetail.property_id}` : '/iot')"
+          class="w-full mt-2"
+        >
+          {{ t('map.iot.manage') }}
+        </UiButton>
       </div>
 
       <!-- Movement History (trackers only) -->
@@ -178,13 +305,15 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { Crosshair, Pause, Play, WifiOff } from 'lucide-vue-next'
+import { Copy, Crosshair, Pause, Play, RefreshCw, Settings, WifiOff } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import MapFeatureImage from '~/components/MapFeatureImage.vue'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
+const localePath = useLocalePath()
+const { formatUptime, formatRelativeTime, formatDate } = useIoT()
 
 const props = defineProps<{
   iotDeviceData: any
@@ -258,6 +387,115 @@ watch(() => props.iotDeviceData?.device_id, (newId) => {
   deviceImageUrl.value = null
   if (newId) loadDevicePhoto(newId)
 }, { immediate: true })
+
+// ======== Owner mesh router detail ========
+// The owner-gated /devices/{id} endpoint 404s for everyone else, so the
+// public basic view stays untouched for strangers.
+const meshDetail = ref<any>(null)
+
+async function loadMeshDetail(id: string) {
+  if (!authStore.isAuthenticated || !id || id.length !== 26) return
+  try {
+    await authStore.ensureToken()
+    meshDetail.value = await $fetch<any>(`/api/v1/iot/devices/${id}`, {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` },
+    })
+  } catch { meshDetail.value = null }
+}
+
+watch(() => [props.iotDeviceData?.device_id, props.iotDeviceData?.deviceType], ([id, type]) => {
+  meshDetail.value = null
+  if (type === 'mesh_router' && id) loadMeshDetail(id as string)
+}, { immediate: true })
+
+const meshCi = computed(() => meshDetail.value?.connection_info || {})
+
+// 24h telemetry history for the uplink sparkline (owner only, ph41+)
+const panelStats = ref<any[]>([])
+
+async function loadPanelStats(id: string) {
+  try {
+    await authStore.ensureToken()
+    const res = await $fetch<any>(`/api/v1/iot/devices/${id}/stats`, {
+      params: { hours: 24 },
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` },
+    })
+    panelStats.value = res?.points || []
+  } catch { panelStats.value = [] }
+}
+
+watch(meshDetail, (detail) => {
+  panelStats.value = []
+  const id = props.iotDeviceData?.device_id
+  if (detail && id) loadPanelStats(id)
+})
+
+const panelUplinkSeries = computed(() => {
+  const rx = panelStats.value.map((p: any) => ({ t: Date.parse(p.t), v: p.wan_rx_bps }))
+  const tx = panelStats.value.map((p: any) => ({ t: Date.parse(p.t), v: p.wan_tx_bps }))
+  if (!rx.some(p => p.v != null) && !tx.some(p => p.v != null)) return null
+  return [
+    { key: 'rx', label: '↓', points: rx },
+    { key: 'tx', label: '↑', points: tx },
+  ]
+})
+
+const meshHasUpdate = computed(() => {
+  const current = meshCi.value.firmware_version
+  const latest = meshDetail.value?.latest_firmware_version
+  return !!current && !!latest && current !== latest
+})
+
+const meshVpnLabel = computed(() => {
+  const mode = meshCi.value.vpn_mode
+  if (mode === 'vps') return 'VPS'
+  if (mode === 'mullvad') return 'Mullvad'
+  if (mode === 'none') return '—'
+  return null
+})
+
+// null = old firmware that does not report topology/leases yet
+const meshNeighborCount = computed(() =>
+  Array.isArray(meshCi.value.mesh_macs) ? meshCi.value.mesh_macs.length : null)
+const meshGuestLeases = computed(() =>
+  Array.isArray(meshCi.value.guest_leases) ? meshCi.value.guest_leases : null)
+
+async function copyWithToast(value: string) {
+  try {
+    await navigator.clipboard.writeText(value)
+    toastStore.success(t('iot.copied_address'))
+  } catch {}
+}
+
+// ======== Live router stats (SSH sample, owner only) ========
+const liveStats = ref<any>(null)
+const liveLoading = ref(false)
+
+async function loadLiveStats() {
+  const id = props.iotDeviceData?.device_id
+  if (!id || !meshDetail.value) return
+  liveLoading.value = true
+  try {
+    await authStore.ensureToken()
+    liveStats.value = await $fetch<any>(`/api/v1/iot/devices/${id}/live-stats`, {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` },
+    })
+  } catch { liveStats.value = null } finally { liveLoading.value = false }
+}
+
+watch(meshDetail, (detail) => {
+  liveStats.value = null
+  if (detail) loadLiveStats()
+})
+
+function fmtBps(bps: number): string {
+  if (bps >= 1_000_000) return `${(bps / 1_000_000).toFixed(1)} Mbit/s`
+  if (bps >= 1_000) return `${Math.round(bps / 1_000)} kbit/s`
+  return `${bps} bit/s`
+}
 
 // Trail history state
 const trailLoading = ref(false)

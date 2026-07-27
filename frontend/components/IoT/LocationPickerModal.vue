@@ -5,7 +5,7 @@
         {{ $t('mesh.set_location') }}
       </h3>
       <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-2">
-        {{ $t('mesh.click_map') }}
+        {{ hint || $t('mesh.click_map') }}
       </p>
 
       <!-- Quick fly-to properties -->
@@ -58,9 +58,13 @@
 import { Loader2, Home } from 'lucide-vue-next'
 
 interface Props {
-  deviceId: string
+  // Default persistence targets an IoTDevice via the store; pass `saveFn` to
+  // persist elsewhere (e.g. an environmental station) — then deviceId is unused.
+  deviceId?: string
   initialLat?: number
   initialLng?: number
+  saveFn?: (lat: number, lng: number) => Promise<void>
+  hint?: string
 }
 
 interface Emits {
@@ -85,8 +89,22 @@ const propertiesWithCoords = computed(() =>
 
 let map: any = null
 let marker: any = null
+let maplibregl: any = null
+
+const setPoint = (lat: number, lng: number) => {
+  selectedLat.value = lat
+  selectedLng.value = lng
+  if (marker) {
+    marker.setLngLat([lng, lat])
+  } else if (map && maplibregl) {
+    marker = new maplibregl.Marker({ color: '#ef4444' })
+      .setLngLat([lng, lat])
+      .addTo(map)
+  }
+}
 
 const flyToProperty = (prop: { latitude: number; longitude: number }) => {
+  setPoint(prop.latitude, prop.longitude)
   if (map) {
     map.flyTo({ center: [prop.longitude, prop.latitude], zoom: 17, essential: true, speed: 4.5 })
   }
@@ -101,7 +119,7 @@ onMounted(async () => {
   if (!mapContainer.value) return
 
   const mod = await import('maplibre-gl')
-  const maplibregl = mod.default || mod
+  maplibregl = mod.default || mod
   await import('maplibre-gl/dist/maplibre-gl.css')
 
   const { mapCenter, mapZoom } = useMapState()
@@ -133,17 +151,7 @@ onMounted(async () => {
 
   // Click to place marker
   map.on('click', (e: any) => {
-    const { lng, lat } = e.lngLat
-    selectedLat.value = lat
-    selectedLng.value = lng
-
-    if (marker) {
-      marker.setLngLat([lng, lat])
-    } else {
-      marker = new maplibregl.Marker({ color: '#ef4444' })
-        .setLngLat([lng, lat])
-        .addTo(map)
-    }
+    setPoint(e.lngLat.lat, e.lngLat.lng)
   })
 })
 
@@ -159,7 +167,11 @@ const handleSave = async () => {
   saving.value = true
 
   try {
-    await store.setDeviceLocation(props.deviceId, selectedLat.value, selectedLng.value)
+    if (props.saveFn) {
+      await props.saveFn(selectedLat.value, selectedLng.value)
+    } else if (props.deviceId) {
+      await store.setDeviceLocation(props.deviceId, selectedLat.value, selectedLng.value)
+    }
     emit('saved', selectedLat.value, selectedLng.value)
     emit('close')
   } catch (err: any) {

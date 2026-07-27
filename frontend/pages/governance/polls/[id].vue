@@ -41,7 +41,7 @@
                 </template>
               </div>
               <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-                {{ poll.title }}
+                {{ pickI18n(poll.title_i18n, poll.title, locale) }}
               </h1>
             </div>
           </div>
@@ -65,7 +65,7 @@
         <!-- Description -->
         <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 mb-6">
           <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-3">{{ $t('governance.pollDetail.description') }}</h2>
-          <p class="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{{ poll.description }}</p>
+          <p class="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{{ pickI18n(poll.description_i18n, poll.description, locale) }}</p>
         </div>
 
         <!-- Civic opinion poll (anonymous/territory): pseudonymous voting + live results -->
@@ -204,7 +204,7 @@
                 class="mt-1"
               />
               <div class="flex-1">
-                <div class="font-medium text-neutral-900 dark:text-neutral-100">{{ option.text }}</div>
+                <div class="font-medium text-neutral-900 dark:text-neutral-100">{{ pickI18n(option.text_i18n, option.text, locale) }}</div>
                 <div v-if="option.description" class="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
                   {{ option.description }}
                 </div>
@@ -436,7 +436,9 @@ const voteNeedsKeys = ref(false)
 
 // SEO meta
 useSeoMeta({
-  title: () => poll.value?.title ? `${poll.value.title} — Parahub` : 'Parahub',
+  title: () => poll.value?.title
+    ? `${pickI18n(poll.value.title_i18n, poll.value.title, locale.value)} — Parahub`
+    : 'Parahub',
 })
 
 // WebSocket for real-time updates

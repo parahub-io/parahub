@@ -76,7 +76,10 @@
             v-for="v in approachingVehicles"
             :key="v.vehicle_id"
             @click="openVehicleDetail(v)"
-            class="w-full text-left flex items-center gap-3 p-2.5 bg-secondary/10 dark:bg-secondary/20 border border-secondary/30 dark:border-secondary/40 rounded-lg hover:bg-secondary/20 dark:hover:bg-secondary/30 transition-colors"
+            class="w-full text-left flex items-center gap-3 p-2.5 border rounded-lg transition-colors"
+            :class="isArriving(v)
+              ? 'bg-success/10 dark:bg-success/20 border-success/40 dark:border-success/50 hover:bg-success/20 dark:hover:bg-success/30'
+              : 'bg-secondary/10 dark:bg-secondary/20 border-secondary/30 dark:border-secondary/40 hover:bg-secondary/20 dark:hover:bg-secondary/30'"
           >
             <span class="inline-flex items-center flex-shrink-0">
               <img :src="routeTypeIcon(liveRouteType(v))" :alt="routeTypeFallback(liveRouteType(v))" class="w-7 h-7 relative z-[1]" />
@@ -87,10 +90,16 @@
             </span>
             <div class="flex-1 min-w-0 text-sm text-neutral-700 dark:text-neutral-300 truncate">{{ v.headsign }}</div>
             <div class="flex items-center gap-1.5 flex-shrink-0">
-              <span class="text-sm font-semibold" :class="v.eta_minutes <= 3 ? 'text-success dark:text-success-400' : v.eta_minutes <= 10 ? 'text-secondary dark:text-secondary-400' : 'text-neutral-600 dark:text-neutral-400'">
-                {{ v.eta_minutes <= 1 ? '< 1' : Math.round(v.eta_minutes) }} {{ $t('transit.min') }}
+              <span v-if="isArriving(v)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-success/20 text-success dark:text-success-400 animate-pulse">
+                <span class="w-1.5 h-1.5 rounded-full bg-success inline-block"></span>
+                {{ $t('transit.arriving_now') }}
               </span>
-              <span class="text-xs text-neutral-400">({{ v.stops_away }} {{ $t('transit.stops_short') }})</span>
+              <template v-else>
+                <span class="text-sm font-semibold" :class="v.eta_minutes <= 3 ? 'text-success dark:text-success-400' : v.eta_minutes <= 10 ? 'text-secondary dark:text-secondary-400' : 'text-neutral-600 dark:text-neutral-400'">
+                  {{ v.eta_minutes <= 1 ? '< 1' : Math.round(v.eta_minutes) }} {{ $t('transit.min') }}
+                </span>
+                <span class="text-xs text-neutral-400">({{ v.stops_away }} {{ $t('transit.stops_short') }})</span>
+              </template>
             </div>
           </button>
         </div>
@@ -511,6 +520,16 @@ function liveColor(v: any): string {
 // overlay on the scheduled board + the "Approaching" list).
 const atStopVehicles = ref<any[]>([])
 const approachingVehicles = ref<any[]>([])
+
+// Early-arrival nudge: flag an approaching vehicle as "arriving" this many
+// seconds BEFORE its honest ETA reaches zero. The countdown number itself stays
+// truthful — this only advances the "head to the stop now" cue, a deliberate
+// cushion so riders who cut it fine still make the bus (missing it can cost a
+// whole headway; standing ~30s early costs 30s).
+const ETA_ALERT_LEAD_S = 30
+function isArriving(v: any): boolean {
+  return typeof v?.eta_seconds === 'number' && v.eta_seconds <= ETA_ALERT_LEAD_S
+}
 
 // Arrival pulse: a vehicle newly appearing at the stop pulses (shared mechanic
 // with the route page; keyed by vehicle_id, pulse-on-appear).

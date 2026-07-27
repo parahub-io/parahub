@@ -343,7 +343,7 @@ def get_game_dashboard(request):
             is_verified_wot=partner.is_verified_wot,
             verifications_count=partnership.verifications_count,
             items_count=items_count,
-            avatar_url=partner.avatar.url if partner.avatar else None
+            avatar_url=partner.avatar_url
         ))
 
     # === Achievements ===

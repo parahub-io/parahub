@@ -8,7 +8,7 @@
               <!-- Modal header -->
               <div class="flex items-center justify-between mb-6">
                 <h3 id="device-form-title" class="text-lg font-medium leading-6 text-neutral-900 dark:text-neutral-100">
-                  Add IoT device
+                  {{ $t('iot.add_device') }}
                 </h3>
                 <button
                   @click="closeModal"
@@ -24,14 +24,14 @@
         <!-- Device name -->
         <div>
           <label for="deviceName" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            Device name <span class="text-red-500">*</span>
+            {{ $t('iot.device_form.name_label') }} <span class="text-red-500">*</span>
           </label>
           <input
             id="deviceName"
             v-model="form.name"
             type="text"
             required
-            placeholder="My GPS tracker"
+            :placeholder="$t('iot.device_form.name_placeholder')"
             :aria-invalid="!!nameError"
             :aria-describedby="nameError ? 'name-error' : undefined"
             class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-neutral-700 dark:text-neutral-100"
@@ -45,7 +45,7 @@
         <!-- Device type -->
         <div>
           <label for="deviceType" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            Device type <span class="text-red-500">*</span>
+            {{ $t('iot.device_form.type_label') }} <span class="text-red-500">*</span>
           </label>
           <select
             id="deviceType"
@@ -53,19 +53,34 @@
             required
             @change="onDeviceTypeChange"
             class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-neutral-700 dark:text-neutral-100">
-            <option value="">Select type...</option>
-            <option value="TRACKER">GPS Tracker</option>
-            <option value="SENSOR">Sensor</option>
-            <option value="ACTUATOR">Actuator</option>
-            <option value="GATEWAY">Gateway</option>
-            <option value="MESH_ROUTER">Mesh Router</option>
+            <option value="">{{ $t('iot.device_form.type_select') }}</option>
+            <option v-for="dt in DEVICE_TYPES" :key="dt" :value="dt">{{ $t(`iot.device_types.${dt}`) }}</option>
           </select>
+        </div>
+
+        <!-- Device identifier for trackers: must match what the tracker sends -->
+        <div v-if="form.device_type === 'TRACKER'">
+          <label for="deviceIdentifier" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            {{ $t('iot.device_form.identifier_label') }}
+          </label>
+          <input
+            id="deviceIdentifier"
+            v-model="form.device_id"
+            type="text"
+            maxlength="64"
+            placeholder="123456"
+            aria-describedby="identifier-help"
+            class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-neutral-700 dark:text-neutral-100 font-mono"
+          />
+          <p id="identifier-help" class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            {{ $t('iot.device_form.identifier_help') }}
+          </p>
         </div>
 
         <!-- IMEI for trackers -->
         <div v-if="form.device_type === 'TRACKER'">
           <label for="deviceIMEI" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            IMEI (optional)
+            {{ $t('iot.device_form.imei_label') }}
           </label>
           <input
             id="deviceIMEI"
@@ -83,22 +98,18 @@
             {{ imeiError }}
           </p>
           <p v-else id="imei-help" class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            15-digit IMEI number (digits only)
+            {{ $t('iot.device_form.imei_help') }}
           </p>
         </div>
 
         <!-- Tracker configuration info -->
-        <UiAlert v-if="form.device_type === 'TRACKER'" variant="info" title="GPS tracker configuration">
-          <p class="mb-2">After creation, the device will be automatically registered in Traccar. Configure your tracker:</p>
-          <ul class="space-y-1 font-mono text-xs">
-            <li><strong>Server:</strong> {{ trackerConfig.server }}</li>
-            <li><strong>Port:</strong> {{ trackerConfig.port }}</li>
-            <li><strong>ID:</strong> will be generated automatically</li>
-          </ul>
+        <UiAlert v-if="form.device_type === 'TRACKER'" variant="info" :title="$t('iot.device_form.tracker_info_title')">
+          <p class="mb-2">{{ $t('iot.device_form.tracker_phone_hint', { url: osmandUrl }) }}</p>
+          <p>{{ $t('iot.device_form.tracker_hw_hint', { host: trackerHost }) }}</p>
         </UiAlert>
 
         <!-- Error message -->
-        <UiAlert v-if="submitError" variant="error" title="Error creating device">
+        <UiAlert v-if="submitError" variant="error" :title="$t('iot.device_form.error_title')">
           {{ submitError }}
         </UiAlert>
 
@@ -109,16 +120,16 @@
             @click="$emit('close')"
             :disabled="creating"
             class="px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50">
-            Cancel
+            {{ $t('iot.cancel') }}
           </button>
-          
+
           <button
             type="submit"
             :disabled="creating || !isFormValid"
             class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
             <Icon v-if="creating" name="heroicons:arrow-path" class="w-4 h-4 mr-2" aria-hidden="true" />
             <Icon v-else name="heroicons:plus" class="w-4 h-4 mr-2" aria-hidden="true" />
-            {{ creating ? 'Creating...' : 'Create device' }}
+            {{ creating ? $t('iot.device_form.creating') : $t('iot.device_form.create') }}
           </button>
         </div>
       </form>
@@ -135,12 +146,14 @@ interface Props {
   isOpen: boolean
   triggeringElement?: HTMLElement | null
   propertyId?: string | null
+  defaultType?: string  // preselect the device type (e.g. TRACKER from the Trackers tab)
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isOpen: false,
   triggeringElement: null,
   propertyId: null,
+  defaultType: '',
 })
 
 interface Emits {
@@ -158,24 +171,26 @@ function closeModal() {
 const { createDevice, validateDeviceName, validateIMEI } = useIoT()
 const config = useRuntimeConfig()
 
+const DEVICE_TYPES = ['TRACKER', 'SENSOR', 'ACTUATOR', 'GATEWAY', 'MESH_ROUTER'] as const
+
 // Form state
 const form = reactive<IoTDeviceInput>({
   name: '',
-  device_type: '',
-  imei: undefined
+  device_type: props.defaultType || '',
+  imei: undefined,
+  device_id: undefined,
 })
 
 const creating = ref(false)
 const submitError = ref('')
 
-// Tracker configuration
-const trackerConfig = {
-  server: config.public.traccarPublicHost || '',
-  port: 5013
-}
+// Traccar ingest endpoints: phone app speaks OsmAnd (5055), hardware
+// trackers use their protocol's port (hint lists them)
+const trackerHost = config.public.traccarPublicHost || ''
+const osmandUrl = `http://${trackerHost}:5055`
 
-// Validation
-const nameError = computed(() => validateDeviceName(form.name))
+// Validation (pristine empty field shows no error — submit is gated anyway)
+const nameError = computed(() => form.name ? validateDeviceName(form.name) : null)
 const imeiError = computed(() => {
   if (form.device_type === 'TRACKER' && form.imei) {
     return validateIMEI(form.imei)
@@ -192,9 +207,10 @@ const isFormValid = computed(() => {
 
 // Handle device type change
 const onDeviceTypeChange = () => {
-  // Clear IMEI when changing away from tracker
+  // Clear tracker-only fields when changing away from tracker
   if (form.device_type !== 'TRACKER') {
     form.imei = undefined
+    form.device_id = undefined
   }
   submitError.value = ''
 }
@@ -213,9 +229,12 @@ const handleSubmit = async () => {
       device_type: form.device_type,
     }
 
-    // Add IMEI for trackers if provided
+    // Add IMEI / Traccar identifier for trackers if provided
     if (form.device_type === 'TRACKER' && form.imei?.trim()) {
       deviceData.imei = form.imei.trim()
+    }
+    if (form.device_type === 'TRACKER' && form.device_id?.trim()) {
+      deviceData.device_id = form.device_id.trim()
     }
 
     // Link to property if provided

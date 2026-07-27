@@ -3,7 +3,7 @@
  * Public, no auth required.
  */
 
-import { createToggleableDataLayer, roundedSquarePath } from '~/composables/useMapToggleableLayer'
+import { createToggleableDataLayer, roundedSquarePath, strokeMarkerOutline } from '~/composables/useMapToggleableLayer'
 
 // Classical building (roof + columns) on rounded square — warm amber (#d97706)
 function ensureGovIcon(map: any) {
@@ -17,6 +17,7 @@ function ensureGovIcon(map: any) {
   roundedSquarePath(ctx, s, 3)
   ctx.fillStyle = '#d97706'
   ctx.fill()
+  strokeMarkerOutline(ctx)
 
   ctx.strokeStyle = '#ffffff'
   ctx.fillStyle = '#ffffff'

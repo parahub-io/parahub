@@ -3,7 +3,7 @@
  * Shows building markers on the map, with toggle and click interaction.
  */
 
-import { createToggleableDataLayer, roundedSquarePath } from '~/composables/useMapToggleableLayer'
+import { createToggleableDataLayer, roundedSquarePath, strokeMarkerOutline } from '~/composables/useMapToggleableLayer'
 
 // Building silhouette with windows on rounded square — purple-600
 function ensureCondoIcon(map: any) {
@@ -20,6 +20,7 @@ function ensureCondoIcon(map: any) {
   roundedSquarePath(ctx, s, 4)
   ctx.fillStyle = fill
   ctx.fill()
+  strokeMarkerOutline(ctx)
 
   // Building silhouette (white)
   const pad = 4

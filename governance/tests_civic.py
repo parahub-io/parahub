@@ -853,3 +853,84 @@ class CivicIdeaTestCase(CivicPollTestCase):
         self._idea(outsider, territory=self.muni_b)
         mine = list_ideas(self._req(self.alice, 'get'))
         self.assertTrue(all(i['territory_id'] != self.muni_b.id for i in mine))
+
+
+@override_settings(CIVIC_VOTE_SECRET=TEST_SECRET)
+class PropertyTerritoryTestCase(CivicPollTestCase):
+    """Property-derived feed visibility + residency candidate suggestions.
+
+    Invariant: a property widens what the feed SHOWS, never what the profile
+    can VOTE on (visibility != eligibility)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        from django.contrib.gis.geos import Polygon, MultiPolygon
+        cls.parish_b.geometry = MultiPolygon(Polygon.from_bbox((10.0, 50.0, 10.1, 50.1)))
+        cls.parish_b.save(update_fields=['geometry'])
+
+    def _property(self, profile, name, lon, lat):
+        from iot.models import Property
+        from django.contrib.gis.geos import Point
+        return Property.objects.create(
+            owner=profile, name=name, location=Point(lon, lat, srid=4326))
+
+    def test_feed_includes_property_parish_but_voting_stays_residency_gated(self):
+        poll = self._opinion_poll(self.parish_b, title='other parish poll')
+
+        titles = {i.title for i in civic_feed(self._auth_req(self.alice))}
+        self.assertNotIn('other parish poll', titles)
+
+        self._property(self.alice, 'Casa B', 10.05, 50.05)
+        items = civic_feed(self._auth_req(self.alice))
+        by_title = {i.title: i for i in items}
+        self.assertIn('other parish poll', by_title)
+        self.assertEqual(by_title['other parish poll'].scope_name, 'Test Parish B')
+
+        with self.assertRaises(civic.CivicVoteError) as ctx:
+            civic.check_can_opinion_vote(poll, self.alice)
+        self.assertEqual(ctx.exception.status, 403)
+
+    def test_residency_candidates_from_properties(self):
+        from governance.civic_api import residency_candidates
+
+        self._property(self.alice, 'Inside', 10.05, 50.05)
+        self._property(self.alice, 'NearBoundary', 10.1004, 50.05)  # ~30 m outside the bbox
+        self._property(self.alice, 'Uncovered', -8.0, 42.0)  # no parish geometry there
+
+        out = residency_candidates(self._auth_req(self.alice))
+        by_name = {r['property_name']: r for r in out}
+
+        self.assertIn('Inside', by_name)
+        best = by_name['Inside']['territories'][0]
+        self.assertEqual(best['name'], 'Test Parish B')
+        self.assertEqual(best['distance_m'], 0.0)
+
+        self.assertIn('NearBoundary', by_name)
+        near = by_name['NearBoundary']['territories'][0]
+        self.assertEqual(near['name'], 'Test Parish B')
+        self.assertGreater(near['distance_m'], 0.0)
+        self.assertLess(near['distance_m'], 150.0)
+
+        self.assertNotIn('Uncovered', by_name)
+
+    def test_residency_refine_skips_cooldown_sideways_blocked(self):
+        from governance.civic_api import set_residency, ResidencyRequest
+
+        # alice declared muni_a recently — cooldown window is open
+        self.alice.residency_territory = self.muni_a
+        self.alice.residency_changed_at = timezone.now() - timedelta(days=1)
+        self.alice.save(update_fields=['residency_territory', 'residency_changed_at'])
+        window_start = self.alice.residency_changed_at
+
+        # Downward refine into a parish of the declared municipality: allowed,
+        # and the cooldown window is NOT reset
+        set_residency(self._auth_req(self.alice), ResidencyRequest(territory_id=self.parish_a.id))
+        self.alice.refresh_from_db()
+        self.assertEqual(self.alice.residency_territory_id, self.parish_a.id)
+        self.assertEqual(self.alice.residency_changed_at, window_start)
+
+        # Sideways hop to a sibling parish stays cooldown-guarded
+        with self.assertRaises(HttpError) as ctx:
+            set_residency(self._auth_req(self.alice), ResidencyRequest(territory_id=self.parish_b.id))
+        self.assertEqual(ctx.exception.status_code, 429)

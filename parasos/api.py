@@ -194,6 +194,25 @@ class AlertListItem(BaseModel):
 
 # ===== Helpers =====
 
+def _get_group_for_member(group_id: str, profile, require_member: bool = True):
+    """Fetch a group enforcing membership visibility.
+
+    PRIVATE groups 404 for non-members (existence stays hidden);
+    PUBLIC groups 403 when membership is required.
+    Returns (group, is_member).
+    """
+    from parasos.models import SafetyGroup, SafetyGroupMember
+
+    group = get_object_or_404(SafetyGroup, id=group_id)
+    is_member = SafetyGroupMember.objects.filter(group=group, profile=profile).exists()
+    if not is_member:
+        if group.visibility == SafetyGroup.Visibility.PRIVATE:
+            raise HttpError(404, "Not found")
+        if require_member:
+            raise HttpError(403, "Must be a group member")
+    return group, is_member
+
+
 def _format_group_list_item(g) -> GroupListItem:
     return GroupListItem(
         id=g.id,
@@ -257,7 +276,7 @@ def _format_alert_response(alert) -> AlertResponse:
             id=sender.id,
             hna=sender.hna,
             display_name=sender.display_name,
-            avatar_url=sender.avatar.url if sender.avatar else None,
+            avatar_url=sender.avatar_url,
         ),
         level=alert.level,
         category=alert.category,
@@ -289,11 +308,13 @@ def _create_group_matrix_room(group, creator_profile) -> Optional[str]:
             return None
 
         with httpx.Client(timeout=10) as client:
+            # invite-only join rule: SOS notices (locations, medical context)
+            # must not be readable by anyone who learns the room id
             resp = client.post(
                 f"{SYNAPSE_BASE_URL}/_matrix/client/r0/createRoom",
                 headers={"Authorization": f"Bearer {token}"},
                 json={
-                    "preset": "public_chat",
+                    "preset": "private_chat",
                     "name": f"ParaSOS: {group.name}",
                     "topic": f"Emergency mutual aid group — {group.name}",
                     "visibility": "private",
@@ -312,7 +333,11 @@ def _create_group_matrix_room(group, creator_profile) -> Optional[str]:
 
 
 def _join_group_matrix_room(group, profile) -> bool:
-    """Join user to safety group's Matrix room."""
+    """Invite + join user to the safety group's Matrix room.
+
+    The room is invite-only, so the room creator's token issues the invite
+    first, then the joining user's token accepts it.
+    """
     import httpx
     from django.conf import settings
 
@@ -321,12 +346,25 @@ def _join_group_matrix_room(group, profile) -> bool:
 
     try:
         SYNAPSE_BASE_URL = getattr(settings, 'SYNAPSE_INTERNAL_URL', 'http://localhost:8008')
-        from parahub.endpoints.matrix_auth import _get_or_create_matrix_token
+        from parahub.endpoints.matrix_auth import _get_or_create_matrix_token, get_matrix_user_id
         token = _get_or_create_matrix_token(profile.account_id)
         if not token:
             return False
 
         with httpx.Client(timeout=10) as client:
+            creator_token = _get_or_create_matrix_token(group.created_by.account_id)
+            if creator_token:
+                inv = client.post(
+                    f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{group.matrix_room_id}/invite",
+                    headers={"Authorization": f"Bearer {creator_token}"},
+                    json={"user_id": get_matrix_user_id(profile.account_id)},
+                )
+                # 403 "already in the room" is fine — proceed to join
+                if inv.status_code not in (200, 201, 403):
+                    logger.warning(
+                        f"Matrix invite failed for safety group {group.id}: {inv.text}"
+                    )
+
             resp = client.post(
                 f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{group.matrix_room_id}/join",
                 headers={"Authorization": f"Bearer {token}"},
@@ -571,20 +609,17 @@ def my_groups(request):
     return [_format_group_list_item(g) for g in groups]
 
 
-@router.get("/groups/{group_id}/", auth=None, response=GroupResponse)
-@ratelimit(group='parasos:group_detail', key='ip', rate='60/m')
+@router.get("/groups/{group_id}/", auth=ProfileAuth(), response={200: GroupResponse, 404: dict})
+@ratelimit(group='parasos:group_detail', key=user_or_ip, rate='60/m')
 def get_group(request, group_id: str):
-    """Get safety group details."""
+    """Get safety group details. PRIVATE groups are visible to members only."""
     from parasos.models import SafetyGroup
 
-    group = get_object_or_404(SafetyGroup, id=group_id, is_active=True)
+    group, _ = _get_group_for_member(group_id, request.auth, require_member=False)
+    if not group.is_active:
+        raise HttpError(404, "Not found")
 
-    current_profile = None
-    if request.user.is_authenticated:
-        from identity.models import Profile
-        current_profile = Profile.objects.filter(account=request.user, is_primary=True).first()
-
-    return _format_group_response(group, current_profile)
+    return _format_group_response(group, request.auth)
 
 
 @router.put("/groups/{group_id}/", auth=ProfileAuth(), response={200: GroupResponse, 403: dict, 404: dict})
@@ -610,9 +645,11 @@ def update_group(request, group_id: str, payload: GroupUpdateInput):
         group.visibility = payload.visibility
     if payload.radius_m is not None:
         group.radius_m = payload.radius_m
-    if payload.quiet_hours_start is not None:
+    # Explicit null clears quiet hours (model_fields_set distinguishes
+    # "field sent as null" from "field omitted")
+    if 'quiet_hours_start' in payload.model_fields_set:
         group.quiet_hours_start = payload.quiet_hours_start
-    if payload.quiet_hours_end is not None:
+    if 'quiet_hours_end' in payload.model_fields_set:
         group.quiet_hours_end = payload.quiet_hours_end
     if payload.is_active is not None:
         group.is_active = payload.is_active
@@ -635,10 +672,25 @@ def delete_group(request, group_id: str):
     if not is_admin:
         raise HttpError(403, "Only group admin can delete the group")
 
+    from parasos.models import SOSAlert
+
     with transaction.atomic():
         group.is_active = False
         group.save(update_fields=['is_active'])
         GroupInvite.objects.filter(group=group, is_active=True).update(is_active=False)
+        SOSAlert.objects.filter(group=group, status=SOSAlert.Status.ACTIVE).update(
+            status=SOSAlert.Status.RESOLVED,
+            resolved_at=timezone.now(),
+            resolved_by=request.auth,
+        )
+
+    # Members with the page open navigate away / refresh on this
+    from parahub.services.ws_publish import ws_publish
+    ws_publish(f"parasos:{group.id}", {
+        "type": "group.deleted",
+        "group_id": group.id,
+        "group_name": group.name,
+    })
 
     return 204, None
 
@@ -708,15 +760,17 @@ def join_group(request, group_id: str, payload: JoinGroupInput):
         if not invite or not invite.is_valid:
             raise HttpError(403, "Invalid or expired invite link")
 
-    # Check not already member
-    if SafetyGroupMember.objects.filter(group=group, profile=profile).exists():
-        raise HttpError(400, "Already a member of this group")
-
-    # Check max members
-    if group.max_members > 0 and group.members_count >= group.max_members:
-        raise HttpError(400, f"Group is full (max {group.max_members} members)")
-
     with transaction.atomic():
+        # Lock the group row: serializes concurrent joins so the max_members
+        # check can't be raced past
+        group = SafetyGroup.objects.select_for_update().get(id=group.id)
+
+        if SafetyGroupMember.objects.filter(group=group, profile=profile).exists():
+            raise HttpError(400, "Already a member of this group")
+
+        if group.max_members > 0 and group.members_count >= group.max_members:
+            raise HttpError(400, f"Group is full (max {group.max_members} members)")
+
         member = SafetyGroupMember.objects.create(
             group=group, profile=profile,
             role=SafetyGroupMember.Role.MEMBER,
@@ -747,23 +801,25 @@ def leave_group(request, group_id: str):
     """Leave safety group."""
     from parasos.models import SafetyGroup, SafetyGroupMember
 
-    group = get_object_or_404(SafetyGroup, id=group_id)
-
-    member = SafetyGroupMember.objects.filter(
-        group=group, profile=request.auth,
-    ).first()
-    if not member:
-        raise HttpError(400, "Not a member of this group")
-
-    # Don't allow last admin to leave
-    if member.role == SafetyGroupMember.Role.ADMIN:
-        admin_count = SafetyGroupMember.objects.filter(
-            group=group, role=SafetyGroupMember.Role.ADMIN,
-        ).count()
-        if admin_count <= 1:
-            raise HttpError(400, "Cannot leave: you are the only admin. Transfer admin role first")
-
     with transaction.atomic():
+        # Lock the group row: serializes concurrent leaves so two admins
+        # can't both pass the last-admin check and leave the group adminless
+        group = get_object_or_404(SafetyGroup.objects.select_for_update(), id=group_id)
+
+        member = SafetyGroupMember.objects.filter(
+            group=group, profile=request.auth,
+        ).first()
+        if not member:
+            raise HttpError(400, "Not a member of this group")
+
+        # Don't allow last admin to leave
+        if member.role == SafetyGroupMember.Role.ADMIN:
+            admin_count = SafetyGroupMember.objects.filter(
+                group=group, role=SafetyGroupMember.Role.ADMIN,
+            ).count()
+            if admin_count <= 1:
+                raise HttpError(400, "Cannot leave: you are the only admin. Transfer admin role first")
+
         member.delete()
         group.members_count = group.members.count()
         group.save(update_fields=['members_count'])
@@ -771,14 +827,14 @@ def leave_group(request, group_id: str):
     return {"success": True, "members_count": group.members_count}
 
 
-@router.get("/groups/{group_id}/members/", auth=None, response=List[MemberInfo])
-@ratelimit(group='parasos:group_members', key='ip', rate='60/m')
+@router.get("/groups/{group_id}/members/", auth=ProfileAuth(), response=List[MemberInfo])
+@ratelimit(group='parasos:group_members', key=user_or_ip, rate='60/m')
 @paginate(PageNumberPagination, page_size=50)
 def get_group_members(request, group_id: str):
-    """Get list of group members."""
-    from parasos.models import SafetyGroup, SafetyGroupMember
+    """Get list of group members. Members only."""
+    from parasos.models import SafetyGroupMember
 
-    group = get_object_or_404(SafetyGroup, id=group_id)
+    group, _ = _get_group_for_member(group_id, request.auth)
 
     members = SafetyGroupMember.objects.filter(
         group=group,
@@ -790,7 +846,7 @@ def get_group_members(request, group_id: str):
             profile_id=m.profile_id,
             profile_hna=m.profile.hna,
             profile_display_name=m.profile.display_name,
-            profile_avatar_url=m.profile.avatar.url if m.profile.avatar else None,
+            profile_avatar_url=m.profile.avatar_url,
             role=m.role,
             presence=m.presence,
             joined_at=m.created_at,
@@ -929,14 +985,14 @@ def resolve_sos(request, alert_id: str, false_alarm: bool = False):
     return {"success": True, "status": alert.status}
 
 
-@router.get("/groups/{group_id}/alerts/", auth=None, response=List[AlertListItem])
-@ratelimit(group='parasos:list_alerts', key='ip', rate='60/m')
+@router.get("/groups/{group_id}/alerts/", auth=ProfileAuth(), response=List[AlertListItem])
+@ratelimit(group='parasos:list_alerts', key=user_or_ip, rate='60/m')
 @paginate(PageNumberPagination, page_size=20)
 def list_alerts(request, group_id: str, status: Optional[str] = None):
-    """List SOS alerts for a group."""
-    from parasos.models import SafetyGroup, SOSAlert
+    """List SOS alerts for a group. Members only."""
+    from parasos.models import SOSAlert
 
-    group = get_object_or_404(SafetyGroup, id=group_id)
+    group, _ = _get_group_for_member(group_id, request.auth)
 
     qs = SOSAlert.objects.filter(group=group).select_related('sender')
 
@@ -964,26 +1020,28 @@ def list_alerts(request, group_id: str, status: Optional[str] = None):
     ]
 
 
-@router.get("/alerts/{alert_id}/", auth=None, response=AlertResponse)
-@ratelimit(group='parasos:alert_detail', key='ip', rate='60/m')
+@router.get("/alerts/{alert_id}/", auth=ProfileAuth(), response={200: AlertResponse, 404: dict})
+@ratelimit(group='parasos:alert_detail', key=user_or_ip, rate='60/m')
 def get_alert(request, alert_id: str):
-    """Get SOS alert details."""
+    """Get SOS alert details. Members only (contains sender location)."""
     from parasos.models import SOSAlert
 
     alert = get_object_or_404(
         SOSAlert.objects.select_related('group', 'sender'),
         id=alert_id,
     )
+    _get_group_for_member(alert.group_id, request.auth)
     return _format_alert_response(alert)
 
 
-@router.get("/alerts/{alert_id}/responses/", auth=None, response=List[ResponderInfo])
-@ratelimit(group='parasos:alert_responses', key='ip', rate='60/m')
+@router.get("/alerts/{alert_id}/responses/", auth=ProfileAuth(), response=List[ResponderInfo])
+@ratelimit(group='parasos:alert_responses', key=user_or_ip, rate='60/m')
 def get_alert_responses(request, alert_id: str):
-    """Get all responses to an SOS alert."""
+    """Get all responses to an SOS alert. Members only."""
     from parasos.models import SOSAlert, SOSResponse
 
     alert = get_object_or_404(SOSAlert, id=alert_id)
+    _get_group_for_member(alert.group_id, request.auth)
 
     responses = SOSResponse.objects.filter(
         alert=alert,
@@ -995,7 +1053,7 @@ def get_alert_responses(request, alert_id: str):
             responder_id=r.responder_id,
             responder_hna=r.responder.hna,
             responder_display_name=r.responder.display_name,
-            responder_avatar_url=r.responder.avatar.url if r.responder.avatar else None,
+            responder_avatar_url=r.responder.avatar_url,
             status=r.status,
             note=r.note,
             created_at=r.created_at,
@@ -1014,7 +1072,6 @@ class AutoTriggerInput(BaseModel):
     category: str = Field(default="OTHER", pattern="^(SUSPICIOUS_ACTIVITY|ALARM_TRIGGERED|MEDICAL|FIRE|INTRUSION|OTHER)$")
     message: str = Field(default="", max_length=1000)
     source: str = Field(default="IOT_SENSOR", pattern="^(IOT_SENSOR|HA_AUTOMATION)$")
-    device_id: Optional[str] = Field(None, description="IoT device ULID (optional)")
     location: Optional[LocationInput] = None
 
 

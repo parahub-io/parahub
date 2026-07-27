@@ -1,14 +1,33 @@
 <template>
   <div class="device-card group" :class="{ 'realtime-flash': justUpdated }">
+    <!-- Zone A0: Map viewport — any device with a known position (tracker fix / mesh set location).
+         Status lives on the map as a HUD overlay so the header below stays a single dense row. -->
+    <div v-if="hasMap" class="relative shrink-0 m-1 mb-0 aspect-[1.618/1] rounded overflow-hidden bg-neutral-200 dark:bg-neutral-700">
+      <img v-if="snapshotUrl" :src="snapshotUrl" :alt="device.name" class="w-full h-full object-cover" loading="lazy" />
+      <div v-else class="w-full h-full animate-pulse" />
+      <IoTSnapshotMarker :fill="markerFill" :glyph="markerGlyph" />
+      <!-- Top scrim keeps the HUD legible over map tiles -->
+      <div class="absolute inset-x-0 top-0 h-9 bg-gradient-to-b from-black/55 to-transparent pointer-events-none" />
+      <span class="absolute top-2 left-3 font-mono text-[10px] uppercase tracking-wider text-white/75">
+        {{ getDeviceTypeLabel(device.device_type) }}
+      </span>
+      <span class="absolute top-2 right-3 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-white/90"
+            role="status" aria-live="polite">
+        <span class="w-1.5 h-1.5 rounded-full" :class="getStatusColor(device)" />
+        {{ getDeviceStatus(device).text }}
+      </span>
+    </div>
+
+    <div class="p-4 flex-1 flex flex-col" :class="{ 'pt-2.5': hasMap }">
     <!-- Zone A: Header -->
-    <div class="flex justify-between items-start mb-3">
+    <div class="flex justify-between items-start mb-2">
       <div class="flex-1 min-w-0">
         <!-- Inline rename -->
         <div v-if="renaming" class="flex items-center gap-1.5 mb-1">
           <input
             ref="renameInput"
             v-model="renameValue"
-            class="text-lg font-semibold bg-transparent border-b-2 border-primary outline-none text-neutral-900 dark:text-neutral-100 flex-1 min-w-0"
+            class="text-base font-semibold bg-transparent border-b-2 border-primary outline-none text-neutral-900 dark:text-neutral-100 flex-1 min-w-0"
             maxlength="100"
             @keydown.enter="saveRename"
             @keydown.escape="cancelRename"
@@ -20,7 +39,7 @@
             <X class="w-4 h-4" />
           </button>
         </div>
-        <h3 v-else class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+        <h3 v-else class="text-base font-semibold text-neutral-900 dark:text-neutral-100 truncate">
           {{ device.name }}
         </h3>
         <!-- Subtitle: hardware · uptime + badges -->
@@ -46,6 +65,20 @@
           <span v-if="vpnPill" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" :class="vpnPill.cls">
             {{ vpnPill.label }}
           </span>
+          <!-- Ygg inbound wedged: node heartbeats but its management path is dead -->
+          <span v-if="device.ygg_inbound_ok === false"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+                :title="$t('iot.ssh_unreachable_hint')">
+            {{ $t('iot.ssh_unreachable') }}
+          </span>
+          <!-- Property chip -->
+          <NuxtLink v-if="propertyId && propertyName" :to="localePath(`/iot/${propertyId}`)" class="property-chip">
+            <Home class="w-3 h-3" aria-hidden="true" /> {{ propertyName }}
+          </NuxtLink>
+          <!-- Shared-by chip -->
+          <span v-if="isShared" class="property-chip" :title="device.owner_hna || undefined">
+            <Users class="w-3 h-3" aria-hidden="true" /> {{ $t('iot.shared_by', { name: device.owner_name }) }}
+          </span>
         </div>
         <!-- Non-mesh type badge -->
         <div v-else class="flex items-center gap-1.5 flex-wrap mt-0.5">
@@ -53,11 +86,19 @@
                 :class="getDeviceTypeClass(device.device_type)">
             {{ getDeviceTypeLabel(device.device_type) }}
           </span>
+          <!-- Property chip -->
+          <NuxtLink v-if="propertyId && propertyName" :to="localePath(`/iot/${propertyId}`)" class="property-chip">
+            <Home class="w-3 h-3" aria-hidden="true" /> {{ propertyName }}
+          </NuxtLink>
+          <!-- Shared-by chip -->
+          <span v-if="isShared" class="property-chip" :title="device.owner_hna || undefined">
+            <Users class="w-3 h-3" aria-hidden="true" /> {{ $t('iot.shared_by', { name: device.owner_name }) }}
+          </span>
         </div>
       </div>
 
-      <!-- Status -->
-      <div class="flex items-center gap-1.5 shrink-0 ml-2" role="status" aria-live="polite">
+      <!-- Status (in the header only when there is no map HUD carrying it) -->
+      <div v-if="!hasMap" class="flex items-center gap-1.5 shrink-0 ml-2" role="status" aria-live="polite">
         <div class="w-2.5 h-2.5 rounded-full"
              :class="getStatusColor(device)"
              :aria-label="`Status: ${getDeviceStatus(device).text}`"></div>
@@ -73,7 +114,7 @@
     </UiAlert>
 
     <!-- Zone C: Key Metrics (mesh routers) -->
-    <div v-if="device.device_type === 'MESH_ROUTER'" class="space-y-1.5 mb-3">
+    <div v-if="device.device_type === 'MESH_ROUTER'" class="space-y-1 mb-2.5">
       <div v-if="device.connection_info?.firmware_version" class="flex justify-between text-sm">
         <span class="text-neutral-500 dark:text-neutral-400">{{ $t('iot.firmware') }}:</span>
         <span class="text-neutral-900 dark:text-neutral-100">{{ device.connection_info.firmware_version }}</span>
@@ -86,7 +127,7 @@
 
       <!-- Zone D: Collapsible network details with copy buttons -->
       <details v-if="device.device_id || hasYggdrasil || hasMeshIp" class="border border-neutral-200 dark:border-neutral-700 rounded-lg mt-2">
-        <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-lg transition-colors select-none">
+        <summary class="cursor-pointer px-3 py-1.5 text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-lg transition-colors select-none">
           {{ $t('iot.network_details') }}
         </summary>
         <div class="px-3 pb-3 pt-1 space-y-2">
@@ -123,10 +164,53 @@
           </div>
         </div>
       </details>
+
+      <!-- Zone E: Telemetry charts (ph41+ firmware; hidden until data exists) -->
+      <div v-if="statsPoints.length" class="mt-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">{{ $t('iot.telemetry') }}</span>
+          <div class="flex items-center gap-1">
+            <button
+              v-for="r in [24, 168]" :key="r" @click="statsHours = r"
+              class="px-1.5 py-0.5 rounded text-[11px] font-medium transition-colors"
+              :class="statsHours === r
+                ? 'bg-secondary text-white'
+                : 'text-neutral-500 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
+            >
+              {{ r === 24 ? $t('iot.range_24h') : $t('iot.range_7d') }}
+            </button>
+            <button
+              @click="downloadStatsCsv" :disabled="csvBusy" class="copy-btn"
+              :title="$t('iot.export_csv')" :aria-label="$t('iot.export_csv')"
+            >
+              <Loader2 v-if="csvBusy" class="w-3.5 h-3.5 animate-spin" />
+              <Download v-else class="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+        <div class="text-[11px] text-neutral-400 dark:text-neutral-500 mb-0.5">{{ $t('iot.chart_uplink') }}</div>
+        <UiTimeChart :series="uplinkSeries" :format="fmtBps" :height="96" />
+        <template v-if="clientsSeries">
+          <div class="text-[11px] text-neutral-400 dark:text-neutral-500 mt-2 mb-0.5">{{ $t('iot.chart_clients') }}</div>
+          <UiTimeChart :series="clientsSeries" :height="64" :format="fmtCount" />
+        </template>
+        <!-- Availability strip: green = heartbeat present in that time bucket -->
+        <div class="mt-2 flex gap-px h-1.5 rounded overflow-hidden">
+          <div
+            v-for="(b, i) in availBuckets" :key="i" class="flex-1"
+            :class="b ? 'bg-green-500/80' : 'bg-neutral-200 dark:bg-neutral-700'"
+          />
+        </div>
+        <div class="flex justify-between text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">
+          <span>−{{ statsHours === 24 ? $t('iot.range_24h') : $t('iot.range_7d') }}</span>
+          <span>{{ $t('iot.availability') }}</span>
+          <span>{{ $t('iot.now') }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- Generic Device Info (non-mesh, non-tracker) -->
-    <div v-else-if="device.device_type !== 'TRACKER'" class="space-y-2 mb-4">
+    <div v-else-if="device.device_type !== 'TRACKER'" class="space-y-1 mb-2.5">
       <div v-if="device.imei" class="flex justify-between text-sm">
         <span class="text-neutral-500 dark:text-neutral-400">IMEI:</span>
         <span class="font-mono text-neutral-900 dark:text-neutral-100">{{ device.imei }}</span>
@@ -138,30 +222,20 @@
       </div>
     </div>
 
-    <!-- Location data for trackers -->
-    <div v-if="device.device_type === 'TRACKER'" class="mb-4">
-      <!-- Map snapshot (shared MapLibre instance) -->
-      <div v-if="hasLocationData(device)" class="mb-3 relative aspect-[1.618/1] rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-700">
-        <img v-if="snapshotUrl" :src="snapshotUrl" :alt="device.name" class="w-full h-full object-cover" loading="lazy" />
-        <div v-else class="w-full h-full animate-pulse" />
-        <div class="snapshot-marker">
-          <div class="snapshot-marker-pulse" />
-          <div class="snapshot-marker-dot" />
-        </div>
-      </div>
-      <div v-else class="flex items-center text-neutral-500 dark:text-neutral-400 mb-3">
+    <!-- Tracker info (map lives in the top viewport) -->
+    <div v-if="device.device_type === 'TRACKER'" class="mb-2.5">
+      <div v-if="!hasMap" class="flex items-center text-neutral-500 dark:text-neutral-400 mb-2">
         <MapPin class="w-4 h-4 mr-2" aria-hidden="true" />
         <span class="text-sm">{{ $t('iot.no_location') }}</span>
       </div>
 
-      <!-- Tracker info -->
-      <div class="space-y-2">
+      <div class="space-y-1">
         <div v-if="device.last_seen" class="flex justify-between text-sm">
           <span class="text-neutral-500 dark:text-neutral-400">{{ $t('iot.last_activity') }}:</span>
-          <span class="text-neutral-900 dark:text-neutral-100">{{ formatDate(device.last_seen) }}</span>
+          <span class="text-neutral-900 dark:text-neutral-100" :title="formatDate(device.last_seen)">{{ formatRelativeTime(device.last_seen) }}</span>
         </div>
 
-        <div v-if="device.speed !== undefined" class="flex justify-between text-sm">
+        <div v-if="device.speed != null" class="flex justify-between text-sm">
           <span class="text-neutral-500 dark:text-neutral-400">{{ $t('iot.speed') }}:</span>
           <span class="text-neutral-900 dark:text-neutral-100">{{ getSpeedInfo(device.speed) }}</span>
         </div>
@@ -175,21 +249,11 @@
       </div>
     </div>
 
-    <!-- Zone F: Actions -->
-    <div class="flex items-start gap-2 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+    <!-- Zone F: Actions (mt-auto pins to the card bottom when the grid stretches heights) -->
+    <div class="flex items-start gap-2 mt-auto pt-2.5 border-t border-neutral-200 dark:border-neutral-700">
       <div class="flex flex-wrap items-center gap-2 flex-1">
-        <!-- Traccar link for registered trackers -->
-        <a v-if="device.device_type === 'TRACKER' && device.traccar_device_id && traccarUrl"
-           :href="traccarUrl"
-           target="_blank"
-           :aria-label="'Open Traccar for device ' + device.name + ' (opens in new tab)'"
-           class="btn-primary text-sm">
-          <LucideMap class="w-4 h-4 mr-1" aria-hidden="true" />
-          <span>Traccar</span>
-        </a>
-
         <!-- WiFi password quick button (mesh only) -->
-        <button v-if="device.device_type === 'MESH_ROUTER'"
+        <button v-if="device.device_type === 'MESH_ROUTER' && canManage"
                 @click="handleShowWifiPassword"
                 :disabled="wifiLoading"
                 :title="$t('iot.show_wifi_password')"
@@ -200,7 +264,7 @@
         </button>
 
         <!-- VPN (bumblebee only) -->
-        <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole === 'bumblebee'"
+        <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole === 'bumblebee' && canManage"
                 @click="showVpnSettings = true"
                 :title="vpnMenuLabel"
                 class="btn-secondary text-sm">
@@ -230,7 +294,7 @@
                class="absolute right-0 bottom-full mb-1 w-48 rounded-md shadow-lg bg-white dark:bg-neutral-800 ring-1 ring-black/5 dark:ring-white/10 z-20">
             <div class="py-1">
               <!-- WiFi Settings (bumblebee only) -->
-              <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole !== 'bee'"
+              <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole !== 'bee' && canManage"
                       @click="showWifiConfig = true; showKebabMenu = false"
                       class="kebab-item">
                 <Settings class="w-4 h-4 mr-2" aria-hidden="true" />
@@ -238,7 +302,7 @@
               </button>
 
               <!-- Network Settings (bumblebee only — includes speed limit, LAN VPN, wired mesh) -->
-              <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole === 'bumblebee'"
+              <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole === 'bumblebee' && canManage"
                       @click="showNetworkSettings = true; showKebabMenu = false"
                       class="kebab-item">
                 <Network class="w-4 h-4 mr-2" aria-hidden="true" />
@@ -246,7 +310,7 @@
               </button>
 
               <!-- Wired Mesh (bee only — bumblebee has it inside Network Settings) -->
-              <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole === 'bee'"
+              <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole === 'bee' && canManage"
                       @click="showWiredMesh = true; showKebabMenu = false"
                       class="kebab-item">
                 <Network class="w-4 h-4 mr-2" aria-hidden="true" />
@@ -254,7 +318,7 @@
               </button>
 
               <!-- Yggdrasil Access (bumblebee only) -->
-              <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole === 'bumblebee'"
+              <button v-if="device.device_type === 'MESH_ROUTER' && firmwareRole === 'bumblebee' && canManage"
                       @click="showYggAccess = true; showKebabMenu = false"
                       class="kebab-item">
                 <Globe class="w-4 h-4 mr-2" aria-hidden="true" />
@@ -262,15 +326,23 @@
               </button>
 
               <!-- Set Location (mesh routers) -->
-              <button v-if="device.device_type === 'MESH_ROUTER'"
+              <button v-if="device.device_type === 'MESH_ROUTER' && canManage"
                       @click="showLocationPicker = true; showKebabMenu = false"
                       class="kebab-item">
                 <MapPinned class="w-4 h-4 mr-2" aria-hidden="true" />
                 {{ $t('mesh.set_location') }}
               </button>
 
+              <!-- Owner attribution on the public map (owner-only consent toggle) -->
+              <button v-if="device.device_type === 'MESH_ROUTER' && isOwner"
+                      @click="toggleShowOwner(); showKebabMenu = false"
+                      class="kebab-item">
+                <component :is="device.show_owner ? UserX : User" class="w-4 h-4 mr-2" aria-hidden="true" />
+                {{ device.show_owner ? $t('mesh.hide_owner') : $t('mesh.show_owner') }}
+              </button>
+
               <!-- Root Password (mesh routers) -->
-              <button v-if="device.device_type === 'MESH_ROUTER'"
+              <button v-if="device.device_type === 'MESH_ROUTER' && canManage"
                       @click="handleShowRootPassword(); showKebabMenu = false"
                       :disabled="rootLoading"
                       class="kebab-item">
@@ -279,7 +351,7 @@
               </button>
 
               <!-- Diagnostics (mesh routers) -->
-              <button v-if="device.device_type === 'MESH_ROUTER'"
+              <button v-if="device.device_type === 'MESH_ROUTER' && canManage"
                       @click="showDiagnostics = true; showKebabMenu = false"
                       class="kebab-item">
                 <Activity class="w-4 h-4 mr-2" aria-hidden="true" />
@@ -287,20 +359,27 @@
               </button>
 
               <!-- Divider -->
-              <div class="border-t border-neutral-200 dark:border-neutral-700 my-1"></div>
+              <div v-if="canManage" class="border-t border-neutral-200 dark:border-neutral-700 my-1"></div>
+
+              <!-- Sharing (owner manages grants; grantees see access & can leave) -->
+              <button @click="showSharing = true; showKebabMenu = false"
+                      class="kebab-item">
+                <Users class="w-4 h-4 mr-2" aria-hidden="true" />
+                {{ $t('iot.sharing_title') }}
+              </button>
 
               <!-- Rename -->
-              <button @click="startRename(); showKebabMenu = false"
+              <button v-if="canManage" @click="startRename(); showKebabMenu = false"
                       class="kebab-item">
                 <Pencil class="w-4 h-4 mr-2" aria-hidden="true" />
                 {{ $t('iot.rename') }}
               </button>
 
               <!-- Divider -->
-              <div class="border-t border-neutral-200 dark:border-neutral-700 my-1"></div>
+              <div v-if="isOwner" class="border-t border-neutral-200 dark:border-neutral-700 my-1"></div>
 
-              <!-- Delete -->
-              <button @click="showDeleteModal = true; showKebabMenu = false"
+              <!-- Delete (owner only) -->
+              <button v-if="isOwner" @click="showDeleteModal = true; showKebabMenu = false"
                       class="kebab-item !text-red-600 dark:!text-red-400 hover:!bg-red-50 dark:hover:!bg-red-900/20">
                 <Trash2 class="w-4 h-4 mr-2" aria-hidden="true" />
                 {{ $t('iot.delete') }}
@@ -388,15 +467,30 @@
       :firmware-role="firmwareRole || 'bee'"
       @close="showDiagnostics = false"
     />
+
+    <!-- Sharing Modal -->
+    <IoTSharingModal
+      v-if="showSharing"
+      :device-id="device.id"
+      :device-name="device.name"
+      @close="showSharing = false"
+      @changed="$emit('refresh')"
+    />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Map as LucideMap, Trash2, Wifi, Lock, MapPin, BatteryFull, Settings, MapPinned, Shield, EllipsisVertical, Network, Activity, Pencil, Copy, ArrowUpCircle, Check, X, Loader2, Globe } from 'lucide-vue-next'
+import { Trash2, Wifi, Lock, MapPin, BatteryFull, Settings, MapPinned, Shield, EllipsisVertical, Network, Activity, Pencil, Copy, ArrowUpCircle, Check, X, Loader2, Globe, Home, Download, User, Users, UserX } from 'lucide-vue-next'
+import { NAVIGATION_GLYPH } from '~/composables/useMapToggleableLayer'
+import type { TimeChartSeries } from '~/components/ui/TimeChart.vue'
 import type { IoTDevice } from '~/stores/iot'
 
 interface Props {
   device: IoTDevice
+  // Shown as a chip linking to the property page (device-inventory views)
+  propertyId?: string | null
+  propertyName?: string | null
 }
 
 interface Emits {
@@ -408,21 +502,52 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const toastStore = useToastStore()
+const localePath = useLocalePath()
 const { justUpdated } = useRealtimeObject(computed(() => props.device.id))
 
-// Map snapshot for tracker cards (shared single MapLibre instance)
+// Shorthand for firmware role
+const firmwareRole = computed(() => props.device.connection_info?.firmware_role)
+
+// Access role (universal ObjectAccess grants): OWNER when absent (legacy paths)
+const accessRole = computed(() => props.device.access_role || 'OWNER')
+const isOwner = computed(() => accessRole.value === 'OWNER')
+const canManage = computed(() => accessRole.value !== 'VIEWER')
+const isShared = computed(() => !!props.device.owner_name)
+
+// Mesh router coordinates from connection_info or device-level lat/lon
+const meshRouterLat = computed(() => props.device.latitude ?? props.device.connection_info?.latitude ?? null)
+const meshRouterLng = computed(() => props.device.longitude ?? props.device.connection_info?.longitude ?? null)
+
+// Map viewport (shared single MapLibre instance) — trackers (live fix) and
+// mesh routers (owner-set location) both render the top map snapshot
 const { capture, invalidate } = useMapSnapshots()
 const snapshotUrl = ref<string | null>(null)
 
+const mapLat = computed(() => props.device.device_type === 'MESH_ROUTER' ? meshRouterLat.value : props.device.latitude ?? null)
+const mapLng = computed(() => props.device.device_type === 'MESH_ROUTER' ? meshRouterLng.value : props.device.longitude ?? null)
+const hasMap = computed(() => mapLat.value != null && mapLng.value != null)
+
+// Marker grammar (PK/design-system.md § Map Markers): device hexagon, fill =
+// status — online secondary, stale/unknown grey, offline red. Glyph = device
+// type, same as /map: WiFi arcs for mesh routers, navigation arrow for trackers.
+const MARKER_STATUS_FILLS: Record<string, string> = {
+  online: '#4E4EC8', recent: '#a3a3a3', never: '#a3a3a3', offline: '#ef4444',
+}
+const markerFill = computed(() => MARKER_STATUS_FILLS[getDeviceStatus(props.device).status] || '#a3a3a3')
+const markerGlyph = computed(() => {
+  if (props.device.device_type === 'MESH_ROUTER') return 'wifi' as const
+  if (props.device.device_type === 'TRACKER') return NAVIGATION_GLYPH
+  return null
+})
+
 async function loadSnapshot() {
-  if (props.device.device_type !== 'TRACKER') return
-  if (props.device.latitude == null || props.device.longitude == null) return
-  snapshotUrl.value = await capture(props.device.latitude, props.device.longitude)
+  if (mapLat.value == null || mapLng.value == null) return
+  snapshotUrl.value = await capture(mapLat.value, mapLng.value)
 }
 
-// Reload snapshot when tracker moves
+// Reload snapshot when the position changes (tracker moves / mesh location set)
 watch(
-  () => [props.device.latitude, props.device.longitude],
+  [mapLat, mapLng],
   ([lat, lon], [oldLat, oldLon]) => {
     if (lat == null || lon == null) return
     if (lat === oldLat && lon === oldLon) return
@@ -432,13 +557,6 @@ watch(
 )
 
 onMounted(loadSnapshot)
-
-// Shorthand for firmware role
-const firmwareRole = computed(() => props.device.connection_info?.firmware_role)
-
-// Mesh router coordinates from connection_info or device-level lat/lon
-const meshRouterLat = computed(() => props.device.latitude ?? props.device.connection_info?.latitude ?? null)
-const meshRouterLng = computed(() => props.device.longitude ?? props.device.connection_info?.longitude ?? null)
 
 // Computed helpers for network details conditionals
 const hasYggdrasil = computed(() =>
@@ -491,18 +609,83 @@ const {
   formatDate,
   formatRelativeTime,
   formatUptime,
-  getTraccarDeviceUrl,
-  hasLocationData,
+  fmtBps,
   getBatteryInfo,
   getSpeedInfo,
   getHardwareName
 } = useIoT()
 
-// Computed property for Traccar URL
-const traccarUrl = computed(() => {
-  const url = getTraccarDeviceUrl(props.device)
-  return url && url !== '#' ? url : null
+// ---- Telemetry history (mesh routers, ph41+; section hidden while empty) ----
+const { t } = useI18n()
+const authStore = useAuthStore()
+const statsHours = ref(24)
+const statsPoints = ref<any[]>([])
+const csvBusy = ref(false)
+
+const fmtCount = (v: number) => String(Math.round(v))
+
+async function loadStats() {
+  if (props.device.device_type !== 'MESH_ROUTER') return
+  try {
+    await authStore.ensureToken()
+    const res = await $fetch<any>(`/api/v1/iot/devices/${props.device.id}/stats`, {
+      params: { hours: statsHours.value },
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    statsPoints.value = res?.points || []
+  } catch { statsPoints.value = [] }
+}
+onMounted(loadStats)
+watch(statsHours, loadStats)
+
+const uplinkSeries = computed<TimeChartSeries[]>(() => [
+  { key: 'rx', label: `↓ ${t('iot.series_down')}`, points: statsPoints.value.map(p => ({ t: Date.parse(p.t), v: p.wan_rx_bps })) },
+  { key: 'tx', label: `↑ ${t('iot.series_up')}`, points: statsPoints.value.map(p => ({ t: Date.parse(p.t), v: p.wan_tx_bps })) },
+])
+
+const clientsSeries = computed<TimeChartSeries[] | null>(() => {
+  const wifi = statsPoints.value.map(p => ({ t: Date.parse(p.t), v: p.wifi_clients }))
+  const guest = statsPoints.value.map(p => ({ t: Date.parse(p.t), v: p.guest_clients }))
+  if (!wifi.some(p => p.v != null) && !guest.some(p => p.v != null)) return null
+  return [
+    { key: 'wifi', label: t('iot.series_wifi'), points: wifi },
+    { key: 'guest', label: t('iot.series_guest'), points: guest },
+  ]
 })
+
+const availBuckets = computed(() => {
+  const n = statsHours.value === 24 ? 48 : 84
+  const end = Date.now()
+  const start = end - statsHours.value * 3600_000
+  const out: boolean[] = new Array(n).fill(false)
+  for (const p of statsPoints.value) {
+    const i = Math.floor(((Date.parse(p.t) - start) / (end - start)) * n)
+    if (i >= 0 && i < n) out[i] = true
+  }
+  return out
+})
+
+async function downloadStatsCsv() {
+  if (csvBusy.value) return
+  csvBusy.value = true
+  try {
+    await authStore.ensureToken()
+    const res = await fetch(`/api/v1/iot/devices/${props.device.id}/stats.csv?hours=720`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    if (!res.ok) throw new Error(String(res.status))
+    const url = URL.createObjectURL(await res.blob())
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${props.device.name.replace(/[^\w-]+/g, '_')}-telemetry-30d.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    toastStore.error(t('iot.export_failed'))
+  } finally { csvBusy.value = false }
+}
 
 // Modal state
 const showWifiConfig = ref(false)
@@ -512,6 +695,7 @@ const showNetworkSettings = ref(false)
 const showYggAccess = ref(false)
 const showWiredMesh = ref(false)
 const showDiagnostics = ref(false)
+const showSharing = ref(false)
 const showDeleteModal = ref(false)
 
 // Kebab menu state
@@ -547,6 +731,15 @@ const saveRename = async () => {
 
 const cancelRename = () => {
   renaming.value = false
+}
+
+const toggleShowOwner = async () => {
+  try {
+    await store.setShowOwner(props.device.id, !props.device.show_owner)
+    emit('refresh')
+  } catch (err: any) {
+    toastStore.error(err.message)
+  }
 }
 
 // Copy to clipboard with toast feedback
@@ -665,7 +858,7 @@ const getBatteryColor = (batteryLevel: number) => {
 
 <style scoped>
 .device-card {
-  @apply bg-neutral-100 dark:bg-neutral-800 rounded-lg p-6 border border-neutral-200 dark:border-neutral-700;
+  @apply flex flex-col bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700;
   @apply hover:border-primary transition-colors;
 }
 
@@ -682,41 +875,10 @@ const getBatteryColor = (batteryLevel: number) => {
   @apply p-1 rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors shrink-0;
 }
 
-.snapshot-marker {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  pointer-events: none;
+.property-chip {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  @apply bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300;
+  @apply hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors;
 }
 
-.snapshot-marker-dot {
-  width: 12px;
-  height: 12px;
-  background: #6366f1;
-  border: 2px solid white;
-  border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-  position: relative;
-  z-index: 2;
-}
-
-.snapshot-marker-pulse {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 24px;
-  height: 24px;
-  background: rgba(99, 102, 241, 0.3);
-  border-radius: 50%;
-  animation: snapshot-pulse 2s ease-out infinite;
-  z-index: 1;
-}
-
-@keyframes snapshot-pulse {
-  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
-  100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
-}
 </style>

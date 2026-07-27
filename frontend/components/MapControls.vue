@@ -3,321 +3,117 @@
   <div class="map-layer-controls" :style="{ top }">
     <!-- Layers + Tools + IoT (single group) -->
     <div class="map-ctrl-group">
-      <!-- Layers button (Aerial + Transit + Condo + Gov + Hubs + Mesh + Energy) -->
-      <div class="layers-control">
-        <button
-          @click.stop="layersPopoverOpen = !layersPopoverOpen; architectPopoverOpen = false; iotPopoverOpen = false; hideIoTPreview()"
-          class="opensky-btn"
-          :title="$t('map.layers.title')"
-        >
-          <Layers class="w-5 h-5" />
-        </button>
-        <div v-if="layersPopoverOpen" class="layers-popover" @click.stop>
-          <button
-            class="layers-popover-item"
-            :class="{ active: openSkyEnabled }"
-            :aria-pressed="openSkyEnabled"
-            @click="toggleOpenSkyLayer"
-          >
-            <Satellite class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.aerial') }}</span>
-            <Eye v-if="openSkyEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: satelliteEnabled }"
-            :aria-pressed="satelliteEnabled"
-            @click="satellite.toggleLayer()"
-          >
-            <ImageIcon class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.satellite') }}</span>
-            <Eye v-if="satelliteEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: tiles3dEnabled }"
-            :aria-pressed="tiles3dEnabled"
-            @click="toggle3DTiles"
-          >
-            <Box class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.aerial_3d') }}</span>
-            <Loader2 v-if="tiles3dLoading" class="w-3.5 h-3.5 flex-shrink-0 opacity-70 animate-spin" aria-hidden="true" />
-            <Eye v-else-if="tiles3dEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: transitEnabled }"
-            :aria-pressed="transitEnabled"
-            @click="transit.toggleLayer()"
-          >
-            <Bus class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.transit') }}</span>
-            <span v-if="transit.activeRouteFilter.value" class="w-2 h-2 bg-secondary-600 rounded-full flex-shrink-0" aria-hidden="true"></span>
-            <Eye v-if="transitEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: governmentEnabled }"
-            :aria-pressed="governmentEnabled"
-            @click="gov.toggle()"
-          >
-            <Landmark class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.government') }}</span>
-            <Eye v-if="governmentEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: churchEnabled }"
-            :aria-pressed="churchEnabled"
-            @click="church.toggle()"
-          >
-            <Cross class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.churches') }}</span>
-            <Eye v-if="churchEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: condosEnabled }"
-            :aria-pressed="condosEnabled"
-            @click="condo.toggle()"
-          >
-            <Building2 class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.condominiums') }}</span>
-            <Eye v-if="condosEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: hubsEnabled }"
-            :aria-pressed="hubsEnabled"
-            @click="hub.toggle()"
-          >
-            <Package class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.hubs') }}</span>
-            <Eye v-if="hubsEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: meshEnabled }"
-            :aria-pressed="meshEnabled"
-            @click="mesh.toggle()"
-          >
-            <Wifi class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.mesh_network') }}</span>
-            <Eye v-if="meshEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: energyCellsEnabled }"
-            :aria-pressed="energyCellsEnabled"
-            @click="iot.toggleEnergyCells()"
-          >
-            <Zap class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.layers.energy') }}</span>
-            <Eye v-if="energyCellsEnabled" class="w-3.5 h-3.5 flex-shrink-0 opacity-70" aria-hidden="true" />
-            <EyeOff v-else class="w-3.5 h-3.5 flex-shrink-0 opacity-30" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-      <!-- Map Tools -->
-      <div class="architect-control">
-        <button
-          @click.stop="architectPopoverOpen = !architectPopoverOpen; layersPopoverOpen = false; iotPopoverOpen = false; hideIoTPreview()"
-          class="opensky-btn"
-          :class="{ active: measureActive || sunStudyActive || isochroneActive || droneReachActive || urbanActive }"
-          :title="$t('map.architect.title')"
-        >
-          <Ruler class="w-5 h-5" />
-        </button>
-        <div v-if="architectPopoverOpen" class="layers-popover" @click.stop>
-          <button
-            class="layers-popover-item"
-            :class="{ active: measureActive && measureMode === 'distance' }"
-            @click="startTool('measure-distance')"
-          >
-            <Ruler class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.architect.measure') }}</span>
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: measureActive && measureMode === 'area' }"
-            @click="startTool('measure-area')"
-          >
-            <Pentagon class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.architect.measure_area') }}</span>
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: sunStudyActive }"
-            @click="startTool('sun')"
-          >
-            <Sun class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.architect.sun_study') }}</span>
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: isochroneActive }"
-            @click="startTool('isochrone')"
-          >
-            <Clock class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.architect.isochrone') }}</span>
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: droneReachActive }"
-            @click="startTool('droneReach')"
-          >
-            <Radio class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.architect.drone_reach') }}</span>
-          </button>
-          <button
-            class="layers-popover-item"
-            :class="{ active: urbanActive }"
-            @click="startTool('urban')"
-          >
-            <Building class="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            <span class="layers-popover-label">{{ $t('map.urban.title') }}</span>
-          </button>
-        </div>
-      </div>
-      <!-- IoT Devices popover (Routers + Trackers) -->
-      <div v-if="authStore.isAuthenticated" class="tracker-control">
-        <button
-          @click.stop="iotPopoverOpen = !iotPopoverOpen; layersPopoverOpen = false; architectPopoverOpen = false; if (!iotPopoverOpen) hideIoTPreview()"
-          class="opensky-btn"
-          title="IoT Devices"
-        >
-          <Radar class="w-5 h-5" />
-        </button>
-        <div v-if="iotPopoverOpen" class="tracker-popover" @click.stop>
-          <!-- My Homes section -->
-          <div v-if="propertyStore.properties.length > 0" class="tracker-popover-header" @click="iotHomesExpanded = !iotHomesExpanded" @keydown.enter="iotHomesExpanded = !iotHomesExpanded" @keydown.space.prevent="iotHomesExpanded = !iotHomesExpanded" role="button" tabindex="0" style="cursor: pointer;">
-            <div class="iot-section-toggle">
-              <ChevronRight class="w-3 h-3 iot-chevron" :class="{ expanded: iotHomesExpanded }" />
-              <Home class="w-3.5 h-3.5" />
-              <span class="tracker-popover-title">{{ $t('property.my_homes') }}</span>
-            </div>
-          </div>
-          <template v-if="iotHomesExpanded && propertyStore.properties.length > 0">
-            <button
-              v-for="p in propertyStore.properties"
-              :key="p.id"
-              class="tracker-popover-item"
-              :disabled="!p.latitude"
-              @click="p.latitude && $emit('select-property', p)"
-              @mouseenter="p.latitude && showIoTPreview(p.latitude, p.longitude)"
-              @mouseleave="hideIoTPreview()"
-            >
-              <component :is="propertyTypeIcon(p.property_type)" class="w-3 h-3 opacity-60" />
-              <span class="tracker-item-name">{{ p.name }}</span>
-              <span v-if="p.device_count" class="tracker-item-speed">{{ p.device_count }} IoT</span>
-            </button>
-          </template>
-          <!-- GPS Trackers section -->
-          <div class="tracker-popover-header" @click="iotTrackersExpanded = !iotTrackersExpanded" @keydown.enter="iotTrackersExpanded = !iotTrackersExpanded" @keydown.space.prevent="iotTrackersExpanded = !iotTrackersExpanded" role="button" tabindex="0" style="cursor: pointer;">
-            <div class="iot-section-toggle">
-              <ChevronRight class="w-3 h-3 iot-chevron" :class="{ expanded: iotTrackersExpanded }" />
-              <Radar class="w-3.5 h-3.5" />
-              <span class="tracker-popover-title">GPS Trackers</span>
-            </div>
-            <button @click.stop="iot.toggleTrackers()" class="tracker-eye-btn" :aria-label="trackersEnabled ? $t('map.toggle_hide_layer', { layer: 'GPS Trackers' }) : $t('map.toggle_show_layer', { layer: 'GPS Trackers' })">
-              <Eye v-if="trackersEnabled" class="w-3.5 h-3.5" />
-              <EyeOff v-else class="w-3.5 h-3.5 opacity-50" />
-            </button>
-          </div>
-          <template v-if="iotTrackersExpanded">
-            <div v-if="trackerPositionsList.length === 0" class="tracker-popover-empty">
-              No trackers
-            </div>
-            <button
-              v-for="t in trackerPositionsList"
-              :key="t.device_id"
-              class="tracker-popover-item"
-              @click="$emit('select-tracker', t)"
-              @mouseenter="showIoTPreview(t.latitude, t.longitude)"
-              @mouseleave="hideIoTPreview()"
-            >
-              <span class="tracker-status-dot" :class="t.traccar_status === 'online' ? 'online' : t.traccar_status === 'offline' ? 'offline' : 'unknown'"></span>
-              <span class="tracker-item-name">{{ t.name }}</span>
-              <span v-if="trackerSignalAge(t) >= 5" class="tracker-item-signal-lost" :title="t.last_update">{{ trackerSignalAgeText(t) }}</span>
-              <span v-else-if="t.speed && t.speed > 1" class="tracker-item-speed">{{ Math.round(t.speed) }} km/h</span>
-            </button>
-          </template>
-        </div>
-      </div>
-    </div>
-    <!-- OpenSky pilot tools (only when aerial mode active) -->
-    <div v-if="openSkyMode" class="map-ctrl-group">
-      <NuxtLink
-        :to="localePath('/opensky')"
+      <button
+        @click.stop="layersPopoverOpen = !layersPopoverOpen; architectPopoverOpen = false; iotPopoverOpen = false; hideIoTPreview()"
         class="opensky-btn"
-        title="OpenSky Dashboard"
+        :class="{ active: layersPopoverOpen }"
+        :title="$t('map.layers.title')"
       >
-        <Plane class="w-5 h-5" />
-      </NuxtLink>
+        <Layers class="w-5 h-5" />
+      </button>
+      <button
+        @click.stop="architectPopoverOpen = !architectPopoverOpen; layersPopoverOpen = false; iotPopoverOpen = false; hideIoTPreview()"
+        class="opensky-btn"
+        :class="{ active: architectPopoverOpen || measureActive || sunStudyActive || isochroneActive || droneReachActive || urbanActive || tileGridMode }"
+        :title="$t('map.architect.title')"
+      >
+        <Ruler class="w-5 h-5" />
+      </button>
       <button
         v-if="authStore.isAuthenticated"
-        @click="openSky.toggleMissionArea()"
+        @click.stop="iotPopoverOpen = !iotPopoverOpen; layersPopoverOpen = false; architectPopoverOpen = false; if (!iotPopoverOpen) hideIoTPreview()"
         class="opensky-btn"
-        :class="{ active: tileGridMode || missionGenerating }"
-        :disabled="missionGenerating"
-        :title="tileGridMode ? $t('map.opensky.exit_planning') : $t('map.opensky.plan_missions')"
+        :class="{ active: iotPopoverOpen }"
+        :title="$t('map.controls.devices')"
       >
-        <Grid3x3 class="w-5 h-5" :class="{ 'animate-pulse': missionGenerating }" />
+        <Radar class="w-5 h-5" />
       </button>
     </div>
-  </div>
 
-  <!-- OpenSky mission planning hint (top center, in grid mode) -->
-  <div v-if="tileGridMode" class="opensky-plan-bar">
-    <template v-if="hoveredTileBudget">
-      <span class="opensky-plan-tile">Z17/{{ hoveredTileBudget.x }}/{{ hoveredTileBudget.y }}</span>
-      <span class="opensky-plan-sep">·</span>
-      <span class="opensky-plan-budget">
-        <span class="opensky-plan-level">{{ $t('map.opensky.battery_level', { level: 1, min: hoveredTileBudget.battery1 }) }}</span>
-        <span class="opensky-plan-desc">{{ $t('map.opensky.ortho') }}</span>
-      </span>
-      <span class="opensky-plan-sep">·</span>
-      <span class="opensky-plan-budget">
-        <span class="opensky-plan-level">{{ $t('map.opensky.battery_level', { level: 3, min: hoveredTileBudget.battery3 }) }}</span>
-        <span class="opensky-plan-desc">{{ $t('map.opensky.baseline_3d') }}</span>
-      </span>
-      <span class="opensky-plan-sep">·</span>
-      <span class="opensky-plan-budget">
-        <span class="opensky-plan-level">{{ $t('map.opensky.battery_level', { level: 5, min: hoveredTileBudget.battery5 }) }}</span>
-        <span class="opensky-plan-desc">{{ $t('map.opensky.ultra_3d') }}</span>
-      </span>
-      <span class="opensky-plan-hint">{{ $t('map.opensky.click_to_download') }}</span>
-    </template>
-    <template v-else>
-      <span class="opensky-plan-hint">{{ $t('map.opensky.hover_hint') }}</span>
-    </template>
+    <!-- Backdrop for the mobile bottom sheets (hidden on md+) -->
+    <Transition name="mc-backdrop">
+      <div v-if="anyPopoverOpen" class="mc-backdrop" @click.stop="closeAllPopovers" />
+    </Transition>
+
+    <!-- Layers console: popover on desktop, bottom sheet on phones -->
+    <Transition name="mc-pop">
+      <div v-if="layersPopoverOpen" class="mc-pop" @click.stop>
+        <div class="mc-sheet-handle" aria-hidden="true"><span /></div>
+        <div class="mc-pop-head">
+          <span class="mc-pop-title">{{ $t('map.layers.title') }}</span>
+          <span class="mc-pop-badge">{{ $t('map.controls.on_count', { count: activeLayerCount }) }}</span>
+        </div>
+        <div class="mc-pop-body">
+          <MapControlMatrix :groups="layerMatrixGroups" @pick="onLayerPick" />
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Map tools console -->
+    <Transition name="mc-pop">
+      <div v-if="architectPopoverOpen" class="mc-pop" @click.stop>
+        <div class="mc-sheet-handle" aria-hidden="true"><span /></div>
+        <div class="mc-pop-head">
+          <span class="mc-pop-title">{{ $t('map.architect.title') }}</span>
+          <span class="mc-pop-badge">{{ activeToolLabel }}</span>
+        </div>
+        <div class="mc-pop-body">
+          <MapControlMatrix :groups="toolMatrixGroups" @pick="onToolPick" />
+        </div>
+      </div>
+    </Transition>
+
+    <!-- IoT device console -->
+    <Transition name="mc-pop">
+      <div v-if="iotPopoverOpen" class="mc-pop mc-pop-iot" @click.stop>
+        <div class="mc-sheet-handle" aria-hidden="true"><span /></div>
+        <div class="mc-pop-head">
+          <span class="mc-pop-title">{{ $t('map.controls.devices') }}</span>
+          <span class="mc-pop-badge">
+            <span class="mc-online-dot" aria-hidden="true" />
+            {{ $t('map.controls.online_count', { online: iotStats.online, total: iotStats.total }) }}
+          </span>
+        </div>
+        <div class="mc-pop-body">
+          <MapDeviceConsole
+            :properties="propertyStore.properties"
+            :trackers="trackerPositionsList"
+            :routers="meshRouterPositionsList"
+            :energy-cells="energyCellsList"
+            :env-stations="envStationsList"
+            :trackers-enabled="trackersEnabled"
+            :routers-enabled="meshEnabled"
+            :energy-enabled="energyCellsEnabled"
+            :env-enabled="envStationsEnabled"
+            @select="onConsoleSelect"
+            @toggle-layer="onConsoleToggleLayer"
+            @preview="onPreview"
+          />
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * Right control strip of the map (layers / map tools / IoT popovers, OpenSky
- * pilot group) plus the top-center OpenSky mission-planning hint bar.
+ * Right control strip of the map (layers / map tools / IoT consoles).
+ *
+ * Layers and tools render as a tile matrix (MapControlMatrix), IoT devices as
+ * a device console (MapDeviceConsole). On phones (<768px) the popovers become
+ * full-bleed bottom sheets so long device lists can never run off screen.
  *
  * Receives the map composable objects from MapView; popover open/close state
  * and the outside-click dismissal live here.
  */
-import { ref, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount } from 'vue'
-import { Layers, Grid3x3, Plane, Radar, Radio, Eye, EyeOff, Building, Building2, ChevronRight, Bus, Zap, Home, Warehouse, LandPlot, Landmark, Package, Wifi, Satellite, Image as ImageIcon, Cross, Ruler, Sun, Pentagon, Clock, Box, Loader2 } from 'lucide-vue-next'
+import { computed, ref, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount } from 'vue'
+import { Layers, Grid3x3, Radar, Radio, Building, Building2, Bus, Zap, Landmark, MapPin, Package, Wifi, Wind, Satellite, Image as ImageIcon, Cross, Ruler, Sun, Pentagon, Clock, Box } from 'lucide-vue-next'
 
 const props = defineProps<{
   top: string
   openSky: any
   satellite: any
+  poi: any
   tiles3d: any
   transit: any
   gov: any
@@ -333,22 +129,23 @@ const props = defineProps<{
   urban: any
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'select-tracker', tracker: any): void
   (e: 'select-property', property: any): void
 }>()
 
 const {
-  openSky, satellite, tiles3d, transit, gov, church, condo, hub, mesh, iot,
+  openSky, satellite, poi, tiles3d, transit, gov, church, condo, hub, mesh, iot,
   measure, sunStudy, isochrone, droneReach, urban,
 } = props
 
 const authStore = useAuthStore()
-const localePath = useLocalePath()
+const { t } = useI18n()
 
 // Template aliases (refs auto-unwrap as top-level bindings)
-const { openSkyEnabled, openSkyMode, missionGenerating, tileGridMode, hoveredTileBudget } = openSky
+const { openSkyEnabled, missionGenerating, tileGridMode } = openSky
 const { satelliteEnabled } = satellite
+const { poiEnabled } = poi
 const { tiles3dEnabled, tiles3dLoading } = tiles3d
 const { transitEnabled } = transit
 const { enabled: governmentEnabled } = gov
@@ -357,8 +154,9 @@ const { enabled: condosEnabled } = condo
 const { enabled: hubsEnabled } = hub
 const { enabled: meshEnabled } = mesh
 const {
-  trackersEnabled, trackerPositionsList, energyCellsEnabled,
-  iotPopoverOpen, iotTrackersExpanded, showIoTPreview, hideIoTPreview,
+  trackersEnabled, trackerPositionsList, meshRouterPositionsList,
+  energyCellsEnabled, energyCellsList, envStationsEnabled, envStationsList,
+  iotPopoverOpen, showIoTPreview, hideIoTPreview,
 } = iot
 const { measureActive, measureMode } = measure
 const { sunStudyActive } = sunStudy
@@ -371,13 +169,18 @@ const { urbanActive } = urban
 const layersPopoverOpen = ref(false)
 const architectPopoverOpen = ref(false)
 
-// Close popovers on outside click (button/panel clicks use @click.stop)
-const onDocumentClick = () => {
-  iotPopoverOpen.value = false
-  hideIoTPreview()
+const anyPopoverOpen = computed(() =>
+  layersPopoverOpen.value || architectPopoverOpen.value || iotPopoverOpen.value)
+
+const closeAllPopovers = () => {
   layersPopoverOpen.value = false
   architectPopoverOpen.value = false
+  iotPopoverOpen.value = false
+  hideIoTPreview()
 }
+
+// Close popovers on outside click (button/panel clicks use @click.stop)
+const onDocumentClick = () => closeAllPopovers()
 onMounted(() => document.addEventListener('click', onDocumentClick))
 onActivated(() => document.addEventListener('click', onDocumentClick))
 onDeactivated(() => document.removeEventListener('click', onDocumentClick))
@@ -400,9 +203,74 @@ const toggle3DTiles = () => {
   tiles3d.toggle()
 }
 
+// ======== Layers tile matrix ========
+
+const layerMatrixGroups = computed(() => [
+  {
+    id: 'imagery',
+    label: t('map.controls.imagery'),
+    items: [
+      { id: 'aerial', icon: Satellite, label: t('map.layers.aerial'), active: openSkyEnabled.value },
+      { id: 'satellite', icon: ImageIcon, label: t('map.layers.satellite'), active: satelliteEnabled.value },
+      { id: 'tiles3d', icon: Box, label: t('map.layers.aerial_3d'), active: tiles3dEnabled.value, loading: tiles3dLoading.value },
+    ],
+  },
+  {
+    id: 'data',
+    label: t('map.controls.data_layers'),
+    items: [
+      { id: 'transit', icon: Bus, label: t('map.layers.transit'), active: transitEnabled.value, dot: !!transit.activeRouteFilter.value },
+      { id: 'poi', icon: MapPin, label: t('map.controls.poi_short'), active: poiEnabled.value },
+      { id: 'government', icon: Landmark, label: t('map.layers.government'), active: governmentEnabled.value },
+      { id: 'churches', icon: Cross, label: t('map.layers.churches'), active: churchEnabled.value },
+      { id: 'condos', icon: Building2, label: t('map.layers.condominiums'), active: condosEnabled.value },
+      { id: 'hubs', icon: Package, label: t('map.layers.hubs'), active: hubsEnabled.value },
+      { id: 'mesh', icon: Wifi, label: t('map.layers.mesh_network'), active: meshEnabled.value },
+      { id: 'energy', icon: Zap, label: t('map.layers.energy'), active: energyCellsEnabled.value },
+      { id: 'environment', icon: Wind, label: t('map.layers.environment'), active: envStationsEnabled.value },
+    ],
+  },
+])
+
+const activeLayerCount = computed(() =>
+  layerMatrixGroups.value.reduce((n, g) => n + g.items.filter((it) => it.active).length, 0))
+
+function onLayerPick(id: string) {
+  switch (id) {
+    case 'aerial': toggleOpenSkyLayer(); break
+    case 'satellite': satellite.toggleLayer(); break
+    case 'tiles3d': toggle3DTiles(); break
+    case 'transit': transit.toggleLayer(); break
+    case 'poi': poi.toggle(); break
+    case 'government': gov.toggle(); break
+    case 'churches': church.toggle(); break
+    case 'condos': condo.toggle(); break
+    case 'hubs': hub.toggle(); break
+    case 'mesh': mesh.toggle(); break
+    case 'energy': iot.toggleEnergyCells(); break
+    case 'environment': iot.toggleEnvStations(); break
+  }
+}
+
 // ======== Map tools: one active at a time ========
 
-type Tool = 'measure-distance' | 'measure-area' | 'sun' | 'isochrone' | 'droneReach' | 'urban'
+type Tool = 'measure-distance' | 'measure-area' | 'sun' | 'isochrone' | 'droneReach' | 'urban' | 'opensky'
+
+const toolMatrixGroups = computed(() => [{
+  id: 'tools',
+  items: [
+    { id: 'measure-distance', icon: Ruler, label: t('map.architect.measure'), active: measureActive.value && measureMode.value === 'distance' },
+    { id: 'measure-area', icon: Pentagon, label: t('map.architect.measure_area'), active: measureActive.value && measureMode.value === 'area' },
+    { id: 'sun', icon: Sun, label: t('map.architect.sun_study'), active: sunStudyActive.value },
+    { id: 'isochrone', icon: Clock, label: t('map.architect.isochrone'), active: isochroneActive.value },
+    { id: 'droneReach', icon: Radio, label: t('map.architect.drone_reach'), active: droneReachActive.value },
+    { id: 'urban', icon: Building, label: t('map.urban.title'), active: urbanActive.value },
+    { id: 'opensky', icon: Grid3x3, label: t('map.opensky.plan_missions'), active: tileGridMode.value, loading: missionGenerating.value },
+  ],
+}])
+
+const activeToolLabel = computed(() =>
+  toolMatrixGroups.value[0].items.find((it) => it.active)?.label ?? t('map.controls.off'))
 
 function startTool(tool: Tool) {
   const keep = tool.startsWith('measure') ? 'measure' : tool
@@ -411,19 +279,24 @@ function startTool(tool: Tool) {
   if (keep !== 'isochrone' && isochroneActive.value) isochrone.stopIsochrone()
   if (keep !== 'droneReach' && droneReachActive.value) droneReach.stopDroneReach()
   if (keep !== 'urban' && urbanActive.value) urban.stopUrban()
+  if (keep !== 'opensky' && tileGridMode.value) openSky.toggleTileGrid()
   if (tool === 'measure-distance') measure.toggleMeasure('distance')
   else if (tool === 'measure-area') measure.toggleMeasure('area')
   else if (tool === 'sun') sunStudy.toggleSunStudy()
   else if (tool === 'isochrone') isochrone.toggleIsochrone()
   else if (tool === 'droneReach') droneReach.toggleDroneReach()
+  else if (tool === 'opensky') openSky.toggleTileGrid()
   else urban.toggleUrban()
   architectPopoverOpen.value = false
 }
 
-// ======== My Homes (properties) in the IoT popover ========
+function onToolPick(id: string) {
+  startTool(id as Tool)
+}
+
+// ======== IoT device console ========
 
 const propertyStore = usePropertyStore()
-const iotHomesExpanded = ref(true)
 const propertiesLoaded = ref(false)
 
 watch(iotPopoverOpen, async (open) => {
@@ -433,27 +306,40 @@ watch(iotPopoverOpen, async (open) => {
   }
 })
 
-const propertyTypeIcon = (type: string) => {
-  switch (type) {
-    case 'apartment': return Building2
-    case 'garage': return Warehouse
-    case 'land': return LandPlot
-    default: return Home
+const iotStats = computed(() => {
+  const trackers = trackerPositionsList.value || []
+  const routers = meshRouterPositionsList.value || []
+  const cells = energyCellsList.value || []
+  const stations = envStationsList.value || []
+  const online = trackers.filter((tr: any) => tr.traccar_status === 'online').length
+    + routers.filter((r: any) => r.status === 'online').length
+    + cells.filter((c: any) => c.status !== 'OFFLINE').length
+    + stations.filter((s: any) => !s.stale).length
+  return { online, total: trackers.length + routers.length + cells.length + stations.length }
+})
+
+function onConsoleSelect(kind: string, item: any) {
+  switch (kind) {
+    case 'home': emit('select-property', item); break
+    case 'tracker': emit('select-tracker', item); break
+    case 'router': iot.flyToMeshRouter(item.latitude, item.longitude, item.name); break
+    case 'energy': iot.flyToEnergyCell(item.latitude, item.longitude, item.name); break
+    case 'env': iot.flyToEnvStation(item.latitude, item.longitude, item.name); break
   }
 }
 
-/** Returns age in minutes since last tracker update, or 0 if fresh/unavailable. */
-const trackerSignalAge = (t: any): number => {
-  if (!t.last_update) return 0
-  return Math.floor((Date.now() - new Date(t.last_update).getTime()) / 60_000)
+function onConsoleToggleLayer(kind: string) {
+  switch (kind) {
+    case 'tracker': iot.toggleTrackers(); break
+    case 'router': mesh.toggle(); break
+    case 'energy': iot.toggleEnergyCells(); break
+    case 'env': iot.toggleEnvStations(); break
+  }
 }
 
-const trackerSignalAgeText = (t: any): string => {
-  const min = trackerSignalAge(t)
-  if (min < 60) return `${min}m`
-  const h = Math.floor(min / 60)
-  const rem = min % 60
-  return rem > 0 ? `${h}h${rem}m` : `${h}h`
+function onPreview(pos: { lat: number; lon: number } | null) {
+  if (pos) showIoTPreview(pos.lat, pos.lon)
+  else hideIoTPreview()
 }
 </script>
 
@@ -523,252 +409,157 @@ const trackerSignalAgeText = (t: any): string => {
   background: var(--color-primary-900, #422006);
 }
 
-.opensky-btn.active {
-  background: var(--color-secondary);
-  color: white;
+/* Dark selector repeated after the dark hover rule to win the cascade */
+.opensky-btn.active,
+:root.dark .opensky-btn.active {
+  background: var(--color-primary, #ffe216);
+  color: #171717;
 }
 
-/* Layers popover */
-.layers-control {
-  position: relative;
+/* ── Console popovers (desktop) / bottom sheets (phones) ── */
+
+.mc-backdrop {
+  display: none;
 }
 
-.layers-popover {
+.mc-pop {
   position: absolute;
-  right: 48px;
+  right: 54px;
   top: 0;
-  width: 190px;
-  background: var(--color-surface);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  z-index: 1001;
-}
-
-.layers-popover-item {
+  z-index: 1003;
+  width: 264px;
+  max-height: calc(100dvh - 220px - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 10px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-  font-size: 13px;
-  color: var(--color-text);
-  transition: background 0.15s;
+  flex-direction: column;
+  padding: 10px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  border-radius: 12px;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+/* Floating element in dark mode = solid fill, never tinted alpha */
+:root.dark .mc-pop {
+  background: #171717;
+  border-color: #404040;
 }
 
-.layers-popover-item + .layers-popover-item {
-  border-top: 1px solid var(--color-border);
+.mc-pop-iot {
+  width: 300px;
 }
 
-.layers-popover-item:hover {
-  background: var(--color-primary-100, #fef9c3);
-}
-:root.dark .layers-popover-item:hover {
-  background: var(--color-primary-900, #422006);
-}
+.mc-sheet-handle { display: none; }
 
-.layers-popover-item.active {
-  background: var(--color-secondary-50, #eff6ff);
-}
-:root.dark .layers-popover-item.active {
-  background: rgba(59, 130, 246, 0.15);
-}
-
-.layers-popover-label {
-  flex: 1;
-  white-space: nowrap;
-}
-
-/* Map Tools */
-.architect-control {
-  position: relative;
-}
-
-/* Tracker popover */
-.tracker-control {
-  position: relative;
-}
-
-.iot-section-toggle {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.iot-chevron {
-  transition: transform 0.15s;
+.mc-pop-head {
   flex-shrink: 0;
-}
-
-.iot-chevron.expanded {
-  transform: rotate(90deg);
-}
-
-.tracker-popover {
-  position: absolute;
-  right: 48px;
-  top: 0;
-  width: 210px;
-  /* dvh + safe-area so the list tail does not slide under the Android nav bar */
-  max-height: calc(100dvh - 300px - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
-  overflow-y: auto;
-  background: var(--color-surface);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1001;
-}
-
-.tracker-popover-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.tracker-popover-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.tracker-eye-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-}
-
-.tracker-eye-btn:hover {
-  color: var(--color-secondary);
-}
-
-.tracker-popover-empty {
-  padding: 12px 10px;
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: 12px;
-}
-
-.tracker-popover-item {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-  font-size: 12px;
+  padding: 2px 2px 10px;
+}
+
+.mc-pop-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--color-text);
-  transition: background 0.15s;
 }
 
-.tracker-popover-item:hover {
-  background: var(--color-primary-100, #fef9c3);
-}
-:root.dark .tracker-popover-item:hover {
-  background: var(--color-primary-900, #422006);
-}
-
-.tracker-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.tracker-status-dot.online { background: var(--color-success); }
-.tracker-status-dot.offline { background: var(--color-error); }
-.tracker-status-dot.unknown { background: var(--color-text-muted); }
-
-.tracker-item-name {
-  flex: 1;
+.mc-pop-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-text-muted, #737373);
+  border: 1px solid var(--color-border, #e5e5e5);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 60%;
 }
 
-.tracker-item-speed {
-  color: var(--color-text-muted);
-  font-size: 11px;
+.mc-online-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success, #059669);
   flex-shrink: 0;
 }
 
-.tracker-item-signal-lost {
-  color: var(--color-error);
-  font-size: 10px;
-  flex-shrink: 0;
-  opacity: 0.8;
-}
-
-/* OpenSky mission-planning hint bar */
-.opensky-plan-bar {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1001;
+/* Body scrolls as a fallback (rigid tile matrix on a short viewport); the
+   device console manages its own inner list scroll via the flex chain.
+   6px padding + negative margin leaves room for the reticle ticks (5px)
+   without clipping them against the scroll container edge. */
+.mc-pop-body {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  background: var(--color-surface);
-  border-radius: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  white-space: nowrap;
-  pointer-events: none;
-  font-size: 13px;
-}
-:root.dark .opensky-plan-bar {
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(8px);
-}
-.opensky-plan-tile {
-  font-weight: 700;
-  color: #3b82f6;
-  font-variant-numeric: tabular-nums;
-}
-.opensky-plan-sep {
-  color: var(--color-text-muted);
-  opacity: 0.5;
-}
-.opensky-plan-budget {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-}
-.opensky-plan-level {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.opensky-plan-desc {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-.opensky-plan-hint {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  font-style: italic;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 6px;
+  margin: -6px;
 }
 
-@media (max-width: 640px) {
-  .opensky-plan-bar {
-    left: 10px;
-    right: 10px;
-    transform: none;
-    justify-content: center;
-    flex-wrap: wrap;
-    font-size: 11px;
-    padding: 6px 10px;
+.mc-pop-enter-active { transition: opacity 0.12s ease-out, transform 0.12s ease-out; }
+.mc-pop-leave-active { transition: opacity 0.1s ease-in, transform 0.1s ease-in; }
+.mc-pop-enter-from,
+.mc-pop-leave-to { opacity: 0; transform: translateX(4px) scale(0.98); }
+
+.mc-backdrop-enter-active,
+.mc-backdrop-leave-active { transition: opacity 0.2s; }
+.mc-backdrop-enter-from,
+.mc-backdrop-leave-to { opacity: 0; }
+
+/* Phones: fused full-bleed bottom sheet — capped height, internal scroll,
+   safe-area padded (Android gesture bar overlays the viewport bottom). */
+@media (max-width: 767px) {
+  .mc-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 1002;
   }
+
+  .mc-pop,
+  .mc-pop-iot {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: auto;
+    max-height: 76dvh;
+    border-radius: 18px 18px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 0 12px calc(10px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18);
+  }
+
+  .mc-sheet-handle {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 6px;
+    flex-shrink: 0;
+  }
+  .mc-sheet-handle span {
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-border, #d4d4d4);
+  }
+
+  .mc-pop-enter-active { transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1); }
+  .mc-pop-leave-active { transition: transform 0.18s ease-in; }
+  .mc-pop-enter-from,
+  .mc-pop-leave-to { opacity: 1; transform: translateY(100%); }
 }
+
 </style>

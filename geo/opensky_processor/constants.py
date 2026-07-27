@@ -67,8 +67,8 @@ SATELLITE_ECC_MIN_CC = 0.15  # Minimum ECC correlation coefficient for satellite
 # Mesh processing (local temp on Hetzner, tools installed via npm/pip)
 MESHES_LOCAL_DIR = f"{OPENSKY_BASE}/meshes"
 SKYSTORE_3DTILES = "/skystore/opensky-3dtiles"
-OBJ2GLTF_PATH = shutil.which("obj2gltf") or "/home/deploy/.nvm/versions/node/v24.5.0/bin/obj2gltf"
-GLTF_TRANSFORM_PATH = shutil.which("gltf-transform") or "/home/deploy/.nvm/versions/node/v24.5.0/bin/gltf-transform"
+OBJ2GLTF_PATH = shutil.which("obj2gltf") or "/home/deploy/.nvm/versions/node/v24.18.0/bin/obj2gltf"
+GLTF_TRANSFORM_PATH = shutil.which("gltf-transform") or "/home/deploy/.nvm/versions/node/v24.18.0/bin/gltf-transform"
 NODE_BIN_DIR = os.path.dirname(OBJ2GLTF_PATH)
 
 

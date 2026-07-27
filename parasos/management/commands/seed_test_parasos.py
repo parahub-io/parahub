@@ -32,11 +32,14 @@ class Command(BaseCommand):
         norn = Profile.objects.filter(local_name='norn', instance__domain='parahub.io').first()
 
         if reset:
-            count = SOSResponse.objects.all().delete()[0]
-            count += SOSAlert.objects.all().delete()[0]
-            count += SafetyGroupMember.objects.all().delete()[0]
-            count += SafetyGroup.objects.all().delete()[0]
-            self.stdout.write(self.style.WARNING(f'Deleted {count} ParaSOS objects'))
+            # Only wipe groups created by test accounts — this command runs
+            # against the production DB, which holds real users' groups
+            test_groups = SafetyGroup.objects.filter(created_by__account__is_test=True)
+            count = SOSResponse.objects.filter(alert__group__in=test_groups).delete()[0]
+            count += SOSAlert.objects.filter(group__in=test_groups).delete()[0]
+            count += SafetyGroupMember.objects.filter(group__in=test_groups).delete()[0]
+            count += test_groups.delete()[0]
+            self.stdout.write(self.style.WARNING(f'Deleted {count} test ParaSOS objects'))
 
         # === Group 1: Podame village (active, with SOS) ===
         podame, created = SafetyGroup.objects.get_or_create(

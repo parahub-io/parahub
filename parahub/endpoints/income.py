@@ -32,7 +32,9 @@ class IncomeConfigResponse(BaseModel):
 
 class DonationCreateRequest(BaseModel):
     source: str  # WALLET_SEND, ADS_CAMPAIGN, MANUAL
-    source_amount_sats: int
+    # Optional: only meaningful when a donation was actually attempted. A SKIPPED
+    # record carries no source amount (see record_donation).
+    source_amount_sats: int = 0
     donation_amount_sats: int
     support_level_at_time: Decimal
     ln_payment_hash: str = ''
@@ -107,10 +109,17 @@ def record_donation(request, data: DonationCreateRequest):
     if data.source not in ('WALLET_SEND', 'ADS_CAMPAIGN', 'MANUAL'):
         raise HttpError(400, "Invalid source")
 
+    # Data minimisation: the source amount only justifies the donation that was
+    # derived from it. A SKIPPED record means nothing was donated, so keeping the
+    # underlying P2P transfer amount would build a per-user outbound-volume log
+    # serving no purpose here. Enforced server-side so stale cached clients that
+    # still send it cannot reintroduce the field.
+    source_amount_sats = 0 if data.status == 'SKIPPED' else data.source_amount_sats
+
     donation = Donation.objects.create(
         profile=profile,
         source=data.source,
-        source_amount_sats=data.source_amount_sats,
+        source_amount_sats=source_amount_sats,
         donation_amount_sats=data.donation_amount_sats,
         support_level_at_time=data.support_level_at_time,
         ln_payment_hash=data.ln_payment_hash,

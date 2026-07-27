@@ -19,6 +19,7 @@ from parahub.auth import ProfileAuth, OptionalProfileAuth
 from parahub.ratelimit import ratelimit
 from geo.models import Territory
 from .models import Poll, PollContext, PollOption, OpinionVote
+from .access import viewer_is_privileged, exclude_demo_polls
 from . import civic
 
 logger = logging.getLogger(__name__)
@@ -55,20 +56,26 @@ class CivicFeedItemSchema(BaseModel):
     id: str
     object_type: str = "poll"
     title: str
+    title_i18n: Dict[str, str] = {}  # curated-text i18n; empty = fall back to base fields
     description: str
+    description_i18n: Dict[str, str] = {}
     status: str
     poll_class: str
     ballot_mode: str
-    scope_level: str  # country|region|municipality|parish|group
+    scope_level: str  # eu|country|region|municipality|parish|group
     scope_name: str = ''
     territory_id: Optional[str] = None
     civic_destination: str = ''
+    civic_destination_i18n: Dict[str, str] = {}
     civic_outcome: str = ''
     end_time: Optional[str] = None
     created_at: str
     n_display: str = '0'
     has_voted: bool = False
     comments_enabled: bool = False
+    # ECI gauge (EU-scope polls only): support toward a European Citizens' Initiative
+    eci_supporters: int = 0
+    eci_countries: int = 0
 
 
 # ============================================================================
@@ -128,8 +135,16 @@ def set_residency(request, data: ResidencyRequest):
 
     territory = get_object_or_404(Territory, id=data.territory_id, is_active=True)
 
-    changing = (profile.residency_territory_id
-                and profile.residency_territory_id != territory.id)
+    moving = (profile.residency_territory_id
+              and profile.residency_territory_id != territory.id)
+    # Refining downward along the current chain (e.g. municipality → one of its
+    # parishes) is equivalent to having picked that parish on first set — it is
+    # not poll-shopping, so it skips the cooldown and does NOT reset its window.
+    # Sideways hops (parish → sibling parish) stay guarded.
+    refining = moving and profile.residency_territory_id in {
+        t.id for t in territory.ancestor_chain()[1:]
+    }
+    changing = moving and not refining
     if changing and profile.residency_changed_at:
         until = profile.residency_changed_at + timedelta(days=settings.CIVIC_RESIDENCY_COOLDOWN_DAYS)
         if until > timezone.now():
@@ -144,6 +159,49 @@ def set_residency(request, data: ResidencyRequest):
         profile.country_code = root.code
     profile.save(update_fields=['residency_territory', 'residency_changed_at', 'country_code'])
     return get_residency(request)
+
+
+# Simplified CAOP boundaries can miss a point standing tens of meters inside the
+# true parish (observed ~47 m), so near-boundary homes also offer the neighbours
+RESIDENCY_CANDIDATE_RADIUS_M = 150
+
+
+@civic_router.get("/residency/candidates/", auth=ProfileAuth())
+@ratelimit(group='civic:residency_candidates', key='user', rate='20/m')
+def residency_candidates(request):
+    """Parish suggestions derived from the viewer's property locations.
+
+    Suggest-and-confirm only — never auto-assigns. Properties outside imported
+    parish coverage (e.g. abroad) are omitted."""
+    from iot.models import Property
+    from django.contrib.gis.db.models.functions import Distance
+    from django.contrib.gis.measure import D
+
+    profile = request.auth_profile
+    out = []
+    for prop in Property.objects.filter(owner=profile).only('id', 'name', 'location'):
+        if not prop.location:
+            continue
+        territories = list(
+            Territory.objects.filter(
+                level=Territory.Level.PARISH, is_active=True,
+                geometry__dwithin=(prop.location, D(m=RESIDENCY_CANDIDATE_RADIUS_M)),
+            )
+            .annotate(distance=Distance('geometry', prop.location))
+            .order_by('distance')[:3]
+        )
+        if not territories:
+            continue
+        out.append({
+            'property_id': prop.id,
+            'property_name': prop.name,
+            'territories': [{
+                'id': t.id, 'level': t.level, 'country': t.country,
+                'code': t.code, 'name': t.name,
+                'distance_m': round(t.distance.m, 1),
+            } for t in territories],
+        })
+    return out
 
 
 # ============================================================================
@@ -228,17 +286,28 @@ def civic_feed(request, scope: Optional[str] = None, country: Optional[str] = No
 
     chain = []
     if profile:
-        chain = civic.residency_chain(profile)
+        # Residency chain + parishes of owned properties (with ancestors): the
+        # feed surfaces every territory the viewer has a stake in; voting and
+        # idea gates stay residency-only
+        chain = civic.interest_territories(profile)
     elif country:
-        c = Territory.objects.filter(level=Territory.Level.COUNTRY, code=country.upper()).first()
+        c = (Territory.objects.select_related('parent')
+             .filter(level=Territory.Level.COUNTRY, code=country.upper()).first())
         if c:
-            chain = [c]
+            # Roll up so EU-member visitors see the EU barometer too
+            chain = c.ancestor_chain()
 
-    territory_levels = {'parish', 'municipality', 'region', 'country'}
+    territory_levels = {'parish', 'municipality', 'region', 'country', 'eu'}
     community_levels = {'household', 'condominium'}
     if scope and scope != 'all':
         if scope in territory_levels:
             chain = [t for t in chain if t.level == scope]
+            # The EU tab is a public showcase — surface the barometer to anyone,
+            # even anonymous or non-EU viewers (voting stays residency-gated).
+            if scope == 'eu' and not chain:
+                eu = Territory.objects.filter(level=Territory.Level.EU, code='EU').first()
+                if eu:
+                    chain = [eu]
         else:
             chain = []
 
@@ -264,6 +333,14 @@ def civic_feed(request, scope: Optional[str] = None, country: Optional[str] = No
         )
         .select_related('context')
         .distinct()
+    )
+
+    # Seed/demo polls are staff/test-only — the public sees a clean feed
+    if not viewer_is_privileged(request):
+        qs = exclude_demo_polls(qs)
+
+    qs = (
+        qs
         .annotate(active_rank=Case(
             When(status=Poll.Status.ACTIVE, then=Value(0)),
             default=Value(1), output_field=IntegerField(),
@@ -301,6 +378,25 @@ def civic_feed(request, scope: Optional[str] = None, country: Optional[str] = No
             .values_list('poll_id').annotate(c=Count('id')).values_list('poll_id', 'c')
         ))
 
+    # ECI gauge: distinct EU-member countries among voters (EU-scope polls only)
+    eci_countries_by_poll: Dict[str, int] = {}
+    eu_terr_ids = {t.id for t in chain if t.level == Territory.Level.EU}
+    eu_poll_ids = [p.id for p in territory_polls if p.context.context_id in eu_terr_ids]
+    if eu_poll_ids:
+        from collections import defaultdict
+        dicos_by_poll = defaultdict(set)
+        all_dicos = set()
+        for pid, dico in (OpinionVote.objects.filter(poll_id__in=eu_poll_ids)
+                          .values_list('poll_id', 'voter_territory')):
+            if dico:
+                dicos_by_poll[pid].add(dico)
+                all_dicos.add(dico)
+        dico_country = dict(Territory.objects.filter(
+            level=Territory.Level.MUNICIPALITY, code__in=all_dicos
+        ).values_list('code', 'country')) if all_dicos else {}
+        for pid, dicos in dicos_by_poll.items():
+            eci_countries_by_poll[pid] = len({dico_country[d] for d in dicos if d in dico_country})
+
     # Community scope names
     household_ids = [p.context.context_id for p in community_polls
                      if p.context.context_type == PollContext.ContextType.HOUSEHOLD]
@@ -322,26 +418,33 @@ def civic_feed(request, scope: Optional[str] = None, country: Optional[str] = No
         if p.context.context_type == PollContext.ContextType.TERRITORY:
             territory = chain_by_id.get(p.context.context_id)
             items.append(CivicFeedItemSchema(
-                id=p.id, title=p.title, description=p.description, status=p.status,
+                id=p.id, title=p.title, title_i18n=p.title_i18n,
+                description=p.description, description_i18n=p.description_i18n, status=p.status,
                 poll_class=p.poll_class, ballot_mode=p.ballot_mode,
                 scope_level=territory.level if territory else 'country',
                 scope_name=territory.name if territory else '',
                 territory_id=territory.id if territory else None,
-                civic_destination=p.civic_destination, civic_outcome=p.civic_outcome,
+                civic_destination=p.civic_destination,
+                civic_destination_i18n=p.civic_destination_i18n, civic_outcome=p.civic_outcome,
                 end_time=p.end_time.isoformat() if p.end_time else None,
                 created_at=p.created_at.isoformat(),
                 n_display=civic._n_display(n),
                 has_voted=p.id in voted_ids,
                 comments_enabled=(territory.level in COMMENTABLE_LEVELS) if territory else False,
+                eci_supporters=(civic._n_quantized(n)
+                                if (territory and territory.level == Territory.Level.EU) else 0),
+                eci_countries=eci_countries_by_poll.get(p.id, 0),
             ))
         else:
             items.append(CivicFeedItemSchema(
-                id=p.id, title=p.title, description=p.description, status=p.status,
+                id=p.id, title=p.title, title_i18n=p.title_i18n,
+                description=p.description, description_i18n=p.description_i18n, status=p.status,
                 poll_class=p.poll_class, ballot_mode=p.ballot_mode,
                 scope_level=p.context.context_type,
                 scope_name=names.get(p.context.context_id, ''),
                 territory_id=None,
-                civic_destination=p.civic_destination, civic_outcome=p.civic_outcome,
+                civic_destination=p.civic_destination,
+                civic_destination_i18n=p.civic_destination_i18n, civic_outcome=p.civic_outcome,
                 end_time=p.end_time.isoformat() if p.end_time else None,
                 created_at=p.created_at.isoformat(),
                 n_display=str(n),  # open ballots: exact counts, identified anyway
@@ -676,7 +779,8 @@ def list_ideas(request, scope: Optional[str] = None, country: Optional[str] = No
 
     chain = []
     if profile:
-        chain = civic.residency_chain(profile)
+        # Same visibility scoping as the poll feed (stake = residency + properties)
+        chain = civic.interest_territories(profile)
     elif country:
         c = Territory.objects.filter(level=Territory.Level.COUNTRY, code=country.upper()).first()
         if c:

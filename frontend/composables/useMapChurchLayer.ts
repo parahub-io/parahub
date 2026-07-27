@@ -3,7 +3,7 @@
  * Public, no auth required.
  */
 
-import { createToggleableDataLayer, roundedSquarePath } from '~/composables/useMapToggleableLayer'
+import { createToggleableDataLayer, roundedSquarePath, strokeMarkerOutline } from '~/composables/useMapToggleableLayer'
 
 // Cross on rounded square — warm rose (#9f1239)
 function ensureChurchIcon(map: any) {
@@ -17,6 +17,7 @@ function ensureChurchIcon(map: any) {
   roundedSquarePath(ctx, s, 3)
   ctx.fillStyle = '#9f1239'
   ctx.fill()
+  strokeMarkerOutline(ctx)
 
   // White cross
   ctx.fillStyle = '#ffffff'

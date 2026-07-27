@@ -1,9 +1,88 @@
 {
+  "data_rights": {
+    "title": "Ihre Daten und das Recht auf Vergessenwerden",
+    "lead": "Eine Zusammenfassung in klarer Sprache: was wir verarbeiten, auf welcher Grundlage, wie lange wir es aufbewahren und wie Sie sich selbst löschen — einschließlich der ehrlichen Antwort darauf, was mit Ihren Signaturen und Bürgschaften geschieht, wenn Sie gehen.",
+    "full_policy": "Diese Seite ist eine Zusammenfassung. Das förmliche Dokument finden Sie in der vollständigen {link}.",
+    "full_policy_link": "Datenschutzerklärung",
+    "categories": {
+      "title": "Welche Daten wir verarbeiten",
+      "lead": "Wir bewahren die folgenden Daten nur so lange auf, wie ein Zweck und eine Rechtsgrundlage für sie gelten.",
+      "identity_label": "Identität und Konto",
+      "identity": "Ihre Anmeldekennung (als gehashte Netzwerkadresse gespeichert), Ihr Benutzername und ein Einweg-Hash Ihres Passworts. Das Passwort selbst speichern wir nie.",
+      "profile_label": "Profil",
+      "profile": "Anzeigename, optionale Biografie, Avatar und das Gebiet, dem Sie sich zuordnen. Pseudonyme Profile erfordern keinen Klarnamen.",
+      "pgp_label": "Öffentlicher PGP-Schlüssel",
+      "pgp": "Ihr öffentlicher Schlüssel wird in einem Transparenz-Schlüsselbund veröffentlicht, damit jede Person Ihre Signaturen prüfen kann. Ihr privater Schlüssel wird auf Ihrem Gerät erzeugt und erreicht unsere Server nie.",
+      "content_label": "Von Ihnen erstellte Inhalte",
+      "content": "Anzeigen, Beiträge, Kommentare, Fotos und andere Inhalte, die Sie veröffentlichen.",
+      "wot_label": "Web of Trust",
+      "wot": "Wer Sie verifiziert hat und wen Sie verifiziert haben — die Kanten des Vertrauensgraphen.",
+      "agreements_label": "Signierte Vereinbarungen",
+      "agreements": "Verträge und Schuldeinträge, die Sie eingehen, samt ihren PGP-Signaturen und Zeitstempeln.",
+      "logs_label": "Technische Protokolle",
+      "logs": "Server-Zugriffsprotokolle (einschließlich IP-Adresse), kurz zur Sicherheit und Missbrauchsprävention aufbewahrt, sowie ein Sitzungs-Cookie, damit Sie angemeldet bleiben.",
+      "matrix_label": "Chat-Kennung",
+      "matrix": "Wenn Sie den Chat nutzen, eine mit Ihrem Benutzernamen verknüpfte Matrix-Konto-Kennung.",
+      "not_collected_title": "Was wir bewusst nicht erheben",
+      "not_collected_1": "Besondere Kategorien von Daten (Gesundheit, Überzeugungen, Biometrie) werden standardmäßig nicht erhoben; wo eine Funktion sie benötigt — etwa eine Bürgerabstimmung — geschieht das freiwillig, mit ausdrücklicher Einwilligung und pseudonym von Grund auf.",
+      "not_collected_2": "Kein Standort-Tracking im Hintergrund — Ihre Kartenposition liegt in Ihrem Browser, nicht in unserer Datenbank.",
+      "not_collected_3": "Niemals private kryptografische Schlüssel.",
+      "not_collected_4": "Wir verkaufen Ihre Daten niemals."
+    },
+    "basis": {
+      "title": "Auf welcher Rechtsgrundlage",
+      "lead": "Nach der DSGVO verarbeiten wir personenbezogene Daten nur, wenn eine dieser Grundlagen zutrifft:",
+      "consent_label": "Einwilligung — Art. 6(1)(a)",
+      "consent": "Für alles Optionale: Chat, Bürgerabstimmungen, Mitteilungen, die Sie abonnieren. Jederzeit widerrufbar.",
+      "contract_label": "Vertrag — Art. 6(1)(b)",
+      "contract": "Um das Konto und die von Ihnen gewünschten Funktionen zu betreiben — Verträge signieren, Ihre Anzeigen aktiv halten.",
+      "legitimate_label": "Berechtigtes Interesse — Art. 6(1)(f)",
+      "legitimate": "Sicherheit, Missbrauchsprävention und ein ehrlicher Vertrauensgraph gegen Sybil-Angriffe.",
+      "legal_label": "Rechtliche Verpflichtung — Art. 6(1)(c)",
+      "legal": "Wenn portugiesisches oder EU-Recht uns zur Aufbewahrung oder Offenlegung bestimmter Aufzeichnungen verpflichtet."
+    },
+    "retention": {
+      "title": "Wie lange wir sie aufbewahren",
+      "lead": "Nichts wird länger aufbewahrt, als sein Zweck es erfordert.",
+      "account_label": "Konto, Profil und Inhalte",
+      "account": "Aufbewahrt, bis Sie sie löschen oder Ihr Konto schließen. Kein stilles Ablaufen.",
+      "logs_label": "Technische Protokolle",
+      "logs": "Zugriffsprotokolle, die Ihre IP-Adresse enthalten, werden nach etwa 14 Tagen rotiert.",
+      "agreements_label": "Signierte Verträge und Schulden",
+      "agreements": "Sie überdauern Ihr Konto. Wenn Sie gehen, wird Ihre Identität von ihnen getrennt, doch der Eintrag selbst verbleibt bei der anderen Partei — denn er ist ihr Nachweis einer Vereinbarung, die Sie tatsächlich geschlossen haben (siehe unten).",
+      "audit_label": "Kryptografische Audit-Anker",
+      "audit": "Der Transparenz-Schlüsselbund und die in Bitcoin verankerten Nachweis-Hashes sind konstruktionsbedingt nur-anfügend und können nicht umgeschrieben werden. Nach Ihrem Weggang bleiben sie — jedoch als pseudonyme Fingerabdrücke und Hashes, nicht mehr mit Ihrer Identität verknüpft."
+    },
+    "delete": {
+      "title": "So löschen Sie Ihr Konto",
+      "lead": "Die Löschung (Art. 17 DSGVO) erfolgt im Selbstbedienungsverfahren — Sie müssen uns nicht fragen:",
+      "step_1": "Öffnen Sie Profil → Daten und Datenschutz.",
+      "step_2": "Vorher empfohlen: Exportieren Sie Ihre Daten — ein Archiv mit Ihren Verträgen, Signaturen, Nachweisen und dem PGP-Schlüssel (Art. 20 DSGVO).",
+      "step_3": "Wählen Sie in der Gefahrenzone Konto löschen und tippen Sie zur Bestätigung DELETE.",
+      "effect_title": "Was die Löschung sofort entfernt",
+      "effect": "Ihre Profile, veröffentlichten Inhalte, Vertrauenskanten, Sitzung, Bürgerabstimmungen und das Chat-Konto. Es ist unumkehrbar — es gibt keine Wiederherstellungsfrist.",
+      "alt": "Kein Zugriff auf Ihr Konto? Schreiben Sie an {email}, und wir bearbeiten Ihre Anfrage."
+    },
+    "forgotten": {
+      "title": "Das Recht auf Vergessenwerden trifft auf das Web of Trust",
+      "lead": "Ein Netz, das auf signierten Aufzeichnungen und gegenseitigen Bürgschaften beruht, wirft eine ehrliche Frage auf: Wenn Vertrauen und Signaturen der Kern sind, was geschieht mit ihnen, wenn jemand sein Recht auf Vergessenwerden ausübt? So genau lösen wir das Spannungsverhältnis — und hier ziehen wir die Grenze.",
+      "erased_title": "Was wirklich gelöscht wird",
+      "erased": "Sie. Ihre Identität, Ihre Inhalte, Ihre Erreichbarkeit und jede lebende Vertrauenskante, die Sie halten. Danach kann Sie niemand mehr auf Parahub finden.",
+      "vouches_title": "Die Bürgschaften, die Sie anderen gaben",
+      "vouches": "Eine Verifizierung ist eine Aussage im Präsens — „ich, jetzt, bürge für diese Person“. Sie ist kein Besitz, der Sie überdauert. Wenn Sie gehen, gehen die Bürgschaften, die Sie gewährt haben, mit Ihnen. Wer von Ihnen verbürgt wurde, kann unter die Verifizierungsschwelle fallen und braucht eine frische Bürgschaft eines aktiven Mitglieds. Vertrauen wird nicht von jenen geerbt, die nicht mehr da sind — und genau das hält die Sybil-Abwehr sinnvoll.",
+      "agreements_title": "Die Vereinbarungen, die Sie signierten",
+      "agreements": "Hier liegt die Grenze. Ein Vertrag oder eine Schuld, die Sie signiert haben, ist nicht nur Ihr Datum — er ist zugleich der Nachweis der Gegenpartei für ein Geschäft, das Sie tatsächlich geschlossen haben, und eine Partei darf die Aufzeichnungen der anderen nicht umschreiben. Wenn Sie gehen, wird daher Ihr Name von der Vereinbarung getrennt (sie erscheint als entfernte Partei), während der signierte Eintrag bei der Gegenpartei verbleibt, samt Ihrer Signatur und deren Zeitstempel. Die DSGVO sieht dies vor: Das Recht auf Löschung tritt hinter die Geltendmachung, Ausübung oder Verteidigung von Rechtsansprüchen zurück (Art. 17(3)(e)).",
+      "crypto_title": "Die kryptografische Spur",
+      "crypto": "Signaturen werden gegen einen öffentlichen Transparenz-Schlüsselbund geprüft, und Nachweis-Hashes werden an der Bitcoin-Zeitachse verankert — beides von Natur aus nur-anfügend. Ein in eine öffentliche Kette geschriebener Hash lässt sich nicht zurücknehmen. Bei der Löschung wird Ihr öffentlicher Schlüssel als widerrufen markiert statt physisch getilgt, gerade damit jede Gegenpartei die Verträge, die sie rechtmäßig hält, weiterhin prüfen kann. Was bleibt, ist pseudonym: ein Fingerabdruck und eine Menge Hashes, nicht mehr an eine lebende Identität in unseren Systemen gebunden.",
+      "principle_title": "Das Prinzip",
+      "principle": "Die Löschung entfernt Sie aus dem lebenden Netz — vollständig. Sie schreibt nicht um, und kann nicht umschreiben, was andere wahrheitsgemäß über Vereinbarungen festgehalten haben, die Sie zu schließen wählten. Ihr Recht zu verschwinden endet genau dort, wo es die Erinnerung eines anderen an ein Versprechen überschreiben würde, das Sie ihm gegeben haben."
+    }
+  },
   "privacy": {
     "title": "Datenschutzerklärung für Parahub-Instanz",
     "version": "Version",
     "effective_date": "Datum des Inkrafttretens",
-    "intro": "Wir, {operator} (NIPC 519046161, nachfolgend 'Betreiber', 'wir'), die diese Parahub-Instanz (nachfolgend 'Dienst') verwalten, verpflichten uns zum Schutz Ihrer Privatsphäre und digitalen Souveränität. Parahub ist architektonisch so konzipiert, dass Nutzer die volle Kontrolle über ihre Daten und kryptografische Identität behalten. Diese Datenschutzerklärung erläutert, welche personenbezogenen Daten wir erheben, wie wir sie verwenden, verarbeiten und schützen sowie Ihre Rechte in Bezug auf Ihre Daten, in Übereinstimmung mit der Datenschutz-Grundverordnung (DSGVO).",
+    "intro": "Wir, {operator} (NIPC 519 190 904, nachfolgend 'Betreiber', 'wir'), die diese Parahub-Instanz (nachfolgend 'Dienst') verwalten, verpflichten uns zum Schutz Ihrer Privatsphäre und digitalen Souveränität. Parahub ist architektonisch so konzipiert, dass Nutzer die volle Kontrolle über ihre Daten und kryptografische Identität behalten. Diese Datenschutzerklärung erläutert, welche personenbezogenen Daten wir erheben, wie wir sie verwenden, verarbeiten und schützen sowie Ihre Rechte in Bezug auf Ihre Daten, in Übereinstimmung mit der Datenschutz-Grundverordnung (DSGVO).",
     "sections": {
       "controller": {
         "title": "Datenverantwortlicher",
@@ -40,6 +119,20 @@
           "location": "Standortdaten werden mit Datenschutz-Unschärfe verarbeitet (Annäherung auf einen Radius von 100m). Der genaue Standort wird niemals ohne Ihre ausdrückliche Zustimmung gespeichert oder weitergegeben.",
           "crypto": "Kryptografische private Schlüssel (PGP) werden ausschließlich auf Ihrem Gerät generiert und gespeichert. Der Server hat niemals Zugriff auf Ihre privaten Schlüssel — es werden nur öffentliche Schlüssel gespeichert. Dies ist ein grundlegendes architektonisches Prinzip, keine Richtlinienentscheidung."
         }
+      },
+      "mesh": {
+        "title": "Mesh-Netz (WiFi-Knoten und Gäste)",
+        "intro": "Das Parahub-Mesh ist ein Netz von WiFi-Knoten, die von ihren Betreibern unterhalten werden. Dort werden zwei Arten von Daten verarbeitet, und sie bleiben getrennt.",
+        "node_label": "Knotendaten",
+        "node": "Jeder Knoten sendet regelmäßig einen Heartbeat: Hardware- und MAC-Kennungen, Knotenschlüssel, Firmware-Version, Laufzeit, Verbindungsstatus und Verkehrszähler. Ein Knoten erscheint auf der öffentlichen Abdeckungskarte nur an dem Ort, den seine Betreiberin oder sein Betreiber festlegt, und wird dort nur bei ausdrücklicher Zustimmung namentlich genannt.",
+        "guest_label": "Gastgeräte",
+        "guest": "Der Knoten, der das Gastnetz terminiert, meldet die aktuellen DHCP-Leases der verbundenen Gastgeräte: WiFi-Adresse (MAC), lokale IP-Adresse und den Namen, unter dem sich das Gerät ankündigt. Damit lässt sich ein gekaufter oder verdienter Vollgeschwindigkeits-Pass dem richtigen Gerät zuordnen.",
+        "retention_label": "Speicherdauer",
+        "retention": "Lease-Daten werden nur als aktueller Zustand vorgehalten: Jeder Heartbeat ersetzt die vorherige Momentaufnahme, eine Historie entsteht nicht. Wir protokollieren nicht, welche Seiten Gäste besuchen, und Gastverkehr wird nicht inspiziert.",
+        "egress_label": "Internet-Ausgang",
+        "egress": "Gastverkehr verlässt das Netz über einen VPN-Tunnel und erreicht das Internet daher nicht über die Heim-IP-Adresse der Knotenbetreiberin oder des Knotenbetreibers. Der Verein betreibt den gemeinsamen Ausgang, dessen letzter Abschnitt bei einem kommerziellen VPN-Anbieter liegt, und verarbeitet die dafür minimal nötigen Verbindungsmetadaten.",
+        "basis_label": "Rechtsgrundlage",
+        "basis": "Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO) für die Zuordnung des Vollgeschwindigkeits-Passes zu deinem Gerät sowie berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO) am Betrieb und Schutz des Netzes. Die Peering-Bedingungen zwischen Knotenbetreibern stehen in der Mesh-Peering-Vereinbarung."
       },
       "legal_basis": {
         "title": "Rechtsgrundlage für die Datenverarbeitung (gemäß DSGVO)",
@@ -131,7 +224,7 @@
     "sections": {
       "about": {
         "title": "1. Über den Parahub-Dienst",
-        "text": "Parahub ist eine dezentrale, föderierte Open-Source-Softwareplattform, betrieben von Parahub - Associação (NIPC 519046161), einem gemeinnützigen privatrechtlichen Verein internationaler Reichweite mit Sitz in Portugal. Die Plattform dient der direkten Zusammenarbeit, dem Austausch, der Kommunikation und der gegenseitigen Hilfe zwischen Nutzern. Dieser Dienst ist eine der unabhängigen Instanzen (Knoten) des Parahub-Netzwerks. Der Betreiber stellt den Zugang zur Funktionalität dieser Instanz bereit. Die Plattform verwahrt, speichert oder verwaltet niemals Nutzermittel und fungiert nicht als Finanzintermediär. Der Verein wird durch seine Satzung (Estatutos) geregelt, die auf der Seite /estatutos verfügbar ist."
+        "text": "Parahub ist eine dezentrale, föderierte Open-Source-Softwareplattform, betrieben von Parahub - Associação (NIPC 519 190 904), einem gemeinnützigen privatrechtlichen Verein internationaler Reichweite mit Sitz in Portugal. Die Plattform dient der direkten Zusammenarbeit, dem Austausch, der Kommunikation und der gegenseitigen Hilfe zwischen Nutzern. Dieser Dienst ist eine der unabhängigen Instanzen (Knoten) des Parahub-Netzwerks. Der Betreiber stellt den Zugang zur Funktionalität dieser Instanz bereit. Die Plattform verwahrt, speichert oder verwaltet niemals Nutzermittel und fungiert nicht als Finanzintermediär. Der Verein wird durch seine Satzung (Estatutos) geregelt, die auf der Seite /estatutos verfügbar ist."
       },
       "acceptance": {
         "title": "2. Akzeptanz des Manifests, Verhaltenskodex und der Estatutos",
@@ -248,34 +341,15 @@
   },
   "imprint": {
     "title": "Impressum / Rechtliche Hinweise",
-    "intro": "Gesetzlich vorgeschriebene Informationen (Impressum / Rechtliche Hinweise)",
     "operator": {
-      "title": "Dienstbetreiber",
-      "email_label": "Rechtliche Anfragen",
-      "support_label": "Support"
-    },
-    "responsible": {
-      "title": "Verantwortlich für den Inhalt",
+      "title": "Dienstbetreiber / Verantwortlich für den Inhalt",
       "country": "Portugal"
     },
     "disclaimer": {
       "title": "Haftungsausschluss",
-      "content": {
-        "title": "Inhaltlicher Haftungsausschluss",
-        "text": "Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Die Betreiber der verlinkten Seiten sind ausschließlich für deren Inhalte verantwortlich."
-      },
-      "links": {
-        "title": "Externe Links",
-        "text": "Unsere Website enthält Links zu externen Webseiten Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber verantwortlich."
-      }
-    },
-    "contact": {
-      "title": "Kontaktinformationen",
-      "text": "Bei Anfragen kontaktieren Sie uns bitte:",
-      "legal": "Rechtliche Angelegenheiten",
-      "support": "Technischer Support",
-      "privacy": "Datenschutz",
-      "conduct": "Verstöße gegen den Verhaltenskodex"
+      "p2p": "Parahub ist Infrastruktur für direkte P2P-Interaktion: Der Betreiber ist keine Partei der Geschäfte zwischen Nutzern und kontrolliert nicht die von ihnen erstellten Inhalte — die Verantwortung dafür tragen deren Autoren. Details in den {link}.",
+      "p2p_link": "Nutzungsbedingungen",
+      "text": "Unsere Website enthält Links zu externen Webseiten Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber verantwortlich."
     }
   },
   "about": {
@@ -462,20 +536,15 @@
         "desc": "Machen Sie jedes Inserat per Zeitraum oder Zeitfenster buchbar. Echtzeit-Kalender, nie doppelt gebucht, sofort bestätigt oder auf Anfrage."
       }
     },
-    "principles": {
-      "title": "Unsere Prinzipien",
-      "noEscrow": "Niemals Gelder blockieren",
-      "clientCrypto": "Clientseitige Kryptographie",
-      "openSource": "Open Source",
-      "noFees": "Keine Plattformgebühren",
-      "directDemocracy": "Direkte Demokratie"
-    },
-    "quote": "Parahub ist kein Unternehmen. Es ist ein Protokoll für planetare Zusammenarbeit. Technologische Verkörperung von Gandhis und Tolstois Prinzipien des gewaltlosen Widerstands durch digitale Selbstversorgung und direkte Zusammenarbeit.",
     "hero": {
       "subtitle": "Föderierte Infrastruktur für direkte P2P-Zusammenarbeit, Handel und Kommunikation",
       "tagline": "Planetare Logistik • Keine Gebühren • Open Source"
     },
     "barterSystem": {
+      "debts": {
+        "title": "Schulden verrechnen sich über dieselben Zyklen",
+        "text": "In der Wallet erfasste P2P-Schulden fließen in denselben Tauschgraphen ein. Schuldet Bob Alice, Alice Carl und Carl Bob, wird der kleinste Betrag bei allen dreien zugleich getilgt; Schulden können sogar in gemischten Zyklen mit Artikeln stehen. Eine Schuld bestätigen beide Seiten, und mit Schlüssel wird sie PGP-signiert."
+      },
       "title": "Tauschhandel-Mechanismus",
       "why": {
         "title": "Warum Tauschhandel?",
@@ -817,12 +886,214 @@
         "text": "Vertrauensnetzwerk Stufe 2+ ist erforderlich, um als Fahrer zu senden. Dies stellt sicher, dass nur vertrauenswürdige Mitglieder als offizielle Fahrzeuge auf der Karte erscheinen."
       }
     },
+    "walletSystem": {
+      "title": "Lightning-Wallet",
+      "intro": "Eine non-custodial Bitcoin-Wallet, die vollständig in Ihrem Browser läuft. Der Parahub-Server hält niemals Guthaben, Schlüssel oder Wallet-Zustand — es gibt nichts einzufrieren, zu beschlagnahmen oder bei einem Angriff auf die Plattform zu verlieren. Lightning-Zahlungen kommen in Sekunden an; normale On-Chain-Transaktionen werden ebenfalls unterstützt.",
+      "flow": {
+        "title": "Erste Schritte",
+        "step1": "Wallet erstellen — eine Wiederherstellungsphrase aus 12 Wörtern wird auf Ihrem Gerät erzeugt und nirgendwohin gesendet. Aus derselben Phrase lässt sich auch Ihr PGP-Schlüsselpaar ableiten.",
+        "step2": "Wörter bestätigen und PIN festlegen. Die Phrase wird mit Ihrer PIN verschlüsselt und nur im Browser gespeichert.",
+        "step3": "Empfangen und senden — Lightning-Rechnungen, eine dauerhafte Empfangsadresse, QR-Codes und Kamera-Scanner. Beträge erscheinen in Ihrer Währung zum Echtzeitkurs."
+      },
+      "nonCustodial": {
+        "title": "Ihre Schlüssel, Ihr Geld",
+        "text": "Die Plattform verwahrt keine Gelder — ein Grundprinzip von Parahub. Zahlungen gehen direkt vom Zahler zum Empfänger; der Server sieht nur öffentliche Daten."
+      },
+      "connected": {
+        "title": "In die Plattform integriert",
+        "text": "Bezahlen Sie Event- und Verkehrstickets, Mesh-WLAN-Zugang und Anzeigen; empfangen Sie Unterstützung und Zahlungen. Ein Schulden-Tab führt P2P-Schulden, die sich über Tauschzyklen automatisch verrechnen können."
+      },
+      "onchain": {
+        "title": "Lightning und On-Chain",
+        "text": "Sofortige Lightning-Zahlungen mit minimalen Gebühren für den Alltag — und normale Bitcoin-Transaktionen, wenn nötig."
+      },
+      "recovery": {
+        "title": "Wiederherstellung",
+        "text": "Stellen Sie die Wallet mit den 12 Wörtern auf jedem Gerät wieder her — mit Autovervollständigung bei der Eingabe."
+      },
+      "callout": {
+        "title": "Eine Phrase, die Sie hüten müssen",
+        "text": "Die 12 Wörter sind die Wallet. Niemand — auch Parahub nicht — kann sie für Sie wiederherstellen. Aufschreiben und offline aufbewahren: Das ist der Preis und der Sinn davon, keinen Verwahrer zu haben."
+      }
+    },
+    "tipsSystem": {
+      "title": "Gedruckte Trinkgelder",
+      "intro": "Kleine Inhaberscheine, die Sie aus Ihrer eigenen Wallet decken und verschenken — als Link oder auf Papier gedruckt. Wer den Schein hat, dem gehört, was darauf steht, und dazwischen verwahrt es niemand, auch Parahub nicht. Ein Schein, den niemand einlöst, kommt von allein zu Ihnen zurück.",
+      "flow": {
+        "title": "So funktioniert es",
+        "step1": "Legen Sie eine Serie an: wie viele Scheine, wie viele Sats je Schein, nach welcher Frist nicht eingelöste Scheine zurückkommen, und ein Grußtext zum Aufdrucken.",
+        "step2": "Das Geheimnis jedes Scheins entsteht in Ihrem Browser, das Guthaben kommt aus Ihrer Wallet — eine Zahlung pro Schein. Der Server erfährt nie, dass es die Serie gibt.",
+        "step3": "Geben Sie ihn weiter: Kopieren Sie den Link des Scheins und verschicken Sie ihn, wie Sie mögen — oder drucken Sie den Bogen, neun Scheine auf A4 mit Schnittlinien.",
+        "step4": "Wer ihn bekommt, öffnet den Link (oder scannt den QR-Code auf dem Papier) und löst ihn an eine beliebige Lightning-, Spark- oder Bitcoin-Adresse aus — oder behält ihn einfach."
+      },
+      "returns": {
+        "title": "Nicht eingelöstes kommt zurück",
+        "text": "Jeder Schein trägt eine von Ihnen gewählte Frist. Löst ihn niemand ein, kehrt das Geld von selbst in Ihre Wallet zurück — dafür muss auf unserer Seite nichts am Leben bleiben."
+      },
+      "noCustody": {
+        "title": "Niemand dazwischen",
+        "text": "Es gibt keine Haus-Wallet, die Trinkgelder bis zur Einlösung hält. Das Geld steckt vom Moment der Aufladung an im Schein selbst."
+      },
+      "anyWallet": {
+        "title": "Überall auszahlbar",
+        "text": "Eine Lightning-Rechnung, eine Lightning-Adresse, eine Spark-Adresse oder eine On-Chain-Bitcoin-Adresse — das entscheidet, wer den Schein hat. Kleine Beträge fahren am günstigsten über Lightning."
+      },
+      "noAccount": {
+        "title": "Kein Konto, keine Adresse",
+        "text": "Wer einen Schein bekommt, braucht weder ein Parahub-Konto noch eine eigene Wallet — so bezahlen Sie jemanden, der Ihnen noch gar nichts geben kann."
+      },
+      "callout": {
+        "title": "Ein Inhaberschein — behandeln Sie ihn wie Bargeld",
+        "text": "Einlösen kann ihn jeder, der den Code lesen kann — auf Papier wie im Link. Genau das macht ihn verschenkbar und heißt, dass ein Stapel dieselbe Sorgfalt verdient wie Banknoten. Schicken Sie jeden Link nur an eine Person: Das Geld bekommt, wer zuerst öffnet. Und einen ausgegebenen Schein können Sie nicht zurückholen — bis zum Fristende gehört er wirklich dem Inhaber."
+      },
+      "cta": {
+        "text": "Drucken Sie Ihren eigenen Bogen: Die Scheine werden aus Ihrer Wallet gespeist, und was niemand einlöst, kommt zu Ihnen zurück.",
+        "button": "Neuer Satz"
+      },
+      "lineage": {
+        "title": "Woher das kommt",
+        "text": "Druckbare Bitcoin-Scheine sind hier keine neue Idee. Von 2013 bis 2024 lief dasselbe auf bctip.org, vom selben Autor — nur musste jene Version Ihre Coins in ihrer eigenen Wallet halten, bis sie jemand einlöste. Diese hält sie nie."
+      }
+    },
+    "communicationSystem": {
+      "title": "Kommunikation",
+      "intro": "Ende-zu-Ende-verschlüsselte Nachrichten, Videoanrufe mit einem Klick und Benachrichtigungen in Ihrer Sprache. Alles auf dem offenen Matrix-Protokoll mit einem von Parahub betriebenen Server — Ihre Adresse username{'@'}parahub.io ist zugleich Ihre Matrix-ID.",
+      "e2e": {
+        "title": "Ende-zu-Ende-verschlüsselt",
+        "text": "Nachrichten werden auf Ihrem Gerät verschlüsselt und sind nur für die Beteiligten lesbar. Parahub betreibt den Server, kann Ihre Chats aber nicht lesen."
+      },
+      "clients": {
+        "title": "Client nach Wahl",
+        "text": "Drei Chat-Apps zur Auswahl — voll ausgestattet für den Desktop, leichtgewichtig oder mobil gedacht. Ein Klick, und Sie sind mit Ihrem Parahub-Konto angemeldet — ohne separate Registrierung."
+      },
+      "calls": {
+        "title": "Videoanrufe",
+        "text": "Rufen Sie jeden direkt aus dem Profil an oder öffnen Sie einen benannten Raum für Gruppenanrufe. Eingehende Anrufe klingeln in Echtzeit im Browser."
+      },
+      "push": {
+        "title": "Benachrichtigungen",
+        "text": "Verträge, Schulden, Verifizierungen, eingehende Anrufe und mehr — als Live-Hinweise beim Surfen und als Push-Nachrichten bei geschlossenem Browser, in Ihrer Sprache."
+      },
+      "callout": {
+        "title": "Ein offenes Protokoll, kein goldener Käfig",
+        "text": "Matrix ist ein offener, föderierter Standard: Ihre Gespräche sind nicht in Parahub eingeschlossen, und gewöhnliche Matrix-Apps können sich mit demselben Konto verbinden."
+      }
+    },
+    "cmsSystem": {
+      "title": "Blog & Mini-Sites",
+      "intro": "Jeder verifizierte Nutzer hat einen Blog, und jede Organisation kann eine vollwertige Mini-Site im eigenen Look betreiben — Nachrichten, Dokumente, Galerien, Seiten — gehostet auf Parahub, ohne Drittdienste.",
+      "editor": {
+        "title": "Schreiben",
+        "text": "Markdown-Editor mit visuellem Modus, Fotogalerien mit Lightbox und Dateianhänge — PDFs, Budgets, Sitzungsprotokolle. Beiträge unterstützen Tags, Kommentare, Anpinnen, RSS und verknüpfte Übersetzungen."
+      },
+      "minisite": {
+        "title": "Ihre Mini-Site",
+        "text": "Aktivieren Sie eine Site unter ihr-name.org.parahub.io: Markenfarbe, Willkommensbanner und beliebig viele eigene Seiten — Geschichte, Leistungen, Kontakt — mit konfigurierbarer Navigation."
+      },
+      "domain": {
+        "title": "Eigene Domain",
+        "text": "Verbinden Sie Ihre eigene Domain mit einem einzigen CNAME-Eintrag — das SSL-Zertifikat wird automatisch ausgestellt."
+      },
+      "video": {
+        "title": "Video inklusive",
+        "text": "Hängen Sie Videos bis 4 GB an — gespeichert und gestreamt über Parahubs eigene Videoplattform, in adaptiver Qualität, direkt in Beiträge einbettbar. Ohne Dritthoster."
+      },
+      "callout": {
+        "title": "Veröffentlichen braucht Vertrauen, kein Geld",
+        "text": "Zum Veröffentlichen braucht es Stufe 2 im Vertrauensnetz — zwei Menschen, die bestätigen, dass es Sie wirklich gibt. Das stoppt Spam ohne Paywalls und Captchas. Entwürfe lassen sich schon vorher schreiben."
+      }
+    },
+    "smartHomeSystem": {
+      "title": "Smart Home",
+      "intro": "Verbinden Sie Ihren eigenen Home Assistant mit Parahub und sehen und steuern Sie Ihre Geräte neben allem anderen — ohne Cloud-Zwischenhändler, Ihre Installation bleibt Ihre.",
+      "flow": {
+        "title": "Verbinden",
+        "step1": "Richten Sie Parahub auf Ihren Home Assistant — Adresse und Zugriffstoken, verschlüsselt gespeichert. Eine öffentliche URL funktioniert ebenso wie eine direkte Verbindung über das Community-Mesh ohne Portfreigaben.",
+        "step2": "Entdecken und importieren — wählen Sie, welche Entitäten übernommen werden: Lichter, Steckdosen, Klima, Rollläden, Schlösser, Mediaplayer und mehr.",
+        "step3": "Steuern Sie von der IoT-Seite — schalten, dimmen, Temperaturen setzen. Zustände aktualisieren sich automatisch etwa jede Minute."
+      },
+      "direct": {
+        "title": "Direkt, ohne Proxy",
+        "text": "Parahub spricht direkt mit Ihrer Installation und speichert nur Verbindungsdaten und letzte Zustände. Ihr Zuhause funktioniert weiter, selbst wenn Parahub ausfällt."
+      },
+      "security": {
+        "title": "Tokens unter Verschluss",
+        "text": "Zugriffstokens werden verschlüsselt gespeichert, Verbindungsadressen validiert, damit Anfragen nicht in interne Netze gelangen."
+      },
+      "domains": {
+        "title": "Fünfzehn Gerätetypen",
+        "text": "Von Lichtern und Steckdosen bis Klima, Staubsaugern, Schlössern und Sirenen — mit passenden Bedienelementen je Typ."
+      },
+      "property": {
+        "title": "Teil von „Mein Zuhause“",
+        "text": "Verknüpfen Sie die Installation mit einer registrierten Immobilie, um Geräte, Energie und Dokumente an einem Ort zu sehen."
+      }
+    },
+    "stationsSystem": {
+      "title": "Wetter & Luftqualität",
+      "intro": "Ihre eigene Wetterstation oder Ihr Luftsensor, live auf der Gemeinschaftskarte. Die Messwerte gehören Ihnen; ob Sie sie veröffentlichen, entscheiden Sie je Station.",
+      "flow": {
+        "title": "So funktioniert es",
+        "step1": "Legen Sie die Station im Gerätebereich an: Name vergeben, Gerätetyp wählen, Punkt auf der Karte setzen.",
+        "step2": "Die Messwerte kommen entweder, weil das Gerät sie an die auf der Stationskarte angezeigte Adresse sendet — oder, wenn der Sensor in einem Parahub-Mesh-Netz steht, weil sie alle paar Minuten für Sie abgeholt werden, ganz ohne Konfiguration am Gerät.",
+        "step3": "Entscheiden Sie, ob die Station auf der öffentlichen Karte erscheint — und getrennt davon, ob Ihr Name daneben steht."
+      },
+      "measures": {
+        "title": "Was eine Station meldet",
+        "weather": "Wetter: Temperatur, Luftfeuchte, Luftdruck, Windgeschwindigkeit, Böen und Richtung, Niederschlag, Sonnenstrahlung und UV.",
+        "air": "Luft: Feinstaub (PM1, PM2,5, PM10), CO2 sowie Indizes für flüchtige Verbindungen und Stickoxide, zusammengefasst zu einem Luftqualitätsindex."
+      },
+      "live": {
+        "title": "Live auf der Karte",
+        "text": "Öffentliche Stationen aktualisieren sich ohne Neuladen, jede mit ihrer Instrumentenanzeige daneben. Stationen mit Windrichtung tragen zusätzlich eine Kompassrose, die auch beim Drehen der Karte richtig zeigt. Eine verstummte Station wird gedimmt und als veraltet markiert, statt alte Werte als frisch auszugeben."
+      },
+      "history": {
+        "title": "Verlauf und Rohdaten",
+        "text": "Diagramme über 24 Stunden oder 7 Tage auf der Stationskarte, ein Jahr aufbewahrte Messwerte und ein CSV-Download der Rohdaten für eigene Auswertungen."
+      },
+      "noSetup": {
+        "title": "Im Mesh gibt es nichts einzurichten",
+        "text": "Ein unterstützter Sensor im lokalen Netz eines Parahub-Knotens wird direkt ausgelesen. Kein Hersteller-Cloud-Konto, keine Adresse zum Einfügen, keine Firmware-Einstellungen."
+      },
+      "crossCheck": {
+        "title": "Auf die Quelle verweisen",
+        "text": "Sie können die Station mit ihrer eigenen Seite beim Hersteller verknüpfen, damit jeder Ihre Daten auf der Karte mit dem Original vergleichen kann."
+      },
+      "callout": {
+        "title": "Messwerte veröffentlichen heißt nicht, sich selbst zu veröffentlichen",
+        "text": "Eine Station öffentlich zu machen und den eigenen Namen daneben zu zeigen sind zwei getrennte Schalter. Messwerte an einem Punkt nützen einem ganzen Viertel, ohne zu verraten, wer dort wohnt — eine öffentliche Station nennt Sie deshalb nie, solange Sie es nicht verlangen."
+      }
+    },
+    "propertySystem": {
+      "title": "Mein Zuhause",
+      "intro": "Registrieren Sie, was Ihnen gehört — Haus, Wohnung, Grundstück, Büro — und es wird zum Anker, der Geräte, Smart Home, Solarenergie und Verträge verbindet.",
+      "onMap": {
+        "title": "Auf der Karte",
+        "text": "Setzen Sie den Standort auf der Karte, zeichnen Sie optional die Grenzen ein, ergänzen Sie Foto und Adresse. Die Typen reichen von der Wohnung über Grundstücke bis zur Garage."
+      },
+      "devices": {
+        "title": "Geräte zu Hause",
+        "text": "GPS-Tracker, Sensoren und Smart-Home-Entitäten gruppieren sich unter der Immobilie, zu der sie gehören — mit Zählern auf einen Blick."
+      },
+      "energy": {
+        "title": "Energie",
+        "text": "Eine Solaranlage oder ein Verbrauchspunkt wird an einer Immobilie registriert — die Basis, um Energie mit Nachbarn zu teilen."
+      },
+      "contracts": {
+        "title": "Verträge",
+        "text": "Vermieten oder verkaufen? Ein signierter Vertrag kann die Immobilie direkt referenzieren — die Dokumentenspur bleibt am Ort."
+      },
+      "callout": {
+        "title": "Ein Zuhause, viele Systeme",
+        "text": "Hausverwaltung, Energiegemeinschaften und Smart Home bauen auf demselben Immobilieneintrag auf: einmal registrieren, überall nutzen."
+      }
+    },
     "techStack": {
       "title": "Technologie-Stack",
       "backend": {
         "title": "Backend",
         "django": "Django 5 + Ninja: REST API, WebSocket",
-        "postgres": "PostgreSQL 16 + PostGIS: Haupt-DB, Geodaten",
+        "postgres": "PostgreSQL 18 + PostGIS: Haupt-DB, Geodaten",
         "timescale": "TimescaleDB: IoT-Telemetrie, Zeitreihen",
         "redis": "Redis: Cache, Sessions, Rate-Limiting",
         "neo4j": "Neo4j: Graph für Tauschzyklen"
@@ -838,6 +1109,7 @@
         "title": "Kommunikation",
         "matrix": "Matrix Synapse: E2E-verschlüsselter Chat",
         "jitsi": "Jitsi Meet: Videoanrufe",
+        "peertube": "PeerTube: Video-Hosting und Streaming",
         "breez": "Breez SDK Spark: Lightning-Wallet",
         "traccar": "Traccar: GPS-Tracking",
         "mailcow": "Mailcow + SOGo: E-Mail-Server"
@@ -860,22 +1132,12 @@
       }
     },
     "community": {
-      "title": "Community",
-      "members": "Vereinsmitglieder",
-      "verified": "Verifizierte Nutzer",
       "active_items": "Aktive Angebote",
       "profiles": "Registrierte Nutzer",
       "contracts": "P2P-Verträge",
-      "establishments": "Verzeichniseinträge",
-      "subsystems": "Subsysteme"
-    },
-    "badges": {
-      "languages": "{count} Sprachen",
-      "open_source": "Open Source",
-      "no_fees": "Keine Gebühren"
+      "establishments": "Verzeichniseinträge"
     },
     "cta": {
-      "text": "Treten Sie der dezentralen Wirtschaft bei",
       "github": "GitHub",
       "start": "Jetzt starten"
     },
@@ -977,6 +1239,26 @@
         "community": "In der Parahub-Gemeinschaft — Entscheidungen zur Plattformentwicklung",
         "establishment": "In einem Betrieb oder einer Organisation — interne Fragen",
         "adhoc": "Einmalige Abstimmungen — für jede Gruppe von Teilnehmern"
+      },
+      "civic": {
+        "title": "Bürgerbefragungen",
+        "intro": "Neben verbindlichen Entscheidungen führt Parahub ein unverbindliches Stimmungsbarometer für Ihren Wohnort. Bürgerbefragungen sind immer als Meinung gekennzeichnet, nie als Entscheidung, und beziehen sich auf eine Gebietsebene — Ihre Gemeinde, den Kreis, die Region, das Land oder die gesamte EU.",
+        "scope": {
+          "title": "Auf Ihren Ort zugeschnitten",
+          "text": "Sie sehen und beantworten die Befragungen Ihrer eigenen Gebiete, und die Ergebnisse werden nach Gebiet ausgewiesen — eine Gemeindefrage bleibt eine Gemeindefrage."
+        },
+        "anonymous": {
+          "title": "Vom Profil getrennt",
+          "text": "Gebietsbezogene Meinungsstimmen werden ohne Verbindung zu Ihrem Profil gespeichert, nach einem ausdrücklichen, in klaren Worten formulierten Einwilligungsschritt — und Ergebnisse erscheinen nur in Gruppen, die groß genug sind, um niemanden herauszulösen."
+        },
+        "receipt": {
+          "title": "Prüfbar, ohne Sie preiszugeben",
+          "text": "Zu jeder Stimme gehört eine Quittung, mit der Sie nachprüfen können, dass sie so gezählt wurde, wie Sie sie abgegeben haben — ohne zu verraten, wofür Sie gestimmt haben."
+        },
+        "standing": {
+          "title": "Dauerhafte Delegationen",
+          "text": "Übertragen Sie Ihre Stimme für ein ganzes Thema oder ein ganzes Gebiet an jemanden, dem Sie vertrauen, und holen Sie sie jederzeit zurück. Haushalts- und Eigentümerabstimmungen decken kleinere gemeinsame Entscheidungen ab, und ein Ideenkanal macht aus gut unterstützten Vorschlägen Befragungen."
+        }
       }
     },
     "gettingStarted": {
@@ -1073,10 +1355,6 @@
       "title": "Plattformdienste",
       "video": "Video",
       "video_desc": "Video-Hosting und Streaming",
-      "git": "Projekte",
-      "git_desc": "Code-Repositories und Zusammenarbeit",
-      "chat": "Chat",
-      "chat_desc": "Verschlüsselte Nachrichten über Matrix",
       "status": "Status",
       "status_desc": "Plattform-Verfügbarkeitsüberwachung"
     },
@@ -1203,6 +1481,8 @@
         "title": "Keine Plattformgebühren",
         "text": "Parahub behält niemals einen Anteil an Ihrem Handel und hält niemals Ihr Geld. Zahlungen — in Lightning oder jeder vereinbarten Form — gehen direkt zwischen Käufer und Verkäufer. Es gibt keinen algorithmischen Feed, der entscheidet, wer gesehen wird."
       }
-    }
+    },
+    "title": "Über das Projekt — Parahub",
+    "documents": "Dokumente"
   }
 }

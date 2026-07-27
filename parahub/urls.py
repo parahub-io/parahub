@@ -22,6 +22,7 @@ from django.views.generic import TemplateView, RedirectView
 from parahub.api import api
 from . import views
 from iot.views import iot_devices_view
+from iot.ingest_views import ecowitt_ingest, airgradient_ingest
 from core.views.traccar_redirect import traccar_redirect
 
 urlpatterns = [
@@ -29,6 +30,10 @@ urlpatterns = [
     path('profile/', views.profile_view, name='profile'),
     path('logout/', views.direct_logout, name='direct_logout'),
     path('iot/', iot_devices_view, name='iot_devices'),
+    # Environmental-station push ingest (plaintext wx.parahub.io:80 vhost).
+    # Ecowitt console posts to /ecowitt/<token>; AirGradient to /sensors/... .
+    path('ecowitt/<str:token>', ecowitt_ingest, name='env_ingest_ecowitt'),
+    path('sensors/<path:path>', airgradient_ingest, name='env_ingest_airgradient'),
     path('traccar/', traccar_redirect, name='traccar_redirect'),
     path('admin/', admin.site.urls),
     path('api/', api.urls),

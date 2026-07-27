@@ -106,6 +106,14 @@ class Poll(ULIDModel):
         blank=True, default='',
         help_text="What actually happened after the poll — closes the loop"
     )
+
+    # Curated-text i18n (authoritative {lang: text} maps, shipped whole; the client picks
+    # by locale and falls back to the base field). Populated for launch/curated polls only —
+    # empty for user-authored polls. See PK/civic-polls-system.md § i18n.
+    title_i18n = models.JSONField(default=dict, blank=True)
+    description_i18n = models.JSONField(default=dict, blank=True)
+    civic_destination_i18n = models.JSONField(default=dict, blank=True)
+
     frozen_results = models.JSONField(
         null=True, blank=True,
         help_text="Aggregates frozen at purge time (30d after end) when raw opinion votes are deleted"
@@ -133,6 +141,7 @@ class PollOption(ULIDModel):
     """Вариант голосования"""
     poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name='options')
     text = models.CharField(max_length=500)
+    text_i18n = models.JSONField(default=dict, blank=True)  # {lang: text}; empty = fall back to `text`
     description = models.TextField(blank=True)
     order = models.IntegerField()
 

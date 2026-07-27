@@ -739,9 +739,9 @@ class TraccarService:
         conn = cls._get_db()
         try:
             with conn.cursor() as cur:
-                # Remove permissions first
+                # Remove permissions first (no group permissions table in the
+                # Traccar 6.x PG schema — referencing one rolls back the whole tx)
                 cur.execute("DELETE FROM tc_user_device WHERE deviceid = %s", (traccar_device_id,))
-                cur.execute("DELETE FROM tc_group_device WHERE deviceid = %s", (traccar_device_id,))
                 # Remove positions
                 cur.execute("DELETE FROM tc_positions WHERE deviceid = %s", (traccar_device_id,))
                 # Remove device

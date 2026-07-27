@@ -190,6 +190,11 @@ def _season_label(service_id):
         keep.append(p)
     raw = " ".join(keep)
     canon = _SEASON_CANON.get(_strip_accents(raw).lower()) if raw else None
+    # Opaque service-id codes (e.g. Carris Metropolitana's "[8TCHD]5100") carry no
+    # human-readable period name — drop them so the column falls back to its actual
+    # date range instead of printing the raw code as a "season".
+    if canon is None and raw and any(ch.isdigit() or ch in "[]" for ch in raw):
+        return "", None
     return raw, canon
 
 def _classify_daytype(hist):
@@ -298,6 +303,7 @@ def _route_timetable_seasonal(route, window_days=365):
                 "seasons": raws,
                 "season_keys": canons,
                 "n_dates": len(gdates),
+                "span": [min(gdates).isoformat(), max(gdates).isoformat()],
                 "dir": dirs,
             }
             (specials if len(gdates) < _SEASONAL_SPECIAL_MAX_DATES else cols).append(entry)
@@ -315,7 +321,7 @@ def _route_timetable_seasonal(route, window_days=365):
         result["columns"] = cols
         result["specials"] = [
             {"seasons": c["seasons"], "season_keys": c["season_keys"], "n_dates": c["n_dates"],
-             "day_type": c["day_type"]}
+             "day_type": c["day_type"], "span": c["span"]}
             for c in specials
         ]
         result["variants"] = [
@@ -371,6 +377,7 @@ def get_route_timetable_pdf(request, city_slug: str, route_slug: str, lang: str 
         columns = [
             {"day_type": col["day_type"], "seasons": col["seasons"],
              "season_keys": col["season_keys"], "show_seasons": col["show_seasons"],
+             "span": col.get("span"),
              "departures": col["dir"].get(str(d_id), [])}
             for col in seasonal["columns"]
         ]

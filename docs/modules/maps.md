@@ -20,7 +20,8 @@ The map displays multiple data layers controlled via a unified **Layers** button
 - **Items** -- marketplace listings with location
 - **Establishments** -- business directory entries
 - **Events** -- upcoming community events
-- **Transit** -- real-time vehicle positions
+- **Transit** -- real-time vehicle positions (rendered on a deck.gl overlay for smooth animation, optional comet trails)
+- **Points of Interest** -- OpenStreetMap POI labels, toggled from the Layers popover
 - **P-Hub** -- logistics point markers (capacity, accepted sizes, opening hours)
 - **Energy Cells** -- solar energy community areas
 - **Condominiums** -- building management overlays
@@ -73,6 +74,14 @@ Directions panel with three modes (Car, Walk, Bike):
 ## Weather
 
 Live local weather (temperature and current conditions) shown as a compact overlay in a corner of the map, following the map's center. The same compact weather indicator also appears on transit stop pages.
+
+## Basemaps
+
+The default basemap is the self-hosted OpenStreetMap vector style. In Portugal an official **DGT orthophoto (satellite) basemap** is available as an opt-in fallback layer — useful for reading plot outlines, rooftops, and land cover that a vector map abstracts away.
+
+## Sun Study
+
+A sun-and-moon overlay for a location and time: the sun's position drawn on the map, plus a phase-accurate moon with its position, illumination, and rise/set times. Useful for checking light, shadow, and exposure — for a property, a solar install, or an outdoor venue. The sun and moon icons are drawn on canvas, and the moon shows its true current phase.
 
 ## Performance
 

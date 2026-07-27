@@ -144,72 +144,132 @@
           <NuxtLink :to="localePath('/docs/wot')" class="text-link whitespace-nowrap">{{ $t('profile.verification_photo.learn_more') }}</NuxtLink>
         </p>
 
-        <!-- Status -->
-        <div v-if="vpStatus.has_photo" class="mb-3 flex flex-wrap items-center gap-2">
+        <div class="flex items-start gap-4">
+          <!-- Stored photo preview: the WoT photo is otherwise invisible to its owner,
+               so a replacement of the Para-ID photo can look like it changed this one -->
           <div
-            class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
-            :class="vpStatus.reconfirmation_needed
-              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-              : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'"
-          >
-            <AlertTriangle v-if="vpStatus.reconfirmation_needed" class="w-4 h-4" />
-            <Check v-else class="w-4 h-4" />
-            {{ vpStatus.reconfirmation_needed
-              ? $t('profile.verification_photo.reconfirmation_warning', { count: vpStatus.reconfirmation_count })
-              : $t('profile.verification_photo.status_ready') }}
-          </div>
-          <span
-            v-if="vpStatus.face_fingerprint"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300"
-            :title="$t('profile.verification_photo.fingerprint_hint', 'Biometric signature of your face — approximately stable across photos of you (most hex chars stay the same), distinct from other people')"
-          >
-            <Fingerprint class="w-3 h-3" />
-            {{ vpStatus.face_fingerprint }}
-          </span>
-        </div>
-
-        <!-- GDPR Consent checkbox -->
-        <div v-if="!vpStatus.has_photo || !vpStatus.biometric_consent" class="mb-3">
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              v-model="vpConsent"
-              type="checkbox"
-              class="mt-1 w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary"
-            />
-            <span class="text-xs text-neutral-600 dark:text-neutral-400">
-              {{ $t('profile.verification_photo.consent_label') }}
-            </span>
-          </label>
-        </div>
-
-        <!-- Upload / Replace buttons -->
-        <div class="flex gap-2">
-          <label
-            class="px-4 py-2 bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 rounded-lg cursor-pointer transition-colors text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            :class="{ 'opacity-50 pointer-events-none': vpUploading }"
-          >
-            <span v-if="!vpUploading">{{ vpStatus.has_photo ? $t('profile.photos.replace') : $t('profile.photos.upload') }}</span>
-            <span v-else class="flex items-center gap-2">
-              <Loader2 class="w-4 h-4 animate-spin" />
-              {{ $t('profile.photos.uploading') }}
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              class="hidden"
-              @change="uploadVerificationPhoto"
-              :disabled="vpUploading"
-            />
-          </label>
-          <button
             v-if="vpStatus.has_photo"
-            @click="deleteVerificationPhoto"
-            :disabled="vpDeleting"
-            class="px-4 py-2 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg transition-colors text-sm font-medium text-red-700 dark:text-red-400"
+            class="w-24 h-32 rounded-lg overflow-hidden border-2 border-blue-500 flex-shrink-0"
           >
-            <span v-if="!vpDeleting">{{ $t('profile.photos.delete') }}</span>
-            <span v-else>...</span>
-          </button>
+            <img
+              v-if="vpPhotoSrc"
+              :src="vpPhotoSrc"
+              :alt="$t('profile.verification_photo.title')"
+              class="w-full h-full object-cover"
+            />
+            <div v-else class="w-full h-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-800">
+              <Loader2 class="w-5 h-5 animate-spin text-neutral-400" />
+            </div>
+          </div>
+          <div
+            v-else
+            class="w-24 h-32 rounded-lg bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center border-2 border-dashed border-neutral-300 dark:border-neutral-600 flex-shrink-0"
+          >
+            <ShieldCheck class="w-8 h-8 text-neutral-400" />
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <!-- Status -->
+            <div v-if="vpStatus.has_photo" class="mb-3 flex flex-wrap items-center gap-2">
+              <div
+                class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                :class="vpStatus.reconfirmation_needed
+                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                  : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'"
+              >
+                <AlertTriangle v-if="vpStatus.reconfirmation_needed" class="w-4 h-4" />
+                <Check v-else class="w-4 h-4" />
+                {{ vpStatus.reconfirmation_needed
+                  ? $t('profile.verification_photo.reconfirmation_warning', { count: vpStatus.reconfirmation_count })
+                  : $t('profile.verification_photo.status_ready') }}
+              </div>
+              <span
+                v-if="vpStatus.face_fingerprint"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300"
+                :title="$t('profile.verification_photo.fingerprint_hint', 'Biometric signature of your face — approximately stable across photos of you (most hex chars stay the same), distinct from other people')"
+              >
+                <Fingerprint class="w-3 h-3" />
+                {{ vpStatus.face_fingerprint }}
+              </span>
+            </div>
+
+            <!-- GDPR Consent checkbox -->
+            <div v-if="!vpStatus.has_photo || !vpStatus.biometric_consent" class="mb-3">
+              <label class="flex items-start gap-3 cursor-pointer">
+                <input
+                  v-model="vpConsent"
+                  type="checkbox"
+                  class="mt-1 w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary"
+                />
+                <span class="text-xs text-neutral-600 dark:text-neutral-400">
+                  {{ $t('profile.verification_photo.consent_label') }}
+                </span>
+              </label>
+            </div>
+
+            <!-- Upload / Replace buttons -->
+            <div class="flex gap-2">
+              <label
+                class="px-4 py-2 bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 rounded-lg cursor-pointer transition-colors text-sm font-medium text-neutral-700 dark:text-neutral-300"
+                :class="{ 'opacity-50 pointer-events-none': vpUploading }"
+              >
+                <span v-if="!vpUploading">{{ vpStatus.has_photo ? $t('profile.photos.replace') : $t('profile.photos.upload') }}</span>
+                <span v-else class="flex items-center gap-2">
+                  <Loader2 class="w-4 h-4 animate-spin" />
+                  {{ $t('profile.photos.uploading') }}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="uploadVerificationPhoto"
+                  :disabled="vpUploading"
+                />
+              </label>
+              <button
+                v-if="vpStatus.has_photo"
+                @click="deleteVerificationPhoto"
+                :disabled="vpDeleting"
+                class="px-4 py-2 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg transition-colors text-sm font-medium text-red-700 dark:text-red-400"
+              >
+                <span v-if="!vpDeleting">{{ $t('profile.photos.delete') }}</span>
+                <span v-else>...</span>
+              </button>
+            </div>
+
+            <!-- Who opened the photo (GDPR Art.15(1)(c) recipients) -->
+            <div v-if="vpStatus.has_photo" class="mt-3">
+              <p class="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+                {{ $t('profile.verification_photo.access_log_title') }}
+              </p>
+              <p v-if="!vpAccesses.length" class="text-xs text-neutral-500 dark:text-neutral-400">
+                {{ $t('profile.verification_photo.access_log_empty') }}
+              </p>
+              <ul v-else class="space-y-1">
+                <li
+                  v-for="a in visibleAccesses"
+                  :key="`${a.viewer_id}-${a.viewed_at}`"
+                  class="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300"
+                >
+                  <Eye class="w-3 h-3 flex-shrink-0 text-neutral-400" />
+                  <NuxtLink :to="localePath(`/u/${a.viewer_hna.split('@')[0]}`)" class="text-link truncate">
+                    {{ a.viewer_display_name || a.viewer_hna }}
+                  </NuxtLink>
+                  <span class="text-neutral-400">{{ formatAccessDate(a.viewed_at) }}</span>
+                  <span v-if="a.views > 1" class="text-neutral-400">×{{ a.views }}</span>
+                </li>
+              </ul>
+              <button
+                v-if="vpAccesses.length > 5"
+                @click="showAllAccesses = !showAllAccesses"
+                class="mt-1 text-xs text-link"
+              >
+                {{ showAllAccesses
+                  ? $t('profile.verification_photo.access_log_less')
+                  : $t('profile.verification_photo.access_log_more', { count: vpAccesses.length - 5 }) }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -309,7 +369,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { UserCircle, Upload, User, Check, AlertTriangle, Loader2, Download, Grid3X3, Brain, X, Copy, ShieldCheck, Fingerprint } from 'lucide-vue-next'
+import { UserCircle, Upload, User, Check, AlertTriangle, Loader2, Download, Grid3X3, Brain, X, Copy, ShieldCheck, Fingerprint, Eye } from 'lucide-vue-next'
 import { useNotification } from '~/composables/useNotification'
 import { useAuthStore } from '~/stores/auth'
 import AccordionSection from './AccordionSection.vue'
@@ -336,6 +396,9 @@ const authStore = useAuthStore()
 const idPhotoUrl = computed(() => authStore.user?.profile?.id_photo_url || null)
 const idPhotoVerified = computed(() => authStore.user?.profile?.id_photo_verified || false)
 const idPhotoSrc = ref<string | null>(null)
+// The gated endpoint URL is constant across replacements, so a re-upload leaves
+// idPhotoUrl untouched and the preview would keep the old blob — bump this instead.
+const idPhotoVersion = ref(0)
 const verificationIssues = ref<string[]>([])
 
 const loadIdPhotoPreview = async (url: string) => {
@@ -355,7 +418,7 @@ const loadIdPhotoPreview = async (url: string) => {
   }
 }
 
-watch(idPhotoUrl, (url) => {
+watch([idPhotoUrl, idPhotoVersion], ([url]) => {
   if (url) loadIdPhotoPreview(url)
   else if (idPhotoSrc.value) {
     URL.revokeObjectURL(idPhotoSrc.value)
@@ -378,6 +441,21 @@ const vpStatus = ref<{
 const vpConsent = ref(false)
 const vpUploading = ref(false)
 const vpDeleting = ref(false)
+// Private media behind an authed endpoint — fetched as a blob, like the ID photo
+const vpPhotoSrc = ref<string | null>(null)
+
+interface PhotoAccess {
+  viewer_id: string
+  viewer_hna: string
+  viewer_display_name: string
+  viewed_at: string   // last view of that day
+  views: number       // opens by this viewer that day
+}
+const vpAccesses = ref<PhotoAccess[]>([])
+const showAllAccesses = ref(false)
+const visibleAccesses = computed(() => showAllAccesses.value ? vpAccesses.value : vpAccesses.value.slice(0, 5))
+const formatAccessDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(locale.value, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 // === Psycho-hash state ===
 const psychHash4 = ref<string[]>(['', '', '', ''])
@@ -461,6 +539,7 @@ async function uploadIdPhoto(event: Event) {
       authStore.user.profile.id_photo_url = response.url
       authStore.user.profile.id_photo_verified = response.verified
     }
+    idPhotoVersion.value++
 
     if (response.verified) {
       showSuccess(t('profile.photos.id_photo_verified_success'))
@@ -508,6 +587,43 @@ async function deleteIdPhoto() {
 }
 
 // === Verification Photo logic ===
+function clearVpPhoto() {
+  if (vpPhotoSrc.value) {
+    URL.revokeObjectURL(vpPhotoSrc.value)
+    vpPhotoSrc.value = null
+  }
+}
+
+async function loadVpPhoto() {
+  if (!import.meta.client) return
+  try {
+    await authStore.ensureToken()
+    const res = await fetch('/api/v1/profiles/me/verification-photo/file/', {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    if (!res.ok) return
+    const blob = await res.blob()
+    clearVpPhoto()
+    vpPhotoSrc.value = URL.createObjectURL(blob)
+  } catch (err) {
+    console.error('Failed to load verification photo preview:', err)
+  }
+}
+
+async function loadVpAccesses() {
+  try {
+    await authStore.ensureToken()
+    const res = await $fetch<{ accesses: PhotoAccess[] }>('/api/v1/profiles/me/verification-photo/access-log/', {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    vpAccesses.value = res.accesses || []
+  } catch (error) {
+    console.error('Error loading verification photo access log:', error)
+  }
+}
+
 async function loadVpStatus() {
   try {
     await authStore.ensureToken()
@@ -516,6 +632,8 @@ async function loadVpStatus() {
       headers: { 'Authorization': `Bearer ${authStore.token}` }
     })
     if (vpStatus.value.biometric_consent) vpConsent.value = true
+    if (vpStatus.value.has_photo) await Promise.all([loadVpPhoto(), loadVpAccesses()])
+    else clearVpPhoto()
   } catch (error) {
     console.error('Error loading verification photo status:', error)
   }
@@ -582,6 +700,7 @@ async function deleteVerificationPhoto() {
     })
     vpStatus.value = { has_photo: false }
     vpConsent.value = false
+    clearVpPhoto()
     showSuccess(t('profile.photos.id_photo_deleted'))
   } catch (error: any) {
     console.error('Verification photo delete error:', error)

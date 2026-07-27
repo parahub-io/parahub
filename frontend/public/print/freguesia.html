@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Parahub para a sua Freguesia — folha A4</title>
+<style>
+  /* Print-ready A4 flyer. Self-contained: no external assets. */
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #171717;
+    background: #404040;
+  }
+  .sheet {
+    width: 210mm; height: 297mm;
+    background: #fff;
+    padding: 11mm 12mm;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    page-break-after: always;
+    position: relative;
+  }
+  @media screen {
+    body { padding: 24px 0; }
+    .sheet { margin: 0 auto 24px; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+  }
+  @media print {
+    body { background: #fff; }
+    .sheet { margin: 0; box-shadow: none; }
+  }
+
+  .brandbar { display: flex; align-items: center; gap: 4mm; }
+  .brandbar svg.mark { width: 11mm; height: 11mm; flex: none; }
+  .wordmark { font-size: 22pt; font-weight: 900; letter-spacing: -0.5pt; }
+  .brand-meta { margin-left: auto; text-align: right; font-size: 8pt; line-height: 1.45; color: #525252; }
+
+  .rule { height: 1.2mm; background: #FFE216; margin: 4mm 0 5mm; }
+
+  h1 { font-size: 24pt; font-weight: 900; letter-spacing: -0.5pt; line-height: 1.08; }
+  .lead { font-size: 10.5pt; line-height: 1.45; color: #404040; margin-top: 2.5mm; max-width: 165mm; }
+
+  .features { display: flex; flex-direction: column; gap: 3mm; margin-top: 4mm; flex: 1; }
+  .feature { display: flex; gap: 5mm; border: 0.4mm solid #d4d4d4; border-radius: 2.5mm; padding: 3.6mm 5mm; }
+  .feature.hero { background: #FFFBD0; border-color: #FFE216; }
+  .fnum {
+    flex: none; width: 12mm; height: 12mm; border-radius: 2mm;
+    background: #FFE216; color: #171717;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14pt; font-weight: 900;
+  }
+  .fbody h2 { font-size: 13.5pt; font-weight: 800; line-height: 1.15; }
+  .fbody .fsub { font-size: 9.5pt; font-weight: 600; color: #525252; margin: 1mm 0 1.8mm; }
+  .fbody ul { list-style: none; }
+  .fbody li { font-size: 9.2pt; line-height: 1.42; padding-left: 4mm; position: relative; margin-bottom: 0.8mm; }
+  .fbody li::before { content: ""; position: absolute; left: 0; top: 1.55mm; width: 2mm; height: 2mm; background: #FFE216; outline: 0.3mm solid #a3a3a3; }
+
+  .about { display: flex; gap: 6mm; align-items: center; background: #171717; color: #fafafa; border-radius: 2.5mm; padding: 4mm 5mm; margin-top: 4mm; }
+  .about h3 { font-size: 11pt; font-weight: 800; margin-bottom: 1.5mm; }
+  .about h3 .y { color: #FFE216; }
+  .about p { font-size: 8.8pt; line-height: 1.45; color: #d4d4d4; }
+  .qr { flex: none; width: 24mm; height: 24mm; background: #fff; border-radius: 1.5mm; padding: 1.5mm; }
+  .qr svg { width: 100%; height: 100%; display: block; }
+
+  .foot { display: flex; align-items: baseline; gap: 5mm; margin-top: 3mm; font-size: 9pt; color: #525252; }
+  .foot .site { font-weight: 800; font-size: 11pt; color: #171717; }
+  .foot .right { margin-left: auto; }
+
+  /* ---- verso ---- */
+  .vh1 { font-size: 19pt; font-weight: 900; letter-spacing: -0.4pt; }
+  .vsub { font-size: 10pt; color: #525252; margin-top: 1.5mm; }
+
+  .diagram { display: flex; align-items: stretch; gap: 3mm; margin: 4.5mm 0; }
+  .dnode { flex: 1; border: 0.4mm solid #a3a3a3; border-radius: 2mm; padding: 3mm; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+  .dnode b { font-size: 9.3pt; display: block; }
+  .dnode span { font-size: 8pt; color: #525252; line-height: 1.3; display: block; margin-top: 1mm; }
+  .dnode.src { background: #f5f5f5; }
+  .dnode.pole { background: #FFFBD0; border-color: #E6CA00; }
+  .darrow { align-self: center; font-size: 12pt; font-weight: 900; color: #737373; flex: none; }
+
+  .cols { display: flex; gap: 5mm; margin-top: 0; flex: 1; }
+  .col { flex: 1; display: flex; flex-direction: column; gap: 4mm; }
+  .col .panel:last-child { flex: 1; }
+  .panel { border: 0.4mm solid #d4d4d4; border-radius: 2.5mm; padding: 4mm 4.5mm; }
+  .panel h3 { font-size: 11.5pt; font-weight: 800; margin-bottom: 2mm; }
+  .panel ul, .panel ol { list-style: none; }
+  .panel li { font-size: 9.2pt; line-height: 1.42; padding-left: 4mm; position: relative; margin-bottom: 1.2mm; }
+  .panel ul li::before { content: ""; position: absolute; left: 0; top: 1.5mm; width: 2mm; height: 2mm; background: #FFE216; outline: 0.3mm solid #a3a3a3; }
+  .panel ol { counter-reset: step; }
+  .panel ol li { padding-left: 6mm; counter-increment: step; }
+  .panel ol li::before { content: counter(step); position: absolute; left: 0; top: 0.2mm; width: 4mm; height: 4mm; background: #FFE216; font-size: 8pt; font-weight: 900; display: flex; align-items: center; justify-content: center; border-radius: 1mm; }
+
+  table.costs { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  table.costs td { padding: 1.2mm 0; border-bottom: 0.25mm solid #e5e5e5; }
+  table.costs td:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.costs tr.total td { border-bottom: none; border-top: 0.5mm solid #171717; font-weight: 800; font-size: 10pt; }
+  .fineprint { font-size: 7.8pt; color: #737373; margin-top: 2mm; line-height: 1.4; }
+
+  .bridge { background: #FFFBD0; border: 0.4mm solid #FFE216; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ PAGE 1 — three offers for the freguesia ═══════════ -->
+<section class="sheet">
+  <div class="brandbar">
+    <svg class="mark" viewBox="0 0 93.004425 92.797592" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g transform="translate(-54.976568,-109.28466)"><path fill="#171717" d="m 91.961093,113.16417 c -5.172666,5.17267 -5.172666,13.65582 0,18.8285 l 2.275966,2.27596 6.621011,-4.13808 -3.517415,-3.51748 c -2.275965,-2.27595 -2.275965,-6.00027 0,-8.06931 2.275973,-2.27595 6.000285,-2.27595 8.069355,0 2.27597,2.27596 2.27597,6.00028 0,8.06931 l -23.587337,23.79426 -4.138123,-4.13808 c -5.172666,-5.17267 -13.655824,-5.17267 -18.82849,0 -5.172658,5.1726 -5.172658,13.65582 0,18.82842 5.172666,5.17267 13.655824,5.17267 18.82849,0 l 3.517404,-3.31048 -6.414097,-4.34499 -2.482877,2.48287 c -2.275973,2.27596 -6.000289,2.27596 -8.06935,0 -2.069062,-2.27603 -2.275974,-6.00035 -0.20692,-8.2763 2.275966,-2.27596 6.000281,-2.27596 8.069351,0 l 22.759701,22.75973 3.724316,-1.65528 -6.621,6.62103 c -5.172666,5.17268 -5.172666,13.65583 0,18.8285 5.172658,5.17267 13.655822,5.17267 18.828482,0 5.17266,-5.17267 5.17266,-13.65582 0,-18.8285 l -2.27597,-2.27595 -6.621,4.13807 3.5174,3.51748 c 2.27597,2.27595 2.27597,6.00027 0,8.06931 -2.27597,2.27596 -6.000281,2.27596 -8.06935,0 -2.275966,-2.27596 -2.275966,-6.00028 0,-8.06931 l 23.79424,-23.79426 4.13813,4.13808 c 5.17266,5.17267 13.65582,5.17267 18.82849,0 5.17265,-5.1726 5.17265,-13.65582 0,-18.82842 -5.17267,-5.17267 -13.65583,-5.17267 -18.82849,0 l -3.51741,3.5174 6.4141,4.13807 2.27597,-2.27595 c 2.27597,-2.27596 6.00028,-2.27596 8.06935,0 2.27597,2.27595 2.27597,6.00027 0,8.06939 -2.27597,2.27595 -6.00029,2.27595 -8.06935,0 l -22.5528,-22.55282 -3.93122,1.65528 6.82791,-6.82795 c 5.17266,-5.17268 5.17266,-13.65583 0,-18.8285 -5.17266,-5.17267 -13.655824,-5.17267 -18.828482,0 z m 26.897837,45.72631 -4.34504,-1.86212 -13.0351,13.03506 -17.17324,-17.38014 4.138131,1.8622 13.242009,-13.24198 z"/></g></svg>
+    <span class="wordmark">PARAHUB</span>
+    <div class="brand-meta">Associação sem fins lucrativos<br>Monção · Alto Minho · Portugal</div>
+  </div>
+  <div class="rule"></div>
+
+  <h1>Três ferramentas para a sua freguesia</h1>
+  <p class="lead">Infraestrutura digital comunitária, de código aberto, desenvolvida em Monção. Sem licenças de software para pagar, sem dados entregues a terceiros — a começar pelo WiFi gratuito para os moradores.</p>
+
+  <div class="features">
+    <div class="feature hero">
+      <div class="fnum">1</div>
+      <div class="fbody">
+        <h2>WiFi gratuito nas ruas da freguesia</h2>
+        <p class="fsub">Rede comunitária nos postes de iluminação pública</p>
+        <ul>
+          <li>Equipamento exterior (IP65, WiFi 6) instalado nos postes de iluminação, alimentado no próprio poste e ligado 24&nbsp;horas por dia.</li>
+          <li>Os postes formam uma rede única (mesh) com roaming automático — cobre ruas, largos, paragens e o centro de dia.</li>
+          <li>Mais do que internet grátis: é <b>infraestrutura própria da freguesia</b> — a rede local continua a funcionar mesmo que a ligação à internet falhe, e transporta sensores ambientais, câmaras e outros serviços instalados na aldeia.</li>
+          <li>Cerca de 170&nbsp;€ por poste, instalação incluída; uma aldeia típica fica coberta com 10–20 postes — 2&nbsp;a&nbsp;3,5&nbsp;mil&nbsp;€ no total.*</li>
+          <li>Resultado visível para os moradores desde a primeira semana.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="fnum">2</div>
+      <div class="fbody">
+        <h2>A freguesia online, a sério</h2>
+        <p class="fsub">Site institucional moderno + a freguesia no mapa</p>
+        <ul>
+          <li>Site da junta com notícias, documentos oficiais, galerias e agenda — pode manter o domínio que já tem, com certificado SSL automático.</li>
+          <li>Os negócios, serviços e coletividades da freguesia no mapa — diretório local com horários, contactos e mini-sites próprios.</li>
+          <li>Auscultação da população e orçamento participativo, com resultados públicos e verificáveis.</li>
+          <li>Conteúdo multilingue (português + 5 línguas) — também para emigrantes e novos residentes.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="fnum">3</div>
+      <div class="fbody">
+        <h2>Transportes públicos em tempo real</h2>
+        <p class="fsub">Já em produção em Portugal — e pronto para o seu território</p>
+        <ul>
+          <li>Mais de 1.400 linhas e 18.000 paragens ao vivo no mapa — Carris Metropolitana, Carris, STCP, Metro de Lisboa, CP e Transtejo, incluindo os comboios da linha do Minho.</li>
+          <li>Rotas próprias da freguesia ou do município — transporte a pedido, percursos escolares, vaivém de festas — no mesmo mapa, com GPS ao vivo.</li>
+          <li>Basta um telemóvel no autocarro: sem equipamento dedicado, com previsões de chegada para os moradores.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="about">
+    <div>
+      <h3>O que é o <span class="y">Parahub</span>?</h3>
+      <p>Uma plataforma comunitária de código aberto (MIT), criada e mantida pela PARAHUB&nbsp;—&nbsp;Associação, sem fins lucrativos, registada em Monção. Junta num só sistema mercado local, energia solar partilhada, contratos digitais, grupos de vizinhança com botão SOS e participação cívica — sem intermediários e sem venda de dados. Todas as funcionalidades na folha «Parahub — visão geral» ou em parahub.io.</p>
+    </div>
+    <div class="qr"><svg viewBox="0 0 27 27" xmlns="http://www.w3.org/2000/svg" aria-label="QR parahub.io"><path fill="#171717" d="M1,1H2V2H1zM2,1H3V2H2zM3,1H4V2H3zM4,1H5V2H4zM5,1H6V2H5zM6,1H7V2H6zM7,1H8V2H7zM13,1H14V2H13zM15,1H16V2H15zM19,1H20V2H19zM20,1H21V2H20zM21,1H22V2H21zM22,1H23V2H22zM23,1H24V2H23zM24,1H25V2H24zM25,1H26V2H25zM1,2H2V3H1zM7,2H8V3H7zM9,2H10V3H9zM10,2H11V3H10zM11,2H12V3H11zM12,2H13V3H12zM14,2H15V3H14zM15,2H16V3H15zM17,2H18V3H17zM19,2H20V3H19zM25,2H26V3H25zM1,3H2V4H1zM3,3H4V4H3zM4,3H5V4H4zM5,3H6V4H5zM7,3H8V4H7zM9,3H10V4H9zM11,3H12V4H11zM13,3H14V4H13zM15,3H16V4H15zM16,3H17V4H16zM19,3H20V4H19zM21,3H22V4H21zM22,3H23V4H22zM23,3H24V4H23zM25,3H26V4H25zM1,4H2V5H1zM3,4H4V5H3zM4,4H5V5H4zM5,4H6V5H5zM7,4H8V5H7zM9,4H10V5H9zM10,4H11V5H10zM11,4H12V5H11zM12,4H13V5H12zM15,4H16V5H15zM16,4H17V5H16zM17,4H18V5H17zM19,4H20V5H19zM21,4H22V5H21zM22,4H23V5H22zM23,4H24V5H23zM25,4H26V5H25zM1,5H2V6H1zM3,5H4V6H3zM4,5H5V6H4zM5,5H6V6H5zM7,5H8V6H7zM10,5H11V6H10zM11,5H12V6H11zM13,5H14V6H13zM14,5H15V6H14zM17,5H18V6H17zM19,5H20V6H19zM21,5H22V6H21zM22,5H23V6H22zM23,5H24V6H23zM25,5H26V6H25zM1,6H2V7H1zM7,6H8V7H7zM12,6H13V7H12zM13,6H14V7H13zM14,6H15V7H14zM15,6H16V7H15zM19,6H20V7H19zM25,6H26V7H25zM1,7H2V8H1zM2,7H3V8H2zM3,7H4V8H3zM4,7H5V8H4zM5,7H6V8H5zM6,7H7V8H6zM7,7H8V8H7zM9,7H10V8H9zM11,7H12V8H11zM13,7H14V8H13zM15,7H16V8H15zM17,7H18V8H17zM19,7H20V8H19zM20,7H21V8H20zM21,7H22V8H21zM22,7H23V8H22zM23,7H24V8H23zM24,7H25V8H24zM25,7H26V8H25zM9,8H10V9H9zM10,8H11V9H10zM12,8H13V9H12zM14,8H15V9H14zM16,8H17V9H16zM17,8H18V9H17zM1,9H2V10H1zM7,9H8V10H7zM9,9H10V10H9zM10,9H11V10H10zM11,9H12V10H11zM12,9H13V10H12zM15,9H16V10H15zM18,9H19V10H18zM19,9H20V10H19zM22,9H23V10H22zM23,9H24V10H23zM24,9H25V10H24zM2,10H3V11H2zM3,10H4V11H3zM4,10H5V11H4zM5,10H6V11H5zM6,10H7V11H6zM9,10H10V11H9zM11,10H12V11H11zM13,10H14V11H13zM15,10H16V11H15zM16,10H17V11H16zM17,10H18V11H17zM20,10H21V11H20zM21,10H22V11H21zM22,10H23V11H22zM23,10H24V11H23zM24,10H25V11H24zM2,11H3V12H2zM3,11H4V12H3zM7,11H8V12H7zM8,11H9V12H8zM10,11H11V12H10zM13,11H14V12H13zM16,11H17V12H16zM19,11H20V12H19zM22,11H23V12H22zM24,11H25V12H24zM25,11H26V12H25zM1,12H2V13H1zM3,12H4V13H3zM9,12H10V13H9zM10,12H11V13H10zM11,12H12V13H11zM13,12H14V13H13zM15,12H16V13H15zM16,12H17V13H16zM18,12H19V13H18zM19,12H20V13H19zM22,12H23V13H22zM25,12H26V13H25zM4,13H5V14H4zM5,13H6V14H5zM7,13H8V14H7zM8,13H9V14H8zM11,13H12V14H11zM12,13H13V14H12zM14,13H15V14H14zM15,13H16V14H15zM16,13H17V14H16zM17,13H18V14H17zM19,13H20V14H19zM25,13H26V14H25zM1,14H2V15H1zM4,14H5V15H4zM13,14H14V15H13zM14,14H15V15H14zM15,14H16V15H15zM16,14H17V15H16zM17,14H18V15H17zM18,14H19V15H18zM20,14H21V15H20zM24,14H25V15H24zM1,15H2V16H1zM3,15H4V16H3zM5,15H6V16H5zM6,15H7V16H6zM7,15H8V16H7zM8,15H9V16H8zM11,15H12V16H11zM14,15H15V16H14zM15,15H16V16H15zM16,15H17V16H16zM17,15H18V16H17zM19,15H20V16H19zM20,15H21V16H20zM21,15H22V16H21zM22,15H23V16H22zM24,15H25V16H24zM25,15H26V16H25zM1,16H2V17H1zM3,16H4V17H3zM4,16H5V17H4zM5,16H6V17H5zM8,16H9V17H8zM9,16H10V17H9zM13,16H14V17H13zM14,16H15V17H14zM15,16H16V17H15zM20,16H21V17H20zM22,16H23V17H22zM23,16H24V17H23zM25,16H26V17H25zM1,17H2V18H1zM3,17H4V18H3zM6,17H7V18H6zM7,17H8V18H7zM9,17H10V18H9zM13,17H14V18H13zM15,17H16V18H15zM16,17H17V18H16zM17,17H18V18H17zM18,17H19V18H18zM19,17H20V18H19zM20,17H21V18H20zM21,17H22V18H21zM23,17H24V18H23zM9,18H10V19H9zM10,18H11V19H10zM16,18H17V19H16zM17,18H18V19H17zM21,18H22V19H21zM1,19H2V20H1zM2,19H3V20H2zM3,19H4V20H3zM4,19H5V20H4zM5,19H6V20H5zM6,19H7V20H6zM7,19H8V20H7zM13,19H14V20H13zM14,19H15V20H14zM15,19H16V20H15zM17,19H18V20H17zM19,19H20V20H19zM21,19H22V20H21zM25,19H26V20H25zM1,20H2V21H1zM7,20H8V21H7zM11,20H12V21H11zM12,20H13V21H12zM15,20H16V21H15zM16,20H17V21H16zM17,20H18V21H17zM21,20H22V21H21zM1,21H2V22H1zM3,21H4V22H3zM4,21H5V22H4zM5,21H6V22H5zM7,21H8V22H7zM12,21H13V22H12zM16,21H17V22H16zM17,21H18V22H17zM18,21H19V22H18zM19,21H20V22H19zM20,21H21V22H20zM21,21H22V22H21zM23,21H24V22H23zM25,21H26V22H25zM1,22H2V23H1zM3,22H4V23H3zM4,22H5V23H4zM5,22H6V23H5zM7,22H8V23H7zM10,22H11V23H10zM11,22H12V23H11zM13,22H14V23H13zM14,22H15V23H14zM17,22H18V23H17zM18,22H19V23H18zM19,22H20V23H19zM24,22H25V23H24zM25,22H26V23H25zM1,23H2V24H1zM3,23H4V24H3zM4,23H5V24H4zM5,23H6V24H5zM7,23H8V24H7zM14,23H15V24H14zM15,23H16V24H15zM16,23H17V24H16zM17,23H18V24H17zM22,23H23V24H22zM23,23H24V24H23zM25,23H26V24H25zM1,24H2V25H1zM7,24H8V25H7zM10,24H11V25H10zM11,24H12V25H11zM13,24H14V25H13zM14,24H15V25H14zM17,24H18V25H17zM19,24H20V25H19zM20,24H21V25H20zM21,24H22V25H21zM25,24H26V25H25zM1,25H2V26H1zM2,25H3V26H2zM3,25H4V26H3zM4,25H5V26H4zM5,25H6V26H5zM6,25H7V26H6zM7,25H8V26H7zM9,25H10V26H9zM10,25H11V26H10zM11,25H12V26H11zM12,25H13V26H12zM13,25H14V26H13zM14,25H15V26H14zM17,25H18V26H17zM19,25H20V26H19zM22,25H23V26H22zM25,25H26V26H25z"/></svg></div>
+  </div>
+
+  <div class="foot">
+    <span class="site">parahub.io</span>
+    <span>mesh.parahub.io — dossier técnico do WiFi comunitário</span>
+    <span class="right">* valores estimados — detalhe no verso</span>
+  </div>
+</section>
+
+<!-- ═══════════ PAGE 2 — mesh deep dive ═══════════ -->
+<section class="sheet">
+  <div class="brandbar">
+    <svg class="mark" viewBox="0 0 93.004425 92.797592" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g transform="translate(-54.976568,-109.28466)"><path fill="#171717" d="m 91.961093,113.16417 c -5.172666,5.17267 -5.172666,13.65582 0,18.8285 l 2.275966,2.27596 6.621011,-4.13808 -3.517415,-3.51748 c -2.275965,-2.27595 -2.275965,-6.00027 0,-8.06931 2.275973,-2.27595 6.000285,-2.27595 8.069355,0 2.27597,2.27596 2.27597,6.00028 0,8.06931 l -23.587337,23.79426 -4.138123,-4.13808 c -5.172666,-5.17267 -13.655824,-5.17267 -18.82849,0 -5.172658,5.1726 -5.172658,13.65582 0,18.82842 5.172666,5.17267 13.655824,5.17267 18.82849,0 l 3.517404,-3.31048 -6.414097,-4.34499 -2.482877,2.48287 c -2.275973,2.27596 -6.000289,2.27596 -8.06935,0 -2.069062,-2.27603 -2.275974,-6.00035 -0.20692,-8.2763 2.275966,-2.27596 6.000281,-2.27596 8.069351,0 l 22.759701,22.75973 3.724316,-1.65528 -6.621,6.62103 c -5.172666,5.17268 -5.172666,13.65583 0,18.8285 5.172658,5.17267 13.655822,5.17267 18.828482,0 5.17266,-5.17267 5.17266,-13.65582 0,-18.8285 l -2.27597,-2.27595 -6.621,4.13807 3.5174,3.51748 c 2.27597,2.27595 2.27597,6.00027 0,8.06931 -2.27597,2.27596 -6.000281,2.27596 -8.06935,0 -2.275966,-2.27596 -2.275966,-6.00028 0,-8.06931 l 23.79424,-23.79426 4.13813,4.13808 c 5.17266,5.17267 13.65582,5.17267 18.82849,0 5.17265,-5.1726 5.17265,-13.65582 0,-18.82842 -5.17267,-5.17267 -13.65583,-5.17267 -18.82849,0 l -3.51741,3.5174 6.4141,4.13807 2.27597,-2.27595 c 2.27597,-2.27596 6.00028,-2.27596 8.06935,0 2.27597,2.27595 2.27597,6.00027 0,8.06939 -2.27597,2.27595 -6.00029,2.27595 -8.06935,0 l -22.5528,-22.55282 -3.93122,1.65528 6.82791,-6.82795 c 5.17266,-5.17268 5.17266,-13.65583 0,-18.8285 -5.17266,-5.17267 -13.655824,-5.17267 -18.828482,0 z m 26.897837,45.72631 -4.34504,-1.86212 -13.0351,13.03506 -17.17324,-17.38014 4.138131,1.8622 13.242009,-13.24198 z"/></g></svg>
+    <span class="wordmark">PARAHUB</span>
+    <div class="brand-meta">WiFi comunitário — dossier<br>mesh.parahub.io</div>
+  </div>
+  <div class="rule"></div>
+
+  <h1 class="vh1">WiFi comunitário: como funciona e quanto custa</h1>
+  <p class="vsub">Uma rede nos postes de iluminação pública, gerida pela freguesia — sem operadoras, sem mensalidades por morador.</p>
+
+  <div class="diagram">
+    <div class="dnode src"><b>Sede da junta</b><span>ligação à internet já existente (fibra)</span></div>
+    <div class="darrow">→</div>
+    <div class="dnode pole"><b>Poste 1</b><span>router exterior IP65, alimentado no poste</span></div>
+    <div class="darrow">⇄</div>
+    <div class="dnode pole"><b>Poste 2 … N</b><span>ligados entre si por rádio (mesh), sem cabos novos</span></div>
+    <div class="darrow">→</div>
+    <div class="dnode"><b>Moradores</b><span>WiFi aberto e gratuito, roaming automático</span></div>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <div class="panel">
+        <h3>Como funciona</h3>
+        <ul>
+          <li>Cada poste recebe um router exterior (IP65, WiFi 6) alimentado no próprio poste — ligado <b>antes do relé</b> da iluminação, para funcionar 24&nbsp;h/dia. É a prática padrão, a mesma usada para videovigilância urbana.</li>
+          <li>Os postes comunicam entre si por rádio: basta <b>um</b> ponto com internet (por exemplo, na sede da junta). Não é preciso abrir valas nem puxar cabos de rede.</li>
+          <li>Alcance por poste: 80–200&nbsp;m, consoante o terreno; entre postes, até ~300&nbsp;m.</li>
+          <li>A rede local entre postes continua a funcionar mesmo que a ligação à internet falhe — o que está dentro da aldeia (sensores, câmaras, serviços locais) não depende de operadoras.</li>
+          <li>Sem técnico dedicado: cada ponto liga-se à corrente e <b>aparece sozinho no painel de gestão</b> — sem endereços IP nem software para instalar. Atualizações automáticas, firmware aberto.</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h3>Custos — estimativa por poste</h3>
+        <table class="costs">
+          <tr><td>Router exterior WiFi&nbsp;6 (IP65), c/ injetor PoE</td><td>~90&nbsp;€</td></tr>
+          <tr><td>Cabo exterior + fixação</td><td>~15&nbsp;€</td></tr>
+          <tr><td>Material elétrico (disjuntor + caixa)</td><td>~20&nbsp;€</td></tr>
+          <tr><td>Mão de obra (eletricista)</td><td>~30–50&nbsp;€</td></tr>
+          <tr class="total"><td>Total por poste</td><td>~155–175&nbsp;€</td></tr>
+        </table>
+        <p class="fineprint">Aldeia típica: 10–20 postes ≈ <b>2.000–3.500&nbsp;€</b> de investimento único. Consumo elétrico de cada ponto: poucos watts. Preços de mercado, julho de 2026 — o orçamento final depende do levantamento no terreno.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Financiamento</h3>
+        <ul>
+          <li>Investimento à escala de orçamento de freguesia — sem contratos plurianuais.</li>
+          <li>Projetos de conectividade rural são elegíveis em programas europeus (Portugal&nbsp;2030, LEADER/DLBC); preparamos o dossier técnico.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="panel">
+        <h3>O caminho legal é simples</h3>
+        <ol>
+          <li>Nos <b>postes de iluminação municipais</b> a decisão é da autarquia — não há terceiros na negociação.</li>
+          <li>WiFi gratuito, sem exploração comercial, em regra <b>dispensa registo de operador</b> de telecomunicações (regime RLAN).</li>
+          <li>Se um dia for preciso ir além — postes da distribuidora de eletricidade — o direito de acesso a infraestrutura física está garantido pelo <b>Regulamento (UE) 2024/1309</b>, com prazos de resposta obrigatórios.</li>
+        </ol>
+      </div>
+
+      <div class="panel">
+        <h3>O que a junta precisa de fazer</h3>
+        <ol>
+          <li>Indicar as zonas prioritárias (largo, paragens, centro de dia, junto à igreja…).</li>
+          <li>Confirmar quais os postes municipais nessas zonas.</li>
+          <li>Disponibilizar um ponto de internet existente como saída da rede.</li>
+          <li>O resto — instalação, configuração e gestão — fazemos em conjunto com a junta.</li>
+        </ol>
+      </div>
+
+      <div class="panel bridge">
+        <h3>E depois do WiFi?</h3>
+        <ul>
+          <li>Primeiro passo sugerido: um piloto no largo principal — <b>oferecemos o equipamento dos dois primeiros pontos exteriores</b>; instala-se numa manhã e mostra resultados de imediato.</li>
+          <li>A rede cresce sozinha: qualquer morador pode acrescentar um ponto próprio em casa — melhora o sinal dentro de portas e alarga a cobertura de todos, sem custos para a junta.</li>
+          <li>Quem se liga passa a ter acesso à plataforma — mercado local, transportes em tempo real, SOS de vizinhança, participação cívica. O WiFi é o primeiro resultado visível; o valor cresce a partir daí.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span class="site">mesh.parahub.io</span>
+    <span>dossier técnico e jurídico completo</span>
+    <span class="right">PARAHUB — Associação · Monção, Portugal</span>
+  </div>
+</section>
+
+</body>
+</html>

@@ -7,6 +7,7 @@
       :can-upload="canUploadFeatureImage"
       :building-geometry="featureBuildingGeometry"
       :building-levels="featureBuildingLevels"
+      :info-lines="featureBlueprintInfo"
       :poi-class="featurePoiClass"
       @upload="onFeatureImageUpload"
       class="flex-shrink-0"
@@ -370,7 +371,11 @@
     </div>
     <div v-else-if="featureOwnerId" class="mt-3 text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
       <ShieldCheck :size="12" />
-      {{ t('map.panel.owned_by', { name: featureOwnerName }) }}
+      <i18n-t keypath="map.panel.owned_by" tag="span">
+        <template #name>
+          <NuxtLink :to="localePath(`/u/${featureOwnerName}`)" class="text-link font-medium">{{ featureOwnerName }}</NuxtLink>
+        </template>
+      </i18n-t>
     </div>
 
     <!-- Comments section -->
@@ -613,6 +618,28 @@ const featurePoiClass = computed<string | null>(() => {
   if (featureBuildingGeometry.value) return null
   const tileProps = props.feature?.properties || {}
   return tileProps.subclass || tileProps.class || null
+})
+
+// Building facts drawn onto the blueprint preview (bottom-left corner) — the
+// property rows themselves are hidden for buildings in favor of the tenant list
+const featureBlueprintInfo = computed<string[]>(() => {
+  if (!featureBuildingGeometry.value) return []
+  const enriched = enrichedProperties.value || {}
+  const lines: string[] = []
+  const buildingType = enriched.building
+  if (buildingType && buildingType !== 'yes') {
+    const translated = t(`map.panel.building_types.${buildingType}`)
+    lines.push(translated.includes('map.panel') ? buildingType : translated)
+  }
+  if (featureBuildingLevels.value) {
+    lines.push(`${t('map.panel.properties.building_levels')}: ${featureBuildingLevels.value}`)
+  }
+  if (buildingFullAddress.value && buildingFullAddress.value !== featureTitle.value) {
+    lines.push(buildingFullAddress.value)
+  }
+  if (enriched.material) lines.push(`${t('map.panel.properties.material')}: ${enriched.material}`)
+  if (enriched.colour) lines.push(`${t('map.panel.properties.colour')}: ${enriched.colour}`)
+  return lines
 })
 
 // ======== Title/subtitle (emitted to orchestrator) ========

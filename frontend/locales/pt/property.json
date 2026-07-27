@@ -29,6 +29,10 @@
       "dacha": "Quinta",
       "garage": "Garagem",
       "other": "Outro"
-    }
+    },
+    "entities": "entidades HA",
+    "mesh_label": "mesh",
+    "producer": "produtor",
+    "consumer": "consumidor"
   }
 }

@@ -76,6 +76,7 @@ frontend/.cache/
 frontend/public/hot
 frontend/public/data/categories.*.json
 frontend/public/*.apk
+frontend/public/parahub-apk.json
 
 # Logs
 frontend/logs/
@@ -101,6 +102,7 @@ frontend/*.sw?
 frontend/.DS_Store
 frontend/Thumbs.db
 .test_users_password
+.test_wallet
 .uptime_kuma_password
 
 # Capacitor native projects (generated, not tracked)
@@ -201,3 +203,6 @@ backups/
 
 # Shelved / abandoned experiments — kept on disk so renders aren't lost, not tracked
 unused/
+
+# Mesh ygg-gate secret (holds MESH_YGG_GATE_TOKEN; template tracked as .example)
+nginx/snippets/ygg-gate.conf

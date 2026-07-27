@@ -5,6 +5,7 @@ Django settings for parahub project.
 from pathlib import Path
 import environ
 import os
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -424,10 +425,17 @@ TRACCAR_PUBLIC_HOST = env('TRACCAR_PUBLIC_HOST', default='')  # Public IP/hostna
 # Mesh Network Settings
 MESH_HEARTBEAT_KEY = env('MESH_HEARTBEAT_KEY', default='')
 MESH_DEFAULT_OWNER_PROFILE_ID = env('MESH_DEFAULT_OWNER_PROFILE_ID', default='')
+# Support profile auto-granted MANAGER on every claimed router (revocable by
+# the new owner). Empty = no auto-grant.
+MESH_SUPPORT_PROFILE_ID = env('MESH_SUPPORT_PROFILE_ID', default='')
 MESH_SSH_KEY_PATH = env('MESH_SSH_KEY_PATH', default=os.path.expanduser('~/.ssh/id_ed25519'))
 MESH_SSH_TIMEOUT = 5
 MESH_SUBSCRIPTION_PRICE_SATS = int(env('MESH_SUBSCRIPTION_PRICE_SATS', default='50000'))
 MESH_SUBSCRIPTION_DURATION_DAYS = int(env('MESH_SUBSCRIPTION_DURATION_DAYS', default='30'))
+MESH_PASS_MAX_DEVICES = int(env('MESH_PASS_MAX_DEVICES', default='5'))
+# Shared secret the nginx Yggdrasil server blocks stamp as X-Ygg-Gate so the
+# backend can trust X-Ygg-Client-IP/Port (mesh device binding). Empty = off.
+MESH_YGG_GATE_TOKEN = env('MESH_YGG_GATE_TOKEN', default='')
 MESH_LNBITS_URL = env('MESH_LNBITS_URL', default='')
 MESH_LNBITS_INVOICE_KEY = env('MESH_LNBITS_INVOICE_KEY', default='')
 MESH_VPS_WG_PUBKEY = env('MESH_VPS_WG_PUBKEY', default='')  # empty = VPS gateway disabled
@@ -518,6 +526,22 @@ GEOIP_PATH = '/opt/parahub/geoip/'
 
 CONSTANCE_BACKEND = 'constance.backends.redisd.RedisBackend'
 CONSTANCE_REDIS_CONNECTION = env('REDIS_URL', default='redis://localhost:6379/1')
+
+# --- Test isolation: never touch production stateful services ----------------
+# Django's test runner isolates only PostgreSQL (it creates test_<db>). Redis
+# (cache + Constance) and Neo4j are otherwise shared with production, so a test
+# that forgets @override_settings / mocking would silently pollute or flush
+# live data. Enforce isolation by environment, not by per-test discipline, so
+# it protects local `manage.py test` too — not just CI:
+#   - Redis cache/Constance -> an unused DB (prod uses /1).
+#   - Neo4j -> a dead port, so any accidental real connection fails loudly in
+#     the test instead of mutating the live barter graph. Community edition has
+#     no second database to redirect to, so fail-fast is the only guard.
+if 'test' in sys.argv:
+    _TEST_REDIS_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/15'
+    CACHES['default']['LOCATION'] = _TEST_REDIS_URL
+    CONSTANCE_REDIS_CONNECTION = _TEST_REDIS_URL
+    NEO4J_URI = 'bolt://127.0.0.1:9099'  # unused port -> connection refused
 
 CONSTANCE_CONFIG = {
     # Email Settings

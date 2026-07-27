@@ -18,6 +18,8 @@ router.add_router("/ha", ha_router)
 router.add_router("", history_router)
 router.add_router("/properties", property_router)
 
-from . import devices, traccar, mesh, features, monitoring  # noqa: E402,F401
+# sharing MUST register before devices: its literal POST /devices/claim[/preview]
+# would otherwise be shadowed by devices' /devices/{device_id} operations (405)
+from . import sharing, devices, traccar, mesh, features, monitoring, env  # noqa: E402,F401
 
 __all__ = ['router']

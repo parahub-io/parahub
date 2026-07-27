@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Parahub Mesh — getting started (A4)</title>
+<style>
+  /* Print-ready A4 getting-started sheet. Self-contained: no external assets. */
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #171717;
+    background: #404040;
+  }
+  .sheet {
+    width: 210mm; height: 297mm;
+    background: #fff;
+    padding: 7mm 8mm;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  @media screen {
+    body { padding: 24px 0; }
+    .sheet { margin: 0 auto 24px; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+  }
+  @media print {
+    body { background: #fff; }
+    .sheet { margin: 0; box-shadow: none; }
+  }
+
+  .brandbar { display: flex; align-items: center; gap: 3mm; }
+  .brandbar svg.mark { width: 7mm; height: 7mm; flex: none; }
+  .wordmark { font-size: 14pt; font-weight: 900; letter-spacing: -0.4pt; }
+  .sub { font-size: 9.5pt; font-weight: 700; color: #525252; }
+  .brand-meta { margin-left: auto; text-align: right; font-size: 6.6pt; line-height: 1.35; color: #525252; }
+  .rule { height: 0.9mm; background: #FFE216; margin: 1.6mm 0 2mm; }
+
+  .cols { display: flex; gap: 2.6mm; flex: 1; min-height: 0; }
+  .col { flex: 1; display: flex; flex-direction: column; gap: 2.2mm; min-width: 0; }
+  .col .panel:last-child { flex: 1; }
+  /* Filled callouts hug their content — a stretched colored box reads as a layout gap. */
+  .col .panel.warn:last-child { flex: none; }
+
+  .panel { border: 0.35mm solid #d4d4d4; border-radius: 1.8mm; padding: 2.3mm 2.9mm; }
+  .panel.warn { background: #FFFBD0; border-color: #E6CA00; }
+  .panel h3 {
+    font-size: 9pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.25pt;
+    margin-bottom: 1.3mm; padding-bottom: 0.7mm; border-bottom: 0.5mm solid #FFE216;
+  }
+  .panel ul { list-style: none; }
+  .panel li { font-size: 7.8pt; line-height: 1.4; padding-left: 2.8mm; position: relative; margin-bottom: 0.6mm; }
+  .panel li::before { content: ""; position: absolute; left: 0; top: 1.2mm; width: 1.5mm; height: 1.5mm; background: #FFE216; outline: 0.25mm solid #a3a3a3; }
+  .panel li.x::before { background: #171717; outline-color: #171717; }
+  .panel ol { list-style: none; counter-reset: step; }
+  .panel ol li { padding-left: 5mm; counter-increment: step; }
+  .panel ol li::before { content: counter(step); position: absolute; left: 0; top: 0.2mm; width: 3.4mm; height: 3.4mm; background: #FFE216; outline: none; font-size: 7pt; font-weight: 900; display: flex; align-items: center; justify-content: center; border-radius: 0.8mm; }
+  .panel p.note { font-size: 7.3pt; color: #525252; line-height: 1.36; margin-top: 1mm; }
+
+  code, .m {
+    font-family: "SF Mono", "Cascadia Code", Consolas, Menlo, monospace;
+    font-size: 7.2pt; background: #f5f5f5; padding: 0 0.6mm; border-radius: 0.5mm;
+    white-space: nowrap;
+  }
+  b { font-weight: 800; }
+
+  table.t { width: 100%; border-collapse: collapse; font-size: 7.8pt; }
+  table.t th { text-align: left; font-size: 6.9pt; text-transform: uppercase; letter-spacing: 0.2pt; color: #737373; padding: 0 1mm 0.5mm 0; border-bottom: 0.3mm solid #d4d4d4; }
+  table.t td { padding: 0.8mm 1mm 0.8mm 0; border-bottom: 0.2mm solid #e5e5e5; line-height: 1.3; vertical-align: top; }
+  table.t tr:last-child td { border-bottom: none; }
+  table.t td:first-child { white-space: nowrap; font-weight: 700; }
+
+  .role { display: inline-block; font-size: 5.6pt; font-weight: 900; letter-spacing: 0.15pt; padding: 0.15mm 0.9mm; border-radius: 0.6mm; vertical-align: 0.25mm; margin-left: 0.6mm; }
+  .role.bb { background: #171717; color: #FFE216; }
+  .role.bee { background: #FFE216; color: #171717; outline: 0.25mm solid #a3a3a3; }
+  td .use { display: block; font-weight: 400; font-size: 6.7pt; color: #525252; line-height: 1.3; white-space: normal; margin-top: 0.2mm; }
+  td .use .role { margin-left: 0; margin-right: 0.9mm; }
+
+  .flow { font-size: 7.8pt; line-height: 1.5; margin-bottom: 1mm; }
+  .flow b.tag { display: inline-block; background: #171717; color: #FFE216; font-size: 6.7pt; font-weight: 900; padding: 0.2mm 1.1mm; border-radius: 0.7mm; margin-right: 0.8mm; }
+  .flow .arr { color: #737373; font-weight: 900; }
+
+  .foot { display: flex; align-items: baseline; gap: 4mm; margin-top: 1.8mm; font-size: 6.5pt; color: #525252; }
+  .foot .site { font-weight: 800; font-size: 8pt; color: #171717; }
+  .foot .right { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<section class="sheet">
+  <div class="brandbar">
+    <svg class="mark" viewBox="0 0 93.004425 92.797592" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g transform="translate(-54.976568,-109.28466)"><path fill="#171717" d="m 91.961093,113.16417 c -5.172666,5.17267 -5.172666,13.65582 0,18.8285 l 2.275966,2.27596 6.621011,-4.13808 -3.517415,-3.51748 c -2.275965,-2.27595 -2.275965,-6.00027 0,-8.06931 2.275973,-2.27595 6.000285,-2.27595 8.069355,0 2.27597,2.27596 2.27597,6.00028 0,8.06931 l -23.587337,23.79426 -4.138123,-4.13808 c -5.172666,-5.17267 -13.655824,-5.17267 -18.82849,0 -5.172658,5.1726 -5.172658,13.65582 0,18.82842 5.172666,5.17267 13.655824,5.17267 18.82849,0 l 3.517404,-3.31048 -6.414097,-4.34499 -2.482877,2.48287 c -2.275973,2.27596 -6.000289,2.27596 -8.06935,0 -2.069062,-2.27603 -2.275974,-6.00035 -0.20692,-8.2763 2.275966,-2.27596 6.000281,-2.27596 8.069351,0 l 22.759701,22.75973 3.724316,-1.65528 -6.621,6.62103 c -5.172666,5.17268 -5.172666,13.65583 0,18.8285 5.172658,5.17267 13.655822,5.17267 18.828482,0 5.17266,-5.17267 5.17266,-13.65582 0,-18.8285 l -2.27597,-2.27595 -6.621,4.13807 3.5174,3.51748 c 2.27597,2.27595 2.27597,6.00027 0,8.06931 -2.27597,2.27596 -6.000281,2.27596 -8.06935,0 -2.275966,-2.27596 -2.275966,-6.00028 0,-8.06931 l 23.79424,-23.79426 4.13813,4.13808 c 5.17266,5.17267 13.65582,5.17267 18.82849,0 5.17265,-5.1726 5.17265,-13.65582 0,-18.82842 -5.17267,-5.17267 -13.65583,-5.17267 -18.82849,0 l -3.51741,3.5174 6.4141,4.13807 2.27597,-2.27595 c 2.27597,-2.27596 6.00028,-2.27596 8.06935,0 2.27597,2.27595 2.27597,6.00027 0,8.06939 -2.27597,2.27595 -6.00029,2.27595 -8.06935,0 l -22.5528,-22.55282 -3.93122,1.65528 6.82791,-6.82795 c 5.17266,-5.17268 5.17266,-13.65583 0,-18.8285 -5.17266,-5.17267 -13.655824,-5.17267 -18.828482,0 z m 26.897837,45.72631 -4.34504,-1.86212 -13.0351,13.03506 -17.17324,-17.38014 4.138131,1.8622 13.242009,-13.24198 z"/></g></svg>
+    <span class="wordmark">PARAHUB MESH</span>
+    <span class="sub">— getting started</span>
+    <div class="brand-meta">OpenWrt 25.12 · batman-adv + Yggdrasil<br>Fleet UI: <b>parahub.io/iot</b></div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="cols">
+    <!-- ══════════ COLUMN 1 — hardware & cabling ══════════ -->
+    <div class="col">
+      <div class="panel">
+        <h3>Node roles</h3>
+        <ul>
+          <li><b>Bumblebee</b> = gateway node (the bigger routers). Provides the internet exit through a VPN, serves the free network, fully managed from /iot.</li>
+          <li><b>Bee</b> = relay (small ones: AR300M16, CPE710). Extends coverage, borrows internet from a bumblebee over the mesh — no cables, just power.</li>
+          <li><b>Zero-touch:</b> plug in power → the node configures itself, meshes with any Parahub node in radio range and goes online within 5 min. Free WiFi works ~5 min later.</li>
+          <li><b>Make it yours:</b> <b>parahub.io/iot</b> → "Claim a router" → type the MAC from the sticker. You're the owner; share access via the device card → Sharing.</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h3>Ports — where the internet goes</h3>
+        <table class="t">
+          <tr><th>Device</th><th>Internet in</th><th>Wired clients</th></tr>
+          <tr><td>AXT1800 / AX53U<span class="use"><span class="role bb">BUMBLEBEE</span>indoor all-rounder — at your internet source</span></td><td>port labeled WAN</td><td>LAN ports</td></tr>
+          <tr><td>MT3000 / MT6000<span class="use"><span class="role bb">BUMBLEBEE</span>strongest gateways — busy venues, many clients</span></td><td>2.5G port (WAN)</td><td>LAN port</td></tr>
+          <tr><td>AR300M16<span class="use"><span class="role bee">BEE</span>palm-size relay — fills an indoor dead spot</span></td><td>port labeled WAN</td><td>port labeled LAN</td></tr>
+          <tr><td>AP3000 Outdoor<span class="use"><span class="role bb">BUMBLEBEE</span>weatherproof omni — streets, squares, terraces</span></td><td><b>single PoE port</b></td><td>— WiFi only</td></tr>
+          <tr><td>CPE710<span class="use"><span class="role bee">BEE</span>long-range dish — beams the mesh to a far building</span></td><td><b>none</b> — mesh-fed</td><td>single PoE port</td></tr>
+        </table>
+        <p class="note">An <b>empty WAN is fine</b>: the node pulls internet across the mesh from another node. Nothing to configure.</p>
+      </div>
+
+      <div class="panel warn">
+        <h3>Cabling — do &amp; don't</h3>
+        <ul>
+          <li>Internet source (home router, fiber ONT, Starlink, 4G) → <b>WAN port only</b>. Any source with DHCP works.</li>
+          <li>LAN ports are the <b>same trusted network</b> as the Parahub WiFi — whatever you plug in gets full access.</li>
+          <li class="x">Never plug the internet provider into a <b>LAN</b> port — two competing DHCP servers on the trusted network.</li>
+          <li class="x">Never cable two nodes LAN↔LAN directly — first enable <b>Wired mesh</b> in /iot on both. It turns <b>all</b> LAN ports of that node into mesh ports (wired clients lose them), and the cable is unencrypted — same-pole / indoor links only.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════ COLUMN 2 — networks, addresses, speed ══════════ -->
+    <div class="col">
+      <div class="panel">
+        <h3>WiFi networks</h3>
+        <table class="t">
+          <tr><th>Name</th><th>What it is</th></tr>
+          <tr><td>Parahub<span class="use">factory default — rename it to anything</span></td><td>Private, password-protected. One name + password across all nodes; devices roam seamlessly.</td></tr>
+          <tr><td>parahub.io/free</td><td>Public, open, for everyone. Sandboxed away from the private network.</td></tr>
+          <tr><td>parahub.io/mesh</td><td>Node-to-node backhaul. Joins automatically — not for people.</td></tr>
+        </table>
+        <p class="note"><b>Change the password</b> in /iot → device card → WiFi (rename the network there too). Applies fleet-wide at once — one roaming domain.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Recognize the address</h3>
+        <table class="t">
+          <tr><th>Looks like</th><th>It is</th></tr>
+          <tr><td>10.P1.P2.x</td><td>Private LAN of one node (unique per node, derived from its MAC; router itself = <code>.1</code>).</td></tr>
+          <tr><td>10.G1.G2.x</td><td>Guest network of one node — same idea, separate world.</td></tr>
+          <tr><td>10.250.250.1</td><td>"Nearest internet gateway" — answered by whichever bumblebee currently has a healthy VPN.</td></tr>
+          <tr><td>10.99.0.x</td><td>VPN tunnel between a node and the exit server.</td></tr>
+          <tr><td>200:…</td><td>Yggdrasil address of the node itself — management plane, stable across updates.</td></tr>
+          <tr><td>300:…</td><td>A private client's global Yggdrasil IPv6 — reachable from outside only if whitelisted in /iot.</td></tr>
+          <tr><td>fd00:bee5:…</td><td>Guest IPv6 — outbound-only, reaches Parahub services at full speed.</td></tr>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h3>Speed — who gets what</h3>
+        <table class="t">
+          <tr><th>Who</th><th>Speed</th></tr>
+          <tr><td>Free guest</td><td><b>512 kbps each</b> (default). The Parahub portal itself is never throttled.</td></tr>
+          <tr><td>Mesh Pass</td><td><b>Full speed.</b> Up to 5 devices per account; follows the device across every island.</td></tr>
+          <tr><td>Private WiFi</td><td>Full speed on a bumblebee; on a bee capped at <b>10 Mbps</b> total (default).</td></tr>
+        </table>
+        <p class="note">Both defaults are the gateway owner's, tunable in /iot — their uplink carries this traffic. A bee host's private traffic exits via the owner and shows <b>that owner's public IP</b>.</p>
+        <p class="note"><b>Kill switch:</b> no working VPN on the island ⇒ free guests get <b>no internet at all</b> — never routed through a raw connection. The free network stays up in <b>local mode</b>: Parahub services only.</p>
+      </div>
+    </div>
+
+    <!-- ══════════ COLUMN 3 — trust, flow, pass, troubleshooting ══════════ -->
+    <div class="col">
+      <div class="panel">
+        <h3>Free vs private — trust model</h3>
+        <ul>
+          <li><b>Free</b> = anonymous &amp; sandboxed: no access to anyone's LAN, and it exits <b>always</b> through the VPN chain — a guest's visible IP is the Mullvad Portugal exit, never the host's. DNS is resolved inside the tunnel too.</li>
+          <li><b>Private</b> = trusted: one big LAN across all nodes, exits through the node's own internet connection.</li>
+          <li>Paying for Mesh Pass changes <b>speed only</b> — a guest stays sandboxed and VPN-routed.</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h3>Where traffic goes</h3>
+        <p class="flow"><b class="tag">FREE</b>any node <span class="arr">→</span> island's gateway node <span class="arr">→</span> VPN <span class="arr">→</span> Mullvad PT <span class="arr">→</span> Internet</p>
+        <p class="flow"><b class="tag">PRIVATE</b>the node's own internet; if it dies <span class="arr">→</span> automatic detour via another bumblebee</p>
+        <p class="flow"><b class="tag">MGMT</b>nodes phone home every 5 min; auto-update nightly at 03:00</p>
+        <p class="note">An <b>island</b> = nodes currently meshed together; a separate group forms its own. One gateway per island, auto-elected among VPN-healthy bumblebees; failover ~5 min. Every VPN down ⇒ a <b>local-only</b> gateway (free up, internet off).</p>
+      </div>
+
+      <div class="panel">
+        <h3>Mesh Pass — full speed in 4 steps</h3>
+        <ol>
+          <li>Join the <b>parahub.io/free</b> WiFi — open it in your browser (the portal loads at full speed even on the free tier).</li>
+          <li>Log in or create an account.</li>
+          <li>Pay with Lightning — or earn the pass.</li>
+          <li>Tap <b>"Enable full speed on this device"</b> — active instantly, on every island.</li>
+        </ol>
+      </div>
+
+      <div class="panel">
+        <h3>If something's wrong</h3>
+        <ul>
+          <li><b>Power-cycle first — always safe.</b> The node rebuilds its config and re-registers by itself; fixes most unreachable-node cases.</li>
+          <li>Check <b>/iot</b>: online badge (heartbeat every 5 min), firmware version, uplink &amp; client charts per node.</li>
+          <li>Whole island offline ⇒ the gateway node lost its uplink or VPN — check <b>that</b> node's cable first. Parahub loads but nothing else ⇒ <b>every</b> VPN down (local mode).</li>
+          <li>A just-rebooted node without its own uplink can look dead ~20 min — give it time.</li>
+          <li><b>Unexpected reboot ≠ fault</b> — the node self-heals a dead management link.</li>
+          <li>Settings changed <b>outside /iot</b> quietly revert on the nightly update — by design. Persistent changes go through /iot.</li>
+          <li>Anything deeper — hand it to the AI operator.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span class="site">parahub.io/mesh</span>
+    <span>Docs: <b>parahub.io/docs/mesh</b> · Open source: <b>github.com/parahub-io</b></span>
+    <span class="right">Peering: Pico Peering Agreement (picopeer.net)</span>
+  </div>
+</section>
+
+</body>
+</html>

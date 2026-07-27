@@ -9,6 +9,12 @@
 </p>
 
 <p align="center">
+  <a href="https://parahub.io"><b>parahub.io</b></a> &mdash; live instance
+  &middot; <a href="https://parahub.io/docs">Docs</a>
+  &middot; <a href="https://github.com/parahub-io/parahub-mesh">Mesh firmware</a>
+</p>
+
+<p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="Python" src="https://img.shields.io/badge/python-3.12+-3776ab?logo=python&logoColor=white">
   <img alt="Django" src="https://img.shields.io/badge/django-5-092e20?logo=django&logoColor=white">
@@ -40,7 +46,7 @@ Platforms extract 15-30% from every transaction (Amazon, Upwork, Uber). Parahub 
 |-------|------|
 | Backend | Django 5 / Ninja, Python 3.12 |
 | Frontend | Nuxt 4 (SSR), Vue 3 |
-| Database | PostgreSQL 16 + PostGIS + TimescaleDB |
+| Database | PostgreSQL 18 + PostGIS + TimescaleDB |
 | Graph | Neo4j (barter cycle detection) |
 | Cache | Redis |
 | Chat | Matrix Synapse + Element/Cinny |

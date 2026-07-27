@@ -16,6 +16,7 @@ from ninja.errors import HttpError
 
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
+from iot.api.access import get_device_for
 from iot.models import IoTDevice, TrackerHistory
 
 logger = logging.getLogger(__name__)
@@ -57,12 +58,9 @@ def get_tracker_history(
     end: datetime,
 ):
     profile = request.auth_profile
-    device = get_object_or_404(
-        IoTDevice,
-        id=device_id,
-        owner=profile,
-        device_type=IoTDevice.DeviceType.TRACKER,
-    )
+    device = get_device_for(profile, device_id)
+    if device.device_type != IoTDevice.DeviceType.TRACKER:
+        raise HttpError(404, "Not a tracker")
 
     if end <= start:
         raise HttpError(400, "end must be after start")

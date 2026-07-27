@@ -158,20 +158,31 @@ else:
 def _build_update_latest_script(mission_dir: str, latest_dir: str, mission_id: str) -> str:
     """Build standalone Python script for updating latest layer on skystore.
 
-    Policy: a mission's tile replaces the latest/ tile only if it has more
-    content (larger file). Reason: gdal2tiles produces edge tiles for
-    neighboring Z17 coords when the input ortho is clipped close to a tile
-    boundary — those edges are effectively empty placeholders (~200 B) and
-    would otherwise overwrite a neighbor's real full tile (~tens of KB) at
-    the same coord. Past incident: 2026-04-08 C9/R2 missions wiped NVY's
-    real tile 17/62485/48643 via this path. Size-wins is a safe "data
-    preservation" heuristic — the empty placeholder is ~200 B while any
-    meaningful aerial content is >1 KB.
+    Policy: **among real tiles (>=1 KB), the mission being planted now wins**
+    (it is the newest survey of that coord) — even if its WebP compresses a few
+    KB smaller than the tile already there. A sub-1 KB tile is a gdal2tiles
+    clip-edge placeholder (~200-600 B produced for neighboring Z17 coords when
+    the input ortho is clipped close to a tile boundary) and must NEVER
+    overwrite a real (>=1 KB) tile — that is the only case that would wipe a
+    neighbor's real content at a shared coord (2026-04-08 C9/R2 wiped NVY's real
+    tile 17/62485/48643 via the old newest-wins-by-nothing path). Callers tile
+    from Z17-clipped orthos, so a mission's real tiles are confined to its own
+    Z17 cell; a real tile therefore never lands on a neighbor's coord, making
+    newest-wins-among-real safe. The earlier pure size-wins heuristic silently
+    suppressed re-flights of an already-covered tile (a fresh July survey that
+    compresses smaller than the June one lost the size comparison and stayed
+    hidden — 2026-07-10); the >=1 KB placeholder guard preserves the 04-08
+    protection while restoring the documented "latest/ = newest" behavior for
+    re-flights. Consolidation planting keeps its coverage via the
+    `_clear_self_owned_latest_tiles(override_tiles_dir=...)` pre-clear: a
+    consolidation's own nodata-hole placeholder is <1 KB and is skipped here, so
+    the surviving member tile is kept.
     """
     return f'''
 import os
 mission_dir = "{mission_dir}"
 latest_dir = "{latest_dir}"
+REAL_TILE_MIN = 1024
 os.makedirs(latest_dir, exist_ok=True)
 count_written = 0
 count_skipped = 0
@@ -193,7 +204,10 @@ for z_str in os.listdir(mission_dir):
             src_size = os.path.getsize(src)
             if os.path.exists(dst):
                 dst_size = os.path.getsize(dst)
-                if src_size <= dst_size:
+                # Placeholder guard: a sub-1KB clip-edge placeholder must never
+                # overwrite a real (>=1KB) neighbor tile. Among real tiles the
+                # newest survey (this mission) wins even if marginally smaller.
+                if src_size < REAL_TILE_MIN <= dst_size:
                     count_skipped += 1
                     continue
                 os.unlink(dst)
@@ -203,7 +217,7 @@ for z_str in os.listdir(mission_dir):
                 import shutil
                 shutil.copy2(src, dst)
             count_written += 1
-print(f"Updated {{count_written}} tiles, skipped {{count_skipped}} smaller-than-existing")
+print(f"Updated {{count_written}} tiles, skipped {{count_skipped}} placeholder-over-real")
 '''
 
 

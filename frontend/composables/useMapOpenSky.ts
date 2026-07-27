@@ -10,7 +10,7 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
 
-const TILE_ZOOM = 17         // ~305×240m per tile at mid-latitudes
+const TILE_ZOOM = 17         // square ground tiles: ~305m at equator × cos(lat) → ~240m in Portugal
 const GRID_MIN_ZOOM = 12     // Don't render grid below this zoom
 
 // Crowdsourced aerial imagery is published under CC BY-SA 4.0. Shown in the
@@ -66,7 +66,6 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
   const mapStore = useMapStore()
 
   const openSkyEnabled = useLocalPref('opensky_enabled', false)
-  const openSkyMode = useLocalPref('opensky_mode', false)
   const missionGenerating = ref(false)
   const tileGridMode = ref(false)
 
@@ -107,20 +106,16 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
     const unifiedSourceId = 'opensky-latest'
     const unifiedLayerId = 'opensky-latest-layer'
 
-    const tileUrl = missionId
-      ? `/api/v1/geo/opensky/tiles/{z}/{x}/{y}.webp?mission_id=${missionId}`
-      : '/api/v1/geo/opensky/tiles/{z}/{x}/{y}.webp'
-
+    // A focused mission (?opensky_mission=) does NOT filter the raster: the full
+    // latest/ layer stays visible so surrounding coverage gives context — the
+    // mission itself is framed centered via fitMissionBounds. missionId here
+    // only force-enables the layer.
     if (map.getLayer(unifiedLayerId)) map.removeLayer(unifiedLayerId)
     if (map.getSource(unifiedSourceId)) map.removeSource(unifiedSourceId)
 
-    const missionBounds = missionId
-      ? openSkyMissions.value.find(m => m.id === missionId)?.bounds
-      : undefined
-
     map.addSource(unifiedSourceId, {
       type: 'raster',
-      tiles: [tileUrl],
+      tiles: ['/api/v1/geo/opensky/tiles/{z}/{x}/{y}.webp'],
       tileSize: 256,
       minzoom: 11,
       // Pyramid ends at z22 (see published-bounds); 23 here made every pan at
@@ -128,7 +123,6 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       // MapLibre overzooms z22 tiles for display beyond.
       maxzoom: 22,
       attribution: OPENSKY_ATTRIBUTION,
-      ...(missionBounds ? { bounds: missionBounds } : {})
     })
 
     const shouldBeVisible = missionId ? true : openSkyEnabled.value
@@ -429,6 +423,11 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
     const onClick = (e: any) => {
       if (_hoveredTileX === null || _hoveredTileY === null || missionGenerating.value) return
       if (map.getZoom() < GRID_MIN_ZOOM) return
+      // Planning mode is open to everyone; the mission endpoint needs auth
+      if (!authStore.isAuthenticated) {
+        useToastStore().warning('Sign in to download flight missions')
+        return
+      }
       _downloadMission(
         `/api/v1/geo/opensky/mission/?tile_z=${TILE_ZOOM}&tile_x=${_hoveredTileX}&tile_y=${_hoveredTileY}`,
         `OpenSky_Z${TILE_ZOOM}_${_hoveredTileX}_${_hoveredTileY}.zip`
@@ -525,18 +524,6 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
     }
   }
 
-  async function downloadMissionKMZ() {
-    const map = mapStore.mapInstance
-    if (!map) return
-    const center = map.getCenter()
-    const x = lng2tile(center.lng, TILE_ZOOM)
-    const y = lat2tile(center.lat, TILE_ZOOM)
-    _downloadMission(
-      `/api/v1/geo/opensky/mission/?tile_z=${TILE_ZOOM}&tile_x=${x}&tile_y=${y}`,
-      `OpenSky_Z${TILE_ZOOM}_${x}_${y}.zip`
-    )
-  }
-
   function toggleMissionArea() {
     toggleTileGrid()
   }
@@ -572,7 +559,6 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
 
   return {
     openSkyEnabled,
-    openSkyMode,
     missionGenerating,
     tileGridMode,
     hoveredTileBudget,
@@ -581,6 +567,5 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
     toggleLayer,
     toggleMissionArea,
     toggleTileGrid,
-    downloadMissionKMZ,
   }
 }

@@ -91,14 +91,17 @@ def ratelimit(group=None, key='ip', rate='5/m', method='ALL', block=True):
 
 def get_ip(request):
     """
-    Get client IP address from request, considering proxies
+    Real client IP, safe to use as a trust / rate-limit key.
+
+    uvicorn runs with proxy-headers (trusted_hosts=127.0.0.1) and rewrites the
+    ASGI client — hence REMOTE_ADDR — to the right-most untrusted host in
+    X-Forwarded-For, i.e. the address our own nginx appended ($remote_addr on
+    the public path, the ygg client on the mesh path). That value is not
+    spoofable. Never parse the raw X-Forwarded-For header here: nginx appends
+    to any client-sent value, so its left-most element is attacker-controlled
+    and would let anyone mint a fresh rate-limit bucket per request.
     """
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+    return request.META.get('REMOTE_ADDR', '')
 
 
 def user_or_ip(group, request):

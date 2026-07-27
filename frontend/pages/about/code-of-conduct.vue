@@ -81,7 +81,7 @@
       </h2>
       <address class="not-italic bg-neutral-50 dark:bg-neutral-800 border-l-4 border-secondary p-4 rounded-r mb-8">
         <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('codeOfConduct.contact.organization') }}</strong><br>
-        <span class="text-neutral-700 dark:text-neutral-300">NIPC: 519046161</span><br>
+        <span class="text-neutral-700 dark:text-neutral-300">NIPC: 519 190 904</span><br>
         <span class="text-neutral-700 dark:text-neutral-300">{{ $t('codeOfConduct.contact.location') }}</span><br>
         <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('codeOfConduct.contact.reportTo') }}</strong> <a :href="`mailto:${emailAddress}`" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">{{ emailAddress }}</a><br>
         <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('codeOfConduct.contact.generalInquiries') }}</strong> <a :href="`mailto:${emailAddress}`" class="text-secondary dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300">{{ emailAddress }}</a>

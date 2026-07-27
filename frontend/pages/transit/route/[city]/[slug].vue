@@ -24,11 +24,14 @@
             @click="variantsOpen = !variantsOpen"
             :aria-expanded="variantsOpen"
             aria-haspopup="menu"
-            :aria-label="$t('transit.line_variants')"
+            :aria-label="`${$t('transit.line_variants')}: ${routeData.variants.length}`"
             class="flex items-center gap-1 max-w-full px-1.5 py-0.5 rounded-md text-base text-neutral-700 dark:text-neutral-300 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
             :class="{ 'bg-primary-100 dark:bg-primary-900/40': variantsOpen }"
           >
             <span class="truncate">{{ routeData.long_name }}</span>
+            <!-- Variant count: signals the dropdown holds sibling percursos (incl. the
+                 opposite direction on feeds that split directions into separate routes) -->
+            <UiBadge variant="neutral" type="soft" size="sm" class="flex-shrink-0 tabular-nums">{{ routeData.variants.length }}</UiBadge>
             <ChevronDown class="w-4 h-4 flex-shrink-0 transition-transform duration-200" :class="{ 'rotate-180': variantsOpen }" />
           </button>
           <Transition
@@ -378,7 +381,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 import { ArrowLeft, ArrowRight, ArrowLeftRight, CalendarDays, CalendarOff, Check, ChevronDown, Maximize2, Moon, X } from 'lucide-vue-next'
 import { createVehicleAnimator } from '~/utils/vehicleAnimator'
 
@@ -486,12 +489,18 @@ const directionViews = computed(() => {
     ]
   }
   const only = dirs[0]?.direction_id ?? 0
-  return [{ direction_id: only, stops: stops0 }]
+  return [{ direction_id: only, stops: only === 1 && stops1.length ? stops1 : stops0 }]
 })
 
+// Dir0 stops when present, else dir1 — dir1-only routes (e.g. circulars whose
+// GTFS trips all carry direction_id=1) have an empty `stops` array.
+const primaryStops = computed(() =>
+  routeData.value?.stops?.length ? routeData.value.stops : (routeData.value?.stops_dir1 ?? [])
+)
+
 const routeCenter = computed(() => {
-  if (!routeData.value?.stops?.length) return { lat: 0, lon: 0 }
-  const stops = routeData.value.stops
+  const stops = primaryStops.value
+  if (!stops.length) return { lat: 0, lon: 0 }
   const mid = stops[Math.floor(stops.length / 2)]
   return { lat: mid.lat, lon: mid.lon }
 })
@@ -760,6 +769,7 @@ let liveWsReconnectTimer: ReturnType<typeof setTimeout> | null = null
 
 function connectLiveWS() {
   if (!import.meta.client) return
+  if (liveWs) return  // already open/connecting (nulled on close and deactivate)
   const dsId = routeData.value?.data_source_id
   const sourceId = routeData.value?.source_id
   if (!dsId || !sourceId) return
@@ -818,14 +828,36 @@ function onLiveWsVisibilityChange() {
   }
 }
 
-onMounted(() => {
-  isMounted.value = true
-  loadSchedule()
-  startScheduleRefresh()
-  connectLiveWS()
+// All pages are KeepAlive-cached (app.vue), so navigating away does NOT
+// unmount this page — onUnmounted fires only on LRU eviction. Everything
+// recurring (schedule poll, live WS, doc listeners) must therefore pause on
+// deactivate and resume on activate, or every cached route page keeps
+// polling and streaming behind whatever the user is actually looking at.
+// Same rule as MapView composables — see PK/map.md § MapView lifecycle.
+//
+// resumeLive is called from BOTH onMounted and onActivated: under Nuxt's
+// Suspense-wrapped async pages onActivated does NOT fire on the initial
+// mount (verified in-browser), only on KeepAlive re-entry — so each hook
+// covers the case the other misses. Guards make the double call a no-op.
+let lastScheduleLoadTs = 0
+function resumeLive() {
+  // Refresh data that aged while hidden; skip the duplicate mounted+activated
+  // call. Cheap either way (server memoizes per agency-local minute).
+  if (Date.now() - lastScheduleLoadTs > 5000) {
+    lastScheduleLoadTs = Date.now()
+    loadSchedule()
+  }
+  if (!scheduleRefreshTimer) startScheduleRefresh()
+  connectLiveWS()  // no-op while already open
+  // Re-adding an identical listener is a spec-level no-op
   document.addEventListener('visibilitychange', onLiveWsVisibilityChange)
   document.addEventListener('click', onVariantsDocClick)
   document.addEventListener('keydown', onVariantsDocKey)
+}
+
+onMounted(() => {
+  isMounted.value = true
+  resumeLive()
 
   // Lazy mini-map: create when container enters viewport
   if (miniMapEl.value) {
@@ -837,6 +869,22 @@ onMounted(() => {
     )
     miniMapObserver.observe(miniMapEl.value)
   }
+})
+
+onActivated(() => { resumeLive() })
+
+onDeactivated(() => {
+  document.removeEventListener('visibilitychange', onLiveWsVisibilityChange)
+  document.removeEventListener('click', onVariantsDocClick)
+  document.removeEventListener('keydown', onVariantsDocKey)
+  liveWsIntentionalClose = true
+  if (scheduleRefreshTimer) { clearInterval(scheduleRefreshTimer); scheduleRefreshTimer = null }
+  if (liveWsReconnectTimer) { clearTimeout(liveWsReconnectTimer); liveWsReconnectTimer = null }
+  liveWs?.close()
+  liveWs = null
+  // Halt the mini-map glide rAF; the reconnect's first WS tick re-engages it
+  // (setTarget restarts the loop, vehicles appear in place).
+  miniVehicleAnimator?.stop()
 })
 
 onUnmounted(() => {
@@ -976,7 +1024,7 @@ async function buildMiniMapOverlays() {
   }
 
   // Stop circles
-  const stops = routeData.value?.stops
+  const stops = primaryStops.value
   if (stops?.length) {
     miniMap.addSource('route-stops', {
       type: 'geojson',

@@ -7,7 +7,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Home, Building2, Church, Landmark, Map as MapIcon, Flag, Users } from 'lucide-vue-next'
+import { Home, Building2, Church, Landmark, Map as MapIcon, Flag, Euro, Users } from 'lucide-vue-next'
 
 const props = defineProps<{
   level?: string | null
@@ -24,6 +24,7 @@ const icon = computed(() => {
     case 'municipality': return Landmark
     case 'region': return MapIcon
     case 'country': return Flag
+    case 'eu': return Euro
     default: return Users
   }
 })

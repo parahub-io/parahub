@@ -83,6 +83,10 @@ export const useOpenSky = () => {
   const myMissions = useState<OpenSkyMission[]>('opensky-my-missions', () => [])
   const publishedBounds = useState<OpenSkyMissionBounds[]>('opensky-published-bounds', () => [])
   const loading = useState('opensky-loading', () => false)
+  // Gate empty-states behind a completed fetch so the pre-fetch frame renders a
+  // skeleton, never a false "no missions yet" that then flashes to a spinner.
+  const hasFetchedMine = useState('opensky-fetched-mine', () => false)
+  const hasFetchedAll = useState('opensky-fetched-all', () => false)
   const uploading = useState('opensky-uploading', () => false)
   const uploadProgress = useState('opensky-upload-progress', () => 0)
 
@@ -141,6 +145,7 @@ export const useOpenSky = () => {
       throw error
     } finally {
       loading.value = false
+      hasFetchedAll.value = true
     }
   }
 
@@ -148,9 +153,9 @@ export const useOpenSky = () => {
    * Fetch current user's missions (all statuses)
    */
   const fetchMyMissions = async () => {
-    await authStore.ensureToken()
     loading.value = true
     try {
+      await authStore.ensureToken()
       const data = await $fetch<OpenSkyMission[]>('/api/v1/geo/opensky/missions/me/', {
         credentials: 'include',
         headers: { 'Authorization': `Bearer ${authStore.token}` }
@@ -162,6 +167,7 @@ export const useOpenSky = () => {
       throw error
     } finally {
       loading.value = false
+      hasFetchedMine.value = true
     }
   }
 
@@ -549,6 +555,8 @@ export const useOpenSky = () => {
     myMissions,
     publishedBounds,
     loading,
+    hasFetchedMine,
+    hasFetchedAll,
     uploading,
     uploadProgress,
     multiUploadState,

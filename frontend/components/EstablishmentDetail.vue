@@ -859,6 +859,7 @@ const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const localePath = useLocalePath()
+const switchLocalePath = useSwitchLocalePath()
 const authStore = useAuthStore()
 
 // SSR-ready fetch (public data for SEO meta/JSON-LD)
@@ -1438,7 +1439,11 @@ const getDirections = () => {
 }
 
 const shareEstablishment = async () => {
-  const url = window.location.href
+  // Locale-neutral on purpose: the link goes to OTHER people. The raw href
+  // carries the sharer's locale prefix (e.g. /ru/...), which forces their
+  // language onto every recipient and persists it via the i18n cookie.
+  // switchLocalePath('en') is the unprefixed path of the current route.
+  const url = `${window.location.origin}${switchLocalePath('en')}`
   const title = establishment.value?.name || ''
   if (navigator.share) {
     try {

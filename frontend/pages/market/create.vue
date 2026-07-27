@@ -11,8 +11,11 @@
         </div>
       </div>
 
-      <!-- Loading edit data -->
-      <div v-if="loadingEdit" class="py-12 text-center" role="status" aria-live="polite">
+      <!-- Loading edit data — only before the form is first populated. On KeepAlive
+           re-entry in edit mode onActivated refetches (loadingEdit=true) while the
+           form is already filled; guard on loadedEditId so the spinner doesn't wipe
+           the pre-filled form during a background refresh (mirrors market/[id]). -->
+      <div v-if="loadingEdit && !loadedEditId" class="py-12 text-center" role="status" aria-live="polite">
         <div class="h-12 w-12 mx-auto border-4 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100 rounded-full animate-spin"></div>
         <span class="sr-only">{{ $t('common.loading') }}</span>
       </div>

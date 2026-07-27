@@ -29,6 +29,10 @@
       "dacha": "Dacha",
       "garage": "Garage",
       "other": "Other"
-    }
+    },
+    "entities": "HA entities",
+    "mesh_label": "mesh",
+    "producer": "producer",
+    "consumer": "consumer"
   }
 }

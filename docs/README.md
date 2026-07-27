@@ -28,12 +28,12 @@ Built as a registered Portuguese non-profit association (Associacao PARAHUB, Mon
 
 ## Quick Facts
 
-- **Stack**: Django 5 / Ninja, Nuxt 4, PostgreSQL 16 / PostGIS / TimescaleDB, Redis, Neo4j
+- **Stack**: Django 5 / Ninja, Nuxt 4, PostgreSQL 18 / PostGIS / TimescaleDB, Redis, Neo4j
 - **Identity**: ULID-based, multi-profile (up to 7 per account), Web of Trust verification
 - **Crypto**: Client-side PGP (keys never leave the browser), Bitcoin/Lightning optional
 - **Chat**: Matrix protocol (Synapse) with E2E encryption, three client options
 - **Maps**: MapLibre + OpenStreetMap + self-hosted tiles, geocoding, routing
-- **Transit**: 10 GTFS feeds, real-time vehicle tracking, multimodal routing
+- **Transit**: multiple GTFS feeds across cities, real-time vehicle tracking, multimodal routing
 - **Mobile**: Capacitor (Android/iOS WebView shell), same codebase
 - **Languages**: English, Portuguese, Spanish, French, German, Russian
 - **License**: MIT
@@ -42,5 +42,5 @@ Built as a registered Portuguese non-profit association (Associacao PARAHUB, Mon
 
 - **Live**: [parahub.io](https://parahub.io)
 - **Status**: [status.parahub.io](https://status.parahub.io)
-- **Source**: Self-hosted on [Gitea](https://gitea.parahub.io)
+- **Source**: [GitHub mirror](https://github.com/parahub-io) (platform + mesh firmware), developed on self-hosted [Gitea](https://gitea.parahub.io)
 - **Chat**: Matrix at `#general:parahub.io`

@@ -29,6 +29,10 @@
       "dacha": "Finca",
       "garage": "Garaje",
       "other": "Otro"
-    }
+    },
+    "entities": "entidades HA",
+    "mesh_label": "mesh",
+    "producer": "productor",
+    "consumer": "consumidor"
   }
 }

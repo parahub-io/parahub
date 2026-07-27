@@ -185,10 +185,9 @@ def get_pow_challenge(request):
 
 
 def _get_client_ip(request) -> str:
-    """Extract client IP from X-Forwarded-For or REMOTE_ADDR."""
-    xff = request.META.get('HTTP_X_FORWARDED_FOR')
-    if xff:
-        return xff.split(',')[0].strip()
+    """Real client IP. REMOTE_ADDR is set by uvicorn proxy-headers to the
+    right-most untrusted X-Forwarded-For host (the one our nginx appended) and
+    is not spoofable; the raw X-Forwarded-For left-most element is."""
     return request.META.get('REMOTE_ADDR', '')
 
 
@@ -376,7 +375,7 @@ def get_current_user(request):
                 "reputation_score": float(profile.reputation_score),
                 "is_verified_wot": profile.is_verified_wot,
                 "is_foundation_member": profile.is_foundation_member(),
-                "avatar_url": profile.avatar.url if profile.avatar else None,
+                "avatar_url": profile.avatar_url,
                 "profile_type": profile.profile_type,
                 "is_primary": profile.is_primary,
             }
@@ -478,7 +477,7 @@ def check_session(request):
                 "reputation_score": float(profile.reputation_score),
                 "is_verified_wot": profile.is_verified_wot,
                 "is_foundation_member": profile.is_foundation_member(),
-                "avatar_url": profile.avatar.url if profile.avatar else None,
+                "avatar_url": profile.avatar_url,
                 "profile_type": profile.profile_type,
                 "is_primary": profile.is_primary,
                 # Consumed by the i18n boot plugin — saves it a dedicated

@@ -3,7 +3,7 @@
  * Shows hub markers on the map with toggle and click interaction.
  */
 
-import { createToggleableDataLayer, roundedSquarePath } from '~/composables/useMapToggleableLayer'
+import { createToggleableDataLayer, roundedSquarePath, strokeMarkerOutline } from '~/composables/useMapToggleableLayer'
 
 // Package/box silhouette on rounded square — orange-600
 function ensureHubIcon(map: any) {
@@ -19,6 +19,7 @@ function ensureHubIcon(map: any) {
   roundedSquarePath(ctx, s, 4)
   ctx.fillStyle = fill
   ctx.fill()
+  strokeMarkerOutline(ctx)
 
   // Package/box silhouette (white)
   ctx.fillStyle = '#ffffff'

@@ -133,10 +133,6 @@
       "map_presence_enabled": "Enabled",
       "map_presence_disabled": "Disabled",
       "map_presence_hint": "Show your avatar on the map and see other users in real-time (MMORPG-style presence)",
-      "opensky_mode_label": "OpenSky Mode",
-      "opensky_mode_enabled": "Enabled",
-      "opensky_mode_disabled": "Disabled",
-      "opensky_mode_hint": "Show OpenSky controls on the map (mission area, dashboard link). Aerial imagery layer is always available.",
       "map_style_label": "Map Style",
       "map_style_hint": "Choose your preferred map visualization style",
       "map_style_updated": "Map style updated",
@@ -169,6 +165,12 @@
       "dev_mode_enabled": "Using dev server",
       "dev_mode_disabled": "Using production server",
       "dev_mode_hint": "Switch between development and production servers. Page will reload.",
+      "advanced_title": "Advanced settings",
+      "advanced_subtitle": "Map options and developer tools",
+      "trails_label": "Vehicle comet trails",
+      "trails_enabled": "Enabled",
+      "trails_disabled": "Disabled",
+      "trails_hint": "Animated fading trails behind moving transit vehicles on the map. When disabled, the rendering library (~500 KB) is not downloaded.",
       "language_updated": "Language updated"
     },
     "association_member": "Association Member",
@@ -312,7 +314,11 @@
       "multiple_faces": "Multiple faces detected. Upload a photo with only your face.",
       "status_ready": "Ready for verification",
       "status_pending": "Awaiting re-confirmation",
-      "delete_warning": "Deleting your verification photo will affect your Web of Trust (WoT) status"
+      "delete_warning": "Deleting your verification photo will affect your Web of Trust (WoT) status",
+      "access_log_title": "Who opened this photo",
+      "access_log_empty": "Nobody has opened it yet",
+      "access_log_more": "Show {count} more",
+      "access_log_less": "Show less"
     }
   },
   "profiles": {
@@ -501,6 +507,7 @@
     "create_contract": "Create Contract",
     "record_debt": "Record Debt",
     "click_to_flip": "Click to show ID photo",
+    "click_to_enlarge": "Click to enlarge",
     "id_photo": "ID Photo",
     "ln_no_address": "{name} has not configured a Lightning address",
     "ln_no_wallet": "You need to set up your Lightning wallet first",

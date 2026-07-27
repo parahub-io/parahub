@@ -1,8 +1,8 @@
 <template>
   <transition :name="animationsEnabled ? 'slide' : ''" :duration="animationsEnabled ? 300 : 0">
     <div
-      v-if="feature || contentType === 'own_avatar' || contentType === 'other_avatar' || contentType === 'vehicle' || contentType === 'iot_device' || contentType === 'condominium' || contentType === 'hub' || contentType === 'establishment' || (contentType === 'urban' && urbanResult)"
-      class="fixed bottom-0 left-0 right-0 w-full md:absolute md:top-0 md:bottom-0 md:right-auto md:left-0 md:h-full md:w-96 bg-white dark:bg-neutral-900 shadow-2xl z-50 flex flex-col rounded-t-2xl md:rounded-none"
+      v-if="feature || contentType === 'own_avatar' || contentType === 'other_avatar' || contentType === 'vehicle' || contentType === 'iot_device' || contentType === 'env_station' || contentType === 'condominium' || contentType === 'hub' || contentType === 'establishment' || (contentType === 'urban' && urbanResult) || (contentType === 'opensky' && openskyActive)"
+      class="fixed bottom-0 left-0 right-0 w-full md:absolute md:top-0 md:bottom-0 md:right-auto md:left-0 md:h-full md:w-96 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 max-md:border-t md:border-r z-50 flex flex-col rounded-t-2xl md:rounded-none"
       :style="isMobile ? sheetStyle : {}"
     >
       <!-- Mobile drag handle -->
@@ -76,6 +76,8 @@
         <MapPanelVehicle
           v-else-if="contentType === 'vehicle'"
           :vehicle-data="vehicleData"
+          :following="vehicleFollowing"
+          @toggle-follow="emit('toggle-vehicle-follow')"
         />
 
         <!-- IoT Device -->
@@ -87,6 +89,12 @@
           @clear-trail="emit('clear-trail')"
           @trail-cursor="emit('trail-cursor', $event)"
           @recenter="emit('recenter-iot')"
+        />
+
+        <!-- Environmental station (weather + air quality) -->
+        <MapPanelEnvStation
+          v-else-if="contentType === 'env_station'"
+          :env-station-data="envStationData"
         />
 
         <!-- Condominium -->
@@ -119,6 +127,13 @@
           @redraw="emit('urban-redraw')"
         />
 
+        <!-- OpenSky mission planning (tile-grid tool info + flight budgets) -->
+        <MapPanelOpenSky
+          v-else-if="contentType === 'opensky'"
+          :budget="openskyBudget"
+          :generating="openskyGenerating"
+        />
+
         <!-- OSM features (buildings, roads, POIs, etc.) -->
         <MapPanelOsm
           v-else
@@ -148,11 +163,13 @@ import type { AvatarType } from '~/composables/useMapPresence'
 import MapPanelAvatar from '~/components/MapPanelAvatar.vue'
 import MapPanelVehicle from '~/components/MapPanelVehicle.vue'
 import MapPanelIotDevice from '~/components/MapPanelIotDevice.vue'
+import MapPanelEnvStation from '~/components/MapPanelEnvStation.vue'
 import MapPanelCondominium from '~/components/MapPanelCondominium.vue'
 import MapPanelHub from '~/components/MapPanelHub.vue'
 import MapPanelEstablishmentPoi from '~/components/MapPanelEstablishmentPoi.vue'
 import MapPanelOsm from '~/components/MapPanelOsm.vue'
 import MapPanelUrban from '~/components/MapPanelUrban.vue'
+import MapPanelOpenSky from '~/components/MapPanelOpenSky.vue'
 import type { UrbanResult } from '~/composables/useMapUrbanAnalysis'
 
 const { t } = useI18n()
@@ -173,23 +190,28 @@ const props = defineProps({
   allFeatures: { type: Array, default: () => [] },
   clickCoordinates: { type: Object, default: null },
   contentType: {
-    type: String as PropType<'osm' | 'own_avatar' | 'other_avatar' | 'vehicle' | 'iot_device' | 'condominium' | 'hub' | 'establishment' | 'urban'>,
+    type: String as PropType<'osm' | 'own_avatar' | 'other_avatar' | 'vehicle' | 'iot_device' | 'env_station' | 'condominium' | 'hub' | 'establishment' | 'urban' | 'opensky'>,
     default: 'osm'
   },
   avatarData: { type: Object, default: null },
   vehicleData: { type: Object, default: null },
+  vehicleFollowing: { type: Boolean, default: false },
   iotDeviceData: { type: Object, default: null },
   iotFollowing: { type: Boolean, default: false },
+  envStationData: { type: Object, default: null },
   condominiumData: { type: Object, default: null },
   hubData: { type: Object, default: null },
   establishmentData: { type: Object, default: null },
   urbanResult: { type: Object as PropType<UrbanResult | null>, default: null },
   urbanPolygon: { type: Array as PropType<[number, number][]>, default: () => [] },
   urbanFormattedArea: { type: String, default: '' },
+  openskyActive: { type: Boolean, default: false },
+  openskyBudget: { type: Object as PropType<{ battery1: number; battery3: number; battery5: number; x: number; y: number } | null>, default: null },
+  openskyGenerating: { type: Boolean, default: false },
   showBackToBrowse: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['close', 'back', 'feature-selected', 'search-location', 'establishment-selected', 'avatar-type-change', 'show-trail', 'clear-trail', 'trail-cursor', 'recenter-iot', 'osm-resolved', 'urban-redraw'])
+const emit = defineEmits(['close', 'back', 'feature-selected', 'search-location', 'establishment-selected', 'avatar-type-change', 'show-trail', 'clear-trail', 'trail-cursor', 'recenter-iot', 'toggle-vehicle-follow', 'osm-resolved', 'urban-redraw'])
 
 // Bottom sheet drag
 const { sheetStyle, dragHandleAttrs, snapTo } = useBottomSheet({
@@ -222,6 +244,9 @@ const panelTitle = computed(() => {
   if (props.contentType === 'iot_device') {
     return props.iotDeviceData?.name || t('map.iot.device')
   }
+  if (props.contentType === 'env_station') {
+    return props.envStationData?.name || t('map.env.tab_stations')
+  }
   if (props.contentType === 'condominium') {
     return props.condominiumData?.name || t('map.condo.title')
   }
@@ -235,6 +260,9 @@ const panelTitle = computed(() => {
     const r = props.urbanResult
     if (r?.covered && r.municipio) return r.municipio.charAt(0).toUpperCase() + r.municipio.slice(1)
     return t('map.urban.no_coverage_title')
+  }
+  if (props.contentType === 'opensky') {
+    return 'OpenSky'
   }
   // OSM — title comes from sub-panel
   return osmTitle.value
@@ -254,6 +282,15 @@ const panelSubtitle = computed(() => {
     if (!d) return ''
     return d.deviceType === 'tracker' ? t('map.iot.type_tracker') : d.deviceType === 'mesh_router' ? t('map.iot.type_mesh_router') : t('map.iot.type_energy_cell')
   }
+  if (props.contentType === 'env_station') {
+    const l = props.envStationData?.latest || {}
+    const hasWeather = ['temperature', 'humidity', 'pressure', 'wind_speed', 'rain_rate', 'solar_radiation', 'uv'].some(k => l[k] != null)
+    const hasAir = ['pm25', 'pm10', 'pm01', 'co2', 'tvoc_index', 'nox_index'].some(k => l[k] != null)
+    if (hasWeather && hasAir) return `${t('map.env.weather')} · ${t('map.env.air_quality')}`
+    if (hasAir) return t('map.env.air_quality')
+    if (hasWeather) return t('map.env.weather')
+    return t('map.env.tab_stations')
+  }
   if (props.contentType === 'condominium') return t('map.condo.subtitle')
   if (props.contentType === 'hub') return t('map.hub.subtitle')
   if (props.contentType === 'establishment') return props.establishmentData?.category_label || ''
@@ -262,6 +299,7 @@ const panelSubtitle = computed(() => {
     if (!r) return ''
     return r.covered ? `${r.level} · ${props.urbanFormattedArea}` : ''
   }
+  if (props.contentType === 'opensky') return t('map.opensky.panel_subtitle')
   // OSM
   return osmSubtitle.value
 })

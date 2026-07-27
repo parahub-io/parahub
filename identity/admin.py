@@ -25,8 +25,9 @@ class TestUserFilter(admin.SimpleListFilter):
 
 class AccountAdmin(UserAdmin):
     """Admin for custom Account model."""
-    list_display = ['username', 'email', 'instance', 'is_staff', 'is_active']
+    list_display = ['username', 'email', 'instance', 'is_staff', 'is_active', 'date_joined']
     list_filter = ['is_staff', 'is_active', 'instance', TestUserFilter]
+    ordering = ['-date_joined']
     fieldsets = UserAdmin.fieldsets + (
         ('ParaHub', {'fields': ('instance', 'preferences')}),
     )

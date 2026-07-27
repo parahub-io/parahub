@@ -151,6 +151,15 @@ class Command(BaseCommand):
             total_vehicles += len(vehicles)
             ds_id_str = str(ds.id)
 
+            # Strip static metadata off every vehicle dict BEFORE it reaches the
+            # transit:rt mirror / vdata / WS, keeping the display payload compact.
+            # Kept aside per vehicle_id and served on demand by the meta endpoint.
+            vmeta = {}
+            for v in vehicles:
+                m = v.pop('_meta', None)
+                if m is not None:
+                    vmeta[v['v']] = m
+
             # Mark as polled
             last_poll[str(ds.id)] = time.monotonic()
 
@@ -193,6 +202,11 @@ class Command(BaseCommand):
                 current_members.add(member)
                 pipe.geoadd('transit:geo', (v['lon'], v['lat'], member))
                 pipe.hset('transit:vdata', member, orjson.dumps(v))
+                m = vmeta.get(v['v'])
+                if m:
+                    # 300s > the 180s display cutoff, so any shown (fresh) vehicle
+                    # always has live meta; the key self-expires, no cleanup pass.
+                    pipe.set(f'transit:vmeta:{member}', orjson.dumps(m), ex=300)
             await pipe.execute()
 
             # Cleanup stale members for this data source
@@ -342,7 +356,7 @@ class Command(BaseCommand):
                         direction_id = snap_result[1]
                         headsign = route_cache.headsign_info.get((route_src, direction_id), headsign)
 
-            vehicles.append({
+            veh = {
                 'v': v.get('id', ''),
                 'lat': v['lat'],
                 'lon': v['lon'],
@@ -364,7 +378,21 @@ class Command(BaseCommand):
                 'hs': headsign,
                 'ps': place_slug,
                 'rs': route_slug,
-            })
+            }
+            # Static per-vehicle metadata for the live popup (accessibility,
+            # propulsion, make/model, plate, operator). Pulled aside under a
+            # private key at ingest; never rides the compact vdata/WS payload,
+            # served on demand by the vehicle-meta endpoint.
+            meta = {}
+            for src, short in (('wheelchair_accessible', 'wc'), ('bikes_allowed', 'bk'),
+                               ('propulsion', 'pr'), ('make', 'mk'), ('model', 'md'),
+                               ('license_plate', 'lp'), ('owner', 'ow')):
+                mv = v.get(src)
+                if mv not in (None, ''):
+                    meta[short] = mv
+            if meta:
+                veh['_meta'] = meta
+            vehicles.append(veh)
         return vehicles
 
     def _parse_protobuf(self, data, ds, route_cache, snapper):

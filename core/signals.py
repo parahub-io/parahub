@@ -34,13 +34,14 @@ ATTACHMENT_HOSTS = [
     'cms.SitePage',
     'energy.EnergyCell',
     'iot.Property',
+    'iot.IoTDevice',
 ]
 
 
 def delete_attachments(sender, instance, **kwargs):
     from core.models import (
-        Like, ObjectComment, ObjectDistribution, ObjectFile, ObjectPhoto,
-        ObjectShare, ObjectVideo,
+        Like, ObjectAccess, ObjectComment, ObjectDistribution, ObjectFile,
+        ObjectPhoto, ObjectShare, ObjectVideo,
     )
 
     oid = instance.pk
@@ -68,6 +69,7 @@ def delete_attachments(sender, instance, **kwargs):
     Like.objects.filter(target_id=oid).delete()
     # Inactive shares are resolved history and follow their host.
     ObjectShare.objects.filter(object_id=oid).delete()
+    ObjectAccess.objects.filter(object_id=oid).delete()
 
 
 def connect_attachment_fanout():

@@ -34,7 +34,7 @@
       <div class="flex justify-between text-sm">
         <span class="text-neutral-500 dark:text-neutral-400">Docker:</span>
         <span class="text-neutral-900 dark:text-neutral-100">
-          <span class="text-green-600 dark:text-green-400">{{ health.containers_running }}</span>
+          <span :class="health.containers_running < health.containers_total ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'">{{ health.containers_running }}</span>
           / {{ health.containers_total }}
         </span>
       </div>

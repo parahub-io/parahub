@@ -17,9 +17,12 @@
 
 <script setup>
 import { useAuthStore } from '~/stores/auth'
+import { isNative } from '~/utils/capacitor'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
+const router = useRouter()
+const localePath = useLocalePath()
 const error = ref('')
 
 useHead({ title: t('webmail.loading') })
@@ -31,9 +34,22 @@ onMounted(async () => {
       credentials: 'include',
       headers: { Authorization: `Bearer ${authStore.token}` },
     })
-    // Encode as base64(username\npassword) and redirect to same-origin relay page
+    // Encode as base64(username\npassword) and hand off to same-origin relay page
     const payload = btoa(`${data.email}\n${data.password}`)
-    window.location.href = `https://mail.parahub.io/ph-autologin#${payload}`
+    const url = `https://mail.parahub.io/ph-autologin#${payload}`
+    if (isNative()) {
+      // Native shell: SOGo in the app WebView draws edge-to-edge under the
+      // notch/gesture bar (its CSS knows nothing about our safe-area vars) and
+      // has no way back. A Chrome Custom Tab handles insets natively and has a
+      // close button returning to the app.
+      const { Browser } = await import('@capacitor/browser')
+      await Browser.open({ url })
+      // Leave the spinner page so closing the tab lands back where the user was
+      if (window.history.length > 1) router.back()
+      else router.replace(localePath('/'))
+    } else {
+      window.location.href = url
+    }
   } catch (e) {
     error.value = t('webmail.error')
   }

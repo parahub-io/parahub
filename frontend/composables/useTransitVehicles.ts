@@ -13,7 +13,9 @@
 import { ref } from 'vue'
 
 interface VehicleData {
-  v: string   // vehicle_id
+  v: string   // vehicle_id (raw feed id — NOT unique across feeds)
+  ds: string  // data_source_id — feed namespace; fleet numbers collide across
+              // operators (Carris & STCP both run a 2963), so identity is {ds}:{v}
   lat: number
   lon: number
   b: number | null   // bearing (null when the feed omits a real heading)
@@ -71,7 +73,10 @@ function connect() {
         // Full replace — server sends vehicles in bbox
         vehicles.clear()
         for (const v of data.vehicles) {
-          vehicles.set(v.v, v)
+          // Key by feed-namespaced id: raw fleet numbers collide across
+          // operators (Carris & STCP both run a 2963); a shared key merges the
+          // two into one icon/trail that jumps between cities.
+          vehicles.set(v.ds ? `${v.ds}:${v.v}` : v.v, v)
         }
         updateCounter.value++
         listeners.forEach(fn => fn())
@@ -129,6 +134,11 @@ function toGeoJSON(): GeoJSON.FeatureCollection {
       geometry: { type: 'Point', coordinates: [v.lon, v.lat] },
       properties: {
         vehicle_id: v.v,
+        ds_id: v.ds || '',
+        // Feed-namespaced identity for map keying (animator glide + comet
+        // trail). vehicle_id stays raw for display and the state/meta API
+        // (which take vid + ds_id separately).
+        uid: v.ds ? `${v.ds}:${v.v}` : v.v,
         // bearing stays numeric for icon-rotate; has_bearing gates the chevron so
         // vehicles without a real heading don't all point north (b === null/absent).
         bearing: typeof v.b === 'number' ? v.b : 0,

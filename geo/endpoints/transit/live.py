@@ -7,6 +7,7 @@ import json
 import logging
 import time
 from django.core.cache import cache
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from datetime import datetime
 
@@ -17,6 +18,7 @@ from parahub.services.redis_pool import get_redis
 from parahub.services.transit_eta import (
     parse_rstops, segment_infos, segment_averages,
     build_index_map, resolve_origin, cumulative_min_etas, zombie_keeps_eta,
+    remaining_segment_fraction, origin_with_fraction, parked_beyond_grace,
 )
 
 from .base import router
@@ -69,6 +71,17 @@ def transit_vehicle_history(request, vehicle_id: str, ds_id: str = None,
     hours = min(max(hours, 1), 24)
     since = tz.now() - timedelta(hours=hours)
 
+    # Fleet numbers collide across operators (Carris & STCP both run a bus 2963);
+    # an unscoped vehicle_id query stitches two real vehicles into one zig-zagging
+    # line. When the caller omits ds_id, scope to the feed with this vehicle's most
+    # recent fix so the trajectory is always a single coherent vehicle.
+    if not ds_id:
+        ds_id = (VehiclePositionHistory.objects
+                 .filter(vehicle_id=vehicle_id, time__gte=since)
+                 .order_by('-time')
+                 .values_list('data_source_id', flat=True)
+                 .first())
+
     qs = VehiclePositionHistory.objects.filter(
         vehicle_id=vehicle_id,
         time__gte=since,
@@ -98,6 +111,7 @@ def transit_vehicle_history(request, vehicle_id: str, ds_id: str = None,
         },
         'properties': {
             'vehicle_id': vehicle_id,
+            'data_source_id': str(ds_id) if ds_id else None,
             'timestamps': timestamps,
             'bearings': bearings,
             'speeds': speeds,
@@ -147,6 +161,54 @@ def get_vehicle_state(request, ds_id: str, vid: str):
 
     return result
 
+@router.get("/transit/vehicles/meta/", auth=None)
+@ratelimit(group='transit:vehicle_meta', key='ip', rate='120/m')
+def get_vehicle_meta(request, vehicle_id: str, route_id: str = None, ds_id: str = None):
+    """Static per-vehicle metadata (make/model/plate/accessibility/propulsion/
+    operator) for the live-vehicle popup. Kept off the hot vdata/WS path: written
+    to a self-expiring transit:vmeta:{ds}:{vid} key at RT ingest, read on demand
+    here. ds_id (the feed) resolves the vehicle exactly and is preferred — a raw
+    vehicle_id is not unique across operators (Carris & STCP both run a bus 2963).
+    route_id (the vehicle's route source_id) is a fallback; when both are absent
+    or unmatched, active live feeds are scanned."""
+    r = get_redis()
+
+    ds_ids = []
+    if ds_id:
+        ds_ids = [ds_id]
+    elif route_id:
+        ds_ids = list(
+            Route.objects.filter(source_id=route_id)
+            .exclude(agency__data_source_id=None)
+            .values_list('agency__data_source_id', flat=True).distinct()
+        )
+    if not ds_ids:
+        ds_ids = list(
+            TransitDataSource.objects.filter(is_active=True)
+            .filter(~Q(rt_vehicles_url='') | Q(rt_kind='arrivals'))
+            .values_list('id', flat=True)
+        )
+
+    raw = None
+    for did in ds_ids:
+        raw = r.get(f'transit:vmeta:{did}:{vehicle_id}')
+        if raw:
+            break
+    if not raw:
+        return {}
+
+    try:
+        m = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+    labels = {
+        'wc': 'wheelchair_accessible', 'bk': 'bikes_allowed',
+        'pr': 'propulsion', 'mk': 'make', 'md': 'model',
+        'lp': 'license_plate', 'ow': 'owner',
+    }
+    return {labels[k]: v for k, v in m.items() if k in labels}
+
 @router.get("/transit/stops/{city_slug}/{stop_slug}/eta/", auth=None)
 @ratelimit(group='transit:stop_eta', key='ip', rate='120/m')
 def get_stop_eta(request, city_slug: str, stop_slug: str):
@@ -188,6 +250,7 @@ def get_stop_eta(request, city_slug: str, stop_slug: str):
     # Load stop sequences from Redis for relevant routes
     # Key: transit:rstops:{route_src}:{dir} → [[source_id, lat, lon, sched_off], ...]
     route_seqs = {}     # (route_src, dir) → [source_id, ...]
+    route_coords = {}   # (route_src, dir) → [(lat, lon), ...]
     route_sched = {}    # (route_src, dir) → cumulative scheduled offsets
     route_idxmap = {}   # (route_src, dir) → {source_id: index}
     stop_target_idx = {}  # (route_src, dir) → index of target stop in sequence
@@ -202,9 +265,10 @@ def get_stop_eta(request, city_slug: str, stop_slug: str):
         parsed = parse_rstops(raw)
         if not parsed:
             continue
-        source_ids, _coords, sched = parsed
+        source_ids, coords, sched = parsed
         if stop_src in source_ids:
             route_seqs[(route_src, dir_id)] = source_ids
+            route_coords[(route_src, dir_id)] = coords
             route_sched[(route_src, dir_id)] = sched
             route_idxmap[(route_src, dir_id)] = build_index_map(source_ids)
             stop_target_idx[(route_src, dir_id)] = source_ids.index(stop_src)
@@ -269,6 +333,11 @@ def get_stop_eta(request, city_slug: str, stop_slug: str):
                     v_idx, route_idxmap[route_key],
                 ):
                     continue
+                # Parked past grace but never zombie-flagged (GPS micro-moves
+                # keep resetting mt): no chain either — see parked_beyond_grace.
+                if parked_beyond_grace(now_ts, float(state.get('mt') or 0),
+                                       float(state.get('dw') or 0)):
+                    continue
 
                 # Anchor origin to the displayed snapped stop (sid), not STT idx.
                 origin = resolve_origin(vdata.get('sid'), v_idx, route_idxmap[route_key])
@@ -280,11 +349,20 @@ def get_stop_eta(request, city_slug: str, stop_slug: str):
                 if stops_away > 15:
                     continue
 
-                # Chain segment estimates from origin to the target stop
+                # Chain segment estimates from origin to the target stop. The
+                # origin segment is scaled by the fraction still ahead of the
+                # vehicle (from its live position within that segment), so a bus
+                # that has already part-traversed it isn't charged the whole
+                # average — the near-stop over-estimate the plain sum produces.
                 chain = _seg_infos_for(route_key)[origin:target_idx]
                 if not chain:
                     continue
-                eta_seconds = sum(s['avg'] for s in chain)
+                seg_coords = route_coords[route_key]
+                origin_frac = remaining_segment_fraction(
+                    vdata.get('lat'), vdata.get('lon'),
+                    seg_coords[origin], seg_coords[origin + 1],
+                )
+                eta_seconds = chain[0]['avg'] * origin_frac + sum(s['avg'] for s in chain[1:])
                 observed_segments = sum(1 for s in chain if s['observed'])
 
                 if eta_seconds <= 0:
@@ -388,7 +466,8 @@ def get_route_eta(request, city_slug: str, route_slug: str, direction: int = 0):
                     continue
                 if int(state.get('d', -1)) != direction:
                     continue
-                dir_tracked.append((vid, int(state.get('idx', 0)), float(state.get('mt') or 0)))
+                dir_tracked.append((vid, int(state.get('idx', 0)),
+                                    float(state.get('mt') or 0), float(state.get('dw') or 0)))
 
         if cursor == 0:
             break
@@ -401,9 +480,14 @@ def get_route_eta(request, city_slug: str, route_slug: str, direction: int = 0):
     vehicle_indices = []
     now_ts = time.time()
     if dir_tracked:
-        sid_vals = r.hmget('transit:vdata', *[f'{ds_id}:{vid}' for vid, _, _ in dir_tracked])
-        for (vid, stt_idx, move_ts), raw_v in zip(dir_tracked, sid_vals):
+        sid_vals = r.hmget('transit:vdata', *[f'{ds_id}:{vid}' for vid, *_ in dir_tracked])
+        for (vid, stt_idx, move_ts, dwell_s), raw_v in zip(dir_tracked, sid_vals):
+            # Parked past grace but never zombie-flagged (GPS micro-moves keep
+            # resetting mt): no chain — see parked_beyond_grace.
+            if parked_beyond_grace(now_ts, move_ts, dwell_s):
+                continue
             sid = None
+            vlat = vlon = None
             if raw_v:
                 try:
                     vv = json.loads(raw_v)
@@ -411,16 +495,18 @@ def get_route_eta(request, city_slug: str, route_slug: str, direction: int = 0):
                     vv = None
                 if vv is not None:
                     sid = vv.get('sid')
+                    vlat, vlon = vv.get('lat'), vv.get('lon')
                     if vv.get('z') and not zombie_keeps_eta(
                         now_ts, move_ts, sid, stt_idx, index_map,
                     ):
                         continue
-            vehicle_indices.append(resolve_origin(sid, stt_idx, index_map))
+            origin = resolve_origin(sid, stt_idx, index_map)
+            vehicle_indices.append(origin_with_fraction(origin, vlat, vlon, stop_coords))
 
     # Fallback: if no useful tracked vehicles (all at last stop), use GTFS-RT.
     # Only for vehicles NOT already tracked by STT (avoids re-snapping
     # terminal vehicles to wrong intermediate stops).
-    if not any(idx < num_stops - 1 for idx in vehicle_indices):
+    if not any(o < num_stops - 1 for o, _ in vehicle_indices):
         members_key = f'transit:members:{ds_id}'
         member_ids = r.smembers(members_key)
         if member_ids:
@@ -450,9 +536,9 @@ def get_route_eta(request, city_slug: str, route_slug: str, direction: int = 0):
                 if int(v_dir) != direction:
                     continue
                 sid = v.get('sid')
+                vlat, vlon = v.get('lat'), v.get('lon')
                 origin = index_map.get(sid) if sid else None
                 if origin is None:
-                    vlat, vlon = v.get('lat'), v.get('lon')
                     if vlat is None or vlon is None:
                         continue
                     # Find nearest stop by coordinates
@@ -464,7 +550,7 @@ def get_route_eta(request, city_slug: str, route_slug: str, direction: int = 0):
                             best_dist = d2
                             best_idx = i
                     origin = best_idx
-                vehicle_indices.append(origin)
+                vehicle_indices.append(origin_with_fraction(origin, vlat, vlon, stop_coords))
 
 
     if not vehicle_indices:
@@ -501,7 +587,7 @@ def get_route_eta_detail(request, city_slug: str, route_slug: str,
     if not parsed:
         return {"error": "no stop sequence", "vehicles": []}
 
-    source_ids, _coords, sched_offsets = parsed
+    source_ids, coords, sched_offsets = parsed
     if stop_source_id not in source_ids:
         return {"error": "stop not in sequence", "vehicles": []}
 
@@ -577,7 +663,12 @@ def get_route_eta_detail(request, city_slug: str, route_slug: str,
                     now_ts, float(state.get('mt') or 0), vdata.get('sid'),
                     v_idx, index_map,
                 )
-                is_approaching = origin < target_idx and st in ('c', 't') and not zombie_blocked
+                # Parked past grace but never zombie-flagged (GPS micro-moves
+                # keep resetting mt) blocks the chain too — parked_beyond_grace.
+                parked_blocked = parked_beyond_grace(
+                    now_ts, float(state.get('mt') or 0), float(state.get('dw') or 0))
+                is_approaching = (origin < target_idx and st in ('c', 't')
+                                  and not zombie_blocked and not parked_blocked)
                 stops_away = target_idx - origin if is_approaching else None
 
                 # Build segment chain if approaching
@@ -587,18 +678,29 @@ def get_route_eta_detail(request, city_slug: str, route_slug: str,
                 fallback_count = 0
 
                 if is_approaching:
+                    # Scale the origin segment by the fraction still ahead of the
+                    # vehicle (its live position within it); avg_s stays the raw
+                    # segment model, remaining_frac makes the total reconcile.
+                    origin_frac = remaining_segment_fraction(
+                        vdata.get('lat'), vdata.get('lon'),
+                        coords[origin], coords[origin + 1],
+                    ) if origin + 1 < len(coords) else 1.0
                     for i in range(origin, target_idx):
                         if i < len(seg_data):
                             sd = seg_data[i]
-                            eta_seconds += sd['avg']
-                            segments_chain.append({
+                            frac = origin_frac if i == origin else 1.0
+                            eta_seconds += sd['avg'] * frac
+                            seg_entry = {
                                 'from': source_ids[i],
                                 'to': source_ids[i + 1],
                                 'avg_s': sd['avg'],
                                 'samples': sd['samples'],
                                 'observed': sd['observed'],
                                 'source': sd['source'],
-                            })
+                            }
+                            if i == origin and frac < 1.0:
+                                seg_entry['remaining_frac'] = round(frac, 3)
+                            segments_chain.append(seg_entry)
                             if sd['observed']:
                                 observed_count += 1
                             else:

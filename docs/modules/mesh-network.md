@@ -28,8 +28,8 @@ Zero-touch provisioning via `99-parahub-mesh` uci-defaults (runs once, deletes s
 
 ## Features
 
-- **Dual WiFi**: Private `Parahub` (802.11r/k/v roaming) + Free `parahub.io/free` (OWE transition mode)
-- **Speed Control**: nftables + tc HTB (guest = 512kbps, host = 10Mbps on Bee, paid = 1Gbit via Lightning)
+- **Dual WiFi**: Private `Parahub` (802.11r/k/v roaming, both bands) + Free `parahub.io/free` (open — OWE reverted until an OpenWrt 25.12.x hostapd bug is fixed upstream)
+- **Speed Control**: nftables + tc HTB (per-guest rate, 512 kbps default; host budget on Bee, 10 Mbps default; paid = full speed via Lightning). Both defaults are gateway-owner settings in /iot
 - **Paid WiFi**: Lightning invoice per IP, 30-day subscriptions, nftables sync
 - **OTA Auto-Updates**: Nightly 3am (Yggdrasil first, public fallback), manifest.json SHA256 verification
 - **Coverage Map**: Mesh node locations on Parahub map
@@ -43,8 +43,18 @@ Zero-touch provisioning via `99-parahub-mesh` uci-defaults (runs once, deletes s
 
 - Mesh nodes register as IoT devices on the platform
 - Heartbeat reports sent to `/api/v1/iot/mesh/heartbeat/`
-- Subscription model via `MeshSubscription` for status monitoring
+- Account-level speed pass (`MeshPass`) with per-device binding (`MeshDevice`)
 - Coverage layer on the map shows active mesh nodes
+
+## Ownership and Sharing
+
+Applies to **every device you register**, not just mesh routers -- GPS trackers and environmental sensors share the same model.
+
+- **Claiming a router**: a factory-fresh router reports in under a fleet account until someone claims it by typing the full hardware address printed on its sticker. Typing that address is the proof that you physically hold the device, which is why there is deliberately no browsable list of unclaimed routers.
+- **Sharing**: the owner can grant another profile **viewer** (see the device, its status, telemetry history and, for a tracker, its live position) or **manager** (also configure it -- rename, WiFi, speed limits, network settings, diagnostics). Only the owner can delete a device, manage grants, or hand it over.
+- **Transfer**: ownership can be handed to another profile, optionally leaving the previous owner manager access -- the normal path when someone sets a router up for a neighbour and stays on call for support.
+- **Traceability**: claims and transfers are written to an ownership log, and grants, claims and transfers all notify the people involved.
+- **Honest boundary**: these roles govern what the platform's interface allows. Physical control of a router is a firmware matter -- whoever maintains the fleet firmware retains low-level access, which is why a maintenance grant on a claimed router is shown in the interface and can be revoked there.
 
 ## Use Cases
 
@@ -56,7 +66,7 @@ Zero-touch provisioning via `99-parahub-mesh` uci-defaults (runs once, deletes s
 ## Technical Details
 
 - **Build**: `build.sh` in `/opt/parahub-mesh/`
-- **Models**: `iot/models.py` -- IoTDevice, MeshSubscription
-- **API**: `iot/api.py` -- heartbeat, subscribe endpoints
+- **Models**: `iot/models.py` -- IoTDevice, MeshPass, MeshPassCredit, MeshDevice
+- **API**: `iot/api/mesh.py` -- heartbeat, pass, device binding endpoints
 - **Config**: `99-parahub-mesh` uci-defaults for zero-touch provisioning
-- **Frontend**: `/mesh` (firmware download), `/free` (QR payment page), DeviceCard (WiFi/root pwd, settings, location)
+- **Frontend**: `/mesh` (firmware download), `/free` (speed pass: payment QR + device list), DeviceCard (WiFi/root pwd, settings, location)

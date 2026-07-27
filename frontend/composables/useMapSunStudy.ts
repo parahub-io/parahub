@@ -22,6 +22,146 @@ const LYR_TERM_MID = 'sun-term-mid'      // civil twilight (0° to +6°)
 const LYR_TERM_INNER = 'sun-term-inner'  // full night (beyond +6°)
 const LYR_TERMINATOR_LINE = 'sun-terminator-line'
 
+// Marker icon ids (canvas-drawn, registered via map.addImage)
+const SUN_ICON = 'sun-study-sun-icon'
+const MOON_ICON_PREFIX = 'sun-study-moon-phase-' // + quantized phase step
+const MOON_PHASE_STEPS = 28 // ~one icon per day of the lunar month
+
+// ======== Marker icons ========
+// Canvas-drawn celestial icons (project pattern: addImage + pixelRatio 2).
+// Ensured lazily inside _pushSources — hasImage() guards make repeat calls
+// cheap and style-reload safe (setStyle wipes images along with layers).
+
+/** Sun: soft glow, tapered rays and a warm gradient disc */
+function _ensureSunIcon(map: any) {
+  if (map.hasImage(SUN_ICON)) return
+  const s = 68 // 2x for retina → 34px logical
+  const c = s / 2
+  const canvas = document.createElement('canvas')
+  canvas.width = s
+  canvas.height = s
+  const ctx = canvas.getContext('2d')!
+
+  // Soft outer glow
+  const glow = ctx.createRadialGradient(c, c, 10, c, c, c)
+  glow.addColorStop(0, 'rgba(251, 191, 36, 0.5)')
+  glow.addColorStop(1, 'rgba(251, 191, 36, 0)')
+  ctx.fillStyle = glow
+  ctx.beginPath()
+  ctx.arc(c, c, c, 0, Math.PI * 2)
+  ctx.fill()
+
+  // 12 tapered rays, alternating long/short, detached from the disc
+  const rayBase = 22
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2
+    const long = i % 2 === 0
+    const tip = long ? 32 : 27
+    const halfWidth = long ? 0.10 : 0.08 // radians at the base
+    ctx.beginPath()
+    ctx.moveTo(c + rayBase * Math.cos(angle - halfWidth), c + rayBase * Math.sin(angle - halfWidth))
+    ctx.lineTo(c + tip * Math.cos(angle), c + tip * Math.sin(angle))
+    ctx.lineTo(c + rayBase * Math.cos(angle + halfWidth), c + rayBase * Math.sin(angle + halfWidth))
+    ctx.closePath()
+    ctx.fillStyle = long ? 'rgba(245, 158, 11, 0.95)' : 'rgba(251, 191, 36, 0.85)'
+    ctx.fill()
+  }
+
+  // Disc with an off-center warm highlight
+  const disc = ctx.createRadialGradient(c - 5, c - 6, 2, c, c, 19)
+  disc.addColorStop(0, '#fffde7')
+  disc.addColorStop(0.4, '#fde68a')
+  disc.addColorStop(0.8, '#fbbf24')
+  disc.addColorStop(1, '#f59e0b')
+  ctx.beginPath()
+  ctx.arc(c, c, 19, 0, Math.PI * 2)
+  ctx.fillStyle = disc
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(180, 83, 9, 0.55)'
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+
+  map.addImage(SUN_ICON, { width: s, height: s, data: ctx.getImageData(0, 0, s, s).data }, { pixelRatio: 2 })
+}
+
+/** Moon: phase-accurate lit shape (crescent → full) over a dark night side */
+function _ensureMoonPhaseIcon(map: any, step: number) {
+  const id = `${MOON_ICON_PREFIX}${step}`
+  if (map.hasImage(id)) return
+  const s = 52 // 2x for retina → 26px logical
+  const c = s / 2
+  const r = 17
+  const canvas = document.createElement('canvas')
+  canvas.width = s
+  canvas.height = s
+  const ctx = canvas.getContext('2d')!
+
+  // Faint moonlight halo
+  const glow = ctx.createRadialGradient(c, c, r * 0.8, c, c, c)
+  glow.addColorStop(0, 'rgba(191, 219, 254, 0.35)')
+  glow.addColorStop(1, 'rgba(191, 219, 254, 0)')
+  ctx.fillStyle = glow
+  ctx.beginPath()
+  ctx.arc(c, c, c, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Night side — slightly translucent so the basemap shows through
+  const night = ctx.createRadialGradient(c - 4, c - 5, 2, c, c, r)
+  night.addColorStop(0, 'rgba(71, 85, 105, 0.92)')
+  night.addColorStop(1, 'rgba(15, 23, 42, 0.92)')
+  ctx.beginPath()
+  ctx.arc(c, c, r, 0, Math.PI * 2)
+  ctx.fillStyle = night
+  ctx.fill()
+
+  // Lit side — the classic two-arc phase shape: lit limb semicircle closed by
+  // the terminator half-ellipse with rx = r·cos(2πp)
+  const phase = step / MOON_PHASE_STEPS // 0 = new, 0.5 = full
+  const rx = r * Math.cos(phase * Math.PI * 2)
+  const waxing = phase < 0.5
+  const fraction = (1 - Math.cos(phase * Math.PI * 2)) / 2
+  if (fraction > 0.02) {
+    ctx.beginPath()
+    if (Math.abs(rx) > r - 0.5 && fraction > 0.5) {
+      // Full moon — the terminator ellipse would be degenerate
+      ctx.arc(c, c, r, 0, Math.PI * 2)
+    } else {
+      // Lit limb: right when waxing, left when waning (northern-hemisphere view)
+      ctx.arc(c, c, r, -Math.PI / 2, Math.PI / 2, !waxing)
+      // Terminator bulges toward the lit limb on a crescent, away on a gibbous
+      const bulgeRight = (rx > 0) === waxing
+      ctx.ellipse(c, c, Math.abs(rx), r, 0, Math.PI / 2, -Math.PI / 2, bulgeRight)
+    }
+    ctx.closePath()
+    const lit = ctx.createRadialGradient(c - r * 0.35, c - r * 0.35, 2, c, c, r)
+    lit.addColorStop(0, '#ffffff')
+    lit.addColorStop(0.55, '#e2e8f0')
+    lit.addColorStop(1, '#bfdbfe')
+    ctx.fillStyle = lit
+    ctx.fill()
+
+    // A few soft craters, clipped to the lit shape
+    ctx.save()
+    ctx.clip()
+    ctx.fillStyle = 'rgba(100, 116, 139, 0.28)'
+    for (const [dx, dy, cr] of [[0.35, -0.25, 0.16], [0.08, 0.32, 0.12], [-0.32, 0.02, 0.10]]) {
+      ctx.beginPath()
+      ctx.arc(c + dx * r, c + dy * r, cr * r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.restore()
+  }
+
+  // Crisp dark rim — keeps the marker legible on satellite imagery
+  ctx.beginPath()
+  ctx.arc(c, c, r, 0, Math.PI * 2)
+  ctx.strokeStyle = 'rgba(15, 23, 42, 0.85)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+  map.addImage(id, { width: s, height: s, data: ctx.getImageData(0, 0, s, s).data }, { pixelRatio: 2 })
+}
+
 // Module-level timer refs for cleanup
 let _realtimeInterval: ReturnType<typeof setInterval> | null = null
 let _rafId: number | null = null
@@ -130,6 +270,11 @@ export function useMapSunStudy() {
   })
 
   const isMoonUp = computed(() => moonPosition.value.altitudeDeg > 0)
+
+  /** Quantized phase step selecting the pre-rendered moon icon */
+  function _moonPhaseStep(): number {
+    return Math.round(moonIllumination.value.phase * MOON_PHASE_STEPS) % MOON_PHASE_STEPS
+  }
 
   const isGoldenHour = computed(() => {
     const t = selectedDateTime.value.getTime()
@@ -321,7 +466,7 @@ export function useMapSunStudy() {
       type: 'FeatureCollection',
       features: [{
         type: 'Feature',
-        properties: { illum: moonIllumination.value.fraction },
+        properties: { phaseStep: String(_moonPhaseStep()) },
         geometry: { type: 'Point', coordinates: endPoint },
       }],
     }
@@ -464,12 +609,14 @@ export function useMapSunStudy() {
 
   function _pushSources(map: any) {
     _lastSourceUpdate = performance.now()
+    _ensureSunIcon(map)
+    _ensureMoonPhaseIcon(map, _moonPhaseStep())
     const features: GeoJSON.Feature[] = []
     for (const f of _buildSunLineGeoJSON().features) features.push({ ...f, properties: { role: 'sun' } })
     for (const f of _buildShadowLineGeoJSON().features) features.push({ ...f, properties: { role: 'shadow' } })
     for (const f of _buildSunMarkerGeoJSON().features) features.push({ ...f, properties: { role: 'marker' } })
     for (const f of _buildMoonLineGeoJSON().features) features.push({ ...f, properties: { role: 'moon' } })
-    for (const f of _buildMoonMarkerGeoJSON().features) features.push({ ...f, properties: { role: 'moon-marker', illum: f.properties?.illum ?? 0 } })
+    for (const f of _buildMoonMarkerGeoJSON().features) features.push({ ...f, properties: { role: 'moon-marker', phaseStep: f.properties?.phaseStep ?? '0' } })
     const sunSrc = map.getSource(SRC_SUN)
     if (sunSrc) sunSrc.setData({ type: 'FeatureCollection', features })
     const nightData = _buildNightGeoJSON()
@@ -579,18 +726,16 @@ export function useMapSunStudy() {
         paint: { 'line-color': '#bfdbfe', 'line-width': 2.5, 'line-opacity': 0.9 },
         layout: { 'line-cap': 'round' },
       },
-      // Moon marker (moonlight-blue circle; opacity encodes illumination — dim at new moon, bright at full)
+      // Moon marker — phase-accurate canvas icon (the lit shape encodes the phase)
       {
         id: LYR_MOON_MARKER,
-        type: 'circle',
+        type: 'symbol',
         source: SRC_SUN,
         filter: ['==', ['get', 'role'], 'moon-marker'],
-        paint: {
-          'circle-radius': 8,
-          'circle-color': '#dbeafe',
-          'circle-stroke-color': '#1e293b',
-          'circle-stroke-width': 2,
-          'circle-opacity': ['+', 0.55, ['*', 0.4, ['get', 'illum']]],
+        layout: {
+          'icon-image': ['concat', MOON_ICON_PREFIX, ['get', 'phaseStep']],
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
         },
       },
       // Sun direction line (orange)
@@ -602,13 +747,17 @@ export function useMapSunStudy() {
         paint: { 'line-color': '#f59e0b', 'line-width': 4, 'line-opacity': 0.85 },
         layout: { 'line-cap': 'round' },
       },
-      // Sun marker (circle at end of direction line)
+      // Sun marker — canvas icon at the end of the direction line
       {
         id: LYR_SUN_MARKER,
-        type: 'circle',
+        type: 'symbol',
         source: SRC_SUN,
         filter: ['==', ['get', 'role'], 'marker'],
-        paint: { 'circle-radius': 10, 'circle-color': '#f59e0b', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2, 'circle-opacity': 0.9 },
+        layout: {
+          'icon-image': SUN_ICON,
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
       },
     ],
     cursor: null,

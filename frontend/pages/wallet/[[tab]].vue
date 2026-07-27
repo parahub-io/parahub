@@ -79,11 +79,17 @@
         <UiButton variant="primary" class="flex-1 !py-3 !text-base !font-semibold !rounded-xl" :icon="Download" @click="showReceiveModal = true">
           {{ $t('wallet.receive') }}
         </UiButton>
+        <!-- Bearer notes: given as a link or on paper, so the icon is the gift, not the printer -->
+        <UiButton
+          variant="primary" icon-only :icon="Gift" class="!p-3 !rounded-xl"
+          :to="localePath('/tips')" :title="$t('tips.title')" :aria-label="$t('tips.title')"
+        />
       </div>
       <!-- Skeleton quick actions -->
       <div v-else-if="sdkState === 'initializing' && !showNoSeedWarning && !showWalletIntro" class="flex gap-3 mb-2">
         <div class="flex-1 h-12 bg-neutral-200 dark:bg-neutral-700 rounded-xl animate-pulse"></div>
         <div class="flex-1 h-12 bg-neutral-200 dark:bg-neutral-700 rounded-xl animate-pulse"></div>
+        <div class="w-12 h-12 bg-neutral-200 dark:bg-neutral-700 rounded-xl animate-pulse"></div>
       </div>
 
       <!-- Page title when balance card is hidden due to SDK error -->
@@ -276,7 +282,7 @@ import { ref, computed, onMounted, onActivated, onUnmounted, markRaw, watch } fr
 import {
   RefreshCw, Download, ArrowUpFromLine,
   History, Check, Plus, Eye, EyeOff,
-  Ticket, ShieldCheck, HandCoins, Zap, Shield, Send, LogIn
+  Ticket, ShieldCheck, HandCoins, Zap, Shield, Send, LogIn, Gift
 } from 'lucide-vue-next'
 import { useLightning } from '~/composables/useLightning'
 import { useBtcPrice } from '~/composables/useBtcPrice'
@@ -491,6 +497,38 @@ const autoRegisterLnAddress = async () => {
   }
 }
 
+// LN-address registration and Spark-address sync need a connected SDK, but
+// initSdk() can resolve before the SDK is ready (its lock fast-path races a 2s
+// timeout — see useLightning). Gate these tasks on the actual state transition
+// instead of a one-shot snapshot taken right after initSdk() returns.
+const runSdkBoundTasks = async () => {
+  try { await getLnAddress() } catch {}
+
+  if (!lightningAddress.value) {
+    await autoRegisterLnAddress()
+  } else {
+    syncLnAddressToProfile(lightningAddress.value.lightningAddress)
+  }
+
+  syncSparkAddressToProfile()
+}
+
+let sdkTasksPending = false
+watch(sdkState, (state) => {
+  if (state === 'ready' && sdkTasksPending) {
+    sdkTasksPending = false
+    runSdkBoundTasks()
+  }
+})
+
+const scheduleSdkBoundTasks = () => {
+  if (sdkState.value === 'ready') {
+    runSdkBoundTasks()
+  } else {
+    sdkTasksPending = true
+  }
+}
+
 const copyLnAddress = async () => {
   if (!lightningAddress.value) return
   try {
@@ -539,15 +577,7 @@ onMounted(async () => {
     return
   }
 
-  try { await getLnAddress() } catch {}
-
-  if (!lightningAddress.value) {
-    await autoRegisterLnAddress()
-  } else {
-    syncLnAddressToProfile(lightningAddress.value.lightningAddress)
-  }
-
-  syncSparkAddressToProfile()
+  scheduleSdkBoundTasks()
   fetchBtcPrice()
 
   if (activeTab.value === 'tickets') loadMyTickets()
@@ -564,17 +594,9 @@ onActivated(async () => {
   if ((showNoSeedWarning.value || showWalletIntro.value) && hasSeed()) {
     showNoSeedWarning.value = false
     showWalletIntro.value = false
+    fetchBtcPrice() // SDK-independent — never gate it on SDK state
     await initSdk()
-    if (sdkState.value === 'ready') {
-      try { await getLnAddress() } catch {}
-      if (!lightningAddress.value) {
-        await autoRegisterLnAddress()
-      } else {
-        syncLnAddressToProfile(lightningAddress.value.lightningAddress)
-      }
-      syncSparkAddressToProfile()
-      fetchBtcPrice()
-    }
+    scheduleSdkBoundTasks()
   }
 })
 </script>

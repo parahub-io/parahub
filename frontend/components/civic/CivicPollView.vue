@@ -9,7 +9,7 @@
 
     <!-- Efficacy: where this goes / outcome -->
     <UiAlert v-if="poll.civic_destination" variant="info" :icon="Send">
-      <span class="font-medium">{{ $t('civic.destination') }}:</span> {{ poll.civic_destination }}
+      <span class="font-medium">{{ $t('civic.destination') }}:</span> {{ pickI18n(poll.civic_destination_i18n, poll.civic_destination, locale) }}
     </UiAlert>
     <UiAlert v-if="poll.civic_outcome" variant="success" :icon="CheckCircle" :title="$t('civic.outcome')">
       {{ poll.civic_outcome }}
@@ -63,7 +63,7 @@
         <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('civic.sliders.hint') }}</p>
         <div v-for="option in poll.options" :key="option.id">
           <div class="flex justify-between items-baseline mb-1 gap-2">
-            <span class="text-sm font-medium text-neutral-800 dark:text-neutral-200">{{ option.text }}</span>
+            <span class="text-sm font-medium text-neutral-800 dark:text-neutral-200">{{ pickI18n(option.text_i18n, option.text, locale) }}</span>
             <span class="text-xs font-medium text-secondary dark:text-secondary-400 whitespace-nowrap">
               {{ anchorLabel(sliderValues[option.id] ?? 0) }}
             </span>
@@ -98,7 +98,7 @@
             ? 'border-secondary bg-secondary/10 dark:bg-secondary/20 text-neutral-900 dark:text-neutral-100'
             : 'border-neutral-300 dark:border-neutral-600 hover:bg-primary-100 dark:hover:bg-primary-900/40 text-neutral-800 dark:text-neutral-200'"
         >
-          <span class="font-medium">{{ option.text }}</span>
+          <span class="font-medium">{{ pickI18n(option.text_i18n, option.text, locale) }}</span>
           <CheckCircle v-if="option.id === myVote" class="w-5 h-5 text-secondary dark:text-secondary-400 shrink-0" aria-hidden="true" />
         </button>
 
@@ -146,7 +146,7 @@
         <div v-if="results.poll_type === 'sliders'" class="space-y-6">
           <div v-for="axis in results.axes" :key="axis.option_id">
             <div class="flex justify-between items-baseline mb-2 gap-2">
-              <span class="text-sm font-medium text-neutral-800 dark:text-neutral-200">{{ axis.text }}</span>
+              <span class="text-sm font-medium text-neutral-800 dark:text-neutral-200">{{ pickI18n(axis.text_i18n, axis.text, locale) }}</span>
               <span v-if="axis.median !== null" class="text-xs text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
                 {{ $t('civic.sliders.median') }}:
                 <span class="font-semibold text-secondary dark:text-secondary-400">{{ anchorLabel(Math.round(axis.median)) }}</span>
@@ -184,7 +184,7 @@
         <div v-else class="space-y-4">
           <div v-for="opt in results.options" :key="opt.option_id">
             <div class="flex justify-between items-baseline mb-1 gap-2">
-              <span class="text-sm font-medium text-neutral-800 dark:text-neutral-200">{{ opt.text }}</span>
+              <span class="text-sm font-medium text-neutral-800 dark:text-neutral-200">{{ pickI18n(opt.text_i18n, opt.text, locale) }}</span>
               <span class="text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
                 {{ opt.percent }}%<template v-if="opt.count !== null"> · {{ opt.count }}</template>
               </span>
@@ -269,7 +269,8 @@ const overrideMode = ref(false)
 
 const myVoteText = computed(() => {
   if (!myVote.value) return ''
-  return (props.poll.options || []).find((o: any) => o.id === myVote.value)?.text || ''
+  const opt = (props.poll.options || []).find((o: any) => o.id === myVote.value)
+  return opt ? pickI18n(opt.text_i18n, opt.text, locale.value) : ''
 })
 
 function formatDateTime(iso: string | null): string {

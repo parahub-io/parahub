@@ -7,7 +7,7 @@ Pseudonymous (GDPR Art. 9) territory-scoped opinion voting:
 - Timing-deanonymization guard: below CIVIC_LIVE_THRESHOLD only `n` is broadcast/displayed exactly quantized
 - Receipts: the audit entry hash is returned to the voter for counted-as-cast verification
 
-See PK/civic-polls-system.md (design: .todo/civic-polls-design.md until graduation).
+See PK/civic-polls-system.md.
 """
 import hmac
 import hashlib
@@ -56,8 +56,10 @@ def residency_chain(profile: Profile):
     """[Territory, ...] from declared residency up to country; falls back to
     profile.country_code when no residency is set. Empty list if neither."""
     if profile.residency_territory_id:
+        # Chain can be 5 deep (parish→municipality→region→country→EU) — prefetch 4 parents
         territory = Territory.objects.select_related(
-            'parent', 'parent__parent', 'parent__parent__parent'
+            'parent', 'parent__parent', 'parent__parent__parent',
+            'parent__parent__parent__parent'
         ).filter(id=profile.residency_territory_id).first()
         if territory:
             return territory.ancestor_chain()
@@ -68,6 +70,45 @@ def residency_chain(profile: Profile):
         if country:
             return [country]
     return []
+
+
+def property_parishes(profile: Profile):
+    """Parishes containing the profile's property points — feed visibility for
+    "my places" (voting eligibility stays residency-based, see PK/civic-polls-system.md).
+
+    One spatial query over parish polygons; points outside imported coverage
+    (e.g. properties abroad where only country rows exist) contribute nothing.
+    """
+    from iot.models import Property
+    from django.contrib.gis.geos import MultiPoint
+
+    points = [loc for loc in Property.objects.filter(owner=profile)
+              .values_list('location', flat=True) if loc]
+    if not points:
+        return []
+    multi = MultiPoint(points, srid=points[0].srid)
+    return list(
+        Territory.objects.filter(
+            level=Territory.Level.PARISH, is_active=True,
+            geometry__intersects=multi,
+        ).select_related(
+            'parent', 'parent__parent', 'parent__parent__parent',
+            'parent__parent__parent__parent',
+        )
+    )
+
+
+def interest_territories(profile: Profile):
+    """Residency chain plus the parishes of owned properties (with their
+    ancestor chains), deduped preserving order — everything the viewer's
+    feed should surface. Voting gates still check residency_chain only."""
+    seen = {}
+    for t in residency_chain(profile):
+        seen.setdefault(t.id, t)
+    for parish in property_parishes(profile):
+        for t in parish.ancestor_chain():
+            seen.setdefault(t.id, t)
+    return list(seen.values())
 
 
 def municipality_code(chain) -> str:
@@ -115,11 +156,11 @@ def check_can_opinion_vote(poll: Poll, profile: Profile, territory: Optional[Ter
     if poll.require_wot_verified and not (profile.is_verified_wot or profile.is_foundation_member()):
         raise CivicVoteError("WoT verification required for this poll", 403)
 
-    if territory.level == Territory.Level.COUNTRY:
+    if territory.level in (Territory.Level.COUNTRY, Territory.Level.EU):
         min_age_days = settings.CIVIC_COUNTRY_MIN_ACCOUNT_AGE_DAYS
         account_created = getattr(profile.account, 'date_joined', None) or profile.created_at
         if (timezone.now() - account_created).days < min_age_days:
-            raise CivicVoteError(f"Account must be at least {min_age_days} days old for country-level polls", 403)
+            raise CivicVoteError(f"Account must be at least {min_age_days} days old for broad-scope polls", 403)
 
     return territory, chain
 
@@ -267,6 +308,17 @@ def _n_display(n: int) -> str:
     return f"{BREAKDOWN_MIN_N}–{settings.CIVIC_LIVE_THRESHOLD - 1}"
 
 
+def _n_quantized(n: int) -> int:
+    """Numeric counterpart of _n_display: floor to the bucket lower bound so exact
+    sub-threshold counts are never revealed. Used by macro gauges (ECI progress bar)
+    where precision below the live threshold is irrelevant at 1,000,000 scale."""
+    if n >= settings.CIVIC_LIVE_THRESHOLD:
+        return n
+    if n < BREAKDOWN_MIN_N:
+        return 0
+    return BREAKDOWN_MIN_N
+
+
 def get_opinion_results(poll: Poll, viewer: Optional[Profile]) -> dict:
     """Results with hide-until-vote (U2) and small-n quantization (A1) applied."""
     if poll.poll_type == Poll.PollType.SLIDERS:
@@ -334,6 +386,7 @@ def get_opinion_results(poll: Poll, viewer: Optional[Profile]) -> dict:
         {
             'option_id': o.id,
             'text': o.text,
+            'text_i18n': o.text_i18n,
             'count': None if quantized else counts.get(o.id, 0),
             'percent': pct(counts.get(o.id, 0), n, step),
             'count_verified': None if quantized else counts_v.get(o.id, 0),
@@ -484,7 +537,8 @@ def freeze_and_purge(poll: Poll) -> bool:
     truth = recount_poll(poll, verify_only=True)
     n = sum(truth['counts'].values())
     n_verified = sum(truth['counts_verified'].values())
-    options_meta = {o.id: o.text for o in poll.options.all()}
+    # Snapshot the i18n map alongside the base text so frozen results stay multilingual
+    options_meta = {o.id: {'text': o.text, 'text_i18n': o.text_i18n} for o in poll.options.all()}
 
     by_territory = []
     other = defaultdict(int)
@@ -522,13 +576,14 @@ def freeze_and_purge(poll: Poll) -> bool:
         'options': [
             {
                 'option_id': oid,
-                'text': text,
+                'text': meta['text'],
+                'text_i18n': meta['text_i18n'],
                 'count': None if quantized else truth['counts'].get(oid, 0),
                 'percent': pct(truth['counts'].get(oid, 0), n, step),
                 'count_verified': None if quantized else truth['counts_verified'].get(oid, 0),
                 'percent_verified': pct(truth['counts_verified'].get(oid, 0), n_verified, step),
             }
-            for oid, text in options_meta.items()
+            for oid, meta in options_meta.items()
         ],
         'by_territory': [] if quantized else by_territory,
         'frozen_at': timezone.now().isoformat(),
@@ -811,6 +866,7 @@ def get_slider_results(poll: Poll, viewer: Optional[Profile]) -> dict:
         {
             'option_id': a.id,
             'text': a.text,
+            'text_i18n': a.text_i18n,
             'median': _median_from_hist(hists.get(a.id, {})),
             'median_verified': _median_from_hist(hists_v.get(a.id, {})),
             # Distribution as percents (counts hidden when quantized — A1)
@@ -850,6 +906,7 @@ def _freeze_and_purge_sliders(poll: Poll, rows) -> bool:
             {
                 'option_id': a.id,
                 'text': a.text,
+                'text_i18n': a.text_i18n,
                 'median': _median_from_hist(hist.get(a.id, {})),
                 'median_verified': _median_from_hist(hist_v.get(a.id, {})),
                 'distribution_pct': dist_pct(hist.get(a.id, {}), n, step),

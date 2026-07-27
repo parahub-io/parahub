@@ -67,7 +67,7 @@ def _serialize(sub: Subscription) -> dict:
         'recipient_id': sub.recipient_id,
         'recipient_local_name': r.local_name if r else '',
         'recipient_display_name': (r.display_name or None) if r else None,
-        'recipient_avatar': (r.avatar.url if (r and r.avatar) else None),
+        'recipient_avatar': (r.avatar_url if r else None),
         'amount_sats': sub.amount_sats,
         'status': sub.status,
         'is_live': sub.is_live,
@@ -166,7 +166,7 @@ def inbound_subscriptions(request):
                 'subscriber_id': s.subscriber_id,
                 'subscriber_local_name': s.subscriber.local_name if s.subscriber else '',
                 'subscriber_display_name': (s.subscriber.display_name or None) if s.subscriber else None,
-                'subscriber_avatar': (s.subscriber.avatar.url if (s.subscriber and s.subscriber.avatar) else None),
+                'subscriber_avatar': (s.subscriber.avatar_url if s.subscriber else None),
                 'amount_sats': s.amount_sats,
                 'since': s.started_at.isoformat() if s.started_at else '',
             }

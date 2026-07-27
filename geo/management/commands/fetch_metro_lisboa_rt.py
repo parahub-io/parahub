@@ -154,7 +154,7 @@ class Command(BaseCommand):
     def _build_models(self, ds_id):
         """Per-line canonical geometry + station→fraction, station-normalized."""
         rc = RouteCache()
-        route_info, headsign_info, shapes, stop_seqs = rc._load_all([ds_id])
+        route_info, headsign_info, shapes, stop_seqs, _ds_tz = rc._load_all([ds_id])
 
         # station normalization (platform → parent station) so ML 2-letter
         # station ids (CG) match GTFS route-stop ids that are platform-level (CG4).

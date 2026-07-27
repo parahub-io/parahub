@@ -111,13 +111,42 @@ const tabs = computed(() => [
 const groupsUrl = () => activeTab.value === 'my'
   ? '/api/v1/parasos/groups/my/'
   : '/api/v1/parasos/groups/'
-const groupsQuery = computed(() =>
-  activeTab.value === 'nearby' && searchQuery.value ? { search: searchQuery.value } : {})
+
+// Nearby is geo-filtered when the user grants location; otherwise it falls
+// back to the global public listing. Coordinates are requested once, on the
+// first switch to the Nearby tab (not on page load — no unprompted geo dialog).
+const nearbyCoords = ref<{ lat: number; lon: number } | null>(null)
+let geoRequested = false
+function requestNearbyGeo() {
+  if (geoRequested || !import.meta.client || !navigator.geolocation) return
+  geoRequested = true
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { nearbyCoords.value = { lat: pos.coords.latitude, lon: pos.coords.longitude } },
+    () => { /* denied/unavailable — keep global list */ },
+    { timeout: 7000, maximumAge: 300000 },
+  )
+}
+watch(activeTab, (t) => { if (t === 'nearby') requestNearbyGeo() }, { immediate: true })
+
+const groupsQuery = computed(() => {
+  if (activeTab.value !== 'nearby') return {}
+  const q: Record<string, any> = {}
+  if (searchQuery.value) q.search = searchQuery.value
+  if (nearbyCoords.value) {
+    q.lat = nearbyCoords.value.lat
+    q.lon = nearbyCoords.value.lon
+    q.radius_km = 25
+  }
+  return q
+})
 
 const groupsData = useListData<any>(groupsUrl, {
   auth: true,
   query: groupsQuery,
   default: () => [],
+  // No WS subscription keeps this cache fresh — delete/leave/join happen on
+  // other pages, so revalidate cached lists in the background on revisit.
+  revalidate: true,
 })
 const { data, error, isInitial, refreshing } = groupsData
 const groups = computed<any[]>(() =>

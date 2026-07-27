@@ -388,8 +388,6 @@ const showEdgeIndicator = (coords: { lat: number; lon: number }) => {
   edgeIndicatorEl.className = 'edge-distance-indicator'
   edgeIndicatorEl.style.cssText = `left:${ex}px;top:${ey}px`
   edgeIndicatorEl.innerHTML = `
-    <div class="edge-ind-lock edge-ind-lock-b1"></div>
-    <div class="edge-ind-lock edge-ind-lock-b2"></div>
     <div class="edge-ind-pill">
       <svg class="edge-ind-arrow" viewBox="0 0 16 16" width="14" height="14" style="transform:rotate(${angle}deg)">
         <path d="M2 8h10M8 4l4 4-4 4" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -633,60 +631,6 @@ onUnmounted(() => {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-}
-
-/* Lock-on brackets */
-.edge-ind-lock {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  border: 2px solid #FFE216;
-  border-radius: 12px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.edge-ind-lock-b1 {
-  animation: edge-lock-in 0.5s 0s cubic-bezier(0, 0.55, 0.45, 1) forwards,
-             edge-lock-pulse 2s 0.8s ease-in-out infinite;
-}
-
-.edge-ind-lock-b2 {
-  animation: edge-lock-in 0.5s 0.1s cubic-bezier(0, 0.55, 0.45, 1) forwards,
-             edge-lock-pulse 2s 0.9s ease-in-out infinite;
-}
-
-@keyframes edge-lock-in {
-  0% {
-    width: 200px;
-    height: 200px;
-    transform: translate(-50%, -50%);
-    opacity: 0.3;
-  }
-  60% { opacity: 0.9; }
-  100% {
-    width: calc(100% + 16px);
-    height: calc(100% + 16px);
-    transform: translate(-50%, -50%);
-    opacity: 0.9;
-  }
-}
-
-@keyframes edge-lock-pulse {
-  0%, 100% {
-    width: calc(100% + 16px);
-    height: calc(100% + 16px);
-    transform: translate(-50%, -50%);
-    opacity: 0.9;
-    border-color: #FFE216;
-  }
-  50% {
-    width: calc(100% + 24px);
-    height: calc(100% + 24px);
-    transform: translate(-50%, -50%);
-    opacity: 0.4;
-    border-color: #FFE216;
-  }
 }
 
 @keyframes edge-ind-fade-in {

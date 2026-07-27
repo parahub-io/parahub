@@ -4,11 +4,14 @@ Django Ninja REST API for barter exchange matching
 """
 
 from ninja import Router, Schema
+from ninja.errors import HttpError
+from neo4j.exceptions import ServiceUnavailable
 from typing import List, Optional
 from django.core.cache import cache
 from django.db import transaction
 from barter.graph_service import BarterGraphService
 from barter.models import Exchange, ExchangeApproval
+from barter.neo4j_client import Neo4jQueryTimeout
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 
@@ -92,6 +95,9 @@ def get_barter_opportunities(request, max_length: int = None, category_id: str =
         cache.set(cache_key, result, timeout=300)  # 5 min TTL
 
         return result
+    except (Neo4jQueryTimeout, ServiceUnavailable) as e:
+        logger.error(f"Barter graph unavailable for {user_id}: {e}")
+        raise HttpError(503, "Barter matching is temporarily unavailable")
     except Exception as e:
         logger.error(f"Failed to find barter opportunities for {user_id}: {e}")
         raise

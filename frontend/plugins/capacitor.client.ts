@@ -1,5 +1,37 @@
 import { playSosSiren } from '~/composables/useSosWatcher'
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
+
+// Installers whose store policies forbid apps updating themselves outside the
+// store's own mechanism — the self-update banner must never show for them.
+const APP_STORE_INSTALLERS = [
+  'com.android.vending', // Google Play
+  'com.amazon.venezia',
+  'com.huawei.appmarket',
+]
+
+async function checkApkUpdate(App: Awaited<typeof import('@capacitor/app')>['App']) {
+  const info = await App.getInfo()
+  const current = parseInt(info.build, 10) // versionCode on Android
+  const res = await fetch('/parahub-apk.json', { cache: 'no-store' })
+  if (!res.ok) return
+  const latest = await res.json()
+  if (!current || !latest?.versionCode || latest.versionCode <= current) return
+  if (localStorage.getItem('apk_update_dismissed') === String(latest.versionCode)) return
+
+  try {
+    const InstallSource = registerPlugin<{
+      getInstallSource(): Promise<{ installer: string }>
+    }>('InstallSource')
+    const { installer } = await InstallSource.getInstallSource()
+    if (APP_STORE_INSTALLERS.includes(installer)) return
+  } catch {
+    // Shell predates the InstallSource plugin — those builds only ever
+    // shipped sideloaded, so showing the banner is safe.
+  }
+
+  useState('apkUpdateVersion', () => 0).value = latest.versionCode
+  useState('apkUpdateAvailable', () => false).value = true
+}
 
 export default defineNuxtPlugin(async () => {
   if (!Capacitor.isNativePlatform()) return
@@ -46,6 +78,44 @@ export default defineNuxtPlugin(async () => {
       App.minimizeApp()
     }
   })
+
+  // --- Cross-origin links → Chrome Custom Tab ---
+  // allowNavigation includes *.parahub.io, so foreign pages (Gitea, PeerTube,
+  // status, mini-sites) would load inside the WebView: edge-to-edge under the
+  // notch/gesture bar (their CSS knows nothing about our safe-area vars) and
+  // no way back except the system button. Route every cross-origin http(s)
+  // navigation to @capacitor/browser (CCT) instead — native insets + a close
+  // button returning to the app. Same-origin links (incl. /webmail, which does
+  // its own CCT handoff in-page) keep default behavior.
+  const openInCustomTab = (url: string) => {
+    import('@capacitor/browser').then(({ Browser }) => Browser.open({ url }))
+  }
+  document.addEventListener('click', (e) => {
+    if (e.defaultPrevented) return // router-handled or drag-suppressed click
+    const anchor = (e.target as Element | null)?.closest?.('a[href]')
+    if (!anchor) return
+    const href = anchor.getAttribute('href')
+    if (!href) return
+    let url: URL
+    try { url = new URL(href, window.location.href) } catch { return }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return
+    if (url.origin === window.location.origin) return
+    e.preventDefault()
+    openInCustomTab(url.href)
+  })
+  const nativeWindowOpen = window.open.bind(window)
+  window.open = ((url?: string | URL, target?: string, features?: string) => {
+    try {
+      if (url) {
+        const u = new URL(String(url), window.location.href)
+        if ((u.protocol === 'http:' || u.protocol === 'https:') && u.origin !== window.location.origin) {
+          openInCustomTab(u.href)
+          return null
+        }
+      }
+    } catch { /* unparseable — let the WebView deal with it */ }
+    return nativeWindowOpen(url as any, target, features)
+  }) as typeof window.open
 
   // --- Deep links ---
   App.addListener('appUrlOpen', (event) => {
@@ -159,6 +229,11 @@ export default defineNuxtPlugin(async () => {
   try {
     await SplashScreen.hide()
   } catch { /* already hidden */ }
+
+  // --- APK self-update check (sideloaded Android builds only) ---
+  if (Capacitor.getPlatform() === 'android') {
+    checkApkUpdate(App).catch(() => { /* offline / no manifest */ })
+  }
 })
 
 

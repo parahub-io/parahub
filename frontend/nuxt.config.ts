@@ -76,7 +76,7 @@ export default defineNuxtConfig({
         'transit_manage.json', 'shipments.json', 'income.json', 'subscriptions.json', 'vera.json',
         'voice_chat.json', 'support_voice.json', 'condo.json', 'ha.json', 'property.json', 'parasos.json',
         'cms.json', 'videos.json', 'booking.json', 'notifications.json',
-        'wot.json', 'civic.json',
+        'wot.json', 'civic.json', 'tips.json',
       ]
       return [
         { code: 'en', language: 'en-US', name: 'English', files: files.map(f => `en/${f}`) },
@@ -183,7 +183,7 @@ export default defineNuxtConfig({
     public: {
       apiBase: '/api/v1',
       traccarUrl: 'https://traccar.parahub.io',
-      traccarPublicHost: process.env.TRACCAR_PUBLIC_HOST || '',
+      traccarPublicHost: process.env.TRACCAR_PUBLIC_HOST || 'traccar.parahub.io',
       wsUrl: process.env.NODE_ENV === 'development' ? 'ws://localhost:8000' : 'wss://parahub.io',
       breezApiKey: process.env.NUXT_PUBLIC_BREEZ_API_KEY || '',
       // Version info (build-time)

@@ -176,7 +176,7 @@ def _format_event_response(event, current_profile=None) -> EventResponse:
         id=organizer.id,
         hna=organizer.hna,
         display_name=organizer.display_name if organizer.name_visible_to(current_profile) else '',
-        avatar_url=organizer.avatar.url if organizer.avatar else None
+        avatar_url=organizer.avatar_url
     )
 
     # Check if current user is organizer or participant
@@ -248,7 +248,7 @@ def _format_event_list_item(event, viewer=None) -> EventListItem:
         title=event.title,
         organizer_hna=event.organizer.hna if event.organizer else None,
         organizer_display_name=event.organizer.display_name if event.organizer and event.organizer.name_visible_to(viewer) else None,
-        organizer_avatar_url=event.organizer.avatar.url if event.organizer and event.organizer.avatar else None,
+        organizer_avatar_url=event.organizer.avatar_url if event.organizer else None,
         category_name=event.category.name if event.category else None,
         category_icon=event.category.icon if event.category else None,
         event_type=event.event_type,
@@ -872,7 +872,7 @@ def get_event_participants(request, event_id: str, status: Optional[str] = None)
             profile_id=p.profile_id,
             profile_hna=p.profile.hna,
             profile_display_name=p.profile.display_name if p.profile.name_visible_to(getattr(request, 'auth_profile', None)) else '',
-            profile_avatar_url=p.profile.avatar.url if p.profile.avatar else None,
+            profile_avatar_url=p.profile.avatar_url,
             status=p.status,
             joined_at=p.created_at
         )

@@ -86,7 +86,7 @@ def _site_to_out(site: Site) -> SiteOut:
     if est and est.logo_url:
         logo_url = est.logo_url
     elif profile and profile.avatar:
-        logo_url = profile.avatar.url
+        logo_url = profile.avatar_url
 
     return SiteOut(
         id=site.id,

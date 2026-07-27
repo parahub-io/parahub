@@ -21,6 +21,11 @@
       <UpdateBanner />
     </ClientOnly>
 
+    <!-- Native APK update banner (driven by capacitor.client.ts version check) -->
+    <ClientOnly>
+      <ApkUpdateBanner />
+    </ClientOnly>
+
     <!-- Incoming Call Banner -->
     <ClientOnly>
       <IncomingCallBanner />

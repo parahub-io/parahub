@@ -13,6 +13,13 @@ name: CI
 on:
   push:
     branches: [master]
+    # Docs-only pushes can't affect the test suite or the build — skip them.
+    # A mixed push (any non-doc file) still runs. PK/** is the AI knowledge
+    # base, docs/** the public docs, **.md release notes/readmes.
+    paths-ignore:
+      - 'PK/**'
+      - 'docs/**'
+      - '**.md'
   pull_request:
 
 jobs:
@@ -36,6 +43,10 @@ jobs:
           exit ${PIPESTATUS[0]}
 
   frontend-build:
+    # Heavier job (8GB heap, ~2-3min). Build breakage surfaces immediately on
+    # the next 0restart-dev, so gate it to pull requests only — master pushes
+    # run backend-tests alone.
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: host
     steps:
       - uses: actions/checkout@v4

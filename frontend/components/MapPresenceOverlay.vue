@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { watch, onBeforeUnmount, ref, onMounted } from 'vue'
+import { watch, onBeforeUnmount, onActivated, onDeactivated, ref } from 'vue'
 import type { Avatar } from '~/composables/useMapPresence'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 
@@ -35,8 +35,14 @@ interface Props {
 
 const props = defineProps<Props>()
 
+// Own avatar's animated geo position, exposed to the parent so click hit-tests
+// use the rendered position (the avatar lags map center during pan/run)
+const ownGeoPosition = defineModel<{ lat: number; lon: number } | null>('ownGeoPosition', { default: null })
+
 // Own avatar position (animated, not instantly at map center)
 const ownAvatarPosition = ref<{ lat: number; lon: number } | null>(null)
+
+watch(ownAvatarPosition, (pos) => { ownGeoPosition.value = pos })
 
 // Animation state for own avatar movement
 const ownMovementAnimation = ref<{
@@ -61,17 +67,20 @@ let zoomTimeout: ReturnType<typeof setTimeout> | null = null
 const isMapMoving = ref(false)
 const lastStablePosition = ref<{ lat: number; lon: number } | null>(null)
 
-const emit = defineEmits<{
-  avatarClick: [avatar: Avatar, isOwn: boolean]
-}>()
-
-const LAYER_ID = 'avatar-sprites-layer'
-
 const layerAdded = ref(false)
 const spritesheetImages = ref<Map<string, HTMLImageElement>>(new Map())
 const spriteCanvas = ref<HTMLCanvasElement | null>(null)
-let throttledRenderSprites: (() => void) | null = null
 const canvasReady = ref(false)
+
+// Map event handlers, kept as named refs so onBeforeUnmount can detach the exact
+// functions — the map instance outlives this component (v-if on the presence toggle),
+// so anything left attached accumulates across toggle cycles
+let throttledRenderSprites: (() => void) | null = null
+let resizeHandler: (() => void) | null = null
+let zoomStartHandler: (() => void) | null = null
+let zoomEndHandler: (() => void) | null = null
+let moveStartHandler: (() => void) | null = null
+let moveEndHandler: (() => void) | null = null
 
 // Hover tracking
 const mousePosition = ref<{ x: number; y: number } | null>(null)
@@ -306,11 +315,14 @@ function updateAvatarState(avatar: Avatar) {
       state.isMoving = true
       state.lastMovementTime = now
     } else {
-      // Switch to idle after 1 second of no movement
+      // Switch to idle after 1 second of no movement; reset the frame only on
+      // the transition — resetting every render pins the loop to one frame
       if (now - state.lastMovementTime > 1000) {
-        state.animation = 'idle'
+        if (state.animation !== 'idle') {
+          state.animation = 'idle'
+          state.currentFrame = 0
+        }
         state.isMoving = false
-        state.currentFrame = 0
       }
     }
   }
@@ -566,6 +578,49 @@ function playSaySound(x: number, y: number, isOwn: boolean) {
 }
 
 /**
+ * Animation clock. Sprite frames advance at 100ms (10fps) — rendering faster
+ * than that is wasted CPU, so the loop skips frames down to that rate and only
+ * renders every rAF tick while the own-avatar movement lerp needs smooth motion.
+ * rAF (not setInterval) so the loop parks itself in background tabs.
+ */
+const SPRITE_FRAME_INTERVAL = 100 // ms, matches frameInterval in updateAvatarState
+let animationLoopId: number | null = null
+let animationLoopSuspended = false
+let lastLoopRender = 0
+
+function animationLoop(now: number) {
+  animationLoopId = null
+  const needsSmoothMotion = ownMovementAnimation.value.isAnimating
+  if (needsSmoothMotion || now - lastLoopRender >= SPRITE_FRAME_INTERVAL) {
+    lastLoopRender = now
+    renderSprites()
+  }
+  scheduleAnimationLoop()
+}
+
+function scheduleAnimationLoop() {
+  if (animationLoopId !== null || animationLoopSuspended || !layerAdded.value) return
+  animationLoopId = requestAnimationFrame(animationLoop)
+}
+
+function stopAnimationLoop() {
+  if (animationLoopId !== null) {
+    cancelAnimationFrame(animationLoopId)
+    animationLoopId = null
+  }
+}
+
+// Page uses KeepAlive: pause the clock while the map page is deactivated
+onActivated(() => {
+  animationLoopSuspended = false
+  scheduleAnimationLoop()
+})
+onDeactivated(() => {
+  animationLoopSuspended = true
+  stopAnimationLoop()
+})
+
+/**
  * Render sprites on overlay canvas
  */
 function renderSprites() {
@@ -669,6 +724,21 @@ function renderSprites() {
 
   // Get all avatars (others + own)
   const allAvatars = getAllAvatars()
+
+  // Drop tracking for avatars no longer rendered (left the tile / disconnected).
+  // lastAvatarTypes is populated for every rendered avatar, so it is the
+  // superset of all four tracking maps.
+  if (lastAvatarTypes.value.size > allAvatars.length) {
+    const liveIds = new Set(allAvatars.map(a => a.profile_id))
+    for (const id of lastAvatarTypes.value.keys()) {
+      if (!liveIds.has(id)) {
+        lastAvatarTypes.value.delete(id)
+        lastSpeechBubbles.value.delete(id)
+        avatarStates.value.delete(id)
+        playedJumpSounds.value.delete(id)
+      }
+    }
+  }
 
   // Check for skin changes and speech bubbles (play sounds)
   allAvatars.forEach(avatar => {
@@ -837,7 +907,8 @@ function renderSprites() {
     ctx.fillText(text, bubbleX, by + bubbleHeight / 2)
   })
 
-  // No continuous rAF loop — redraws are triggered by throttled map events
+  // Steady-state redraws come from the animation clock (scheduleAnimationLoop);
+  // map move/zoom events add full-rate renders for smooth re-projection
 }
 
 /**
@@ -883,25 +954,28 @@ async function initializeLayer() {
     }
     props.map.on('move', throttledRenderSprites)
     props.map.on('zoom', throttledRenderSprites)
-    props.map.on('resize', () => {
+
+    resizeHandler = () => {
       if (spriteCanvas.value && props.map) {
         const mapCanvas = props.map.getCanvas()
         spriteCanvas.value.width = mapCanvas.width
         spriteCanvas.value.height = mapCanvas.height
         renderSprites()
       }
-    })
+    }
+    props.map.on('resize', resizeHandler)
 
     // Track zoom events to prevent avatar movement during zoom
-    props.map.on('zoomstart', () => {
+    zoomStartHandler = () => {
       isZooming.value = true
       if (zoomTimeout) {
         clearTimeout(zoomTimeout)
         zoomTimeout = null
       }
-    })
+    }
+    props.map.on('zoomstart', zoomStartHandler)
 
-    props.map.on('zoomend', () => {
+    zoomEndHandler = () => {
       // Delay resetting zoom flag slightly
       zoomTimeout = setTimeout(() => {
         isZooming.value = false
@@ -945,10 +1019,11 @@ async function initializeLayer() {
           }
         }
       }, 100)
-    })
+    }
+    props.map.on('zoomend', zoomEndHandler)
 
     // Track move events for running animation
-    props.map.on('movestart', () => {
+    moveStartHandler = () => {
       // Don't set moving flag if it's just zoom or keyboard-driven movement
       if (!isZooming.value && !props.isKeyboardMoving) {
         isMapMoving.value = true
@@ -957,9 +1032,10 @@ async function initializeLayer() {
           lastStablePosition.value = { ...ownAvatarPosition.value }
         }
       }
-    })
+    }
+    props.map.on('movestart', moveStartHandler)
 
-    props.map.on('moveend', () => {
+    moveEndHandler = () => {
       // Skip run animation during keyboard movement — renderSprites handles it directly
       if (props.isKeyboardMoving) {
         isMapMoving.value = false
@@ -1011,7 +1087,8 @@ async function initializeLayer() {
       } else {
         isMapMoving.value = false
       }
-    })
+    }
+    props.map.on('moveend', moveEndHandler)
 
     // Avatar hover detection via map events (canvas has pointer-events: none)
     // Note: click handling is done in MapView to avoid duplicate handlers
@@ -1019,8 +1096,9 @@ async function initializeLayer() {
 
     layerAdded.value = true
 
-    // Initial render
+    // Initial render + start the animation clock
     renderSprites()
+    scheduleAnimationLoop()
 
   } catch (error) {
     console.error('[Sprites] Failed to initialize:', error)
@@ -1055,18 +1133,6 @@ function handleMapMouseMove(e: any) {
 }
 
 /**
- * Handle map click for avatar selection (map event, not canvas)
- */
-function handleMapClick(e: any) {
-  if (!spriteCanvas.value || !props.map) return
-
-  const avatarAtPoint = findAvatarAtPoint(e.point.x, e.point.y)
-  if (avatarAtPoint) {
-    emit('avatarClick', avatarAtPoint)
-  }
-}
-
-/**
  * Find avatar at screen coordinates
  */
 function findAvatarAtPoint(x: number, y: number): Avatar | null {
@@ -1090,17 +1156,6 @@ function findAvatarAtPoint(x: number, y: number): Avatar | null {
     }
   }
   return null
-}
-
-/**
- * Handle mouse leave - reset hover state (called from parent via map container)
- */
-function handleMouseLeave() {
-  mousePosition.value = null
-  hoveredAvatarId.value = null
-  if (spriteCanvas.value) {
-    spriteCanvas.value.style.cursor = 'default'
-  }
 }
 
 // Watch for map ready
@@ -1130,8 +1185,10 @@ watch(() => props.avatars, () => {
   if (layerAdded.value) renderSprites()
 }, { deep: true })
 
-// Cleanup
+// Cleanup — detach everything initializeLayer attached to the shared map instance
 onBeforeUnmount(() => {
+  stopAnimationLoop()
+
   if (zoomTimeout) {
     clearTimeout(zoomTimeout)
     zoomTimeout = null
@@ -1142,7 +1199,11 @@ onBeforeUnmount(() => {
       props.map.off('move', throttledRenderSprites)
       props.map.off('zoom', throttledRenderSprites)
     }
-    props.map.off('resize', renderSprites)
+    if (resizeHandler) props.map.off('resize', resizeHandler)
+    if (zoomStartHandler) props.map.off('zoomstart', zoomStartHandler)
+    if (zoomEndHandler) props.map.off('zoomend', zoomEndHandler)
+    if (moveStartHandler) props.map.off('movestart', moveStartHandler)
+    if (moveEndHandler) props.map.off('moveend', moveEndHandler)
     props.map.off('mousemove', handleMapMouseMove)
   }
 })

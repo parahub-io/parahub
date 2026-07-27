@@ -714,6 +714,48 @@ def notify_verification_received(user, verifier_profile):
     )
 
 
+def notify_verification_photo_viewed(user, viewer_profile):
+    """Tell someone that a verifier opened their WoT verification photo.
+
+    Deliberately absent from TYPE_TO_CATEGORY, so `_should_notify` always lets it
+    through: this is a privacy notice about biometric data, not a social ping, and
+    the person whose face was looked at does not get to be opted out of hearing it.
+    """
+    from identity.models import Profile
+
+    recipient_profile = Profile.objects.filter(account=user).first()
+    lang = recipient_profile.preferred_language if recipient_profile else 'en'
+
+    display_name = viewer_profile.display_name or viewer_profile.local_name or viewer_profile.hna
+
+    titles = {
+        'en': "Verification photo viewed",
+        'ru': "Фото верификации просмотрено",
+        'pt': "Foto de verificação visualizada",
+        'es': "Foto de verificación vista",
+        'fr': "Photo de vérification consultée",
+        'de': "Verifizierungsfoto angesehen",
+    }
+
+    bodies = {
+        'en': f"{display_name} opened your Web of Trust verification photo",
+        'ru': f"{display_name} открыл ваше фото верификации Web of Trust",
+        'pt': f"{display_name} abriu a sua foto de verificação da Web of Trust",
+        'es': f"{display_name} abrió tu foto de verificación de Web of Trust",
+        'fr': f"{display_name} a ouvert votre photo de vérification Web of Trust",
+        'de': f"{display_name} hat Ihr Web-of-Trust-Verifizierungsfoto geöffnet",
+    }
+
+    return emit_notification(
+        user,
+        type='verification_photo_viewed',
+        title=titles.get(lang, titles['en']),
+        body=bodies.get(lang, bodies['en']),
+        data={'viewer_id': viewer_profile.id},
+        url='/profile?section=about',
+    )
+
+
 def notify_new_poll(user, poll, creator_profile):
     """Send notification when user is added as eligible voter in a new poll"""
     if not _should_notify(user, 'new_poll'):
