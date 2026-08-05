@@ -13,7 +13,7 @@ uvicorn[standard]==0.50.0
 whitenoise==6.12.0
 django-extensions==3.2.3
 python-decouple==3.8
-cryptography==49.0.0
+cryptography==50.0.0
 django-allauth==65.18.0
 
 # Django Ninja API Framework
