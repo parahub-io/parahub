@@ -13,7 +13,7 @@ uvicorn[standard]==0.50.0
 whitenoise==6.12.0
 django-extensions==3.2.3
 python-decouple==3.8
-cryptography==49.0.0
+cryptography==50.0.0     # was 49.0.0 — HIGH (pkcs7_decrypt_* RSA padding oracle; unused here)
 django-allauth==65.18.0
 
 # Django Ninja API Framework
@@ -69,15 +69,15 @@ nh3==0.3.5
 pyjwt==2.13.0             # was 2.10.1 — HIGH (auth: django-ninja-jwt)
 urllib3==2.7.0           # was 2.6.3 — HIGH (via requests)
 python-multipart==0.0.31  # was 0.0.22 — HIGH (multipart uploads)
-gitpython==3.1.55        # was 3.1.50 — HIGH (OTS audit)
+gitpython==3.1.58        # was 3.1.55 — HIGH (unsafe-option guard bypasses, 7 advisories)
 lxml==6.1.0              # was 6.0.2 — HIGH
 Mako==1.3.12             # was 1.3.10 — HIGH
-nltk==3.9.4              # was 3.9.3 — HIGH; PYSEC-2026-597 open upstream, no fixed release
+nltk==3.10.0             # was 3.9.4 — HIGH; PYSEC-2026-597 open upstream, no fixed release
 pyasn1==0.6.4            # was 0.6.3 — HIGH
 tornado==6.5.7           # was 6.5.2 — HIGH
 
 # ── moderate/low CVEs (triaged 2026-06-19) ──
-aiohttp==3.14.1          # was 3.13.3 — MODERATE (via geoip2/pywebpush)
+aiohttp==3.14.3          # was 3.14.1 — HIGH (WebSocket request smuggling); client-only here, via geoip2/pywebpush
 idna==3.15               # was 3.10 — MODERATE (via requests/httpx)
 requests==2.33.0         # was 2.32.4 — MODERATE
 python-dotenv==1.2.2     # was 1.1.1 — MODERATE (via pydantic-settings)
