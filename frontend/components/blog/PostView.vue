@@ -148,7 +148,7 @@ watch(() => props.post?.id, loadRelated, { immediate: false })
           <div class="flex items-center gap-3 flex-wrap text-sm text-neutral-500 dark:text-neutral-400 pb-5 mb-6 border-b border-neutral-200 dark:border-neutral-700">
             <!-- Author -->
             <NuxtLink
-              :to="localePath(`/u/${post.author_hna.split('@')[0]}`)"
+              :to="localePath(`/@${post.author_hna.split('@')[0]}`)"
               class="flex items-center gap-2 hover:text-secondary transition-colors"
             >
               <img
@@ -207,7 +207,7 @@ watch(() => props.post?.id, loadRelated, { immediate: false })
                 {{ t('subscriptions.locked_desc', { name: post.author_display_name || post.author_hna }) }}
               </p>
               <NuxtLink
-                :to="localePath(`/u/${post.author_local_name || post.author_hna?.split('@')[0]}`)"
+                :to="localePath(`/@${post.author_local_name || post.author_hna?.split('@')[0]}`)"
                 class="btn-primary btn-sm inline-flex"
               >
                 <Heart class="w-4 h-4" />

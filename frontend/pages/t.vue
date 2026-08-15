@@ -69,7 +69,7 @@
             <!-- Say where a pre-filled address came from: a shared browser must not send money silently -->
             <p v-if="remembered" class="text-xs text-neutral-500 dark:text-neutral-400">
               {{ $t('tips.claim.remembered') }}
-              <button type="button" class="underline hover:text-primary" @click="forgetPayout">{{ $t('tips.claim.forget') }}</button>
+              <button type="button" class="underline hover:text-secondary dark:hover:text-secondary-400" @click="forgetPayout">{{ $t('tips.claim.forget') }}</button>
             </p>
             <p v-else class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('tips.claim.destinationHint') }}</p>
           </template>

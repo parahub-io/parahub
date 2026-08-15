@@ -11,7 +11,6 @@ Endpoints are called directly with RequestFactory requests (market/tests.py
 style); the rate-limit decorator skips localhost so it does not interfere.
 """
 
-import tempfile
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -31,13 +30,19 @@ from parahub.endpoints.wot import (
 from parahub.endpoints.profiles.photos import (
     my_verification_photo, verification_photo_access_log,
 )
+from parahub.tmpdirs import make_scratch_dir, register_cleanup
 
 JPEG = b'\xff\xd8\xff\xdb' + b'0' * 64
+
+# Evaluated at import, i.e. on every test run that merely discovers this module,
+# so it must clean up after itself rather than pile up one directory per run.
+_MEDIA_ROOT = make_scratch_dir('test-media')
+register_cleanup(_MEDIA_ROOT)
 
 
 # The test DB is throwaway, MEDIA_ROOT is not: without this every run leaves
 # stub JPEGs in the live media/private/verification_photos/ tree.
-@override_settings(MEDIA_ROOT=tempfile.mkdtemp(prefix='parahub-test-media-'))
+@override_settings(MEDIA_ROOT=_MEDIA_ROOT)
 class VerificationPhotoAccessTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -249,3 +254,78 @@ class VerificationPhotoAccessTests(TestCase):
         # The grouping is presentation only — the trail itself keeps every fetch.
         self.assertEqual(
             VerificationPhotoAccess.objects.filter(target_profile=subject).count(), 4)
+
+
+class SyntheticBoundaryTests(TestCase):
+    """create_verification must refuse edges that bridge real accounts and
+    synthetic (is_test / is_bot) ones — one real→test verification is enough
+    to hand a seeded profile real WoT power (this happened once: a real
+    account's manual flow-test became a seeded profile's third verification)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.instance = Instance.objects.create(
+            domain='test.parahub.io', name='Test Instance', public_key='k')
+        cls.factory = RequestFactory()
+
+    def _profile(self, username, is_test=False, is_bot=False):
+        account = Account.objects.create_user(
+            username=username, email=f'{username}@test.parahub.io',
+            password='x', instance=self.instance)
+        if is_test or is_bot:
+            account.is_test = is_test
+            account.is_bot = is_bot
+            account.save(update_fields=['is_test', 'is_bot'])
+        return Profile.objects.create(
+            account=account, instance=self.instance, local_name=username,
+            display_name=username.title(), is_primary=True,
+            profile_type=Profile.ProfileType.PERSONAL,
+            pgp_public_key='KEY', pgp_fingerprint='FPR')
+
+    def _verifier(self, username, is_test=False, is_bot=False):
+        """Standard verifier: PGP + 3 same-class vouchers → WoT status via signals."""
+        profile = self._profile(username, is_test=is_test, is_bot=is_bot)
+        for i in range(3):
+            voucher = self._profile(f'{username}voucher{i}', is_test=is_test, is_bot=is_bot)
+            Verification.objects.create(
+                verifier=voucher, verified_profile=profile, is_active=True)
+        profile.refresh_from_db()
+        self.assertTrue(profile.can_verify_others())
+        return profile
+
+    def _attempt(self, verifier, target):
+        from parahub.endpoints.wot import create_verification, CreateVerificationRequest
+        request = self.factory.post('/fake/')
+        request.user = verifier.account
+        request.auth = verifier
+        request.auth_profile = verifier
+        data = CreateVerificationRequest(
+            verified_user_id=target.id, verification_method='IN_PERSON',
+            timestamp=timezone.now().isoformat(), statement='{}', signature='sig')
+        with self.assertRaises(HttpError) as cm:
+            create_verification(request, data)
+        return cm.exception
+
+    def test_real_verifier_cannot_verify_test_account(self):
+        exc = self._attempt(self._verifier('real'), self._profile('testy', is_test=True))
+        self.assertEqual(exc.status_code, 400)
+        self.assertEqual(exc.code, 'synthetic_boundary')
+
+    def test_test_account_cannot_verify_real_account(self):
+        exc = self._attempt(self._verifier('testy', is_test=True), self._profile('real'))
+        self.assertEqual(exc.code, 'synthetic_boundary')
+
+    def test_real_verifier_cannot_verify_bot(self):
+        exc = self._attempt(self._verifier('real'), self._profile('boty', is_bot=True))
+        self.assertEqual(exc.code, 'synthetic_boundary')
+
+    def test_within_synthetic_cluster_passes_the_boundary(self):
+        # test↔bot stays allowed; the attempt proceeds past the boundary and
+        # fails later on the missing verification photo instead.
+        exc = self._attempt(
+            self._verifier('testy', is_test=True), self._profile('boty', is_bot=True))
+        self.assertEqual(exc.code, 'no_verification_photo')
+
+    def test_real_to_real_passes_the_boundary(self):
+        exc = self._attempt(self._verifier('real'), self._profile('real2'))
+        self.assertEqual(exc.code, 'no_verification_photo')

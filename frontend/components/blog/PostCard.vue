@@ -42,7 +42,7 @@ function formatDate(iso: string) {
 function postUrl(post: Post, base?: string) {
   if (base) return localePath(`${base}/${post.slug}`)
   if (post.establishment_slug) return localePath(`/org/${post.establishment_slug}/blog/${post.slug}`)
-  if (post.author_local_name) return localePath(`/u/${post.author_local_name}/blog/${post.slug}`)
+  if (post.author_local_name) return localePath(`/@${post.author_local_name}/blog/${post.slug}`)
   return localePath(`/blog/${post.slug}`)
 }
 </script>

@@ -10,6 +10,9 @@ export interface ManagedAgency {
   data_source_slug: string
   routes_count: number
   stops_count: number
+  // Set when an organization runs the agency (access follows membership)
+  establishment_id?: string | null
+  establishment_name?: string
 }
 
 export interface ManagedStop {

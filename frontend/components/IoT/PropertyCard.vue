@@ -47,7 +47,7 @@
 
 <script setup lang="ts">
 import { ChevronRight, Cpu, Home, Radio, Zap, House, Building, Landmark, Trees, Warehouse, MapPin } from 'lucide-vue-next'
-import { PLACE_SQUARE_SIZE } from '~/composables/useMapToggleableLayer'
+import { PLACE_SQUARE_SIZE, PROPERTY_TYPE_GLYPHS } from '~/composables/useMapToggleableLayer'
 import type { Property } from '~/stores/property'
 
 const props = defineProps<{ property: Property }>()
@@ -62,19 +62,7 @@ const typeIcon = computed(() => {
   return map[props.property.property_type] || MapPin
 })
 
-// Snapshot marker glyphs — lucide 24×24 path data mirroring typeIcon above
-// (rect/circle primitives converted to path arcs for Path2D stroking)
-const TYPE_GLYPHS: Record<string, string[]> = {
-  house: ['M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8', 'M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
-  apartment: ['M12 10h.01', 'M12 14h.01', 'M12 6h.01', 'M16 10h.01', 'M16 14h.01', 'M16 6h.01', 'M8 10h.01', 'M8 14h.01', 'M8 6h.01', 'M9 22v-3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3', 'M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'],
-  office: ['M10 18v-7', 'M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z', 'M14 18v-7', 'M18 18v-7', 'M3 22h18', 'M6 18v-7'],
-  dacha: ['M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z', 'M7 16v6', 'M13 19v3', 'M12 19h8.3a1 1 0 0 0 .7-1.7L18 14h.3a1 1 0 0 0 .7-1.7L16 9h.2a1 1 0 0 0 .8-1.7L13 3l-1.4 1.5'],
-  garage: ['M18 21V10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v11', 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 1.132-1.803l7.95-3.974a2 2 0 0 1 1.837 0l7.948 3.974A2 2 0 0 1 22 8z', 'M6 13h12', 'M6 17h12'],
-  land: ['M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0', 'M15 10a3 3 0 1 1-6 0a3 3 0 1 1 6 0'],
-}
-TYPE_GLYPHS.other = TYPE_GLYPHS.land
-
-const typeGlyph = computed(() => TYPE_GLYPHS[props.property.property_type] || TYPE_GLYPHS.land)
+const typeGlyph = computed(() => PROPERTY_TYPE_GLYPHS[props.property.property_type] || PROPERTY_TYPE_GLYPHS.land)
 
 // Map snapshot (shared single MapLibre instance across all cards)
 const { capture } = useMapSnapshots()

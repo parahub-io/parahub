@@ -128,11 +128,9 @@
                 <IoTDeviceCard
                   v-for="device in generalDevices" :key="device.id"
                   :device="device"
-                  @delete="handleDeleteDevice"
-                  @refresh="loadPropertyData"
                 />
               </div>
-              <UiButton variant="secondary" size="sm" :icon="Plus" @click="showDeviceForm = true">
+              <UiButton variant="secondary" size="sm" :icon="Plus" :to="localePath(`/iot/add?property=${propertyId}`)">
                 {{ $t('iot.add_device') }}
               </UiButton>
             </div>
@@ -140,7 +138,7 @@
 
           <!-- Devices empty — add-device CTA -->
           <section v-else>
-            <button @click="showDeviceForm = true" class="w-full text-left bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-600 p-4 hover:border-blue-400 transition-colors">
+            <NuxtLink :to="localePath(`/iot/add?property=${propertyId}`)" class="block w-full text-left bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-600 p-4 hover:border-blue-400 transition-colors">
               <div class="flex items-center gap-3">
                 <Cpu class="w-5 h-5 text-blue-500 opacity-50" />
                 <div>
@@ -148,7 +146,7 @@
                   <p class="text-sm text-neutral-400">{{ $t('iot.no_devices_hint') }}</p>
                 </div>
               </div>
-            </button>
+            </NuxtLink>
           </section>
 
           <!-- ═══ Network Section (Mesh) ═══ -->
@@ -167,8 +165,6 @@
                 <IoTDeviceCard
                   v-for="device in meshDevices" :key="device.id"
                   :device="device"
-                  @delete="handleDeleteDevice"
-                  @refresh="loadPropertyData"
                 />
               </div>
 
@@ -202,7 +198,7 @@
                     </span>
                   </div>
                 </div>
-                <NuxtLink :to="localePath('/energy')" class="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-2">
+                <NuxtLink :to="localePath('/energy')" class="inline-flex items-center gap-1 text-sm text-link mt-2">
                   {{ $t('iot.view_energy_cell', 'View energy cell details') }}
                   <ChevronRight class="w-3 h-3" />
                 </NuxtLink>
@@ -237,15 +233,6 @@
       :home="discoverHome"
       @close="discoverHome = null"
       @imported="onEntitiesImported"
-    />
-
-    <!-- Add device modal -->
-    <IoTDeviceForm
-      v-if="showDeviceForm"
-      :is-open="showDeviceForm"
-      :property-id="prop?.id"
-      @close="showDeviceForm = false"
-      @created="onDeviceCreated"
     />
 
     <UiConfirmModal
@@ -312,7 +299,6 @@ const pendingDeleteHome = ref<HAHome | null>(null)
 const pendingDeleteEntity = ref<HAEntity | null>(null)
 const showEditForm = ref(false)
 const showHAForm = ref(false)
-const showDeviceForm = ref(false)
 const editingHome = ref<HAHome | null>(null)
 const discoverHome = ref<HAHome | null>(null)
 const syncingHomeId = ref<string | null>(null)
@@ -464,16 +450,6 @@ async function onHAAdded() {
 
 async function onEntitiesImported() {
   await loadPropertyData()
-}
-
-// Device actions
-function handleDeleteDevice(deviceId: string) {
-  iotStore.deleteDevice(deviceId)
-}
-
-function onDeviceCreated() {
-  showDeviceForm.value = false
-  loadPropertyData()
 }
 
 onMounted(loadPropertyData)

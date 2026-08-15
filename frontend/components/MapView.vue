@@ -32,14 +32,14 @@
       </div>
 
       <!-- Weather HUD: current conditions near the map centre (Open-Meteo).
-           Desktop: top-right, offset left of the zoom/layer controls strip.
-           Mobile (<768px): the search row spans the full top edge, so the HUD
-           drops below it; when the back-button/route-chip row occupies that
-           band, the HUD yields (same priority rule as open panels). -->
+           Bottom-right, stacked above the attribution ⓘ — the one corner no
+           docked panel covers (panels dock left on desktop), so the HUD stays
+           up while building/entity panels are open. It yields to the bottom
+           tool bars (v-if) and, on phones, to bottom-sheet panels (CSS). -->
       <div
         v-if="weatherHudVisible"
         class="weather-hud-wrap"
-        :class="{ crowded: !!(route.query.returnTo || transit.activeRouteInfo.value) }"
+        :class="{ 'panel-open': weatherHudPanelOpen }"
       >
         <MapWeatherWidget :data="weatherData" />
       </div>
@@ -96,6 +96,17 @@
             <X class="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      <!-- Onboarding quest log (HUD console, top-left under search). Hidden
+           while any panel claims the screen; drops below the back-button row
+           when that row is present. -->
+      <div
+        v-if="authStore.isAuthenticated && !weatherHudPanelOpen"
+        class="absolute left-4 z-[1000]"
+        :class="(route.query.returnTo || transit.activeRouteInfo.value) ? 'top-[8.5rem]' : 'top-[4.5rem]'"
+      >
+        <MapQuestLog />
       </div>
 
       <!-- Browse Panel (left sidebar) -->
@@ -409,14 +420,20 @@ const { urbanActive } = urban
 const urbanResult = urban.result
 
 // Weather HUD — current conditions near the map centre (Open-Meteo, cached).
-// Hidden while any panel is open (the HUD sits where panels overlap).
+// Hidden while a bottom tool bar claims its band; docked panels only cover
+// the corner on phones (bottom sheets), where CSS hides it via `panel-open`.
 const weatherHud = useMapWeatherHud({
   isActive,
   blocked: computed(() =>
-    browseVisible.value || routingVisible.value || !!selectedFeature.value || entityPanelOpen.value
+    measureActive.value || sunStudyActive.value || isochroneActive.value ||
+    droneReachActive.value || urbanActive.value
   ),
 })
 const { weatherData, weatherHudVisible } = weatherHud
+const weatherHudPanelOpen = computed(() =>
+  browseVisible.value || routingVisible.value || !!selectedFeature.value ||
+  entityPanelOpen.value || tileGridMode.value
+)
 
 const customControlsTop = ref('250px') // updated dynamically after map init
 
@@ -666,6 +683,7 @@ const onEscapeKey = (e: KeyboardEvent) => {
 
 // ======== Transit vehicle data sync (watcher) ========
 transit.syncVehicleData()
+transit.syncWaitingData()
 
 // ======== onMounted ========
 
@@ -990,31 +1008,21 @@ onBeforeUnmount(() => {
   transition: none !important;
 }
 
-/* Fullscreen mode */
+/* Fullscreen mode — sized by insets, never by vh: mobile Chrome's 100vh
+   tracks the LARGEST viewport (URL bar collapsed), and with top+height set
+   `bottom` is ignored, so a vh height overhangs the visible edge by the URL
+   bar and buries the bottom band (weather / scale / attribution) under the
+   browser chrome. A fixed box anchored top+bottom ends at the real edge. */
 .map-view.fullscreen {
-  top: calc(56px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))); /* Below navbar + safe area */
+  top: var(--nav-inset-top);
   left: 0;
   right: 0;
-  bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
-  width: 100vw;
-  height: calc(100vh - 56px - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  bottom: var(--nav-inset-bottom);
   border-radius: 0;
   border: none;
   background: transparent;
   box-shadow: none;
   z-index: 10; /* Below navbar (50) */
-}
-@media (min-width: 640px) {
-  .map-view.fullscreen {
-    top: calc(64px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-    height: calc(100vh - 64px - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
-  }
-}
-@media (min-width: 768px) {
-  .map-view.fullscreen {
-    top: calc(80px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-    height: calc(100vh - 80px - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
-  }
 }
 
 .mini-map-container {
@@ -1058,10 +1066,12 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-/* User location marker (MapLibre marker) */
+/* User location marker (MapLibre marker) — avatar-class circle per the map
+   marker grammar: course pointer at the rim while moving, honest accuracy
+   disc, no decorative pulse */
 :deep(.user-location-marker) {
-  width: 20px;
-  height: 20px;
+  width: 36px;
+  height: 36px;
   position: relative;
   pointer-events: none;
 }
@@ -1072,7 +1082,7 @@ onBeforeUnmount(() => {
   background: var(--color-secondary);
   border: 2px solid white;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 1px #1f2937; /* marker-grammar rest stroke */
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1080,27 +1090,39 @@ onBeforeUnmount(() => {
   z-index: 2;
 }
 
-:deep(.user-location-marker .user-marker-pulse) {
+:deep(.user-location-marker .user-marker-heading) {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 250ms ease;
+  z-index: 1;
+}
+
+:deep(.user-location-marker.user-marker-moving .user-marker-heading) {
+  opacity: 1;
+}
+
+:deep(.user-location-marker .user-marker-heading::before) {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 8px solid var(--color-secondary);
+}
+
+:deep(.user-location-marker .user-marker-accuracy) {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 20px;
-  height: 20px;
-  margin: -10px 0 0 -10px;
-  background: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  transform: translate(-50%, -50%);
   border-radius: 50%;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(0.8);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(2.5);
-    opacity: 0;
-  }
+  background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
 }
 
 /* Highlighted item marker (blinking rectangle) */
@@ -1187,26 +1209,43 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-/* Weather HUD wrapper — desktop: top row, left of the zoom/control strip */
+/* Expanded copyright strip: a real surface card — the MapLibre default is
+   half-transparent over the tiles, unreadable on a busy basemap */
+:deep(.maplibregl-ctrl-attrib.maplibregl-compact.attrib-ready.maplibregl-compact-show) {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border, #e5e5e5);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+:root.dark :deep(.maplibregl-ctrl-attrib.maplibregl-compact.attrib-ready.maplibregl-compact-show) {
+  background: rgba(30, 30, 30, 0.9);
+  border-color: #404040;
+  color: #d4d4d4;
+}
+:root.dark :deep(.maplibregl-ctrl-attrib.maplibregl-compact.attrib-ready.maplibregl-compact-show a) {
+  color: #d4d4d4;
+}
+
+/* Weather HUD wrapper — bottom-right, one line with the attribution ⓘ
+   (left of the button, centered on its height). Panels dock left on
+   desktop, so this corner stays clear while they're open; the bottom tool
+   bars sit center and the scale bar bottom-left. */
 .weather-hud-wrap {
   position: absolute;
-  top: 10px;
-  right: 4rem;
+  right: 2.75rem;
+  bottom: 12px;
   z-index: 1000;
 }
 
-/* Below the desktop breakpoint the search bar spans the full top edge and
-   would cover the HUD — move it to the band below (right edge still clear
-   of the nav-control strip at right: 10px) */
+/* The expanded copyright strip claims the whole line — the chip yields */
+.mini-map-container:has(.maplibregl-ctrl-attrib.maplibregl-compact-show) .weather-hud-wrap {
+  display: none;
+}
+
+/* Below the desktop breakpoint panels open as bottom sheets over this
+   corner — yield while one is up */
 @media (max-width: 767px) {
-  .weather-hud-wrap {
-    top: 72px;
-  }
-  .weather-hud-wrap.crowded {
-    display: none;
-  }
-  /* Search suggestions dropdown opens into the same band — yield to it too */
-  .mini-map-container:has(.search-results) .weather-hud-wrap {
+  .weather-hud-wrap.panel-open {
     display: none;
   }
 }

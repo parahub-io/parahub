@@ -18,12 +18,27 @@ from parahub.services.redis_pool import get_redis
 from parahub.services.transit_eta import (
     parse_rstops, segment_infos, segment_averages,
     build_index_map, resolve_origin, cumulative_min_etas, zombie_keeps_eta,
+    stt_state_is_live,
     remaining_segment_fraction, origin_with_fraction, parked_beyond_grace,
+    bucket_for, queue_prior_reads, parse_priors,
 )
 
 from .base import router
 
 logger = logging.getLogger(__name__)
+
+# Feed timezone names (daemon-published `transit:tz:{ds_id}`), cached per
+# worker so the prior-bucket lookup costs one Redis GET per feed per hour.
+_tz_cache: dict[str, tuple[str | None, float]] = {}
+_TZ_CACHE_TTL = 3600.0
+
+
+def _feed_bucket(r, ds_id, now: float) -> str:
+    cached = _tz_cache.get(ds_id)
+    if cached is None or (now - cached[1]) > _TZ_CACHE_TTL:
+        cached = (r.get(f'transit:tz:{ds_id}'), now)
+        _tz_cache[ds_id] = cached
+    return bucket_for(cached[0], now)
 
 @router.get("/transit/routes/{city_slug}/{route_slug}/live/", auth=None)
 @ratelimit(group='transit:route_live', key='ip', rate='120/m')
@@ -280,6 +295,8 @@ def get_stop_eta(request, city_slug: str, stop_slug: str):
     # so the route's segments are read once even with several vehicles on it.
     seg_info_cache = {}
 
+    bucket = _feed_bucket(r, ds_id, time.time())
+
     def _seg_infos_for(route_key):
         if route_key not in seg_info_cache:
             ordered = route_seqs[route_key]
@@ -290,7 +307,10 @@ def get_stop_eta(request, city_slug: str, stop_slug: str):
             p = r.pipeline(transaction=False)
             for sk in keys:
                 p.lrange(sk, 0, -1)
-            seg_info_cache[route_key] = segment_infos(p.execute(), route_sched[route_key])
+            queue_prior_reads(p, keys, bucket)
+            res = p.execute()
+            seg_info_cache[route_key] = segment_infos(
+                res[:len(keys)], route_sched[route_key], parse_priors(res[len(keys):]))
         return seg_info_cache[route_key]
 
     # Scan vprev for confirmed vehicles on these routes
@@ -317,6 +337,11 @@ def get_stop_eta(request, city_slug: str, stop_slug: str):
 
                 route_key = (v_route, v_dir)
                 if route_key not in stop_target_idx:
+                    continue
+
+                # Frozen state of a vehicle the feed stopped refreshing paints
+                # an arrival for a bus that is nowhere — see stt_state_is_live.
+                if not stt_state_is_live(now_ts, state.get('pt')):
                     continue
 
                 target_idx = stop_target_idx[route_key]
@@ -439,8 +464,10 @@ def get_route_eta(request, city_slug: str, route_slug: str, direction: int = 0):
     pipe = r.pipeline(transaction=False)
     for sk in seg_keys:
         pipe.lrange(sk, 0, -1)
+    queue_prior_reads(pipe, seg_keys, _feed_bucket(r, ds_id, time.time()))
     seg_results = pipe.execute()
-    seg_avg = segment_averages(seg_results, sched_offsets)
+    seg_avg = segment_averages(
+        seg_results[:len(seg_keys)], sched_offsets, parse_priors(seg_results[len(seg_keys):]))
 
     # Scan vprev for confirmed/tentative vehicles on this route+direction.
     # Collect (vid, stt_idx, move_ts); anchor ETA origin to the displayed sid below.
@@ -448,6 +475,7 @@ def get_route_eta(request, city_slug: str, route_slug: str, direction: int = 0):
     dir_tracked = []      # (vid, stt_idx, move_ts) on target direction
     tracked_vids = set()  # all vehicle IDs on this route (fallback exclusion)
     cursor = 0
+    now_ts = time.time()
 
     while True:
         cursor, keys = r.scan(cursor, match=f'{vprev_prefix}*', count=500)
@@ -466,6 +494,11 @@ def get_route_eta(request, city_slug: str, route_slug: str, direction: int = 0):
                     continue
                 if int(state.get('d', -1)) != direction:
                     continue
+                # Frozen state of a vehicle the feed stopped refreshing: its
+                # icon is already gone (180s display cutoff), so an ETA chain
+                # here is a phantom — see stt_state_is_live.
+                if not stt_state_is_live(now_ts, state.get('pt')):
+                    continue
                 dir_tracked.append((vid, int(state.get('idx', 0)),
                                     float(state.get('mt') or 0), float(state.get('dw') or 0)))
 
@@ -478,7 +511,6 @@ def get_route_eta(request, city_slug: str, route_slug: str, direction: int = 0):
     # short dwell with sid consistent with the STT idx (timing point) still
     # counts — see zombie_keeps_eta.
     vehicle_indices = []
-    now_ts = time.time()
     if dir_tracked:
         sid_vals = r.hmget('transit:vdata', *[f'{ds_id}:{vid}' for vid, *_ in dir_tracked])
         for (vid, stt_idx, move_ts, dwell_s), raw_v in zip(dir_tracked, sid_vals):
@@ -603,11 +635,15 @@ def get_route_eta_detail(request, city_slug: str, route_slug: str,
     pipe = r.pipeline(transaction=False)
     for sk in all_seg_keys:
         pipe.lrange(sk, 0, -1)
-    all_seg_results = pipe.execute()
+    queue_prior_reads(pipe, all_seg_keys, _feed_bucket(r, ds_id, time.time()))
+    raw_results = pipe.execute()
+    all_seg_results = raw_results[:len(all_seg_keys)]
 
-    # Segment model: avg (observed avg, else scheduled prior, else default),
-    # samples, observed flag, and the estimate source for the breakdown UI.
-    infos = segment_infos(all_seg_results, sched_offsets)
+    # Segment model: avg (observed avg, else scheduled/historical prior, else
+    # default), samples, observed flag, and the estimate source for the
+    # breakdown UI.
+    infos = segment_infos(all_seg_results, sched_offsets,
+                          parse_priors(raw_results[len(all_seg_keys):]))
     seg_data = [
         {
             'times': [round(float(v), 1) for v in all_seg_results[i]],
@@ -667,8 +703,14 @@ def get_route_eta_detail(request, city_slug: str, route_slug: str,
                 # keep resetting mt) blocks the chain too — parked_beyond_grace.
                 parked_blocked = parked_beyond_grace(
                     now_ts, float(state.get('mt') or 0), float(state.get('dw') or 0))
+                # A state the feed stopped refreshing blocks it as well: the
+                # vehicle is off the page already — see stt_state_is_live. It
+                # stays listed here (with its stale flag) precisely because this
+                # is the modal that has to explain a missing ETA.
+                stale_blocked = not stt_state_is_live(now_ts, state.get('pt'))
                 is_approaching = (origin < target_idx and st in ('c', 't')
-                                  and not zombie_blocked and not parked_blocked)
+                                  and not zombie_blocked and not parked_blocked
+                                  and not stale_blocked)
                 stops_away = target_idx - origin if is_approaching else None
 
                 # Build segment chain if approaching
@@ -728,6 +770,8 @@ def get_route_eta_detail(request, city_slug: str, route_slug: str,
                         'status': vdata.get('st', ''),
                         'headsign': vdata.get('hs', ''),
                         'zombie': bool(vdata.get('z')),
+                        'stale': stale_blocked,
+                        'age_s': round(now_ts - float(state.get('pt') or 0)) if state.get('pt') else None,
                     },
                     'is_approaching': is_approaching,
                     'stops_away': stops_away,

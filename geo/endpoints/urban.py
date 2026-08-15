@@ -424,10 +424,11 @@ def urban_analyze(request, payload: UrbanAnalyzeRequest):
 
 _SAMPLE_HALF_M = 11.3  # ~510 m² square sample plot per qualification
 
-# Least-privilege access to the dossiê: staff, or a member of this group — a
+# Least-privilege access to the dossiê: whoever holds this capability — a
 # licensed urbanista invited to sign off Gate-L2 gets *only* this surface, never
 # is_staff (which would grant the public Django admin + every staff feature).
-URBAN_VALIDATOR_GROUP = "urban_validators"
+# The group behind it lives in `parahub/capabilities.py`, with the other three.
+URBAN_VALIDATE = "urban.validate"
 
 # Verdict scenarios — (regime-branch label, categoria, subcategoria, use_type)
 # chosen to exercise each use-adjudication branch end-to-end. Derived from
@@ -467,13 +468,14 @@ def _sample_plot(municipio: str, categoria: str, subcategoria: str):
 
 
 def _validator_account(request):
-    """The signed-in Account iff it may access the dossiê — staff, or a member of
-    the urban_validators group (least-privilege). None otherwise. Authorization
-    lives on the Account (login + group), so that is who a sign-off is attributed to."""
+    """The signed-in Account iff it may access the dossiê — whoever holds
+    `urban.validate` (the `urban_validators` group, or staff). None otherwise.
+    Authorization lives on the Account (login + group), so that is who a sign-off
+    is attributed to. The group→capability map: `parahub/capabilities.py`."""
+    from parahub.capabilities import has_platform_capability
+
     account = getattr(request.auth, "account", None)
-    if account is not None and (
-            account.is_staff
-            or account.groups.filter(name=URBAN_VALIDATOR_GROUP).exists()):
+    if account is not None and has_platform_capability(account, URBAN_VALIDATE):
         return account
     return None
 

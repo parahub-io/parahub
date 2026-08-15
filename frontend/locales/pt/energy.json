@@ -60,6 +60,10 @@
       "step4": "A Parahub regista o grupo ACC (Autoconsumo Coletivo) na DGEG (Direção-Geral de Energia e Geologia) e gere a faturação"
     },
     "detail": {
+      "delete_cell": "Eliminar célula",
+      "delete_confirm": "A célula será eliminada permanentemente. Esta ação não pode ser anulada.",
+      "delete_blocked": "Os membros têm de sair da célula primeiro",
+      "deleted": "Célula eliminada",
       "created_by": "por {name}",
       "members": "Membros",
       "technical": "Detalhes técnicos",
@@ -88,7 +92,10 @@
       "location_hint": "Localização (posto de transformação)",
       "use_location": "Usar a minha localização",
       "location_error": "Não foi possível obter a localização",
-      "created": "Célula de energia criada!"
+      "created": "Célula de energia criada!",
+      "step_basics": "Dados básicos",
+      "step_location": "Localização",
+      "click_map": "Clique no mapa para indicar a localização do posto de transformação"
     },
 
     "relay": {
@@ -151,7 +158,9 @@
       "none": "Sem cooperativa",
       "create_new": "Criar nova cooperativa",
       "name_placeholder": "Nome da cooperativa",
-      "created": "Cooperativa criada!"
+      "created": "Cooperativa criada!",
+      "step_label": "Cooperativa",
+      "hint": "Uma cooperativa permite aos vizinhos investir na célula e partilhar as receitas. Pode saltar este passo."
     },
 
     "landing_title": "Energia solar P2P gratuita",

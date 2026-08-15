@@ -1,13 +1,10 @@
 <template>
-  <AccordionSection
-    section-id="migration"
-    :title="$t('federation.profile.title')"
-    :icon="ArrowRightLeft"
-    :open-sections="openSections"
-    :animation-enabled="animationEnabled"
-    :status="sectionStatus"
-    @toggle="emit('toggle', $event)"
-  >
+  <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-4">
+    <h2 class="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+      <ArrowRightLeft class="w-4 h-4 text-primary" />
+      {{ $t('federation.profile.title') }}
+      <AlertTriangle v-if="migrationInFlight" class="w-4 h-4 text-amber-500" aria-hidden="true" />
+    </h2>
     <div class="space-y-4">
       <!-- Active migration -->
       <div v-if="activeMigration" class="space-y-4">
@@ -166,21 +163,12 @@
       :icon="AlertTriangle"
       @confirm="cancelMigration"
     />
-  </AccordionSection>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ArrowRightLeft, ArrowRight, CheckCircle, Circle, Key, Download, Check, AlertTriangle } from 'lucide-vue-next'
-import AccordionSection from './AccordionSection.vue'
-
-const props = defineProps<{
-  openSections: string[]
-  animationEnabled?: boolean
-}>()
-
-const emit = defineEmits<{
-  'toggle': [sectionId: string]
-}>()
+import { saveFile } from '~/utils/download'
 
 const { t: $t } = useI18n()
 const authStore = useAuthStore()
@@ -201,13 +189,10 @@ const exporting = ref(false)
 const completing = ref(false)
 const showCancelConfirm = ref(false)
 
-const sectionStatus = computed(() => {
-  if (activeMigration.value) {
-    if (activeMigration.value.status === 'completed') return { complete: true }
-    return { complete: false, icon: 'alert' as const }
-  }
-  return { complete: false, icon: 'minus' as const }
-})
+// In-flight migration deserves a visible flag in the card heading
+const migrationInFlight = computed(() =>
+  !!activeMigration.value && activeMigration.value.status !== 'completed'
+)
 
 const fetchMigrations = async () => {
   try {
@@ -290,15 +275,10 @@ const exportData = async () => {
       responseType: 'blob',
     })
 
-    // Download the file
-    const url = window.URL.createObjectURL(response as Blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `migration_${activeMigration.value.from_hna}_${activeMigration.value.id.substring(0, 8)}.zip`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
+    await saveFile(
+      response as Blob,
+      `migration_${activeMigration.value.from_hna}_${activeMigration.value.id.substring(0, 8)}.zip`
+    )
 
     // Refresh migration status
     await fetchMigrations()

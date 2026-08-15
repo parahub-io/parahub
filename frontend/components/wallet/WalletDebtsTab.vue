@@ -47,7 +47,7 @@
               </span>
             </div>
             <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
-              <NuxtLink :to="localePath(`/u/${debt.debtor_hna?.split('@')[0] || debt.debtor_id}`)" class="font-medium text-secondary hover:underline">{{ debt.debtor_display_name }}</NuxtLink>{{ $t('debts.owes') }}<NuxtLink :to="localePath(`/u/${debt.creditor_hna?.split('@')[0] || debt.creditor_id}`)" class="font-medium text-secondary hover:underline">{{ debt.creditor_display_name }}</NuxtLink>
+              <NuxtLink :to="localePath(`/@${debt.debtor_hna?.split('@')[0] || debt.debtor_id}`)" class="font-medium text-secondary hover:underline">{{ debt.debtor_display_name }}</NuxtLink>{{ $t('debts.owes') }}<NuxtLink :to="localePath(`/@${debt.creditor_hna?.split('@')[0] || debt.creditor_id}`)" class="font-medium text-secondary hover:underline">{{ debt.creditor_display_name }}</NuxtLink>
             </p>
             <p v-if="debt.description" class="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
               {{ debt.description }}
@@ -55,11 +55,11 @@
             <!-- Confirmation status for pending debts -->
             <div v-if="debt.status === 'PENDING_CONFIRMATION'" class="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
               <span :class="debt.confirmed_by_creditor_at ? 'text-success dark:text-success-400' : 'text-warning dark:text-warning'">
-                <NuxtLink :to="localePath(`/u/${debt.creditor_hna?.split('@')[0] || debt.creditor_id}`)" class="font-medium hover:underline">{{ debt.creditor_display_name }}</NuxtLink>: {{ debt.confirmed_by_creditor_at ? '✓ ' + $t('debts.confirmed') : $t('debts.waiting') }}
+                <NuxtLink :to="localePath(`/@${debt.creditor_hna?.split('@')[0] || debt.creditor_id}`)" class="font-medium hover:underline">{{ debt.creditor_display_name }}</NuxtLink>: {{ debt.confirmed_by_creditor_at ? '✓ ' + $t('debts.confirmed') : $t('debts.waiting') }}
               </span>
               <span class="mx-2">|</span>
               <span :class="debt.confirmed_by_debtor_at ? 'text-success dark:text-success-400' : 'text-warning dark:text-warning'">
-                <NuxtLink :to="localePath(`/u/${debt.debtor_hna?.split('@')[0] || debt.debtor_id}`)" class="font-medium hover:underline">{{ debt.debtor_display_name }}</NuxtLink>: {{ debt.confirmed_by_debtor_at ? '✓ ' + $t('debts.confirmed') : $t('debts.waiting') }}
+                <NuxtLink :to="localePath(`/@${debt.debtor_hna?.split('@')[0] || debt.debtor_id}`)" class="font-medium hover:underline">{{ debt.debtor_display_name }}</NuxtLink>: {{ debt.confirmed_by_debtor_at ? '✓ ' + $t('debts.confirmed') : $t('debts.waiting') }}
               </span>
             </div>
             <div v-else class="mt-2 flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400">
@@ -182,7 +182,7 @@
               {{ $t('debts.repay.debt_info') }}:
             </p>
             <p class="font-bold text-lg">
-              <NuxtLink :to="localePath(`/u/${selectedDebt.debtor_hna?.split('@')[0] || selectedDebt.debtor_id}`)" class="text-secondary hover:underline">{{ selectedDebt.debtor_display_name }}</NuxtLink>{{ $t('debts.owes') }}<NuxtLink :to="localePath(`/u/${selectedDebt.creditor_hna?.split('@')[0] || selectedDebt.creditor_id}`)" class="text-secondary hover:underline">{{ selectedDebt.creditor_display_name }}</NuxtLink>
+              <NuxtLink :to="localePath(`/@${selectedDebt.debtor_hna?.split('@')[0] || selectedDebt.debtor_id}`)" class="text-secondary hover:underline">{{ selectedDebt.debtor_display_name }}</NuxtLink>{{ $t('debts.owes') }}<NuxtLink :to="localePath(`/@${selectedDebt.creditor_hna?.split('@')[0] || selectedDebt.creditor_id}`)" class="text-secondary hover:underline">{{ selectedDebt.creditor_display_name }}</NuxtLink>
             </p>
             <p class="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
               {{ $t('debts.repay.remaining') }}: {{ selectedDebt.remaining_amount }} {{ selectedDebt.currency }}

@@ -316,7 +316,7 @@ const toolbarButtons = computed<ToolbarBtn[]>(() => {
           :class="[
             'p-1.5 rounded transition-colors',
             imageUploading
-              ? 'text-primary animate-pulse'
+              ? 'text-secondary dark:text-secondary-400 animate-pulse'
               : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700',
           ]"
           :title="t('cms.editor.image')"
@@ -351,7 +351,7 @@ const toolbarButtons = computed<ToolbarBtn[]>(() => {
           :class="[
             'p-1.5 rounded transition-colors',
             imageUploading
-              ? 'text-primary animate-pulse'
+              ? 'text-secondary dark:text-secondary-400 animate-pulse'
               : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700',
           ]"
           :title="t('cms.editor.image')"
@@ -370,7 +370,7 @@ const toolbarButtons = computed<ToolbarBtn[]>(() => {
       </template>
 
       <!-- Upload indicator -->
-      <span v-if="imageUploading" class="text-xs text-primary ml-2 animate-pulse">
+      <span v-if="imageUploading" class="text-xs text-secondary dark:text-secondary-400 ml-2 animate-pulse">
         {{ t('cms.editor.uploading') }}
       </span>
     </div>

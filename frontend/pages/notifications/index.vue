@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Bell, Users, FileText, Vote, Phone, CalendarClock, ShoppingBag, Megaphone, Check, Square, SquareCheckBig } from 'lucide-vue-next'
+import { Bell, Users, FileText, Vote, Phone, CalendarClock, ShoppingBag, Megaphone, Mic, Check, Square, SquareCheckBig } from 'lucide-vue-next'
 import { useNotifications, type FeedNotification, type FeedSource } from '~/composables/useNotifications'
 
 definePageMeta({ middleware: 'auth' })
@@ -41,6 +41,7 @@ function toggleUnread() {
 
 const categoryIcon = (cat: string) => (({
   social: Users,
+  messages: Mic,
   contracts: FileText,
   governance: Vote,
   calls: Phone,

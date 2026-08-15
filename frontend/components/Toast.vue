@@ -1,6 +1,13 @@
 <template>
   <Teleport to="body">
-    <div class="fixed top-4 right-4 z-[100] space-y-2 pointer-events-none">
+    <!-- Anchored to the top chrome band, never to a bare `top: 0`: on phones
+         that band is the status bar / camera cutout (Capacitor edge-to-edge),
+         on md+ it is the nav bar the toasts would otherwise cover. Mirrors
+         UpdateCard's `bottom: calc(1rem + var(--nav-inset-bottom))`. -->
+    <div
+      class="fixed right-4 z-[100] space-y-2 pointer-events-none"
+      :style="{ top: 'calc(1rem + var(--nav-inset-top))' }"
+    >
       <TransitionGroup name="toast">
         <div
           v-for="toast in toasts"

@@ -1,0 +1,96 @@
+{
+  "version": "v0.9.33",
+  "date": "2026-07-24",
+  "locales": {
+    "en": {
+      "title": "Weather and air, live on the map",
+      "summary": "Environmental stations arrive: weather and air-quality readings stream onto the map. Any device can now be shared, and the map gained a proper instrument console.",
+      "highlights": [
+        { "icon": "wind", "title": "Environmental stations", "body": "Weather and air-quality stations report straight to the map with live readings, history charts and CSV export. Manage them from the IoT hub like any other device." },
+        { "icon": "share-2", "title": "Share any device", "body": "Grant someone access to a device, onboard a new one by claiming its hardware address, or transfer ownership entirely." },
+        { "icon": "layout-grid", "title": "Map instrument console", "body": "Layer tiles and a device console in one place, with a unified marker language: shapes for entity types, glyphs for device kinds, tidy ensembles for co-located gear." },
+        { "icon": "printer", "title": "Print kit for local outreach", "body": "Print-ready sheets introduce the association and the community network to parishes — including a getting-started guide for node hosts." }
+      ],
+      "notes": [
+        "Mesh routers self-heal their inbound connectivity and report live telemetry.",
+        "Guest gateways elect a backup automatically when a tunnel goes down.",
+        "Station cards show freshness at a glance, with inline rename and a public page link."
+      ]
+    },
+    "ru": {
+      "title": "Погода и воздух — вживую на карте",
+      "summary": "Появились экологические станции: показания погоды и качества воздуха стекаются на карту. Любым устройством теперь можно поделиться, а карта получила настоящую приборную консоль.",
+      "highlights": [
+        { "icon": "wind", "title": "Экологические станции", "body": "Метео- и воздушные станции передают данные прямо на карту: живые показания, графики истории и экспорт в CSV. Управляются из IoT-хаба, как любое другое устройство." },
+        { "icon": "share-2", "title": "Поделиться любым устройством", "body": "Дайте кому-то доступ к устройству, подключите новое по аппаратному адресу или полностью передайте владение." },
+        { "icon": "layout-grid", "title": "Приборная консоль карты", "body": "Плитки слоёв и консоль устройств в одном месте, с единым языком маркеров: форма — тип сущности, значок — вид устройства, аккуратные ансамбли для соседствующего оборудования." },
+        { "icon": "printer", "title": "Печатный набор для местной работы", "body": "Готовые к печати листы знакомят фрегезии с ассоциацией и сетью сообщества — включая стартовое руководство для хозяев узлов." }
+      ],
+      "notes": [
+        "Меш-роутеры сами чинят входящую связность и передают живую телеметрию.",
+        "Гостевые шлюзы автоматически выбирают запасной, когда туннель падает.",
+        "Карточки станций показывают свежесть данных с первого взгляда, с переименованием на месте и ссылкой на публичную страницу."
+      ]
+    },
+    "pt": {
+      "title": "Tempo e ar, ao vivo no mapa",
+      "summary": "Chegam as estações ambientais: leituras de meteorologia e qualidade do ar fluem para o mapa. Qualquer dispositivo pode agora ser partilhado, e o mapa ganhou uma verdadeira consola de instrumentos.",
+      "highlights": [
+        { "icon": "wind", "title": "Estações ambientais", "body": "Estações de meteorologia e qualidade do ar reportam diretamente ao mapa, com leituras ao vivo, gráficos de histórico e exportação CSV. Geridas a partir do painel IoT como qualquer outro dispositivo." },
+        { "icon": "share-2", "title": "Partilhe qualquer dispositivo", "body": "Conceda acesso a um dispositivo, registe um novo reclamando o seu endereço de hardware, ou transfira a propriedade por completo." },
+        { "icon": "layout-grid", "title": "Consola de instrumentos do mapa", "body": "Mosaicos de camadas e uma consola de dispositivos num só lugar, com uma linguagem de marcadores unificada: formas para tipos de entidade, símbolos para tipos de dispositivo, conjuntos arrumados para equipamento no mesmo local." },
+        { "icon": "printer", "title": "Kit de impressão para o trabalho local", "body": "Folhas prontas a imprimir apresentam a associação e a rede comunitária às freguesias — incluindo um guia de arranque para anfitriões de nós." }
+      ],
+      "notes": [
+        "Os routers da rede reparam sozinhos a conectividade de entrada e reportam telemetria ao vivo.",
+        "Os gateways de convidados elegem automaticamente um substituto quando um túnel cai.",
+        "Os cartões das estações mostram a frescura dos dados à primeira vista, com renomeação no local e ligação para a página pública."
+      ]
+    },
+    "es": {
+      "title": "Tiempo y aire, en vivo en el mapa",
+      "summary": "Llegan las estaciones ambientales: lecturas de meteorología y calidad del aire fluyen al mapa. Ahora puedes compartir cualquier dispositivo, y el mapa ganó una auténtica consola de instrumentos.",
+      "highlights": [
+        { "icon": "wind", "title": "Estaciones ambientales", "body": "Las estaciones de meteorología y calidad del aire informan directamente al mapa, con lecturas en vivo, gráficos de historial y exportación CSV. Se gestionan desde el panel IoT como cualquier otro dispositivo." },
+        { "icon": "share-2", "title": "Comparte cualquier dispositivo", "body": "Da acceso a un dispositivo, registra uno nuevo reclamando su dirección de hardware o transfiere la propiedad por completo." },
+        { "icon": "layout-grid", "title": "Consola de instrumentos del mapa", "body": "Mosaicos de capas y una consola de dispositivos en un solo lugar, con un lenguaje de marcadores unificado: formas para tipos de entidad, símbolos para tipos de dispositivo, conjuntos ordenados para equipos en el mismo punto." },
+        { "icon": "printer", "title": "Kit de impresión para el trabajo local", "body": "Hojas listas para imprimir presentan la asociación y la red comunitaria a las parroquias — incluida una guía de inicio para anfitriones de nodos." }
+      ],
+      "notes": [
+        "Los routers de la red malla reparan solos su conectividad entrante y envían telemetría en vivo.",
+        "Las puertas de enlace de invitados eligen un respaldo automáticamente cuando cae un túnel.",
+        "Las tarjetas de estaciones muestran la frescura de los datos a simple vista, con renombrado en el sitio y enlace a la página pública."
+      ]
+    },
+    "fr": {
+      "title": "La météo et l'air, en direct sur la carte",
+      "summary": "Les stations environnementales arrivent : les relevés de météo et de qualité de l'air affluent sur la carte. Tout appareil peut désormais être partagé, et la carte a gagné une vraie console d'instruments.",
+      "highlights": [
+        { "icon": "wind", "title": "Stations environnementales", "body": "Les stations météo et de qualité de l'air rapportent directement sur la carte : relevés en direct, graphiques d'historique et export CSV. Gérées depuis l'espace IoT comme tout autre appareil." },
+        { "icon": "share-2", "title": "Partagez n'importe quel appareil", "body": "Accordez l'accès à un appareil, enregistrez-en un nouveau en réclamant son adresse matérielle, ou transférez entièrement la propriété." },
+        { "icon": "layout-grid", "title": "Console d'instruments de la carte", "body": "Tuiles de couches et console d'appareils au même endroit, avec un langage de marqueurs unifié : des formes pour les types d'entités, des symboles pour les types d'appareils, des ensembles ordonnés pour le matériel co-localisé." },
+        { "icon": "printer", "title": "Kit d'impression pour le travail local", "body": "Des feuilles prêtes à imprimer présentent l'association et le réseau communautaire aux paroisses — avec un guide de démarrage pour les hôtes de nœuds." }
+      ],
+      "notes": [
+        "Les routeurs du réseau réparent seuls leur connectivité entrante et rapportent une télémétrie en direct.",
+        "Les passerelles invitées élisent automatiquement un secours quand un tunnel tombe.",
+        "Les cartes de stations montrent la fraîcheur des données d'un coup d'œil, avec renommage sur place et lien vers la page publique."
+      ]
+    },
+    "de": {
+      "title": "Wetter und Luft, live auf der Karte",
+      "summary": "Die Umweltstationen sind da: Wetter- und Luftqualitätswerte strömen auf die Karte. Jedes Gerät lässt sich jetzt teilen, und die Karte hat eine echte Instrumentenkonsole bekommen.",
+      "highlights": [
+        { "icon": "wind", "title": "Umweltstationen", "body": "Wetter- und Luftqualitätsstationen melden direkt auf die Karte: Live-Werte, Verlaufsdiagramme und CSV-Export. Verwaltet im IoT-Bereich wie jedes andere Gerät." },
+        { "icon": "share-2", "title": "Jedes Gerät teilen", "body": "Gewähren Sie jemandem Zugriff auf ein Gerät, nehmen Sie ein neues über seine Hardware-Adresse in Betrieb oder übertragen Sie das Eigentum vollständig." },
+        { "icon": "layout-grid", "title": "Instrumentenkonsole der Karte", "body": "Ebenen-Kacheln und eine Gerätekonsole an einem Ort, mit einer einheitlichen Markersprache: Formen für Entitätstypen, Symbole für Gerätearten, aufgeräumte Gruppen für Geräte am selben Standort." },
+        { "icon": "printer", "title": "Druckpaket für die Arbeit vor Ort", "body": "Druckfertige Blätter stellen den Gemeinden die Vereinigung und das Gemeinschaftsnetz vor — samt Einstiegsanleitung für Knoten-Gastgeber." }
+      ],
+      "notes": [
+        "Mesh-Router heilen ihre eingehende Verbindung selbst und melden Live-Telemetrie.",
+        "Gast-Gateways wählen automatisch einen Ersatz, wenn ein Tunnel ausfällt.",
+        "Stationskarten zeigen die Datenfrische auf einen Blick, mit Umbenennen an Ort und Stelle und Link zur öffentlichen Seite."
+      ]
+    }
+  }
+}

@@ -1,17 +1,9 @@
 <template>
-  <AccordionSection
-    section-id="lightning"
-    :title="$t('profile.lightning.title')"
-    :icon="Zap"
-    :open-sections="openSections"
-    :status="status"
-    :animation-enabled="animationEnabled"
-    @toggle="emit('toggle', $event)"
-  >
-    <!-- Help text (only when not yet configured) -->
-    <UiAlert v-if="!lnAddress && !hasWalletConfig" variant="info" :title="$t('profile.lightning.help_title')" class="mb-4">
-      {{ $t('profile.lightning.help_text') }}
-    </UiAlert>
+  <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-4">
+    <h2 class="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+      <Zap class="w-4 h-4 text-primary" />
+      {{ $t('profile.lightning.title') }}
+    </h2>
 
     <div class="space-y-6">
       <!-- LN Address -->
@@ -67,10 +59,43 @@
               v-model="walletConfig.provider"
               class="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
             >
-              <option value="">{{ $t('ads.profile.select_provider') }}</option>
-              <option value="lnbits">LNbits</option>
-              <option value="alby">Getalby</option>
+              <option value="spark">{{ $t('ads.profile.provider_spark') }}</option>
+              <!-- External server-paid rails are staff-only for now (server
+                   refuses them with 403 for everyone else) -->
+              <template v-if="isStaff">
+                <option value="nwc">Nostr Wallet Connect</option>
+                <option value="lnbits">LNbits</option>
+                <option value="alby">Getalby</option>
+              </template>
             </select>
+          </div>
+
+          <!-- Parahub wallet (browser-paid) config -->
+          <div v-if="walletConfig.provider === 'spark'" class="space-y-3">
+            <p class="text-xs text-neutral-500 dark:text-neutral-400">
+              {{ $t('ads.profile.spark_help') }}
+            </p>
+            <p class="text-xs text-neutral-500 dark:text-neutral-400">
+              {{ $t('ads.profile.spark_offline_note') }}
+            </p>
+          </div>
+
+          <!-- NWC Config -->
+          <div v-if="walletConfig.provider === 'nwc'" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                {{ $t('ads.profile.connection_uri') }}
+              </label>
+              <textarea
+                v-model="walletConfig.connection_uri"
+                rows="3"
+                placeholder="nostr+walletconnect://..."
+                class="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-mono text-xs"
+              ></textarea>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                {{ $t('ads.profile.connection_uri_help') }}
+              </p>
+            </div>
           </div>
 
           <!-- LNbits Config -->
@@ -82,7 +107,7 @@
               <input
                 v-model="walletConfig.api_url"
                 type="url"
-                placeholder="https://legend.lnbits.com"
+                placeholder="https://my.lnbits.com"
                 class="w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
               />
             </div>
@@ -134,9 +159,12 @@
             </div>
           </div>
 
-          <!-- Save Wallet Config -->
+          <!-- Save Wallet Config (spark has nothing to test server-side) -->
           <div v-if="walletConfig.provider" class="flex gap-2">
-            <UiButton variant="outline" size="sm" :loading="testingConnection" :disabled="testingConnection" @click="testWalletConnection">
+            <UiButton
+              v-if="walletConfig.provider !== 'spark'"
+              variant="outline" size="sm" :loading="testingConnection" :disabled="testingConnection" @click="testWalletConnection"
+            >
               {{ testingConnection ? $t('ads.profile.testing') : $t('ads.profile.test_connection') }}
             </UiButton>
             <UiButton variant="primary" size="sm" :loading="savingConfig" :disabled="savingConfig" @click="saveWalletConfig">
@@ -158,7 +186,7 @@
         <span v-else-if="testingConnection">{{ $t('ads.profile.testing') }}</span>
       </div>
     </div>
-  </AccordionSection>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -166,28 +194,19 @@ import { ref, computed, onMounted } from 'vue'
 import { Zap, ShieldCheck } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useNotification } from '~/composables/useNotification'
-import AccordionSection from './AccordionSection.vue'
-
-const props = defineProps<{
-  openSections: string[]
-  status?: { complete: boolean; icon?: string }
-  animationEnabled: boolean
-}>()
-
-const emit = defineEmits<{
-  'toggle': [sectionId: string]
-  'wallet-configured': [configured: boolean]
-}>()
 
 const authStore = useAuthStore()
 const { t } = useI18n()
 const { showSuccess, showError } = useNotification()
 
+const isStaff = computed(() => authStore.user?.is_staff ?? false)
+
 const lnAddress = ref('')
 const hasWalletConfig = ref(false)
 const walletProvider = ref('')
 const walletConfig = ref({
-  provider: '',
+  provider: 'spark',
+  connection_uri: '',
   api_url: '',
   invoice_key: '',
   admin_key: '',
@@ -198,7 +217,7 @@ const savingConfig = ref(false)
 const testingConnection = ref(false)
 const connectionStatus = ref<{ success: boolean; message: string } | null>(null)
 
-const PROVIDER_LABELS: Record<string, string> = { lnbits: 'LNbits', alby: 'Getalby' }
+const PROVIDER_LABELS: Record<string, string> = { spark: 'Parahub wallet', nwc: 'Nostr Wallet Connect', lnbits: 'LNbits', alby: 'Getalby' }
 const walletProviderLabel = computed(() => PROVIDER_LABELS[walletProvider.value] || walletProvider.value)
 
 const loadAdsProfile = async () => {
@@ -216,13 +235,10 @@ const loadAdsProfile = async () => {
       hasWalletConfig.value = !!profile.has_wallet_config
       walletProvider.value = profile.wallet_provider || ''
 
-      // Emit wallet configured status
-      emit('wallet-configured', !!profile.ln_address)
-
       // Load wallet config if available (keys are encrypted, show placeholder)
       if (profile.has_wallet_config) {
         walletConfig.value = {
-          provider: profile.wallet_provider || '',
+          provider: profile.wallet_provider || 'spark',
           api_url: profile.ln_wallet_config?.api_url || '',
           invoice_key: '',
           admin_key: '',
@@ -249,7 +265,6 @@ const saveLnAddress = async () => {
       body: { ln_address: lnAddress.value }
     })
 
-    emit('wallet-configured', !!lnAddress.value)
     showSuccess(t('ads.profile.ln_address_saved'))
   } catch (error) {
     console.error('Failed to save LN address:', error)
@@ -265,7 +280,11 @@ const testWalletConnection = async () => {
 
   try {
     // Validate config locally first
-    if (walletConfig.value.provider === 'lnbits') {
+    if (walletConfig.value.provider === 'nwc') {
+      if (!walletConfig.value.connection_uri?.trim().startsWith('nostr+walletconnect://')) {
+        throw new Error(t('ads.profile.nwc_uri_required'))
+      }
+    } else if (walletConfig.value.provider === 'lnbits') {
       if (!walletConfig.value.api_url || !walletConfig.value.invoice_key) {
         throw new Error(t('ads.profile.lnbits_fields_required'))
       }
@@ -277,7 +296,9 @@ const testWalletConnection = async () => {
 
     // Build config for test
     const config: any = { provider: walletConfig.value.provider }
-    if (walletConfig.value.provider === 'lnbits') {
+    if (walletConfig.value.provider === 'nwc') {
+      config.connection_uri = walletConfig.value.connection_uri.trim()
+    } else if (walletConfig.value.provider === 'lnbits') {
       config.api_url = walletConfig.value.api_url
       config.invoice_key = walletConfig.value.invoice_key
       if (walletConfig.value.admin_key) config.admin_key = walletConfig.value.admin_key
@@ -330,7 +351,17 @@ const saveWalletConfig = async () => {
       provider: walletConfig.value.provider
     }
 
-    if (walletConfig.value.provider === 'lnbits') {
+    if (walletConfig.value.provider === 'spark') {
+      // Browser-paid: no credentials at all — the advertiser's own Parahub
+      // wallet in their browser is the payer
+    } else if (walletConfig.value.provider === 'nwc') {
+      // Same gate as Test Connection: a saved config is what payouts run on,
+      // so garbage must not be storable either
+      if (!walletConfig.value.connection_uri?.trim().startsWith('nostr+walletconnect://')) {
+        throw new Error(t('ads.profile.nwc_uri_required'))
+      }
+      config.connection_uri = walletConfig.value.connection_uri.trim()
+    } else if (walletConfig.value.provider === 'lnbits') {
       config.api_url = walletConfig.value.api_url
       config.invoice_key = walletConfig.value.invoice_key
       if (walletConfig.value.admin_key) {
@@ -357,13 +388,16 @@ const saveWalletConfig = async () => {
       message: t('ads.profile.wallet_config_saved')
     }
     showSuccess(t('ads.profile.save_config_success'))
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to save wallet config:', error)
+    // Local validation throws with a localized message; server errors fall
+    // back to the generic one
+    const msg = error?.data ? t('ads.profile.wallet_config_error') : (error?.message || t('ads.profile.wallet_config_error'))
     connectionStatus.value = {
       success: false,
-      message: t('ads.profile.wallet_config_error')
+      message: msg
     }
-    showError(t('ads.profile.save_config_error'))
+    showError(msg)
   } finally {
     savingConfig.value = false
   }

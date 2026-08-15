@@ -12,6 +12,7 @@ Usage:
 import asyncio
 import json
 import logging
+import re
 import time
 
 import aiohttp
@@ -21,9 +22,57 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import connection
 
+from geo.management.commands.fetch_transit_rt import RT_VEHICLE_PREFIX, _rt_timestamp
 from geo.models import TransitDataSource
 
 logger = logging.getLogger(__name__)
+
+# GO Hub serves ONE combined alerts feed for every operator it hosts, exactly
+# like its vehicle positions — so a source pointed at it must keep only alerts
+# informing its own operator, or every GO Hub feed relays every operator's
+# alerts. The filter key is informed_entity.agency_id (the bare GO agency id),
+# derived from the same per-feed opt-in that drives the positions filter:
+# one table, both daemons. Kept alerts get their informed-entity route_ids
+# stripped of the "[XXX]" prefix (and trip_ids of the "[plan][agency]" double
+# prefix) so they match our static ids. See PK/gtfs-feed-quirks.md "GO Hub".
+COMBINED_ALERT_AGENCY_IDS = {
+    slug: frozenset(p.strip('[]') for p in prefixes)
+    for slug, prefixes in RT_VEHICLE_PREFIX.items()
+}
+_GO_ID_PREFIX_RE = re.compile(r'^(\[[A-Z0-9]+\])+')
+
+
+def filter_combined_alerts(feed, agency_ids):
+    """New FeedMessage keeping only alerts that inform the given agency ids.
+
+    Entities keep only their matching informed entities (an alert can span
+    operators), with GO id prefixes stripped so route/trip ids match static.
+    The relay endpoint serves this re-serialized message, so downstream
+    GTFS-RT consumers of one feed never see another operator's alerts.
+    """
+    from google.transit import gtfs_realtime_pb2
+
+    out = gtfs_realtime_pb2.FeedMessage()
+    out.header.CopyFrom(feed.header)
+    # Same ms quirk as the positions feed
+    out.header.timestamp = _rt_timestamp(out.header.timestamp)
+    for entity in feed.entity:
+        if not entity.HasField('alert'):
+            continue
+        kept = [ie for ie in entity.alert.informed_entity if ie.agency_id in agency_ids]
+        if not kept:
+            continue
+        new_entity = out.entity.add()
+        new_entity.CopyFrom(entity)
+        del new_entity.alert.informed_entity[:]
+        for ie in kept:
+            new_ie = new_entity.alert.informed_entity.add()
+            new_ie.CopyFrom(ie)
+            if new_ie.route_id:
+                new_ie.route_id = _GO_ID_PREFIX_RE.sub('', new_ie.route_id)
+            if new_ie.HasField('trip') and new_ie.trip.trip_id:
+                new_ie.trip.trip_id = _GO_ID_PREFIX_RE.sub('', new_ie.trip.trip_id)
+    return out
 
 # GTFS-RT cause/effect enums → human-readable
 CAUSE_MAP = {
@@ -157,6 +206,8 @@ class Command(BaseCommand):
         all_raw = b''
         all_alerts = []
 
+        agency_filter = COMBINED_ALERT_AGENCY_IDS.get(ds.slug)
+
         for url in urls:
             async with session.get(url, headers=headers) as resp:
                 resp.raise_for_status()
@@ -166,7 +217,17 @@ class Command(BaseCommand):
                 if 'json' in content_type:
                     alerts = self._parse_json(data)
                 else:
-                    alerts = self._parse_protobuf(data)
+                    if agency_filter:
+                        # Combined multi-operator feed: keep only this
+                        # operator's alerts, relay the filtered message
+                        from google.transit import gtfs_realtime_pb2
+                        feed = gtfs_realtime_pb2.FeedMessage()
+                        feed.ParseFromString(data)
+                        filtered = filter_combined_alerts(feed, agency_filter)
+                        data = filtered.SerializeToString()
+                        alerts = [self._alert_to_dict(e.id, e.alert) for e in filtered.entity]
+                    else:
+                        alerts = self._parse_protobuf(data)
                     if not all_raw:
                         all_raw = data  # Keep first protobuf for relay
 

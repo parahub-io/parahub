@@ -22,6 +22,8 @@ from typing import Dict, List, Optional
 import git
 from django.conf import settings
 
+from .git_lock import clear_stale_index_lock
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,6 +51,7 @@ class RegistryService:
         self.migrations_path.mkdir(parents=True, exist_ok=True)
         self.verifications_path.mkdir(parents=True, exist_ok=True)
 
+        clear_stale_index_lock(self.repo_path)
         self.repo = git.Repo(self.repo_path)
 
     # ── Node manifest ──────────────────────────────────────────────────

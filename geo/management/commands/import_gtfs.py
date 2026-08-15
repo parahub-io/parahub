@@ -38,6 +38,46 @@ from geo.models import Agency, CalendarDate, Place, Route, RouteStop, Shape, Sto
 HTTP_HEADERS = {'User-Agent': 'Mozilla/5.0 (parahub GTFS updater)'}
 
 
+# TML's GO Hub publishes each operator's GTFS as a "plan" whose download link is
+# a pre-signed object-storage URL that rotates on every publication — storing it
+# in TransitDataSource.url would break on the next export. Such a source stores
+# the plan registry URL instead, with the operator's internal GO agency id as
+# the fragment (".../plans#7NTB1"); the active plan's operation_file_url is
+# resolved at fetch time. See PK/gtfs-feed-quirks.md "GO Hub (TML)".
+GOHUB_PLANS_PATH = 'go.tmlmobilidade.pt/hub/api/v1/plans'
+
+
+def resolve_static_url(url, stdout=None):
+    """Resolve a registry-style feed URL to the actual GTFS ZIP download URL.
+
+    Plain URLs pass through unchanged. Lives here so `import_gtfs --url` and
+    every `update_gtfs_feeds` download path share one resolver.
+    """
+    base, _, agency_id = url.partition('#')
+    if not agency_id or GOHUB_PLANS_PATH not in base:
+        return url
+
+    resp = requests.get(base, headers=HTTP_HEADERS, timeout=60)
+    resp.raise_for_status()
+    plans = (resp.json() or {}).get('data') or []
+    active = [
+        p for p in plans
+        if p.get('is_active') and p.get('agency_id') == agency_id
+        and p.get('operation_file_url')
+    ]
+    if not active:
+        raise RuntimeError(
+            f"GO Hub: no active plan for agency '{agency_id}' at {base} "
+            f"({len(plans)} plans listed)"
+        )
+    # More than one active plan per agency is not expected — take the newest.
+    active.sort(key=lambda p: p.get('updated_at') or p.get('created_at') or 0, reverse=True)
+    plan = active[0]
+    if stdout:
+        stdout.write(f"  GO Hub: agency {agency_id} → plan {plan.get('_id')}")
+    return plan['operation_file_url']
+
+
 # Feeds (TransitDataSource.slug) whose route_id encodes line grouping as
 # "<line>_<variant>" but ship no line_id/path_type columns (CM ext) — line_id
 # and path_type are synthesized from route_id so percursos grouping (search
@@ -50,17 +90,40 @@ _VARIANT_ROUTE_ID_RE = re.compile(r"^(.+)_(\d+)$")
 
 # Rail feeds that ship no line_id and no usable route_id grouping, but whose
 # route_short_name IS the public line name shared across O-D path-variants
-# (CP: "Linha de Cascais" on 9 direction/short-turn route_ids like
+# ("Linha de Cascais" on 9 direction/short-turn route_ids like
 # 25-94_69005-94_69260). line_id is synthesized from short_name so percursos
-# collapse. path_type can't come from the feed (all 0) → it's ranked
-# post-import by geometry length so the FULL line (longest) is canonical, not a
-# lexically-first short-turn (Cais do Sodré→Algés over Cascais); see
-# _rank_synth_path_type. Gated to route_type 109 (Suburban Railway): CP's
+# collapse. Gated to route_type 109 (Suburban Railway): a rail feed's
 # long-distance services share a short_name that is a service CLASS
 # (AP/IC/IR/R), not a line — grouping those would fabricate one nationwide "R"
 # line. PK/gtfs-feed-quirks.md "Line grouping ext".
-SYNTHESIZE_LINE_ID_FROM_SHORTNAME = {"cp-rail"}
+# Currently EMPTY: its only consumer was cp-rail, whose source moved to a feed
+# with a native line_id (2026-08-06). Kept for the next O-D-modelled rail feed;
+# the synthesis is a no-op wherever the feed already supplies line_id.
+SYNTHESIZE_LINE_ID_FROM_SHORTNAME: set[str] = set()
 _SUBURBAN_RAIL_ROUTE_TYPE = 109
+
+# Feeds that GROUP by line_id but ship no `path_type` column, so every variant
+# lands on 0 and the canonical pick would fall back to lowest source_id — a
+# lexically-first short-turn rather than the full line. path_type is instead
+# ranked post-import by geometry length (see _rank_synth_path_type), making the
+# longest variant canonical in search/discover/sitemap/route-detail (all key on
+# LINE_CANONICAL_ORDER). Independent of WHERE line_id came from: cp-rail has a
+# native one, a SYNTHESIZE_LINE_ID_FROM_SHORTNAME feed a derived one, and both
+# need the ranking. Strictly opt-in — feeds that DO ship path_type (Fertagus,
+# TCB, Cascais Próxima, MBTA) carry real variant numbers that must not be
+# overwritten, as do the route_id-synthesized ones (Carris, CM).
+RANK_PATH_TYPE_BY_LENGTH_FEEDS = {"cp-rail"}
+
+# Per-feed line_id values that are a SERVICE CLASS, not a line. CP's GO Hub plan
+# tags every long-distance train AP/IC/IR/R and every urban one U, so grouping on
+# it fuses 49 unrelated regional services — Guarda–Lisboa next to Lagos–Portimão
+# and Rede–Régua — into one nationwide "R" line whose percursos selector lists all
+# 49. These are blanked at import so the routes stand alone (line_id-less routes
+# get a standalone collapse key), while the feed's real named lines (SINTRA,
+# CASCAIS, AZAMBUJA, SADO, AVEIRO, BRAGA, GUIMARÃES, LEIXÕES, MARCO) keep
+# grouping. Replaces the old route_type==109 gate, which drew the same line when
+# CP's line_id was still synthesized from short_name.
+IGNORE_LINE_IDS = {"cp-rail": {"AP", "IC", "IR", "R", "U"}}
 
 
 # Primary key fields for GTFS deduplication during multi-ZIP merge
@@ -422,17 +485,27 @@ class Command(BaseCommand):
                     for ag in all_agencies:
                         self._assign_route_geometry(ag, shape_map, route_map)
 
-                    # 9b. Feeds whose line_id is synthesized from short_name carry
-                    #     no native path_type (all variants 0) → rank by geometry
-                    #     length so the full line (longest) is the canonical
-                    #     path_type=0, not a lexically-first short-turn.
-                    if agency.data_source and agency.data_source.slug in SYNTHESIZE_LINE_ID_FROM_SHORTNAME:
+                    # 9b. Feeds that group by line_id but ship no path_type carry
+                    #     all variants at 0 → rank by geometry length so the full
+                    #     line (longest) is the canonical path_type=0, not a
+                    #     lexically-first short-turn. Needs the geometry assigned
+                    #     in step 9, hence the ordering.
+                    if agency.data_source and agency.data_source.slug in RANK_PATH_TYPE_BY_LENGTH_FEEDS:
                         self._rank_synth_path_type(all_agencies)
 
-                    # 10. Conditional place assignment
+                    # 10. Conditional place assignment. Route churn counts as
+                    # much as stop churn: a new Route has no place yet (it is the
+                    # majority place of its stops) and _generate_slugs only slugs
+                    # placed routes — the uniqueness constraint is per-place — so
+                    # skipping this leaves the routes place-less AND slug-less,
+                    # i.e. with unreachable pages. Stop-only gating held until a
+                    # feed replaced its whole route set while its stops merely
+                    # moved agency (cp-rail's 2026-08-06 source switch: 454 stops
+                    # re-homed = "updated", 184 routes out / 123 in).
                     has_place_changes = (
                         stop_changes["created"] or stop_changes["removed"]
                         or stop_changes["location_changed"]
+                        or route_changes["created"] or route_changes["removed"]
                     )
                     if has_place_changes or options["reset"]:
                         # Reset route.place_id for routes with stops that lost their place.
@@ -469,6 +542,26 @@ class Command(BaseCommand):
                     else:
                         self.stdout.write("  Skipping slug generation (no name changes)")
 
+                    # 12. Prune agencies dropped from agency.txt once their
+                    # graph has been re-homed. Guarded: operational rows
+                    # (TicketType.agency is CASCADE) or un-moved graph block
+                    # the prune with a warning instead of silently cascading.
+                    for stale_ag in getattr(self, '_stale_agencies', []):
+                        from tickets.models import TicketType
+                        leftovers = (
+                            Route.objects.filter(agency=stale_ag).count()
+                            + Stop.objects.filter(agency=stale_ag).count()
+                            + Shape.objects.filter(agency=stale_ag).count()
+                            + TicketType.objects.filter(agency=stale_ag).count()
+                        )
+                        if leftovers:
+                            self.stderr.write(self.style.WARNING(
+                                f"  NOT pruning dropped agency {stale_ag.name} ({stale_ag.source_id}): "
+                                f"{leftovers} rows still attached"))
+                        else:
+                            stale_ag.delete()  # cascades stale CalendarDate + ephemeral Vehicle rows
+                            self.stdout.write(f"  Pruned dropped agency {stale_ag.name} ({stale_ag.source_id})")
+
                     # 13. Update last_imported_at on data source
                     from django.utils import timezone as tz
                     if agency.data_source:
@@ -498,6 +591,7 @@ class Command(BaseCommand):
 
     def _download(self, url):
         """Download GTFS ZIP to a unique temp file (safe for parallel runs)."""
+        url = resolve_static_url(url, stdout=self.stdout)
         self.stdout.write(f"Downloading {url}...")
         resp = requests.get(url, headers=HTTP_HEADERS, stream=True, timeout=120)
         resp.raise_for_status()
@@ -590,6 +684,26 @@ class Command(BaseCommand):
             agency_map[""] = primary_agency
 
         self._agency_map = agency_map
+        # Agencies of this data source that are no longer in agency.txt — an
+        # upstream agency_id rename produces these. Their rows are re-homed to
+        # the current agencies during this import (matched by source_id, ULIDs
+        # preserved) and the emptied agencies are pruned at the end of handle().
+        # Without this every rename duplicated the feed's whole graph, because
+        # both the upsert lookups and the stale-row prunes only saw the
+        # current feed's agencies (CM 2026-07-26: 4 renamed ids → ×2 rows).
+        current_ids = {a.id for a in agency_map.values()}
+        if data_source:
+            self._stale_agencies = [
+                a for a in Agency.objects.filter(data_source=data_source)
+                if a.id not in current_ids
+            ]
+        else:
+            self._stale_agencies = []
+        if self._stale_agencies:
+            names = ', '.join(f'{a.name} ({a.source_id})' for a in self._stale_agencies)
+            self.stdout.write(self.style.WARNING(
+                f"  {len(self._stale_agencies)} agencies dropped from agency.txt: {names} "
+                f"— re-homing their rows, emptied agencies pruned at the end"))
         return primary_agency
 
     def _import_calendar(self, zf, agency):
@@ -712,8 +826,31 @@ class Command(BaseCommand):
         stops_data = list(stops_by_id.values())
         feed_source_ids = set(stops_by_id.keys())
 
-        # Load existing stops for this agency
-        existing = {s.source_id: s for s in Stop.objects.filter(agency=agency)}
+        # Load existing stops DS-wide, not just under the primary agency: after
+        # an upstream agency_id rename (or a primary-agency reorder in
+        # agency.txt) the stops sit under another agency of the same data
+        # source — match them anyway and re-home to the current primary,
+        # preserving ULIDs. stop_id is feed-unique, so a same-source_id pair
+        # under two agencies is residual duplication: keep the primary's row,
+        # drop the twin.
+        lookup_agencies = list(dict.fromkeys(
+            [agency]
+            + list(getattr(self, '_agency_map', {}).values())
+            + getattr(self, '_stale_agencies', [])
+        ))
+        existing = {}
+        shadowed = []
+        for s in Stop.objects.filter(agency__in=lookup_agencies):
+            prev = existing.get(s.source_id)
+            if prev is None:
+                existing[s.source_id] = s
+            else:
+                keep, drop = (s, prev) if s.agency_id == agency.id else (prev, s)
+                existing[s.source_id] = keep
+                shadowed.append(drop.pk)
+        if shadowed:
+            Stop.objects.filter(pk__in=shadowed).delete()
+            self.stdout.write(f"  Removed {len(shadowed)} duplicate stops shadowed under other agencies")
 
         to_create = []
         to_update = []
@@ -726,6 +863,11 @@ class Command(BaseCommand):
             if sd["gtfs_id"] in existing:
                 stop = existing[sd["gtfs_id"]]
                 changed = False
+
+                # Re-home to the current primary agency (agency rename/reorder)
+                if stop.agency_id != agency.id:
+                    stop.agency = agency
+                    changed = True
 
                 # Detect location change (compare coords with tolerance)
                 old_loc = stop.location
@@ -771,14 +913,14 @@ class Command(BaseCommand):
         if to_update:
             Stop.objects.bulk_update(
                 to_update,
-                ["name", "tts_name", "location", "location_type", "slug", "place_id"],
+                ["agency", "name", "tts_name", "location", "location_type", "slug", "place_id"],
                 batch_size=5000,
             )
 
         # Delete stops removed from feed (cascade deletes StopTimes, RouteStops)
         removed = set(existing.keys()) - feed_source_ids
         if removed:
-            Stop.objects.filter(agency=agency, source_id__in=removed).delete()
+            Stop.objects.filter(agency__in=lookup_agencies, source_id__in=removed).delete()
             self.stdout.write(f"  Removed {len(removed)} stale stops")
 
         # Build map
@@ -831,6 +973,7 @@ class Command(BaseCommand):
         ds = agency.data_source
         synthesize_line_id = ds is not None and ds.slug in SYNTHESIZE_LINE_ID_FEEDS
         synth_line_from_name = ds is not None and ds.slug in SYNTHESIZE_LINE_ID_FROM_SHORTNAME
+        ignored_line_ids = IGNORE_LINE_IDS.get(ds.slug, frozenset()) if ds is not None else frozenset()
 
         routes_data = []
         feed_source_ids = set()
@@ -851,6 +994,10 @@ class Command(BaseCommand):
                 "line_long_name": row.get("line_long_name", "").strip()[:255],
                 "path_type": int(row.get("path_type", "0").strip() or "0"),
             }
+            # Service class in the line_id slot → not a line, don't group on it
+            if rd["line_id"] in ignored_line_ids:
+                rd["line_id"] = ""
+                rd["line_long_name"] = ""
             if synthesize_line_id and not rd["line_id"]:
                 m = _VARIANT_ROUTE_ID_RE.match(gtfs_id)
                 if m:
@@ -864,8 +1011,11 @@ class Command(BaseCommand):
             routes_data.append(rd)
             feed_source_ids.add(gtfs_id)
 
-        # For multi-agency feeds, load existing routes for ALL agencies in this data source
+        # For multi-agency feeds, load existing routes for ALL agencies in this
+        # data source — including agencies dropped from agency.txt (rename
+        # case), so their routes are found and re-homed instead of duplicated
         all_agencies = list(agency_map.values()) if agency_map else [agency]
+        all_agencies += [a for a in getattr(self, '_stale_agencies', []) if a not in all_agencies]
         # Key by (agency_id, source_id) to handle same source_id across agencies
         existing_by_agency = {}  # {agency_id: {source_id: Route}}
         for ag in all_agencies:
@@ -1058,8 +1208,26 @@ class Command(BaseCommand):
             if len(coords) >= 2:
                 geometries[shape_id] = LineString(coords, srid=4326)
 
-        # Load existing shapes for this agency
-        existing = {s.source_id: s for s in Shape.objects.filter(agency=agency)}
+        # Load existing shapes DS-wide (same re-homing rationale as stops:
+        # shape_id is feed-unique, rows may sit under a renamed-away agency)
+        lookup_agencies = list(dict.fromkeys(
+            [agency]
+            + list(getattr(self, '_agency_map', {}).values())
+            + getattr(self, '_stale_agencies', [])
+        ))
+        existing = {}
+        shadowed = []
+        for s in Shape.objects.filter(agency__in=lookup_agencies):
+            prev = existing.get(s.source_id)
+            if prev is None:
+                existing[s.source_id] = s
+            else:
+                keep, drop = (s, prev) if s.agency_id == agency.id else (prev, s)
+                existing[s.source_id] = keep
+                shadowed.append(drop.pk)
+        if shadowed:
+            Shape.objects.filter(pk__in=shadowed).delete()  # Trip.shape_ref is SET_NULL
+            self.stdout.write(f"  Removed {len(shadowed)} duplicate shapes shadowed under other agencies")
 
         to_create = []
         to_update = []
@@ -1069,10 +1237,15 @@ class Command(BaseCommand):
             if shape_id in existing:
                 shape_obj = existing[shape_id]
                 shape_map[shape_id] = shape_obj
+                moved = shape_obj.agency_id != agency.id
+                if moved:
+                    shape_obj.agency = agency
                 # Update geometry if changed (rare but possible on feed update)
                 if shape_obj.geometry.wkb != geom.wkb:
                     shape_obj.geometry = geom
                     shape_obj.length_m = geom.transform(4326, clone=True).length  # will compute in DB
+                    to_update.append(shape_obj)
+                elif moved:
                     to_update.append(shape_obj)
             else:
                 shape_obj = Shape(
@@ -1087,7 +1260,7 @@ class Command(BaseCommand):
         if to_create:
             Shape.objects.bulk_create(to_create, batch_size=5000)
         if to_update:
-            Shape.objects.bulk_update(to_update, ["geometry", "length_m"], batch_size=5000)
+            Shape.objects.bulk_update(to_update, ["agency", "geometry", "length_m"], batch_size=5000)
 
         # Compute length_m in bulk via DB (ST_Length on geography is accurate)
         if to_create or to_update:
@@ -1102,7 +1275,7 @@ class Command(BaseCommand):
         feed_ids = set(geometries.keys())
         stale = set(existing.keys()) - feed_ids
         if stale:
-            Shape.objects.filter(agency=agency, source_id__in=stale).delete()
+            Shape.objects.filter(agency__in=lookup_agencies, source_id__in=stale).delete()
             self.stdout.write(f"  Removed {len(stale)} stale shapes")
 
         self.stdout.write(f"  Parsed {count} shape points → {len(geometries)} shapes "
@@ -1114,9 +1287,11 @@ class Command(BaseCommand):
         shape_map: {gtfs_shape_id: Shape instance} from _import_shapes."""
         self.stdout.write("\n[6/9] Importing trips...")
 
-        # Load existing trips for all agencies in this data source
+        # Load existing trips for all agencies in this data source (stale
+        # agencies included — safety net for partially re-homed graphs)
         agency_map = getattr(self, '_agency_map', {})
         all_agencies = list(agency_map.values()) if agency_map else [agency]
+        all_agencies += [a for a in getattr(self, '_stale_agencies', []) if a not in all_agencies]
         existing = {
             t.source_id: t
             for t in Trip.objects.filter(route__agency__in=all_agencies).only(
@@ -1414,11 +1589,11 @@ class Command(BaseCommand):
         self.stdout.write(f"  Assigned geometry to {updated} routes")
 
     def _rank_synth_path_type(self, agencies):
-        """Rank path_type by descending geometry length within each synthesized
-        line group (agency, line_id, short_name): longest variant → 0 (canonical).
+        """Rank path_type by descending geometry length within each line group
+        (agency, line_id, short_name): longest variant → 0 (canonical).
 
-        For feeds whose line_id is synthesized from short_name (SYNTHESIZE_LINE_ID_
-        FROM_SHORTNAME) and which ship no native path_type. All canonical pickers
+        For feeds in RANK_PATH_TYPE_BY_LENGTH_FEEDS — those that group by line_id
+        (natively or synthesized) but ship no path_type. All canonical pickers
         (search / discover / sitemap / route-detail) key on LINE_CANONICAL_ORDER
         = (path_type, source_id), so this makes the full line — not a lexically
         smallest short-turn — the representative everywhere. Geometry-less

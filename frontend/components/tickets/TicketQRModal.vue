@@ -3,7 +3,7 @@
     <Transition name="fade">
       <div
         v-if="ticket"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
         @click.self="$emit('close')"
       >
         <div class="bg-white dark:bg-neutral-900 rounded-2xl max-w-sm w-full overflow-hidden">

@@ -8,26 +8,34 @@
       >
         <ArrowLeft class="w-5 h-5" />
       </button>
-      <h2 class="text-xl font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('ads.create_campaign.title') }}</h2>
+      <h2 class="text-xl font-semibold text-neutral-900 dark:text-neutral-100">{{ isEdit ? $t('ads.edit_campaign.title') : $t('ads.create_campaign.title') }}</h2>
     </div>
+
+    <!-- Loading existing campaign (edit mode) -->
+    <div v-if="editLoading" class="py-12 text-center" role="status">
+      <div class="animate-spin rounded-full h-12 w-12 border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100 mx-auto"></div>
+      <span class="sr-only">{{ $t('ads.edit_campaign.title') }}</span>
+    </div>
+
+    <template v-else>
 
     <!-- Wallet status banner -->
     <UiAlert v-if="profileLoaded && advertiserWalletConfigured" variant="success" :title="$t('ads.create_campaign.wallet_ready')" class="mb-6">
-      {{ walletProvider }} &middot; {{ $t('ads.create_campaign.wallet_ready_desc') }}
+      {{ walletProviderLabel }} &middot; {{ $t('ads.create_campaign.wallet_ready_desc') }}
     </UiAlert>
     <UiAlert v-else-if="profileLoaded" variant="warning" :title="$t('ads.create_campaign.wallet_not_ready')" class="mb-6">
       <p>{{ $t('ads.create_campaign.wallet_not_ready_desc') }}</p>
-      <NuxtLink :to="localePath('/ads/settings')" class="inline-block text-xs font-medium hover:underline mt-1.5">
+      <NuxtLink :to="localePath('/profile/advanced')" class="inline-block text-xs font-medium hover:underline mt-1.5">
         {{ $t('ads.create_campaign.configure_wallet') }} &rarr;
       </NuxtLink>
     </UiAlert>
 
-    <form @submit.prevent="createCampaign" class="space-y-6">
+    <form @submit.prevent="handleSubmit" class="space-y-6">
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <!-- Left column: form fields -->
         <div class="lg:col-span-3 space-y-6">
           <!-- Section 1: Ad Content -->
-          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-4">
+          <div class="card p-6 space-y-4">
             <h2 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ $t('ads.create_campaign.content_section') }}</h2>
 
             <div>
@@ -55,34 +63,39 @@
           </div>
 
           <!-- Section 2: Banner Image -->
-          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-3">
+          <div class="card p-6 space-y-3">
             <h2 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ $t('ads.create_campaign.image_section') }}</h2>
             <AdsImageUpload
               ref="imageUploadRef"
+              :model-value="previewImageUrl"
               @file-selected="onImageSelected"
             />
+            <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('ads.create_campaign.image_language_hint') }}</p>
           </div>
 
           <!-- Section 3: Linked Content -->
-          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-3">
+          <div class="card p-6 space-y-3">
             <h2 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ $t('ads.create_campaign.linked_content') }}</h2>
             <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('ads.create_campaign.linked_content_desc') }}</p>
             <AdsLinkedContent
               v-model:linked-item-id="form.linkedItemId"
               v-model:linked-establishment-id="form.linkedEstablishmentId"
+              :initial-item="initialLinkedItem"
+              :initial-establishment="initialLinkedEstablishment"
               @linked-item="linkedItemData = $event"
               @linked-establishment="linkedEstablishmentData = $event"
             />
           </div>
 
           <!-- Section 4: Payment -->
-          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-4">
+          <div class="card p-6 space-y-4">
             <h2 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ $t('ads.create_campaign.payment_section') }}</h2>
+            <p v-if="isEdit && paymentLocked" class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('ads.edit_campaign.immutable_hint') }}</p>
 
             <div>
               <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{{ $t('ads.create_campaign.reward') }}</label>
               <div class="flex gap-2 items-center">
-                <input v-model.number="form.rewardSats" type="number" min="1" required :placeholder="$t('ads.create_campaign.reward_placeholder')" class="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary focus:border-transparent" />
+                <input v-model.number="form.rewardSats" type="number" min="1" required :disabled="paymentLocked" :placeholder="$t('ads.create_campaign.reward_placeholder')" class="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed" />
                 <span class="text-neutral-600 dark:text-neutral-400">sats</span>
               </div>
               <p v-if="rewardFiat" class="text-xs text-neutral-400 dark:text-neutral-500 mt-1">≈ {{ rewardFiat }}</p>
@@ -92,7 +105,7 @@
             <div>
               <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">{{ $t('ads.create_campaign.budget') }}</label>
               <div class="flex gap-2 items-center">
-                <input v-model.number="form.budgetSats" type="number" min="1" required :placeholder="$t('ads.create_campaign.budget_placeholder')" class="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary focus:border-transparent" />
+                <input v-model.number="form.budgetSats" type="number" min="1" required :disabled="paymentLocked" :placeholder="$t('ads.create_campaign.budget_placeholder')" class="flex-1 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed" />
                 <span class="text-neutral-600 dark:text-neutral-400">sats</span>
               </div>
               <p v-if="budgetFiat" class="text-xs text-neutral-400 dark:text-neutral-500 mt-1">≈ {{ budgetFiat }}</p>
@@ -104,12 +117,12 @@
 
             <!-- Association donation -->
             <ClientOnly>
-              <DonationPrompt v-if="form.budgetSats > 0" :source-amount-sats="form.budgetSats" />
+              <DonationPrompt v-if="!isEdit && form.budgetSats > 0" :source-amount-sats="form.budgetSats" />
             </ClientOnly>
           </div>
 
           <!-- Section 5: Targeting -->
-          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-6 space-y-5">
+          <div class="card p-6 space-y-5">
             <h2 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ $t('ads.create_campaign.targeting') }}</h2>
 
             <!-- Gender + Age -->
@@ -144,8 +157,8 @@
                   @click="toggleInterest(interest.id)"
                   class="px-2.5 py-1 text-xs rounded-full border transition-colors"
                   :class="form.targetInterestIds.includes(interest.id)
-                    ? 'bg-primary/20 border-primary text-primary dark:text-primary'
-                    : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
+                    ? 'bg-secondary text-white border-secondary'
+                    : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
                 >
                   {{ $t(`ads.interests.${interest.slug}`, interest.name) }}
                 </button>
@@ -166,8 +179,8 @@
                   @click="toggleTargetChildrenAge(age.id)"
                   class="px-2.5 py-1 text-xs rounded-full border transition-colors"
                   :class="form.targetChildrenAgeIds.includes(age.id)
-                    ? 'bg-primary/20 border-primary text-primary dark:text-primary'
-                    : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
+                    ? 'bg-secondary text-white border-secondary'
+                    : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
                 >
                   {{ getChildrenAgeLabel(age.name) }}
                 </button>
@@ -188,8 +201,8 @@
                   @click="toggleTargetSkill(skill.id)"
                   class="px-2.5 py-1 text-xs rounded-full border transition-colors"
                   :class="form.targetSkillIds.includes(skill.id)
-                    ? 'bg-primary/20 border-primary text-primary dark:text-primary'
-                    : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
+                    ? 'bg-secondary text-white border-secondary'
+                    : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
                 >
                   {{ $t(`ads.skills.${skill.slug}`, skill.name) }}
                 </button>
@@ -214,13 +227,26 @@
                   id="geo-toggle"
                   v-model="geoEnabled"
                   type="checkbox"
-                  class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary"
+                  class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-secondary focus:ring-primary"
                 />
                 <label for="geo-toggle" class="text-sm font-medium text-neutral-700 dark:text-neutral-300">{{ $t('ads.create_campaign.location_targeting') }}</label>
               </div>
               <p v-if="!geoEnabled" class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('ads.create_campaign.location_targeting_help') }}</p>
 
               <template v-if="geoEnabled">
+                <!-- Quick fly-to own objects: centers the target on the property -->
+                <div v-if="propertiesWithCoords.length" class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="prop in propertiesWithCoords"
+                    :key="prop.id"
+                    type="button"
+                    @click="targetProperty(prop)"
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary transition-colors"
+                  >
+                    <Home class="w-3 h-3" />
+                    {{ prop.name }}
+                  </button>
+                </div>
                 <div
                   ref="geoMapEl"
                   class="w-full h-[250px] rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-600"
@@ -240,7 +266,7 @@
                     min="0.5"
                     max="50"
                     step="0.5"
-                    class="w-full accent-primary"
+                    class="w-full accent-secondary"
                   />
                   <div class="flex justify-between text-xs text-neutral-400">
                     <span>0.5 km</span>
@@ -255,15 +281,15 @@
               <label class="text-sm font-medium text-neutral-700 dark:text-neutral-300">{{ $t('ads.create_campaign.show_self_label') }}</label>
               <div class="flex flex-col gap-1.5 mt-1">
                 <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" v-model="selfMode" value="criteria" class="text-primary" />
+                  <input type="radio" v-model="selfMode" value="criteria" class="text-secondary focus:ring-primary" />
                   <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('ads.create_campaign.self_criteria') }}</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" v-model="selfMode" value="include" />
+                  <input type="radio" v-model="selfMode" value="include" class="text-secondary focus:ring-primary" />
                   <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('ads.create_campaign.self_include') }}</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" v-model="selfMode" value="exclude" />
+                  <input type="radio" v-model="selfMode" value="exclude" class="text-secondary focus:ring-primary" />
                   <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('ads.create_campaign.self_exclude') }}</span>
                 </label>
               </div>
@@ -272,22 +298,35 @@
 
           <!-- Actions -->
           <div class="flex gap-3 justify-end">
-            <button type="button" @click="navigateTo(localePath('/ads/campaigns'))" class="px-4 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700">
+            <UiButton type="button" variant="outline" @click="navigateTo(localePath('/ads/campaigns'))">
               {{ $t('ads.create_campaign.cancel') }}
-            </button>
-            <button type="submit" :disabled="submitting" class="px-6 py-2.5 font-medium rounded-lg disabled:opacity-50 transition-colors" :class="advertiserWalletConfigured
-              ? 'btn-primary'
-              : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600'
-            ">
-              {{ advertiserWalletConfigured ? $t('ads.create_campaign.create') : $t('ads.create_campaign.save_draft') }}
-            </button>
+            </UiButton>
+            <UiButton
+              v-if="!isEdit && advertiserWalletConfigured"
+              type="submit"
+              variant="outline"
+              :loading="submitting && saveAsDraft"
+              :disabled="submitting && !saveAsDraft"
+              @click="saveAsDraft = true"
+            >
+              {{ $t('ads.create_campaign.save_draft') }}
+            </UiButton>
+            <UiButton
+              type="submit"
+              :variant="isEdit || advertiserWalletConfigured ? 'primary' : 'outline'"
+              :loading="submitting && !saveAsDraft"
+              :disabled="submitting && saveAsDraft"
+              @click="saveAsDraft = false"
+            >
+              {{ isEdit ? $t('ads.edit_campaign.save') : advertiserWalletConfigured ? $t('ads.create_campaign.create') : $t('ads.create_campaign.save_draft') }}
+            </UiButton>
           </div>
         </div>
 
         <!-- Right column: Preview + Audience estimate -->
         <div class="lg:col-span-2 space-y-6">
           <!-- Live Preview -->
-          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 lg:sticky lg:top-4">
+          <div class="card p-5 lg:sticky lg:top-4">
             <h2 class="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-4">{{ $t('ads.create_campaign.preview_section') }}</h2>
 
             <!-- Preview card -->
@@ -305,7 +344,7 @@
                   <h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 leading-snug line-clamp-2">
                     {{ form.postTitle || $t('ads.create_campaign.post_title_placeholder') }}
                   </h3>
-                  <div v-if="form.rewardSats" class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-black flex-shrink-0">
+                  <div v-if="form.rewardSats" class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-neutral-900 flex-shrink-0">
                     <Zap class="w-3 h-3" />
                     <span class="text-xs font-bold tabular-nums">{{ form.rewardSats }}</span>
                   </div>
@@ -342,7 +381,7 @@
           </div>
 
           <!-- Audience estimate -->
-          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-5">
+          <div class="card p-5">
             <h2 class="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Users class="w-4 h-4" />
               {{ $t('ads.create_campaign.audience_reach') }}
@@ -413,19 +452,39 @@
         </div>
       </div>
     </form>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { ArrowLeft, Users, Loader2, Zap, Package, Building2 } from 'lucide-vue-next'
+import { ref, computed, watch, onMounted, onActivated, onUnmounted, nextTick } from 'vue'
+import { ArrowLeft, Users, Loader2, Zap, Package, Building2, Home } from 'lucide-vue-next'
+import { useToastStore } from '~/stores/toast'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const toastStore = useToastStore()
 const authStore = useAuthStore()
 const localePath = useLocalePath()
+const route = useRoute()
+
+// Edit mode: /ads/campaigns/create?edit={id} reuses this form for an existing campaign
+const editId = typeof route.query.edit === 'string' ? route.query.edit : null
+const isEdit = !!editId
+const editLoading = ref(isEdit)
+// Reward/budget freeze only once the campaign has views (claimed views are
+// stamped with the reward amount) — a view-less campaign stays fully editable
+const paymentLocked = ref(false)
+const originalImageUrl = ref<string | null>(null)
+const imageRemoved = ref(false)
+const initialLinkedItem = ref<any>(null)
+const initialLinkedEstablishment = ref<any>(null)
 const colorMode = useColorMode()
 const { mapCenter: savedMapCenter, mapZoom: savedMapZoom } = useMapState()
 const { advertiserWalletConfigured, walletProvider, profileLoaded, loadAdsProfile } = useAdsState()
+// Human-readable provider name; only 'spark' has no self-explanatory brand name
+const walletProviderLabel = computed(() =>
+  walletProvider.value === 'spark' ? t('ads.profile.provider_spark') : walletProvider.value
+)
 const { satsToFiat, formatFiat, fetchBtcPrice } = useBtcPrice()
 
 const rewardFiat = computed(() => formatFiat(satsToFiat(form.value.rewardSats)))
@@ -441,9 +500,11 @@ function onImageSelected(file: File | null) {
   if (file) {
     pendingImageFile.value = file
     previewImageUrl.value = URL.createObjectURL(file)
+    imageRemoved.value = false
   } else {
     pendingImageFile.value = null
     previewImageUrl.value = null
+    if (originalImageUrl.value) imageRemoved.value = true
   }
 }
 
@@ -514,7 +575,15 @@ async function initGeoMap() {
   })
   geoMap.once('load', () => {
     geoMap.resize()
-    if (form.value.targetLatitude !== null) updateGeoCircle()
+    if (form.value.targetLatitude !== null && form.value.targetLongitude !== null) {
+      if (!geoMarker) {
+        geoMarker = new maplibregl.Marker({ color: '#FFE216' })
+          .setLngLat([form.value.targetLongitude, form.value.targetLatitude])
+          .addTo(geoMap)
+      }
+      updateGeoCircle()
+      fitToCircle()
+    }
   })
 
   geoMap.on('click', (e: any) => {
@@ -613,6 +682,30 @@ watch(() => form.value.targetRadiusKm, () => {
   fitToCircle()
 })
 
+// Quick fly-to chips (design-system § Minimap): own properties with coords
+const propertyStore = usePropertyStore()
+const propertiesWithCoords = computed(() =>
+  propertyStore.properties.filter((p: any) => p.latitude && p.longitude)
+)
+
+async function targetProperty(prop: any) {
+  form.value.targetLatitude = prop.latitude
+  form.value.targetLongitude = prop.longitude
+  if (geoMap) {
+    const mod = await import('maplibre-gl')
+    const maplibregl = mod.default || mod
+    if (geoMarker) {
+      geoMarker.setLngLat([prop.longitude, prop.latitude])
+    } else {
+      geoMarker = new maplibregl.Marker({ color: '#FFE216' })
+        .setLngLat([prop.longitude, prop.latitude])
+        .addTo(geoMap)
+    }
+    updateGeoCircle()
+    fitToCircle()
+  }
+}
+
 watch(() => colorMode.value, () => {
   if (geoMap) geoMap.setStyle(getStyleUrl())
 })
@@ -688,6 +781,8 @@ function toggleTargetSkill(id: string) {
 }
 
 const submitting = ref(false)
+// Which submit button was pressed: draft keeps the campaign out of the feed
+const saveAsDraft = ref(false)
 const estimateLoading = ref(false)
 
 interface AudienceBreakdown {
@@ -753,11 +848,86 @@ async function fetchEstimate() {
   }
 }
 
+// Edit mode: prefill the form from the existing campaign
+async function loadCampaign() {
+  try {
+    await authStore.ensureToken()
+    const c = await $fetch<any>(`/api/v1/ads/campaigns/${editId}/`, {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` },
+    })
+    form.value = {
+      name: c.name,
+      postTitle: c.post_title,
+      postContent: c.post_content,
+      link: c.link || '',
+      rewardSats: c.reward_sats,
+      budgetSats: c.budget_sats,
+      targetGender: c.target_gender || 'any',
+      ageFrom: c.target_age_from,
+      ageTo: c.target_age_to,
+      targetInterestIds: c.target_interest_ids || [],
+      targetChildrenAgeIds: c.target_children_age_ids || [],
+      targetSkillIds: c.target_skill_ids || [],
+      targetMinSkillLevel: c.target_min_skill_level || 1,
+      targetLatitude: c.target_latitude,
+      targetLongitude: c.target_longitude,
+      targetRadiusKm: c.target_radius_km > 0 ? c.target_radius_km : 5,
+      includeSelf: c.include_self,
+      excludeSelf: c.exclude_self,
+      linkedItemId: c.linked_item?.id || null,
+      linkedEstablishmentId: c.linked_establishment?.id || null,
+    }
+    paymentLocked.value = (c.total_views || 0) > 0
+    selfMode.value = c.include_self ? 'include' : c.exclude_self ? 'exclude' : 'criteria'
+    initialLinkedItem.value = c.linked_item
+    initialLinkedEstablishment.value = c.linked_establishment
+    originalImageUrl.value = c.image_url
+    previewImageUrl.value = c.image_url
+    editLoading.value = false
+    if (c.target_latitude !== null && c.target_radius_km > 0) {
+      // Enable geo only after the form has rendered so the map container exists
+      await nextTick()
+      geoEnabled.value = true
+      // Map already open from a previous activation: sync marker to fresh coords
+      if (geoMap) {
+        if (geoMarker) geoMarker.setLngLat([c.target_longitude, c.target_latitude])
+        updateGeoCircle()
+        fitToCircle()
+      }
+    } else if (geoEnabled.value) {
+      geoEnabled.value = false
+    }
+  } catch (error) {
+    console.error('Failed to load campaign:', error)
+    toastStore.error(t('ads.edit_campaign.load_failed'))
+    navigateTo(localePath('/ads/campaigns'))
+  } finally {
+    editLoading.value = false
+  }
+}
+
+// The parent ads.vue page is keepalive — this component mounts once per fullPath
+// (definePageMeta key below) and then re-activates. onActivated also fires right
+// after the initial mount, so guard against a duplicate first fetch.
+let lastLoadAt = 0
+function loadCampaignFresh() {
+  if (!isEdit) return
+  const now = Date.now()
+  if (now - lastLoadAt < 500) return
+  lastLoadAt = now
+  loadCampaign()
+}
+
 onMounted(() => {
   if (!profileLoaded.value) loadAdsProfile()
   loadReferenceData()
   fetchBtcPrice()
+  propertyStore.fetchProperties().catch(() => {})
+  loadCampaignFresh()
 })
+
+onActivated(() => loadCampaignFresh())
 
 // Watch targeting fields for debounced audience estimate
 watch(
@@ -782,6 +952,77 @@ watch(
 
 const donation = useDonation()
 
+function handleSubmit() {
+  return isEdit ? updateCampaign() : createCampaign()
+}
+
+async function updateCampaign() {
+  submitting.value = true
+  try {
+    await authStore.ensureToken()
+    const geoActive = geoEnabled.value && form.value.targetLatitude !== null && form.value.targetLongitude !== null
+    const body: Record<string, any> = {
+      name: form.value.name,
+      post_title: form.value.postTitle,
+      post_content: form.value.postContent,
+      link: form.value.link,
+      target_gender: form.value.targetGender,
+      target_age_from: form.value.ageFrom,
+      target_age_to: form.value.ageTo,
+      target_interest_ids: form.value.targetInterestIds,
+      target_children_age_ids: form.value.targetChildrenAgeIds,
+      target_skill_ids: form.value.targetSkillIds,
+      target_min_skill_level: form.value.targetMinSkillLevel,
+      include_self: form.value.includeSelf,
+      exclude_self: form.value.excludeSelf,
+      // Empty string clears the link server-side; null would mean "no change"
+      linked_item_id: form.value.linkedItemId || '',
+      linked_establishment_id: form.value.linkedEstablishmentId || '',
+    }
+    if (!paymentLocked.value) {
+      body.reward_sats = form.value.rewardSats
+      body.budget_sats = form.value.budgetSats
+    }
+    if (geoActive) {
+      body.target_latitude = form.value.targetLatitude
+      body.target_longitude = form.value.targetLongitude
+      body.target_radius_km = form.value.targetRadiusKm
+    } else {
+      body.clear_target_location = true
+    }
+    await $fetch(`/api/v1/ads/campaigns/${editId}/`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+    if (pendingImageFile.value) {
+      const formData = new FormData()
+      formData.append('image', pendingImageFile.value)
+      await $fetch(`/api/v1/ads/campaigns/${editId}/image/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${authStore.token}` },
+        body: formData,
+      })
+    } else if (imageRemoved.value) {
+      await $fetch(`/api/v1/ads/campaigns/${editId}/image/`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${authStore.token}` },
+      })
+    }
+
+    navigateTo(localePath('/ads/campaigns'))
+  } catch (error: any) {
+    console.error('Failed to update campaign:', error)
+    toastStore.error(error?.data?.detail || t('ads.edit_campaign.save_failed'))
+  } finally {
+    submitting.value = false
+  }
+}
+
 async function createCampaign() {
   submitting.value = true
   try {
@@ -794,6 +1035,10 @@ async function createCampaign() {
         name: form.value.name,
         post_title: form.value.postTitle,
         post_content: form.value.postContent,
+        // The ad is written in the advertiser's current UI language; viewers
+        // on other locales get it translated. Never re-sent on edit — editing
+        // the UI in another language must not relabel the ad text.
+        source_lang: locale.value,
         link: form.value.link,
         reward_sats: form.value.rewardSats,
         budget_sats: form.value.budgetSats,
@@ -811,6 +1056,7 @@ async function createCampaign() {
         exclude_self: form.value.excludeSelf,
         linked_item_id: form.value.linkedItemId,
         linked_establishment_id: form.value.linkedEstablishmentId,
+        save_as_draft: saveAsDraft.value,
       })
     })
 
@@ -826,20 +1072,23 @@ async function createCampaign() {
       })
     }
 
-    // Record donation/skip for analytics
-    const donationSats = donation.calcDonationSats(form.value.budgetSats)
-    await donation.recordDonation({
-      source: 'ADS_CAMPAIGN',
-      // Only when something was actually donated — a skip keeps no source amount
-      sourceAmountSats: donationSats > 0 ? form.value.budgetSats : undefined,
-      donationAmountSats: donationSats,
-      supportLevelAtTime: donation.supportLevel.value,
-      status: donationSats > 0 ? 'COMPLETED' : 'SKIPPED',
-    })
+    // Record donation/skip for analytics — drafts commit no budget yet
+    if (!saveAsDraft.value) {
+      const donationSats = donation.calcDonationSats(form.value.budgetSats)
+      await donation.recordDonation({
+        source: 'ADS_CAMPAIGN',
+        // Only when something was actually donated — a skip keeps no source amount
+        sourceAmountSats: donationSats > 0 ? form.value.budgetSats : undefined,
+        donationAmountSats: donationSats,
+        supportLevelAtTime: donation.supportLevel.value,
+        status: donationSats > 0 ? 'COMPLETED' : 'SKIPPED',
+      })
+    }
 
     navigateTo(localePath('/ads/campaigns'))
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create campaign:', error)
+    toastStore.error(error?.data?.detail || t('ads.create_campaign.create_failed'))
   } finally {
     submitting.value = false
   }
@@ -847,6 +1096,9 @@ async function createCampaign() {
 
 definePageMeta({
   middleware: 'auth',
+  // Distinct instance per fullPath: without this the keepalive'd create form is
+  // reused for ?edit={id} navigation and setup (which reads the query) never re-runs
+  key: route => route.fullPath,
 })
 </script>
 

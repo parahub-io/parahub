@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed bottom-0 left-0 right-0 w-full md:top-[calc(5rem+72px)] md:bottom-auto md:right-auto md:left-0 md:h-[calc(100vh-5rem-72px)] md:w-96 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 max-md:border-t md:border-r z-50 flex flex-col rounded-t-2xl md:rounded-none"
+    class="fixed bottom-[var(--nav-inset-bottom)] left-0 right-0 w-full md:top-[calc(5rem+72px)] md:bottom-auto md:right-auto md:left-0 md:h-[calc(100vh-5rem-72px)] md:w-96 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 max-md:border-t md:border-r z-50 flex flex-col rounded-t-2xl md:rounded-none"
     :style="isMobile ? sheetStyle : {}"
   >
       <!-- Mobile drag handle -->

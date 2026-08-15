@@ -4,8 +4,9 @@
  * Module-level ref so the menu tile badge and the menu-button bubble share one
  * source of truth (mirrors useNotifications). No realtime channel: the backend
  * itself only learns the count by polling IMAP (no push from Dovecot), so we
- * refresh lazily — on nav mount and each time the site menu opens; the server
- * caches the count for 60s per account.
+ * refresh lazily — on nav mount, each time the site menu opens, and when the
+ * tab becomes visible again (returning from webmail); the server caches the
+ * count for 60s per account, dropped when the user enters webmail via SSO.
  */
 import { ref } from 'vue'
 import { useAuthStore } from '~/stores/auth'

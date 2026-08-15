@@ -101,14 +101,10 @@ export const useMapStore = defineStore('map', {
     },
 
     updateUserLocation(coordinates: [number, number]) {
+      // Coordinates only — the visual marker is owned by the geolocation
+      // control's self marker (a store marker here would stack a second
+      // generic dot under it and linger after tracking stops)
       this.userLocation = coordinates
-
-      // Auto-add user marker
-      this.addMarker({
-        id: 'user-location',
-        coordinates,
-        type: 'user'
-      })
     },
 
     // Marker management

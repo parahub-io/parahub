@@ -16,6 +16,9 @@ from pathlib import Path
 import httpx
 from django.conf import settings
 
+from parahub.models import AIUsageLog
+from parahub.services import ai_usage
+
 logger = logging.getLogger(__name__)
 
 PROJECT_DIR = Path('/opt/parahub')
@@ -29,10 +32,17 @@ class EmptyTranscription(Exception):
 _RETRYABLE_STATUSES = {429, 500, 502, 503}
 KNOWLEDGE_FILE = PROJECT_DIR / 'support_kb' / 'knowledge.md'
 
+# Gemini. 3.x Flash thinks by default; thinking tokens are billed against
+# max_output_tokens and cost seconds, so a voice bot pins the level to 'low'.
+# thinking_budget=0 is rejected by 3.6 — 'low' is the floor.
+GEMINI_MODEL = 'gemini-3.6-flash'
+GEMINI_THINKING_LEVEL = 'low'
+
 # ElevenLabs
 DEFAULT_TTS_MODEL = 'eleven_multilingual_v2'
 DEFAULT_STT_MODEL = 'scribe_v1'
 VOICE_ID = 'sL7inhYgWWLlrcPH81Mt'  # Andrey
+TTS_SPEED = 1.2  # API caps speed at 1.2; must live inside voice_settings or it is ignored
 
 # Redis cache
 DOCS_CACHE_KEY = 'support:docs_context'
@@ -159,6 +169,7 @@ class SupportVoicePipeline:
         await self.send_status('transcribing')
         ext = 'webm' if 'webm' in content_type else 'wav'
 
+        started = time.monotonic()
         last_err = None
         for attempt in range(2):
             try:
@@ -185,7 +196,21 @@ class SupportVoicePipeline:
         else:
             raise RuntimeError(f"STT failed after retry: {last_err}")
 
-        text = resp.json().get('text', '').strip()
+        payload = resp.json()
+        text = payload.get('text', '').strip()
+
+        # Scribe bills per second of audio and reports no duration field, so the
+        # billed length is taken from the last word's end timestamp — the only
+        # number in the response that measures the audio itself.
+        words = payload.get('words') or []
+        seconds = max((w.get('end') or 0 for w in words), default=0)
+        await ai_usage.arecord_units(
+            AIUsageLog.KIND_VOICE_STT, DEFAULT_STT_MODEL, round(float(seconds), 3),
+            duration_ms=int((time.monotonic() - started) * 1000),
+            success=bool(text), error='' if text else 'Empty transcription',
+            meta={'session': self.session_id, 'audio_bytes': len(audio_bytes)},
+        )
+
         if not text:
             raise EmptyTranscription()
         return text
@@ -218,18 +243,32 @@ class SupportVoicePipeline:
 
             gemini_client = genai.Client(api_key=ai_settings.google_api_key)
 
+            started = time.monotonic()
             response = await asyncio.to_thread(
                 gemini_client.models.generate_content,
-                model='gemini-2.5-flash',
+                model=GEMINI_MODEL,
                 contents=prompt,
                 config=genai_types.GenerateContentConfig(
                     system_instruction=full_system,
                     temperature=0.3,
                     max_output_tokens=2048,
+                    thinking_config=genai_types.ThinkingConfig(
+                        thinking_level=GEMINI_THINKING_LEVEL,
+                    ),
                 ),
             )
 
             answer = response.text if hasattr(response, 'text') else ""
+            # The whole knowledge base rides in every prompt, so this is the
+            # single most expensive call in the voice path — and it thinks, which
+            # bills on top of the answer. record_gemini() counts both.
+            await ai_usage.arecord_gemini(
+                AIUsageLog.KIND_VOICE_THINK, GEMINI_MODEL, response,
+                duration_ms=int((time.monotonic() - started) * 1000),
+                success=bool(answer), error='' if answer else 'Empty answer',
+                meta={'session': self.session_id},
+            )
+
             if not answer:
                 return "I couldn't process your question. Please try again."
 
@@ -242,7 +281,11 @@ class SupportVoicePipeline:
             return "Support service encountered an error. Please try again later."
 
     def _tts_cache_key(self, text: str) -> str:
-        h = hashlib.sha256(f'{VOICE_ID}:{text}'.encode()).hexdigest()[:16]
+        # Synthesis params are part of the key — otherwise a speed/model change
+        # keeps serving audio rendered with the previous settings for 24h.
+        h = hashlib.sha256(
+            f'{VOICE_ID}:{DEFAULT_TTS_MODEL}:{TTS_SPEED}:{text}'.encode()
+        ).hexdigest()[:16]
         return f'tts:cache:support:{h}'
 
     async def speak(self, text: str) -> bytes:
@@ -258,6 +301,7 @@ class SupportVoicePipeline:
         except Exception:
             pass
 
+        started = time.monotonic()
         last_err = None
         for attempt in range(2):
             try:
@@ -277,8 +321,8 @@ class SupportVoicePipeline:
                                 'similarity_boost': 0.8,
                                 'style': 0.15,
                                 'use_speaker_boost': True,
+                                'speed': TTS_SPEED,
                             },
-                            'speed': 1.0,
                         },
                     )
                 if resp.status_code in _RETRYABLE_STATUSES and attempt == 0:
@@ -298,6 +342,14 @@ class SupportVoicePipeline:
             raise RuntimeError(f"TTS failed after retry: {last_err}")
 
         audio = resp.content
+        # Only synthesised speech is billed; a cache hit returns above and writes
+        # no row, so the ledger counts characters actually paid for.
+        await ai_usage.arecord_units(
+            AIUsageLog.KIND_VOICE_TTS, DEFAULT_TTS_MODEL, len(text),
+            duration_ms=int((time.monotonic() - started) * 1000),
+            meta={'session': self.session_id, 'audio_bytes': len(audio)},
+        )
+
         try:
             r = _get_redis_binary()
             r.setex(cache_key, TTS_CACHE_TTL, audio)

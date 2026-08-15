@@ -9,6 +9,7 @@ from ninja.errors import HttpError
 
 
 from identity.models import Profile, Verification
+from identity.visibility import account_is_synthetic, exclude_test_authors, viewer_sees_test_content
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,7 @@ def _check_wot3(profile: Profile):
 
 def _is_privileged_user(request) -> bool:
     """Return True if the request comes from staff or a test account."""
-    user = getattr(request, 'user', None)
-    if user and getattr(user, 'is_authenticated', False):
-        return getattr(user, 'is_staff', False) or getattr(user, 'is_test', False)
-    return False
+    return viewer_sees_test_content(request)
 
 def _is_demo_obj(obj) -> bool:
     """Check if object has demo markers in attributes/spec_data."""
@@ -41,9 +39,8 @@ def _is_demo_obj(obj) -> bool:
     if spec.get('__demo_seed'):
         return True
     author = getattr(obj, 'author', None)
-    if author and getattr(author, 'account', None):
-        if author.account.is_test or author.account.is_bot:
-            return True
+    if author and account_is_synthetic(getattr(author, 'account', None)):
+        return True
     return False
 
 DEMO_ATTR_KEYS = ('demo', '__demo_seed')
@@ -53,20 +50,31 @@ def _exclude_demo_posts(qs):
     # Use __contains for JSONField exclude — plain __demo=True evaluates to NULL
     # when the key is absent, and NOT NULL is NULL (falsy), excluding ALL rows.
     qs = qs.exclude(attributes__contains={'demo': True}).exclude(attributes__has_key='__demo_seed')
-    qs = qs.exclude(author__account__is_test=True).exclude(author__account__is_bot=True)
+    qs = exclude_test_authors(qs, field='author')
     return qs
 
 def _exclude_demo_sites(qs):
     """Exclude sites with demo markers or owned by test/bot accounts."""
     qs = qs.exclude(attributes__contains={'demo': True}).exclude(attributes__has_key='__demo_seed')
-    qs = qs.exclude(establishment__owner__account__is_test=True).exclude(establishment__owner__account__is_bot=True)
-    qs = qs.exclude(profile__account__is_test=True).exclude(profile__account__is_bot=True)
+    qs = exclude_test_authors(qs, field='establishment__owner')
+    qs = exclude_test_authors(qs, field='profile')
     return qs
 
 def _exclude_demo_pages(qs):
-    """Exclude site pages with demo markers or from demo sites."""
+    """Exclude site pages with demo markers, from demo sites, or belonging to a
+    demo/synthetic owner.
+
+    The owner-side checks are what actually catch seeded mini-sites: `seed_demo_*`
+    marks the Establishment, not the Site it later gets, so a page whose own
+    attributes are empty still belongs to demo data. Sitemap-only helper, hence
+    the unconditional exclude_test_authors (no viewer to exempt).
+    """
     qs = qs.exclude(attributes__contains={'demo': True}).exclude(attributes__has_key='__demo_seed')
     qs = qs.exclude(site__attributes__contains={'demo': True}).exclude(site__attributes__has_key='__demo_seed')
+    qs = (qs.exclude(site__establishment__attributes__contains={'demo': True})
+            .exclude(site__establishment__attributes__has_key='__demo_seed'))
+    qs = exclude_test_authors(qs, field='site__establishment__owner')
+    qs = exclude_test_authors(qs, field='site__profile')
     return qs
 
 def _require_profile_owner(request, profile_name: str) -> 'Profile':

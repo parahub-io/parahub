@@ -12,7 +12,11 @@ from django.core import signing
 from django.http import HttpResponse
 from django.core.cache import cache
 from parahub.auth import GlobalAuth
+from parahub.capabilities import has_platform_capability, require_platform_capability
 from parahub.ratelimit import ratelimit, user_or_ip
+
+#: Server health and the monitoring consoles behind the signed proxy links.
+INFRA = 'infra.operate'
 
 from .base import router
 
@@ -31,9 +35,8 @@ class ServerHealthOut(Schema):
 @router.get("/server/health", response=ServerHealthOut, auth=GlobalAuth())
 @ratelimit(group='iot:server_health', key=user_or_ip, rate='30/m')
 def server_health(request):
-    """Server health metrics for IoT dashboard (staff only)."""
-    if not request.auth.is_staff:
-        raise HttpError(403, "Staff only")
+    """Server health metrics for the IoT dashboard. Needs `infra.operate`."""
+    require_platform_capability(request, INFRA)
 
     cached = cache.get("iot:server:health")
     if cached is not None:
@@ -137,7 +140,7 @@ def monitor_redirect(request, service: str):
                 account = auth.authenticate(request, jwt_param)
             except Exception:
                 pass
-    if not account or not account.is_staff:
+    if not has_platform_capability(account, INFRA):
         raise HttpError(403, "Staff only")
 
     signed = signing.dumps({'s': service, 'u': account.id}, salt=MONITOR_SALT)

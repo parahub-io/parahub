@@ -4,7 +4,7 @@
     <button
       v-if="isMobile"
       @click="toggleElementPanel"
-      class="fixed top-20 left-3 z-50 w-11 h-11 bg-emerald-600 text-white rounded-lg shadow-lg flex items-center justify-center text-2xl hover:bg-emerald-700 transition-colors md:hidden"
+      class="fixed top-[calc(var(--nav-inset-top)+0.75rem)] left-3 z-50 w-11 h-11 bg-emerald-600 text-white rounded-lg shadow-lg flex items-center justify-center text-2xl hover:bg-emerald-700 transition-colors md:hidden"
       aria-label="Toggle room list"
     >
       ☰
@@ -215,25 +215,13 @@ onBeforeUnmount(() => {
 /* Global styles for teleported iframe container */
 .parahub-chat-iframe-container {
   position: fixed;
-  /* Match navbar responsive height (h-14/sm:h-16/md:h-20) + safe area for notched devices */
-  top: calc(3.5rem + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  /* Fills the band between the chrome bars, wherever the nav bar is docked */
+  top: var(--nav-inset-top);
   left: 0;
   right: 0;
-  bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  bottom: var(--nav-inset-bottom);
   z-index: 40; /* Above most content, below modals */
   background: rgb(250 250 250); /* bg-neutral-50 */
-}
-
-@media (min-width: 640px) {
-  .parahub-chat-iframe-container {
-    top: calc(4rem + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-  }
-}
-
-@media (min-width: 768px) {
-  .parahub-chat-iframe-container {
-    top: calc(5rem + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-  }
 }
 
 /* Dark mode support */

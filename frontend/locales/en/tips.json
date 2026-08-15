@@ -51,6 +51,8 @@
       "submit": "Mint and fund",
       "funding": "Funding note {n} of {total}",
       "fundingHint": "Do not close this tab — each note is funded separately.",
+      "elapsed": "{time} elapsed",
+      "remaining": "about {time} left",
       "walletNeeded": "Open your wallet first: this batch is funded from it.",
       "insufficient": "Not enough in your wallet for {sats} sats."
     },
@@ -97,6 +99,11 @@
       "remembered": "Filled in from your last cash-out.",
       "forget": "Clear",
       "tooSmall": "This note is too small to send over Lightning — the fee costs more than it holds. Try a Spark address instead."
+    },
+    "sync": {
+      "offHint": "Minted a batch on another device? Batches stay where they were created unless wallet sync is on.",
+      "settingsLink": "Enable it in profile settings",
+      "keyMismatch": "Wallet sync is on, but the wallet on this device differs from the one that synced. Restore the same 12-word seed to see batches from your other devices."
     }
   }
 }

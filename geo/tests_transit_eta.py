@@ -5,13 +5,19 @@ used by all four ETA readers (WS consumer + 3 REST endpoints).
 Pure functions, no DB/Redis — SimpleTestCase.
 """
 
+import math
+
 import orjson
 
 from django.test import SimpleTestCase
 
 from parahub.services.transit_eta import (
     ETA_DEFAULT_SEGMENT_S,
+    ETA_PRIOR_BUCKET_MIN_N,
+    ETA_PRIOR_MAX_WEIGHT,
     ZOMBIE_ETA_GRACE_S,
+    STT_STATE_MAX_AGE_S,
+    stt_state_is_live,
     parse_rstops,
     segment_infos,
     segment_averages,
@@ -21,6 +27,9 @@ from parahub.services.transit_eta import (
     zombie_keeps_eta,
     remaining_segment_fraction,
     origin_with_fraction,
+    prior_bucket,
+    bucket_for,
+    parse_priors,
 )
 
 
@@ -109,6 +118,93 @@ class SegmentInfosTest(SimpleTestCase):
             segment_averages(obs, self.OFFSETS),
             [s["avg"] for s in segment_infos(obs, self.OFFSETS)],
         )
+
+
+def _prior(n, gmean_s):
+    """Bucket tuple whose geometric mean is exactly ``gmean_s``."""
+    return (n, n * math.log(gmean_s))
+
+
+class SegmentPriorBlendTest(SimpleTestCase):
+    OFFSETS = [0, 100, 200, 300, 400]  # 4 segments, 100 s scheduled each
+
+    def test_prior_blends_with_schedule_on_unobserved_segment(self):
+        # gmean 160 s, n=5, schedule 100 s (factor 1.0), K=3:
+        # (5*160 + 3*100) / 8 = 137.5
+        pri = [None, _prior(5, 160.0), None, None]
+        infos = segment_infos([[], [], [], []], self.OFFSETS, pri)
+        self.assertAlmostEqual(infos[1]["avg"], 137.5)
+        self.assertEqual(infos[1]["source"], "prior")
+        self.assertEqual(infos[1]["samples"], 5)
+        self.assertFalse(infos[1]["observed"])
+        # Untouched segments keep the plain scheduled path.
+        self.assertEqual(infos[0]["source"], "scheduled")
+
+    def test_prior_weight_capped(self):
+        # n=500 must weigh like ETA_PRIOR_MAX_WEIGHT observations:
+        # (10*160 + 3*100) / 13 ≈ 146.15 — not the raw gmean.
+        pri = [_prior(500, 160.0)]
+        infos = segment_infos([[]], [0, 100], pri)
+        expected = (ETA_PRIOR_MAX_WEIGHT * 160.0 + 3.0 * 100.0) / (ETA_PRIOR_MAX_WEIGHT + 3.0)
+        self.assertAlmostEqual(infos[0]["avg"], expected)
+
+    def test_thin_bucket_falls_through_to_schedule(self):
+        pri = [_prior(ETA_PRIOR_BUCKET_MIN_N - 1, 160.0)]
+        infos = segment_infos([[]], [0, 100], pri)
+        self.assertEqual(infos[0]["source"], "scheduled")
+        self.assertAlmostEqual(infos[0]["avg"], 100.0)
+
+    def test_prior_without_schedule_is_plain_gmean(self):
+        pri = [_prior(8, 75.0)]
+        infos = segment_infos([[]], [None, None], pri)
+        self.assertEqual(infos[0]["source"], "prior")
+        self.assertAlmostEqual(infos[0]["avg"], 75.0)
+
+    def test_live_observation_beats_prior(self):
+        pri = [_prior(50, 300.0)]
+        infos = segment_infos([["30"]], [0, 120], pri)
+        self.assertEqual(infos[0]["source"], "observed")
+        self.assertAlmostEqual(infos[0]["avg"], 97.5)  # same as without the prior
+
+    def test_prior_blend_includes_route_delay_factor(self):
+        # Segments 0-1 observed at 2× schedule → factor 2.0; the prior on
+        # segment 2 blends toward schedule×factor, not raw schedule:
+        # (5*160 + 3*200) / 8 = 175
+        pri = [None, None, _prior(5, 160.0), None]
+        infos = segment_infos([["200"], ["200"], [], []], self.OFFSETS, pri)
+        self.assertAlmostEqual(infos[2]["avg"], 175.0)
+
+    def test_priors_shorter_than_segments_is_safe(self):
+        infos = segment_infos([[], []], [0, 100, 200], [_prior(5, 160.0)])
+        self.assertEqual(infos[0]["source"], "prior")
+        self.assertEqual(infos[1]["source"], "scheduled")
+
+
+class ParsePriorsTest(SimpleTestCase):
+    def test_str_and_bytes_rows(self):
+        rows = [["12", "34.5"], [b"3", b"7.5"], [None, None], ["0", "0"], ["x", "1"]]
+        self.assertEqual(parse_priors(rows), [(12, 34.5), (3, 7.5), None, None, None])
+
+
+class PriorBucketTest(SimpleTestCase):
+    # 2026-07-30 12:30 UTC is a Thursday; 2026-08-01 = Saturday, 08-02 = Sunday.
+    THU_NOON = 1785414600.0
+
+    def test_utc_weekday(self):
+        self.assertEqual(prior_bucket(self.THU_NOON), "12w")
+
+    def test_day_classes(self):
+        self.assertEqual(prior_bucket(self.THU_NOON + 2 * 86400), "12s")
+        self.assertEqual(prior_bucket(self.THU_NOON + 3 * 86400), "12u")
+
+    def test_bucket_for_resolves_feed_tz(self):
+        # 12:30 UTC = 05:30 in Seattle (PDT, UTC-7) — different hour bucket.
+        self.assertEqual(bucket_for("America/Los_Angeles", self.THU_NOON), "05w")
+        self.assertEqual(bucket_for(b"America/Los_Angeles", self.THU_NOON), "05w")
+
+    def test_bucket_for_falls_back_to_utc(self):
+        self.assertEqual(bucket_for(None, self.THU_NOON), "12w")
+        self.assertEqual(bucket_for("Not/AZone", self.THU_NOON), "12w")
 
 
 class ResolveOriginTest(SimpleTestCase):
@@ -322,3 +418,31 @@ class ParkedBeyondGraceTest(SimpleTestCase):
         self.assertFalse(parked_beyond_grace(1000.0, None, 900.0))
         self.assertFalse(parked_beyond_grace(1000.0, 1000.0 - 120, None))
         self.assertFalse(parked_beyond_grace(1000.0, 1000.0 - 120, 0))
+
+
+class SttStateIsLiveTest(SimpleTestCase):
+    """Reader gate for vprev states the poller stopped refreshing. The RT poller
+    feeds STT only vehicles fresher than 180s and evicts the rest from vdata, so
+    a frozen state outlives the vehicle icon by the remainder of its TTL — and
+    with vdata gone, the zombie/sid guards silently stop applying to it."""
+
+    NOW = 1_000_000.0
+
+    def test_recently_polled_is_live(self):
+        self.assertTrue(stt_state_is_live(self.NOW, self.NOW - 30))
+        self.assertTrue(stt_state_is_live(self.NOW, str(self.NOW - 30)))  # raw Redis str
+
+    def test_boundary_is_live(self):
+        self.assertTrue(stt_state_is_live(self.NOW, self.NOW - STT_STATE_MAX_AGE_S))
+
+    def test_beyond_cutoff_is_not_live(self):
+        self.assertFalse(stt_state_is_live(self.NOW, self.NOW - (STT_STATE_MAX_AGE_S + 1)))
+        # the observed case: feed went quiet, vprev lingers inside its 300s TTL
+        self.assertFalse(stt_state_is_live(self.NOW, self.NOW - 290))
+
+    def test_missing_or_unparsable_is_not_live(self):
+        # Fail closed: a live badge needs positive evidence of a current fix
+        self.assertFalse(stt_state_is_live(self.NOW, None))
+        self.assertFalse(stt_state_is_live(self.NOW, 0))
+        self.assertFalse(stt_state_is_live(self.NOW, ''))
+        self.assertFalse(stt_state_is_live(self.NOW, 'nan-ish'))

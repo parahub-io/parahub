@@ -35,20 +35,6 @@ def oidc_discovery(request):
     return JsonResponse(OIDC_DISCOVERY)
 
 
-@require_http_methods(["GET"])
-def jwks_endpoint(request):
-    """
-    JSON Web Key Set endpoint
-    Returns the public keys used to verify tokens
-    """
-    # For now, return empty set as we're using HS256 (symmetric)
-    # In production, should use RS256 with proper key management
-    jwks = {
-        "keys": []
-    }
-    return JsonResponse(jwks)
-
-
 @protected_resource(scopes=['openid'])
 @require_http_methods(["GET", "POST"])
 def userinfo_endpoint(request):

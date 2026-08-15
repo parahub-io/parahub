@@ -19,7 +19,12 @@ from ninja.errors import HttpError
 from pydantic import BaseModel
 
 from parahub.auth import OptionalProfileAuth, ProfileAuth
+from parahub.capabilities import has_platform_capability, require_platform_capability
 from parahub.ratelimit import ratelimit, user_or_ip
+
+#: Registry writes, peer discovery and everyone's migrations. A federation
+#: operator needs exactly this and nothing else on the node.
+FEDERATION = 'federation.admin'
 
 logger = logging.getLogger(__name__)
 router = Router(tags=["federation"])
@@ -132,7 +137,7 @@ def resolve_hna(request, hna: str):
     Resolve a Human-Navigable Alias to profile data.
 
     Public endpoint — other nodes call this to look up users.
-    Example: /api/v1/federation/resolve/deploy@parahub.io/
+    Example: /api/v1/federation/resolve/norn@parahub.io/
     """
     from identity.models import Profile
 
@@ -285,10 +290,9 @@ def list_organizations(request):
 @router.post("/peers/register/", auth=ProfileAuth())
 @ratelimit(group='federation:register_peer', key=user_or_ip, rate='10/m', method='POST')
 def register_peer(request, domain: str, url: str, name: str = '', pgp_key: str = ''):
-    """Register a new federation peer node (staff only)."""
+    """Register a new federation peer node. Needs `federation.admin`."""
     profile = request.auth
-    if not profile.account.is_staff:
-        raise HttpError(403, "Staff only")
+    require_platform_capability(request, FEDERATION)
 
     from audit_log.registry import RegistryService
 
@@ -319,11 +323,10 @@ def register_peer(request, domain: str, url: str, name: str = '', pgp_key: str =
 def discover_peer(request, url: str):
     """
     Discover a peer by fetching their /api/v1/federation/node/ manifest.
-    Auto-registers the peer with their published info. Staff only.
+    Auto-registers the peer with their published info. Needs `federation.admin`.
     """
     profile = request.auth
-    if not profile.account.is_staff:
-        raise HttpError(403, "Staff only")
+    require_platform_capability(request, FEDERATION)
 
     import httpx
 
@@ -371,10 +374,9 @@ def discover_peer(request, url: str):
 @router.post("/sync/", auth=ProfileAuth())
 @ratelimit(group='federation:sync', key=user_or_ip, rate='10/m', method='POST')
 def trigger_sync(request, domain: str = ''):
-    """Trigger git fetch from a specific peer or all peers. Staff only."""
+    """Trigger git fetch from a specific peer or all peers. Needs `federation.admin`."""
     profile = request.auth
-    if not profile.account.is_staff:
-        raise HttpError(403, "Staff only")
+    require_platform_capability(request, FEDERATION)
 
     from audit_log.registry import RegistryService
     import git as gitlib
@@ -414,10 +416,9 @@ def trigger_sync(request, domain: str = ''):
 @router.get("/sync/status/", auth=ProfileAuth())
 @ratelimit(group='federation:sync_status', key=user_or_ip, rate='60/m')
 def sync_status(request):
-    """Get git sync status for all peer remotes. Staff only."""
+    """Get git sync status for all peer remotes. Needs `federation.admin`."""
     profile = request.auth
-    if not profile.account.is_staff:
-        raise HttpError(403, "Staff only")
+    require_platform_capability(request, FEDERATION)
 
     from audit_log.registry import RegistryService
     registry = RegistryService()
@@ -617,8 +618,8 @@ def complete_migration(request, migration_id: str, to_user_signature: str = ''):
         raise HttpError(404, "Migration not found")
 
     is_owner = migration.profile_id == profile.id
-    is_staff = profile.account.is_staff
-    if not is_owner and not is_staff:
+    is_admin = has_platform_capability(profile.account, FEDERATION)
+    if not is_owner and not is_admin:
         raise HttpError(403, "Not authorized")
 
     if migration.status == 'completed':
@@ -677,7 +678,7 @@ def cancel_migration(request, migration_id: str):
     except ProfileMigration.DoesNotExist:
         raise HttpError(404, "Migration not found")
 
-    if migration.profile_id != profile.id and not profile.account.is_staff:
+    if migration.profile_id != profile.id and not has_platform_capability(profile.account, FEDERATION):
         raise HttpError(403, "Not authorized")
 
     if migration.status == 'completed':
@@ -703,7 +704,7 @@ def get_migration(request, migration_id: str):
     except ProfileMigration.DoesNotExist:
         raise HttpError(404, "Migration not found")
 
-    if migration.profile_id != profile.id and not profile.account.is_staff:
+    if migration.profile_id != profile.id and not has_platform_capability(profile.account, FEDERATION):
         raise HttpError(403, "Not authorized")
 
     return _migration_to_response(migration)
@@ -712,12 +713,12 @@ def get_migration(request, migration_id: str):
 @router.get("/migrations/", response=List[MigrationResponse], auth=ProfileAuth())
 @ratelimit(group='federation:list_migrations', key=user_or_ip, rate='60/m')
 def list_migrations(request):
-    """List migrations. Staff sees all, users see their own."""
+    """List migrations. `federation.admin` sees all, everyone else their own."""
     from core.models import ProfileMigration
 
     profile = request.auth
 
-    if profile.account.is_staff:
+    if has_platform_capability(profile.account, FEDERATION):
         qs = ProfileMigration.objects.all()
     else:
         qs = ProfileMigration.objects.filter(profile=profile)
@@ -727,6 +728,39 @@ def list_migrations(request):
 
 # ── Inter-node migration confirmation (public, for target node) ──────
 
+def _get_peer_node_key(domain: str) -> str:
+    """Return the registered PGP public key for a federation peer, '' if unknown."""
+    from audit_log.registry import RegistryService
+
+    try:
+        registry = RegistryService()
+        for peer in registry.get_known_peers():
+            if peer.get('domain') == domain:
+                return peer.get('node_pgp_public_key', '') or ''
+    except Exception as e:
+        logger.warning(f"Peer key lookup failed for {domain}: {e}")
+    return ''
+
+
+def migration_confirm_canonical(migration, peer_domain: str, to_user_signature: str) -> str:
+    """
+    Canonical message the destination node signs to confirm a migration.
+
+    Compact sorted-keys JSON (ASCII-escaped), same convention as
+    verify_profile_signature. to_user_signature is bound into the payload
+    (empty string when absent) so a captured confirmation cannot be replayed
+    with a substituted user signature.
+    """
+    return json.dumps({
+        'action': 'migration_confirm',
+        'migration_id': migration.id,
+        'from_hna': migration.from_hna,
+        'to_hna': migration.to_hna,
+        'domain': peer_domain,
+        'to_user_signature': to_user_signature,
+    }, sort_keys=True, separators=(',', ':'))
+
+
 @router.post("/migration/confirm/", auth=None)
 @ratelimit(group='federation:confirm_migration', key='ip', rate='10/m', method='POST')
 def confirm_migration_from_peer(request):
@@ -734,10 +768,14 @@ def confirm_migration_from_peer(request):
     Target node confirms a migration.
 
     Called by the destination node to provide to_node_signature and
-    optionally to_user_signature for a migration record.
-    Public endpoint — PGP signature required in body.
+    optionally to_user_signature for a migration record. Public endpoint;
+    to_node_signature must be a PGP detached signature by the peer's
+    registered node key (federation registry, /peers/register/) over
+    migration_confirm_canonical(). Peers without a registered key cannot
+    confirm.
     """
     from core.models import ProfileMigration
+    from parahub.crypto.pgp import pgp_crypto
 
     try:
         body = json.loads(request.body)
@@ -752,6 +790,9 @@ def confirm_migration_from_peer(request):
     if not migration_id or not peer_domain:
         raise HttpError(400, "migration_id and domain required")
 
+    if not to_node_signature:
+        raise HttpError(400, "to_node_signature required")
+
     try:
         migration = ProfileMigration.objects.get(id=migration_id)
     except ProfileMigration.DoesNotExist:
@@ -760,8 +801,20 @@ def confirm_migration_from_peer(request):
     if migration.to_node != peer_domain:
         raise HttpError(403, f"Domain mismatch: expected {migration.to_node}, got {peer_domain}")
 
-    if to_node_signature:
-        migration.to_node_signature = to_node_signature
+    peer_key = _get_peer_node_key(peer_domain)
+    if not peer_key:
+        raise HttpError(403, f"Peer {peer_domain} is not registered or has no node PGP key")
+
+    canonical = migration_confirm_canonical(migration, peer_domain, to_user_signature)
+    try:
+        signature_valid = pgp_crypto.verify_signature(canonical, to_node_signature, peer_key)
+    except Exception as e:
+        logger.warning(f"Peer signature verification error for {peer_domain}: {e}")
+        signature_valid = False
+    if not signature_valid:
+        raise HttpError(403, "Peer node signature verification failed")
+
+    migration.to_node_signature = to_node_signature
     if to_user_signature:
         migration.to_user_signature = to_user_signature
     migration.save(update_fields=['to_node_signature', 'to_user_signature'])
@@ -776,14 +829,13 @@ def confirm_migration_from_peer(request):
 def import_migration_data(request):
     """
     Import a migration data ZIP on the destination node.
-    Staff only. Parses the export ZIP and creates reference records.
+    Needs `federation.admin`. Parses the export ZIP and creates reference records.
     """
     import zipfile
     from io import BytesIO
 
     profile = request.auth
-    if not profile.account.is_staff:
-        raise HttpError(403, "Staff only")
+    require_platform_capability(request, FEDERATION)
 
     if not request.FILES.get('file'):
         raise HttpError(400, "ZIP file required (multipart 'file' field)")

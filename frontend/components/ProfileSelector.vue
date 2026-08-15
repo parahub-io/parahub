@@ -144,6 +144,7 @@ const router = useRouter()
 const localePath = useLocalePath()
 const route = useRoute()
 const { t, locale } = useI18n()
+const { apiErrorMessage } = useApiError()
 
 const isOpen = ref(false)
 // Check animation preference from active profile
@@ -331,7 +332,7 @@ async function handleDeleteProfile() {
 
   } catch (error: any) {
     console.error('Failed to delete profile:', error)
-    deleteError.value = error.data?.message || error.message || t('profiles.deleteError') || 'Failed to delete profile'
+    deleteError.value = apiErrorMessage(error, 'profiles.error_codes', t('profiles.deleteError'))
   } finally {
     deletingProfile.value = false
   }

@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="modelValue" class="fixed inset-0 z-50 overflow-y-auto">
+      <div v-if="modelValue" class="fixed inset-0 z-[60] overflow-y-auto">
         <!-- Backdrop -->
         <div
           @click="handleBackdropClick"

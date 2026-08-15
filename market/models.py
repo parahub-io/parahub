@@ -58,6 +58,15 @@ class Item(ULIDModel):
         max_length=5, blank=True, default='', db_index=True,
         help_text="Content language (ISO 639-1: en/ru/pt/es/fr/de). Empty = unspecified (shown to all)."
     )
+    mt_cache = models.JSONField(
+        default=dict, blank=True,
+        help_text=(
+            "Machine-translation cache: {lang: {'title': ..., 'description': ...}}. "
+            "Filled lazily by the items API (TranslationService), source language is "
+            "the auto-detected `language` field. Wiped on any real title/description/"
+            "language change. Machine output only — never holds human input."
+        ),
+    )
     is_international = models.BooleanField(
         default=False, db_index=True,
         help_text="Visible to all users regardless of language filter (e.g. remote services, souvenirs)"
@@ -85,9 +94,18 @@ class Item(ULIDModel):
 
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL, related_name="items")
     tags = models.ManyToManyField(Tag, blank=True, related_name="items")
-    
+
     # Add version field for optimistic locking
     version = models.PositiveIntegerField(default=1)
+
+    views_total = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            "Lifetime views (unique viewer per 24h). Live counter is Redis "
+            "(parahub/services/item_views.py); this column is the hourly-flushed "
+            "durable copy used to re-seed Redis after a wipe."
+        ),
+    )
 
     class Meta:
         indexes = [

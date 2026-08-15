@@ -21,6 +21,9 @@
     "insufficientFunds": "Insufficient balance for this payment",
     "invalidInput": "Invalid payment input. Check format.",
     "noLocalSeed": "You don't have a wallet on this device. Choose an option:",
+    "foreignWalletTitle": "This wallet belongs to another account",
+    "foreignWalletText": "The wallet stored in this browser was set up under a different Parahub account, so it won't be opened here to protect its funds.",
+    "foreignWalletHint": "Sign in with the account that created it, or set up your own wallet below — that removes the other wallet from this browser. Its funds stay recoverable only with its 12-word backup phrase.",
     "generateNewSeed": "Generate New Seed (old key will expire)",
     "loading": "Connecting wallet...",
     "lightningInvoice": "Lightning",
@@ -46,6 +49,21 @@
     "loadMore": "Load more",
     "status_pending": "pending",
     "status_failed": "failed",
+    "status_returned": "returned",
+    "status_claimed": "claimed",
+    "status_unclaimed": "unclaimed",
+    "txTipNote": "Tip note",
+    "txTipNotes": "{count} tip note | {count} tip notes",
+    "txAdReward": "Ad reward · {name}",
+    "txAdRewards": "{count} ad reward | {count} ad rewards",
+    "txViewBatch": "View batch",
+    "txClaimedCount": "{count} claimed",
+    "txReturnedCount": "{count} returned",
+    "txWaitingCount": "{count} unclaimed",
+    "txTo": "To {name}",
+    "txSupport": "Monthly support · {name}",
+    "txDonation": "Association donation",
+    "txTicket": "Ticket · {name}",
     "unclaimedDeposits": "Unclaimed On-Chain Deposits",
     "unclaimedDepositDesc": "Bitcoin received on-chain. Claim to add to your wallet balance.",
     "claimDeposit": "Claim",
@@ -55,11 +73,12 @@
     "depositClaimFailed": "Failed to claim deposit",
     "scanQr": "Scan QR code",
     "noCameraAvailable": "No camera available on this device",
-    "cameraPermissionDenied": "Camera permission denied",
+    "cameraPermissionDenied": "Camera access denied — allow camera for Parahub in system settings",
     "scannerUnavailable": "QR scanner is not available",
     "invoice_qr_aria_label": "QR code for Lightning invoice",
     "introTitle": "Lightning Wallet",
     "introDescription": "Send and receive Bitcoin payments instantly with near-zero fees. Your keys stay on your device — only you control your funds.",
+    "introSatsHint": "Bitcoin is counted in satoshis, or “sats”: one bitcoin is 100 million of them, so {amount} is about {sats} sats today.",
     "introFeature1": "Instant payments via Lightning Network — no waiting for confirmations",
     "introFeature2": "Your wallet keys never leave your device — fully non-custodial",
     "introFeature3": "Buy event tickets and transit passes directly from your wallet",
@@ -68,7 +87,101 @@
     "hideBalance": "Hide balance",
     "showBalance": "Show balance",
     "recentRecipients": "Recent",
-    "exportCsv": "Export CSV"
+    "exportCsv": "Export CSV",
+    "exchangeTitle": "Exchange BTC ↔ EUR",
+    "exchangeDisclaimer": "Third-party services — Parahub is not an operator and never holds your funds.",
+    "exchangePage": {
+      "title": "Bitcoin ↔ euros in Portugal",
+      "lead": "Parahub converts nothing and holds nothing — your keys stay in this browser. These are independent services; here is what each route really costs and how long it takes.",
+      "tabSell": "Bitcoin → euros",
+      "tabBuy": "Euros → bitcoin",
+      "routes": {
+        "kraken": {
+          "name": "Kraken",
+          "what": "Licensed exchange (MiCA, Central Bank of Ireland). Lightning in and out, euros over SEPA Instant.",
+          "cost": "≈0.8% + €1",
+          "time": "Minutes",
+          "id": "ID required",
+          "sell": [
+            "Open a Kraken account and verify your identity — once.",
+            "In Kraken: Deposit → Bitcoin → Lightning, and copy the invoice.",
+            "In Parahub: Send → paste that invoice → pay. The sats arrive in seconds.",
+            "Sell BTC/EUR in the trade view, then Withdraw → SEPA Instant (€1, near-instant)."
+          ],
+          "buy": [
+            "Open a Kraken account and verify your identity — once.",
+            "Send euros from your bank by SEPA Instant — free, minutes.",
+            "Buy BTC/EUR in the trade view.",
+            "In Parahub: Receive → Lightning, copy the invoice and paste it into Kraken's Lightning withdrawal."
+          ],
+          "note": "Use the trade view, not the one-tap instant buy: that one costs 1% to 1.5%. At the lowest volume tier the trading fee is 0.40% maker / 0.80% taker. Withdraw large amounts on-chain — Lightning is built for small, instant transfers."
+        },
+        "bringin": {
+          "name": "Bringin",
+          "what": "Euro bridge built on Lightning, running on Lightspark Payments Europe (MiCA-licensed).",
+          "cost": "≈1.5%",
+          "time": "Minutes",
+          "id": "ID required",
+          "sell": [
+            "Sign up at bringin.app and verify — once.",
+            "Add your IBAN and open a Lightning connection.",
+            "Pay it from Parahub over Lightning; the euros land on your bank account by SEPA Instant."
+          ],
+          "buy": [
+            "Sign up at bringin.app and verify — once.",
+            "Transfer euros to the account Bringin gives you.",
+            "The sats come back over Lightning — paste a Parahub invoice or your Spark address."
+          ],
+          "note": "Their bank bridge starts at around €30 per transfer, so it does not suit very small amounts."
+        },
+        "p2p": {
+          "name": "RoboSats · Mostro",
+          "what": "Person to person over a Lightning escrow. No account, no documents — the protocol holds the sats until both sides confirm.",
+          "cost": "Premium varies",
+          "time": "10–60 min",
+          "id": "No account",
+          "sell": [
+            "Open robosats.org (over Tor if you can) or any Mostro client — you get a random robot name, nothing to register.",
+            "Take a buy order in euros, or post your own with the payment method you want: SEPA Instant, Revolut, MB Way.",
+            "Lock the sats in the Lightning escrow from Parahub, wait for the euros to reach your bank, then confirm."
+          ],
+          "buy": [
+            "Open robosats.org (over Tor if you can) or any Mostro client — you get a random robot name, nothing to register.",
+            "Take a sell order in euros, or post your own with the payment method you want.",
+            "Send the euros; the escrow releases the sats straight to a Parahub Lightning invoice."
+          ],
+          "note": "The euro order book is thin and the premium the other side asks can run to several percent in either direction. Read the price before you commit — on a quiet day a licensed exchange comes out cheaper."
+        },
+        "cash": {
+          "name": "Cash, face to face",
+          "what": "The oldest route: someone hands you notes, you send the sats from your phone.",
+          "cost": "0%",
+          "time": "Immediate",
+          "id": "No account",
+          "sell": [
+            "Agree a price — the mid-market rate from any price feed.",
+            "Take the cash and send the sats from Parahub over Lightning; both of you watch the screen.",
+            "To find counterparties beyond your own circle, Vexl matches you through your phone contacts — MiCA-licensed, holds nothing."
+          ],
+          "buy": [
+            "Agree a price — the mid-market rate from any price feed.",
+            "Hand over the cash and receive the sats to a Parahub invoice; both of you watch the screen.",
+            "To find counterparties beyond your own circle, Vexl matches you through your phone contacts — MiCA-licensed, holds nothing."
+          ],
+          "note": "Cheapest and fastest for small amounts, and with no escrow it rests entirely on trusting the person in front of you. Association meetups are the natural place for it."
+        }
+      },
+      "spendTitle": "Or skip the exchange",
+      "spendLead": "Half the reason to convert disappears when the sats can be spent as they are.",
+      "spend": [
+        "Bitrefill: top up MEO, NOS, Vodafone, UZO or Moche, and buy IKEA Portugal, Decathlon Portugal or multi-brand gift cards — paid over Lightning, delivered instantly.",
+        "Parahub market: pay members directly in sats, no conversion and no fee.",
+        "Membership fees, event tickets and energy settlements accept sats."
+      ],
+      "disclaimer": "These are independent services. Parahub does not operate them, never holds your funds and takes no cut of these routes. Fees, limits and availability change — check on their side before you trade."
+    },
+    "partners": "Partners",
+    "partner_no_address": "No payment address yet"
   },
   "seed": {
     "title": "Set Up Your Wallet",

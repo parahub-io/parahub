@@ -5,6 +5,7 @@ Business logic for multi-party exchange matching using Neo4j
 
 from typing import List, Dict, Optional
 from barter.neo4j_client import Neo4jClient
+from core.models import ObjectPhoto
 from identity.models import Profile
 from market.models import Item
 import logging
@@ -186,6 +187,7 @@ class BarterGraphService:
         chain_ids = ", ".join(["start.id"] + [f"u{i}.id" for i in range(2, length + 1)] + ["start.id"])
         cat_ids = ", ".join([f"cat{i}.id" for i in range(1, length + 1)])
         lines.append(f"WITH [{chain_ids}] as chain, [{cat_ids}] as categories")
+        lines.append("WHERE $category_id IS NULL OR $category_id IN categories")
         lines.append("RETURN DISTINCT chain, categories")
         lines.append("LIMIT 500")
         return "\n".join(lines)
@@ -231,7 +233,9 @@ class BarterGraphService:
         Args:
             user_id: User ID to find exchanges for
             max_length: Maximum chain length (number of participants)
-            category_id: Optional category filter
+            category_id: Optional category filter — keep only chains where at
+                least one swap is in this exact category; debt cycles carry no
+                category and are excluded when the filter is set
 
         Returns:
             List of exchange chains:
@@ -260,7 +264,8 @@ class BarterGraphService:
         blocks = []
         for length in range(2, effective_max + 1):
             blocks.append(f"// Items cycle length {length}\nMATCH (start:User {{id: $user_id}})\n" + self._build_items_chain_query(length))
-            blocks.append(f"// Debt cycle length {length}\n" + self._build_debt_chain_query(length))
+            if category_id is None:
+                blocks.append(f"// Debt cycle length {length}\n" + self._build_debt_chain_query(length))
 
         query = "\nUNION ALL\n\n".join(blocks)
 
@@ -526,12 +531,15 @@ class BarterGraphService:
         profile_map = {p['id']: p for p in profiles}
 
         # Batch load items with all related data
-        items = Item.objects.filter(id__in=item_ids).select_related('category').prefetch_related('images')
+        items = Item.objects.filter(id__in=item_ids).select_related('category')
+        first_photo = {}
+        for photo in ObjectPhoto.objects.filter(object_id__in=item_ids).order_by('order', 'created_at'):
+            first_photo.setdefault(photo.object_id, photo)
         item_map = {}
         for item in items:
-            first_image = item.images.first()
+            photo = first_photo.get(item.id)
             item_map[item.id] = {
-                'image': first_image.image.url if first_image else None,
+                'image': photo.image.url if photo else None,
                 'pricing_options': item.pricing_options or [],
                 'category_name': item.category.name if item.category else None,
                 'category_path': item.category.get_path() if item.category else None

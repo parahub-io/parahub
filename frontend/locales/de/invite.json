@@ -34,6 +34,8 @@
     "error_internal": "Interner Serverfehler. Bitte versuchen Sie es später erneut.",
     "error_unknown": "Ein unbekannter Fehler ist aufgetreten",
     "error_already_partner": "Bereits in Ihrer Partnerliste",
-    "error_accept_failed": "Einladung konnte nicht angenommen werden"
+    "error_accept_failed": "Einladung konnte nicht angenommen werden",
+    "have_account": "Sie haben bereits ein Konto?",
+    "log_in_instead": "Anmelden"
   }
 }

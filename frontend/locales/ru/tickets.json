@@ -36,7 +36,8 @@
     "event_ticket": "Билет на событие",
     "transit_ticket": "Транспортный билет",
     "camera_permission": "Требуется доступ к камере для сканирования",
-    "camera_denied": "Доступ к камере запрещён",
+    "camera_denied": "Доступ к камере запрещён — разрешите камеру для Parahub в настройках системы",
+    "camera_unavailable": "Камера недоступна",
     "staff_only": "Только для персонала / операторов",
     "error_purchase": "Ошибка покупки",
     "error_confirm": "Ошибка подтверждения оплаты",
@@ -90,6 +91,8 @@
     "offline_unverified": "Нет связи — скан в очереди, проверить не удалось",
     "offline_bad_signature": "Неверная подпись QR",
     "offline_foreign_type": "Подлинный, но не ваш тип билета",
+    "offline_already_scanned": "Уже отсканирован на этом устройстве в {time}",
+    "offline_window_ended": "Окно действия закончилось в {time}",
     "scan_result_offline": "Офлайн"
   }
 }

@@ -1263,3 +1263,51 @@ class SitePageAPITest(TestCase):
                 SitePageUpdateIn(slug='page-a'),
             )
         self.assertEqual(ctx.exception.status_code, 400)
+
+
+class SitemapDemoExclusionTest(TestCase):
+    """The sitemap is the one CMS surface with no viewer to exempt: whatever it
+    lists is handed to search engines, so seeded demo content must never reach it.
+    Demo mini-sites are marked on the Establishment, not on the Site or its pages."""
+
+    def setUp(self):
+        self.instance = _instance()
+        real_acc = _account(self.instance, username='sitemapreal')
+        self.real = _profile(real_acc, self.instance)
+        test_acc = _account(self.instance, username='sitemaptest')
+        test_acc.is_test = True
+        test_acc.save(update_fields=['is_test'])
+        self.tester = _profile(test_acc, self.instance)
+
+    def _page(self, site, slug):
+        return SitePage.objects.create(site=site, title=slug.title(), slug=slug,
+                                       is_published=True)
+
+    def _published(self):
+        from cms.api.helpers import _exclude_demo_pages
+        qs = SitePage.objects.filter(is_published=True, site__is_active=True)
+        return set(_exclude_demo_pages(qs).values_list('slug', flat=True))
+
+    def test_page_of_demo_marked_establishment_is_excluded(self):
+        est = _establishment(self.real, name='Demo Cafe', slug='demo-cafe')
+        est.attributes = {'__demo_seed': True}
+        est.save(update_fields=['attributes'])
+        self._page(Site.objects.create(establishment=est), 'about-us')
+        self.assertEqual(self._published(), set())
+
+    def test_page_of_test_owned_establishment_is_excluded(self):
+        est = _establishment(self.tester, name='Seeded Org', slug='seeded-org')
+        self._page(Site.objects.create(establishment=est), 'services')
+        self.assertEqual(self._published(), set())
+
+    def test_page_of_test_owned_profile_site_is_excluded(self):
+        self._page(Site.objects.create(profile=self.tester), 'hello')
+        self.assertEqual(self._published(), set())
+
+    def test_real_establishment_and_profile_pages_survive(self):
+        """Both owner shapes must pass — a Site has profile XOR establishment, and
+        the NULL side of that pair must not read as a synthetic owner."""
+        est = _establishment(self.real, name='Real Org', slug='real-org')
+        self._page(Site.objects.create(establishment=est), 'inicio')
+        self._page(Site.objects.create(profile=self.real), 'sobre')
+        self.assertEqual(self._published(), {'inicio', 'sobre'})

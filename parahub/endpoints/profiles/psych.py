@@ -5,6 +5,7 @@ Psycho-informatics (Yellow Protocol) endpoints.
 
 from django.shortcuts import get_object_or_404
 from django.http import Http404
+from ninja.errors import HttpError
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 import logging
@@ -64,7 +65,7 @@ def get_my_psych_profile(request):
 
     except Exception as e:
         logger.error(f"Error retrieving psych profile: {e}")
-        return {"error": "INTERNAL_ERROR", "message": "Failed to retrieve psych profile"}, 500
+        raise HttpError(500, "Failed to retrieve psych profile")
 
 @profile_router.post("/me/psych/", response=PsychProfileResponse, auth=ProfileAuth())
 @ratelimit(group='profiles:update_psych', key=user_or_ip, rate='30/m', method='POST')
@@ -91,15 +92,12 @@ def update_my_psych_profile(request, data: PsychProfileUpdateRequest):
         if data.form3_data is not None:
             # Validate form3_data structure (30 questions, values 1-5)
             if not isinstance(data.form3_data, dict):
-                return {"error": "VALIDATION_ERROR", "message": "form3_data must be a dict"}, 400
+                raise HttpError(400, "form3_data must be a dict")
 
             # Validate each answer is 1-5
             for key, value in data.form3_data.items():
                 if not isinstance(value, int) or value < 1 or value > 5:
-                    return {
-                        "error": "VALIDATION_ERROR",
-                        "message": f"Invalid answer for {key}: must be integer 1-5"
-                    }, 400
+                    raise HttpError(400, f"Invalid answer for {key}: must be integer 1-5")
 
             psych_profile.form3_data = data.form3_data
 
@@ -112,7 +110,7 @@ def update_my_psych_profile(request, data: PsychProfileUpdateRequest):
         # Update psych_hash_4 if provided
         if data.psych_hash_4 is not None:
             if not isinstance(data.psych_hash_4, list) or len(data.psych_hash_4) != 4:
-                return {"error": "VALIDATION_ERROR", "message": "psych_hash_4 must be array of 4 strings"}, 400
+                raise HttpError(400, "psych_hash_4 must be array of 4 strings")
 
             psych_profile.psych_hash_4 = data.psych_hash_4
             psych_profile.psych_hash_4_updated_at = timezone.now()
@@ -130,9 +128,11 @@ def update_my_psych_profile(request, data: PsychProfileUpdateRequest):
             form3_data=psych_profile.form3_data or {},  # Return to owner
         )
 
+    except HttpError:
+        raise  # validation 400s above must not be relabelled as 500
     except Exception as e:
         logger.error(f"Error updating psych profile: {e}")
-        return {"error": "INTERNAL_ERROR", "message": "Failed to update psych profile"}, 500
+        raise HttpError(500, "Failed to update psych profile")
 
 @profile_router.get("/{id}/psych/", response={200: PsychProfileResponse, 404: dict}, auth=GlobalAuth())
 @ratelimit(group='profiles:public_psych', key=user_or_ip, rate='60/m')
@@ -175,8 +175,8 @@ def get_profile_psych_hash(request, id: str):
             form3_data=None,  # NEVER expose to others
         )
 
-    except Profile.DoesNotExist:
-        raise Http404("Profile not found")
+    except Http404:
+        raise  # get_object_or_404 above raises Http404, not Profile.DoesNotExist
     except Exception as e:
         logger.error(f"Error retrieving psych profile for {id}: {e}")
-        return {"error": "INTERNAL_ERROR", "message": "Failed to retrieve psych profile"}, 500
+        raise HttpError(500, "Failed to retrieve psych profile")

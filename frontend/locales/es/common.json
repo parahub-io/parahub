@@ -31,6 +31,7 @@
     "transit_ops_desc": "Crea rutas, asigna vehículos, exporta GTFS — gestión de transporte para agencias",
     "tickets_desc": "Compra billetes digitales para eventos y transporte con pagos Lightning",
     "driver_desc": "Transmite tu posición GPS en tiempo real mientras conduces una ruta",
+    "carpool_desc": "Viajes compartidos entre paradas: pide un viaje y recibe ofertas de conductores",
     "intro": "Conceptos y principios que hacen a Parahub diferente de otras plataformas",
     "group_start": "Empezar",
     "group_city": "Ciudad y transporte",
@@ -47,7 +48,12 @@
     "subscriptions_desc": "Apoya a un creador cada mes — directo, no custodial, sin comisión de plataforma",
     "rental_desc": "Reserva por días o por franjas — disponibilidad sin doble reserva",
     "marketplace_desc": "Ofrece o busca cualquier cosa — comercio P2P directo, sin comisiones",
-    "directory_desc": "Encuentra negocios y organizaciones locales en el mapa"
+    "directory_desc": "Encuentra negocios y organizaciones locales en el mapa",
+    "maps_desc": "Herramientas y capas del mapa de la comunidad",
+    "opensky_desc": "Vuela un cuadrado, sube las fotos y el mapa mejora para todos",
+    "transit_desc": "Vehículos en vivo, llegadas, páginas de líneas y planificación de viajes",
+    "contracts_desc": "Acuerdos digitales firmados con tus propias claves",
+    "events_desc": "Encuentros y eventos con salas de chat automáticas"
   },
   "common": {
     "save": "Guardar",
@@ -80,16 +86,16 @@
       "login": "La llave de todo esto",
       "market": "Compra, vende, intercambia — sin intermediarios",
       "map": "Tu barrio en vivo",
-      "transit": "Cada autobús en tiempo real",
+      "transit": "Autobuses, trenes, ferris — en directo",
       "rides": "Viajes compartidos desde tu parada",
       "menu": "Toda la plataforma en una cuadrícula",
       "profile": "Cómo te ve la comunidad",
       "wallet": "Sats solo con tus llaves",
-      "settings": "Ajusta Parahub a tu gusto",
+      "settings": "Identidad, claves, idioma — tus reglas",
       "events": "Encuentros de la comunidad en persona",
       "directory": "Todos los lugares a tu alrededor",
       "governance": "Vota, delega, decide en común",
-      "iot": "Tus dispositivos en un panel",
+      "iot": "Sensores, interruptores, clima — un panel",
       "ads": "Ofertas locales, cero spam",
       "contracts": "Apretones de manos con fuerza criptográfica",
       "shipments": "Paquetes llevados por gente de confianza",
@@ -101,7 +107,8 @@
       "about": "Por qué existe todo esto",
       "notifications": "Todo lo que te perdiste, en un feed",
       "invite": "Trae a alguien de confianza",
-      "logout": "Sal — tus datos siguen siendo tuyos"
+      "logout": "Sal — tus datos siguen siendo tuyos",
+      "people": "Directo a la persona que buscas"
     },
     "notifications": "Notificaciones",
     "messages": "Mensajes",
@@ -125,11 +132,13 @@
     "invite": "Invitar",
     "transit": "Transporte",
     "webmail": "Webmail",
+    "google_play": "Google Play",
     "energy": "Solar",
     "shipments": "Envíos",
     "barter": "Trueque",
     "condo": "Condominio",
-    "language": "Idioma"
+    "language": "Idioma",
+    "find_person": "Buscar"
   },
   "footer": {
     "description": "Plataforma descentralizada de cooperación P2P para comercio directo, comunicaciones e interacciones comunitarias.",
@@ -142,7 +151,8 @@
     "privacy": "Política de Privacidad",
     "terms": "Términos de Servicio",
     "code_of_conduct": "Código de Conducta",
-    "imprint": "Imprenta"
+    "imprint": "Imprenta",
+    "sources": "Fuentes de datos"
   },
   "auth": {
     "login": "Iniciar sesión / Registrarse",
@@ -172,9 +182,25 @@
   },
   "update": {
     "new_version": "Hay una nueva versión disponible",
+    "description": "Actualiza la página para recibir las últimas novedades y mejoras.",
     "refresh": "Actualizar",
+    "later": "Más tarde",
     "app_new_version": "Actualización de la aplicación disponible",
-    "download": "Descargar"
+    "app_description": "Descarga la actualización y abre el archivo para instalarla.",
+    "download": "Descargar",
+    "whats_new": "Novedades",
+    "full_changelog": "Historial completo",
+    "updated_description": "La aplicación se actualizó desde tu última visita: esto es lo que cambió.",
+    "got_it": "Entendido"
+  },
+  "changelog": {
+    "title": "Novedades",
+    "subtitle": "Cada versión de la plataforma, en palabras sencillas.",
+    "latest": "Más reciente",
+    "also": "También en esta versión",
+    "show_earlier": "Mostrar versiones anteriores",
+    "empty": "Aún no hay notas de versión",
+    "meta_description": "Notas de versión de la plataforma Parahub: qué entró en cada versión, en palabras sencillas."
   },
   "choose_username": {
     "title": "Elige tu nombre de usuario",
@@ -240,46 +266,12 @@
     "getting_started": "Primeros Pasos",
     "action_profile": "Completa tu perfil",
     "action_profile_desc": "Añade tu foto, habilidades y ubicación",
-    "action_listing": "Publica un anuncio",
-    "action_listing_desc": "Ofrece bienes o servicios a la comunidad",
-    "action_directory": "Encuentra personas",
-    "action_directory_desc": "Explora el directorio y añade socios",
-    "action_map": "Explora el mapa",
-    "action_map_desc": "Ve transporte, personas y lugares cerca de ti",
-    "action_condo": "Gestiona tu edificio",
-    "action_condo_desc": "Asambleas digitales, cuotas y votación",
-    "wot_hint": "Consigue la verificación de 3 miembros de la comunidad para desbloquear todas las funciones. Así funciona la confianza aquí — sin pasaportes, sin corporaciones.",
-    "wot_learn_how": "Cómo funciona →",
-    "wot_find_people": "Encuentra personas →",
-    "stats_verifications": "Verificaciones",
-    "stats_reputation": "Reputación",
-    "stats_deals": "Tratos",
-    "stats_partners": "Socios",
-    "stats_following": "Seguidores",
-    "stats_verified": "Verificado",
-    "stats_confirmations": "confirmaciones",
-    "auth_error": "Sesión expirada. Por favor, inicia sesión de nuevo.",
-    "timeout": "La carga del panel ha expirado. Por favor, inténtalo de nuevo.",
-    "load_error": "Error al cargar el panel",
-    "loading": "Cargando el panel...",
-    "pulse_members": "miembros",
-    "pulse_listings": "anuncios",
-    "pulse_events": "eventos",
-    "pulse_polls": "votaciones abiertas",
-    "online_people": "{count} en línea",
-    "online_guests": "{count} invitados",
+    "action_keys": "Configura tus claves",
+    "action_keys_desc": "Una frase semilla: tu firma y tu monedero",
+    "action_verify": "Consigue verificarte",
+    "action_verify_desc": "Tres miembros responden por ti: sin pasaportes ni corporaciones",
     "top_partners": "Mejores Socios",
-    "recent_listings": "Anuncios Recientes",
-    "upcoming_events": "Próximos Eventos",
-    "active_polls": "Votaciones Activas",
-    "view_all": "Ver todos",
-    "options": "opciones",
-    "ends": "termina",
-    "today": "hoy",
-    "tomorrow": "mañana",
-    "quick_actions": "¿Qué te gustaría hacer?",
-    "create_event": "Crear evento",
-    "create_contract": "Nuevo contrato"
+    "view_all": "Ver todos"
   },
   "like": "Me gusta",
   "unlike": "Ya no me gusta",
@@ -288,5 +280,13 @@
   "error_server": "Algo salió mal",
   "about": {
     "title": "Acerca de"
+  },
+  "people_picker": {
+    "title": "Encontrar a una persona",
+    "placeholder": "Nombre o identificador",
+    "partners": "Tus socios",
+    "empty": "No se encontró a nadie",
+    "no_partners": "Aún no tienes socios",
+    "invite": "Invitar a alguien"
   }
 }

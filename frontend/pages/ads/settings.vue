@@ -1,35 +1,40 @@
 <template>
   <div class="w-full space-y-6">
     <!-- Section 1: Earnings -->
-    <div class="rounded-lg border border-yellow-300 p-4 space-y-4" style="background-color: #FFE216;">
-      <div>
-        <h3 class="text-sm font-semibold text-neutral-900">{{ $t('ads.sections.earnings.title') }}</h3>
-        <p class="text-xs text-neutral-700 mt-0.5">{{ $t('ads.sections.earnings.description') }}</p>
+    <div class="card p-4 space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-white dark:bg-neutral-700/60 flex items-center justify-center flex-shrink-0">
+          <img src="/images/wallet/ad.webp" alt="" aria-hidden="true" class="w-7 h-7 object-contain" />
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('ads.sections.earnings.title') }}</h3>
+          <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ $t('ads.sections.earnings.description') }}</p>
+        </div>
       </div>
 
       <!-- Stats row -->
       <div class="grid grid-cols-3 gap-3">
-        <div class="bg-white/60 rounded-lg p-3 text-center">
-          <p class="text-xl font-bold text-neutral-900">{{ earnings.total_views }}</p>
-          <p class="text-xs text-neutral-600">{{ $t('ads.profile.total_views') }}</p>
+        <div class="bg-white dark:bg-neutral-900/40 rounded-lg p-3 text-center">
+          <p class="text-xl font-bold text-neutral-900 dark:text-neutral-100">{{ earnings.total_views }}</p>
+          <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('ads.profile.total_views') }}</p>
         </div>
-        <div class="bg-white/60 rounded-lg p-3 text-center">
-          <p class="text-xl font-bold text-neutral-900">{{ earnings.total_earned_sats }}</p>
-          <p class="text-xs text-neutral-600">{{ $t('ads.profile.total_earned') }}</p>
+        <div class="bg-white dark:bg-neutral-900/40 rounded-lg p-3 text-center">
+          <p class="text-xl font-bold text-neutral-900 dark:text-neutral-100">{{ earnings.total_earned_sats }}</p>
+          <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('ads.profile.total_earned') }}</p>
         </div>
-        <div class="bg-white/60 rounded-lg p-3 text-center">
-          <p class="text-xl font-bold text-neutral-900">{{ earnings.avg_per_view_sats.toFixed(1) }}</p>
-          <p class="text-xs text-neutral-600">{{ $t('ads.profile.avg_per_view') }}</p>
+        <div class="bg-white dark:bg-neutral-900/40 rounded-lg p-3 text-center">
+          <p class="text-xl font-bold text-neutral-900 dark:text-neutral-100">{{ earnings.avg_per_view_sats.toFixed(1) }}</p>
+          <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('ads.profile.avg_per_view') }}</p>
         </div>
       </div>
 
       <!-- Min reward slider -->
       <div class="space-y-2">
         <div class="flex items-center justify-between">
-          <label class="text-sm text-neutral-900">
+          <label class="text-sm text-neutral-900 dark:text-neutral-100">
             {{ $t('ads.profile.min_reward') }}
           </label>
-          <span class="text-sm font-semibold text-neutral-900">{{ targeting.min_reward_sats }} sats</span>
+          <span class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ targeting.min_reward_sats }} sats</span>
         </div>
         <input
           v-model.number="targeting.min_reward_sats"
@@ -38,7 +43,7 @@
           min="1"
           max="500"
           step="1"
-          class="w-full accent-neutral-900"
+          class="w-full accent-secondary"
           :aria-label="$t('ads.profile.min_reward')"
         />
         <div class="flex gap-2 flex-wrap">
@@ -47,18 +52,20 @@
             :key="preset"
             type="button"
             @click="targeting.min_reward_sats = preset; saveTargeting()"
-            class="px-2.5 py-1 text-xs rounded-full border border-neutral-400 bg-white/50 hover:bg-white/80 text-neutral-800 transition-colors"
-            :class="targeting.min_reward_sats === preset ? 'border-neutral-700 font-semibold' : ''"
+            class="px-2.5 py-1 text-xs rounded-full border transition-colors"
+            :class="targeting.min_reward_sats === preset
+              ? 'bg-secondary text-white border-secondary font-semibold'
+              : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
           >
             {{ preset }} sats
           </button>
         </div>
-        <p class="text-xs text-neutral-600">{{ $t('ads.profile.min_reward_help') }}</p>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('ads.profile.min_reward_help') }}</p>
       </div>
     </div>
 
     <!-- Section 2: About You -->
-    <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 space-y-4">
+    <div class="card p-4 space-y-4">
       <div>
         <h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('ads.settings.about_you') }}</h3>
         <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ $t('ads.settings.about_you_desc') }}</p>
@@ -73,7 +80,7 @@
           <select
             v-model="targeting.gender"
             @change="saveTargeting"
-            class="w-full px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100"
+            class="w-full px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           >
             <option value="any">{{ $t('ads.profile.gender_any') }}</option>
             <option value="male">{{ $t('ads.profile.gender_male') }}</option>
@@ -90,7 +97,7 @@
             v-model="targeting.birth_date"
             @change="saveTargeting"
             type="date"
-            class="w-full px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100"
+            class="w-full px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
       </div>
@@ -108,8 +115,8 @@
             @click="toggleChildrenAge(age.id, age.name)"
             class="px-3 py-1.5 rounded-full border text-sm transition-colors"
             :class="selectedChildrenAges.includes(age.id)
-              ? 'border-primary bg-primary/10 text-primary'
-              : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400'"
+              ? 'bg-secondary text-white border-secondary'
+              : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
           >
             {{ getChildrenAgeLabel(age.name) }}
           </button>
@@ -118,7 +125,7 @@
     </div>
 
     <!-- Section 3: Interests (chip cloud) -->
-    <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 space-y-4">
+    <div class="card p-4 space-y-4">
       <div>
         <h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('ads.profile.interests') }}</h3>
         <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ $t('ads.profile.interests_help') }}</p>
@@ -132,8 +139,8 @@
           @click="toggleInterest(interest.id)"
           class="px-3 py-1.5 rounded-full border text-sm transition-colors"
           :class="selectedInterests.includes(interest.id)
-            ? 'border-primary bg-primary/10 text-primary'
-            : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400'"
+            ? 'bg-secondary text-white border-secondary'
+            : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
         >
           {{ $t(`ads.interests.${interest.slug}`, interest.name) }}
         </button>
@@ -141,7 +148,7 @@
     </div>
 
     <!-- Section 4: Skills -->
-    <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 space-y-4">
+    <div class="card p-4 space-y-4">
       <div>
         <h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('ads.sections.skills.title') }}</h3>
         <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ $t('ads.sections.skills.description') }}</p>
@@ -151,7 +158,7 @@
         <div
           v-for="skill in allSkills"
           :key="skill.id"
-          class="flex items-center justify-between py-1.5 px-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-700"
+          class="flex items-center justify-between py-1.5 px-2 rounded hover:bg-primary-100 dark:hover:bg-primary-900/40"
         >
           <span class="text-sm text-neutral-800 dark:text-neutral-200 min-w-0 mr-3 truncate">
             {{ $t(`ads.skills.${skill.slug}`, skill.name) }}
@@ -170,9 +177,7 @@
             >
               <Star
                 class="w-4 h-4 transition-colors"
-                :class="isStarActive(skill.id, lvl)
-                  ? 'text-amber-400 fill-amber-400'
-                  : 'text-neutral-300 dark:text-neutral-600'"
+                :class="isStarActive(skill.id, lvl) ? 'star-on' : 'star-off'"
               />
             </button>
           </div>
@@ -181,7 +186,7 @@
     </div>
 
     <!-- Section 5: Locations (unified map) -->
-    <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 space-y-4">
+    <div class="card p-4 space-y-4">
       <div>
         <h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('ads.profile.locations_title') }}</h3>
         <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ $t('ads.settings.locations_desc') }}</p>
@@ -198,12 +203,29 @@
             @click="activeSlot = idx"
             class="px-3 py-1.5 text-sm rounded-full border transition-colors"
             :class="activeSlot === idx
-              ? 'border-primary bg-primary/10 text-primary font-medium'
-              : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400'"
+              ? 'bg-secondary text-white border-secondary font-medium'
+              : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
           >
             <span :style="{ color: SLOT_COLORS[idx] }">●</span>
             {{ $t(`ads.profile.location_${loc.label.toLowerCase()}`) }}
           </button>
+        </div>
+
+        <!-- Quick-fill the active slot from an own property -->
+        <div v-if="propertiesWithCoords.length" class="space-y-1">
+          <p class="text-xs text-neutral-400">{{ $t('ads.profile.fill_from_properties') }}</p>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="prop in propertiesWithCoords"
+              :key="prop.id"
+              type="button"
+              @click="usePropertyForSlot(prop)"
+              class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary transition-colors"
+            >
+              <Home class="w-3 h-3" />
+              {{ prop.name }}
+            </button>
+          </div>
         </div>
 
         <!-- Unified map -->
@@ -220,14 +242,14 @@
             :key="idx"
             class="flex items-center gap-2 p-2 rounded-lg border transition-colors"
             :class="activeSlot === idx
-              ? 'border-primary/30 bg-primary/5'
+              ? 'border-secondary bg-secondary-50 dark:bg-secondary-900/20'
               : 'border-neutral-200 dark:border-neutral-700'"
           >
             <span class="text-sm" :style="{ color: SLOT_COLORS[idx] }">●</span>
             <select
               v-model="loc.label"
               @change="onLabelChange(idx); saveLocations()"
-              class="px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100"
+              class="px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="Home">{{ $t('ads.profile.location_home') }}</option>
               <option value="Work">{{ $t('ads.profile.location_work') }}</option>
@@ -237,11 +259,25 @@
               {{ loc.latitude.toFixed(5) }}, {{ loc.longitude.toFixed(5) }}
             </span>
             <span v-else class="text-xs text-neutral-400 flex-1">—</span>
-            <button @click="removeLocation(idx)" class="text-neutral-400 hover:text-red-500 flex-shrink-0">
+            <button @click="removeLocation(idx)" class="text-neutral-400 hover:text-error flex-shrink-0">
               <X class="w-4 h-4" />
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- Empty state: one-click Home slot from an own property -->
+      <div v-if="locations.length === 0 && propertiesWithCoords.length" class="flex flex-wrap gap-1.5">
+        <button
+          v-for="prop in propertiesWithCoords"
+          :key="prop.id"
+          type="button"
+          @click="addLocationFromProperty(prop)"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary transition-colors"
+        >
+          <Home class="w-3.5 h-3.5" />
+          {{ $t('ads.profile.add_home_from', { name: prop.name }) }}
+        </button>
       </div>
 
       <!-- Add location button -->
@@ -249,7 +285,7 @@
         v-if="locations.length < 3"
         type="button"
         @click="addLocation"
-        class="w-full py-2 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg text-sm text-neutral-500 dark:text-neutral-400 hover:border-secondary hover:text-secondary transition-colors"
+        class="w-full py-2 border border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg text-sm text-neutral-500 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
       >
         + {{ $t('ads.profile.add_location') }}
       </button>
@@ -258,35 +294,21 @@
       </p>
     </div>
 
-    <!-- Save confirmation toast -->
-    <Transition
-      enter-active-class="transition ease-out duration-300"
-      enter-from-class="translate-y-4 opacity-0"
-      enter-to-class="translate-y-0 opacity-100"
-      leave-active-class="transition ease-in duration-200"
-      leave-from-class="translate-y-0 opacity-100"
-      leave-to-class="translate-y-4 opacity-0"
-    >
-      <div
-        v-if="saved"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-lg shadow-lg text-sm font-medium bg-green-600 text-white"
-      >
-        {{ $t('ads.sections.targeting.saved') }}
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { X, Star } from 'lucide-vue-next'
+import { X, Star, Home } from 'lucide-vue-next'
 import { useMapStore } from '~/stores/map'
+import { useToastStore } from '~/stores/toast'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
 const localePath = useLocalePath()
 const colorMode = useColorMode()
 const mapStore = useMapStore()
+const toastStore = useToastStore()
 const { loadAdsProfile } = useAdsState()
 
 const allInterests = ref<any[]>([])
@@ -306,10 +328,9 @@ const selectedInterests = ref<string[]>([])
 const skillRatings = ref<Record<string, number>>({})
 const selectedChildrenAges = ref<string[]>([])
 const earnings = ref({ total_views: 0, total_earned_sats: 0, avg_per_view_sats: 0 })
-const saved = ref(false)
 
-// Unified location map
-const SLOT_COLORS = ['#ef4444', '#3b82f6', '#22c55e']
+// Unified location map — slot dots use design-system tokens (error/secondary/success)
+const SLOT_COLORS = ['#DC2626', '#4E4EC8', '#059669']
 
 interface LocationEntry { label: string; latitude: number | null; longitude: number | null }
 const locations = ref<LocationEntry[]>([])
@@ -455,6 +476,40 @@ function onLabelChange(_idx: number) {
   // No visual change needed; save is called after
 }
 
+// Quick fly-to chips (design-system § Minimap): own properties with coords
+const propertyStore = usePropertyStore()
+const propertiesWithCoords = computed(() =>
+  propertyStore.properties.filter((p: any) => p.latitude && p.longitude)
+)
+
+async function addLocationFromProperty(prop: any) {
+  if (locations.value.length >= 3) return
+  locations.value.push({ label: 'Home', latitude: prop.latitude, longitude: prop.longitude })
+  activeSlot.value = locations.value.length - 1
+  await nextTick()
+  if (!unifiedMap) {
+    await initUnifiedMap()
+  } else {
+    const maplibregl = await getMapLibre()
+    updateMapMarker(maplibregl, activeSlot.value, prop.longitude, prop.latitude)
+    unifiedMap.flyTo({ center: [prop.longitude, prop.latitude], zoom: 17, essential: true, speed: 4.5 })
+  }
+  saveLocations()
+}
+
+async function usePropertyForSlot(prop: any) {
+  const idx = activeSlot.value
+  if (idx >= locations.value.length) return
+  locations.value[idx].latitude = prop.latitude
+  locations.value[idx].longitude = prop.longitude
+  if (unifiedMap) {
+    const maplibregl = await getMapLibre()
+    updateMapMarker(maplibregl, idx, prop.longitude, prop.latitude)
+    unifiedMap.flyTo({ center: [prop.longitude, prop.latitude], zoom: 17, essential: true, speed: 4.5 })
+  }
+  saveLocations()
+}
+
 async function saveLocations() {
   const valid = locations.value.filter(l => l.latitude !== null && l.longitude !== null)
   try {
@@ -485,9 +540,10 @@ watch(activeSlot, (idx) => {
 
 onUnmounted(() => destroyUnifiedMap())
 
+let savedToastId: string | null = null
 function showSaved() {
-  saved.value = true
-  setTimeout(() => { saved.value = false }, 2000)
+  if (savedToastId) toastStore.removeToast(savedToastId)
+  savedToastId = toastStore.success(t('ads.sections.targeting.saved'), undefined, 2000)
 }
 
 const childrenAgeKeyMap: Record<string, string> = {
@@ -623,6 +679,7 @@ function applyProfile(profile: any) {
 }
 
 onMounted(async () => {
+  propertyStore.fetchProperties().catch(() => {})
   const [profile, refData, earningsData] = await Promise.all([
     loadAdsProfile(),
     Promise.all([

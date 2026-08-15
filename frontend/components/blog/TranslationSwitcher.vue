@@ -6,7 +6,7 @@ const props = defineProps<{
   translations: Array<{ id: string; language: string; slug: string; title: string }>
   canEdit?: boolean
   postId?: string
-  /** Base path for building links, e.g. '/blog', '/org/slug/blog', '/u/name/blog' */
+  /** Base path for building links, e.g. '/blog', '/org/slug/blog', '/@name/blog' */
   linkBase?: string
 }>()
 
@@ -59,7 +59,7 @@ function postLink(tr: { slug: string }) {
     <NuxtLink
       v-if="canEdit && postId"
       :to="localePath(`/blog/create?translate=${postId}`)"
-      class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border border-dashed border-neutral-300 dark:border-neutral-600 text-neutral-500 dark:text-neutral-400 hover:border-primary hover:text-primary transition-colors"
+      class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border border-dashed border-neutral-300 dark:border-neutral-600 text-neutral-500 dark:text-neutral-400 hover:border-primary hover:text-secondary dark:hover:text-secondary-400 transition-colors"
     >
       + {{ t('cms.translateThisPost') }}
     </NuxtLink>

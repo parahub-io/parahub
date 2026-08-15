@@ -44,7 +44,8 @@
       "no_results": "Keine Ergebnisse gefunden",
       "no_results_desc": "Versuchen Sie, Ihre Suche oder Filter anzupassen.",
       "type_all": "Alle",
-      "refine_label": "Filter"
+      "refine_label": "Filter",
+      "test_profiles": "Testprofile"
     },
     "people": {
       "type_filter_all": "Alle",
@@ -106,7 +107,12 @@
       },
       "hours_open": "Geöffnet",
       "hours_closed": "Geschlossen",
-      "hours_advanced_note": "Einige Einträge nutzen ein erweitertes Format und wurden unverändert beibehalten."
+      "hours_advanced_note": "Einige Einträge nutzen ein erweitertes Format und wurden unverändert beibehalten.",
+      "membership_policy": "Beitritt",
+      "membership_policy_open": "Alle können beitreten",
+      "membership_policy_invite": "Nur auf Einladung",
+      "membership_policy_hint": "Organisationen nur mit Einladung vergeben die Mitgliedschaft selbst. Auf Anfrage kann sich jede Person bewerben, ein Admin entscheidet.",
+      "membership_policy_request": "Auf Anfrage"
     },
     "users": {
       "search_placeholder": "Nach Name oder HNA suchen...",
@@ -150,7 +156,13 @@
         "copied": "Kopiert!",
         "regenerate_confirm": "Einen neuen Einladungslink erstellen? Der alte funktioniert nicht mehr.",
         "invited_count_label": "Über Ihren Link registriert",
-        "qr_aria_label": "QR-Code für Einladungslink"
+        "qr_aria_label": "QR-Code für Einladungslink",
+        "explainer_them_title": "Für die andere Person",
+        "explainer_them_text": "ein Konto mit einem Fingertipp, ohne E-Mail — und Sie werden sofort Partner, mit direktem Chat.",
+        "explainer_you_title": "Für Sie",
+        "explainer_you_text": "die Person erscheint unter Ihren Partnern und in Ihrem Einladungszähler. Sobald sie 3 Verifizierungen im Vertrauensnetzwerk erhält, zählt sie als verwurzelt.",
+        "wot_note": "Der Link öffnet die Tür, nicht das Vertrauen: Voller Zugang erfordert weiterhin 3 Verifizierungen durch Mitglieder.",
+        "rooted_count_label": "Verwurzelt (3+ Verifizierungen)"
       },
       "notifications": {
         "auth_required": "Authentifizierung erforderlich",
@@ -326,7 +338,67 @@
       "wot_required_title": "Verifizierung erforderlich",
       "wot_required": "Das Erstellen von Organisationen erfordert Web-of-Trust-Stufe 3+ (3 Verifizierungen) oder eine Stiftungsmitgliedschaft."
     },
-    "anon_hint": "Melden Sie sich an, um Personen zu suchen und Partner hinzuzufügen."
+    "anon_hint": "Melden Sie sich an, um Personen zu suchen und Partner hinzuzufügen.",
+    "members": {
+      "title": "Mitglieder",
+      "list_title": "Mitglieder",
+      "empty": "Noch keine Mitglieder",
+      "no_access": "Sie können hier keine Mitglieder verwalten",
+      "no_access_hint": "Nur die Eigentümerseite der Organisation und ihre Admins.",
+      "load_error": "Mitglieder konnten nicht geladen werden",
+      "action_error": "Aktion fehlgeschlagen",
+      "done": "Fertig",
+      "joined": "beigetreten",
+      "role": "Rolle",
+      "position": "Funktion",
+      "position_placeholder": "z. B. Disponent",
+      "role_owner": "Eigentümer",
+      "role_admin": "Administrator",
+      "role_member": "Mitglied",
+      "role_employee": "Angestellte:r",
+      "role_contractor": "Auftragnehmer",
+      "role_changed": "Rolle aktualisiert",
+      "remove": "Entfernen",
+      "remove_confirm": "Sicher?",
+      "removed": "Mitglied entfernt",
+      "invite_title": "Jemanden einladen",
+      "invite_by_name": "Per Name",
+      "invite_by_link": "Per Link",
+      "invite_button": "Einladung senden",
+      "invite_sent": "Einladung gesendet",
+      "create_link": "Link erstellen",
+      "link_hint": "Erstellt einen einmaligen Link. Wer ihn öffnet, tritt mit der gewählten Rolle bei — senden Sie ihn nur an eine Person.",
+      "link_created": "Einladungslink",
+      "link_invite": "Einladungslink",
+      "copy_link": "Link kopieren",
+      "copied": "Kopiert",
+      "search_placeholder": "Nach Name oder Adresse suchen",
+      "expires_in": "Die Einladung läuft in 14 Tagen ab.",
+      "expires": "läuft ab",
+      "expired": "Abgelaufen",
+      "pending_title": "Gesendete Einladungen",
+      "applications_title": "Beitrittsanfragen",
+      "approve": "Annehmen",
+      "decline": "Ablehnen",
+      "revoke": "Zurückziehen",
+      "request_join": "Beitritt anfragen",
+      "request_pending": "Anfrage offen"
+    },
+    "invite": {
+      "title": "Einladung",
+      "invited_you": "Sie wurden eingeladen zu",
+      "from": "von",
+      "accept": "Annehmen",
+      "decline": "Ablehnen",
+      "accepted": "Sie sind dabei",
+      "declined": "Einladung abgelehnt",
+      "expired": "Diese Einladung ist abgelaufen",
+      "already_resolved": "Diese Einladung wurde bereits beantwortet",
+      "not_found": "Einladung nicht gefunden",
+      "browse": "Organisationen ansehen",
+      "sign_in": "Zum Annehmen anmelden",
+      "sign_in_hint": "Zum Annehmen wird ein Profil benötigt — melden Sie sich an oder erstellen Sie eines, Sie landen wieder hier."
+    }
   },
   "wot": {
     "status_title": "Ihr Verifizierungsstatus",
@@ -423,7 +495,6 @@
       "self_verification": "Sie können sich nicht selbst verifizieren.",
       "no_verification_photo": "Dieser Nutzer muss ein Verifizierungsfoto (mit biometrischer Einwilligung) hochladen, bevor er verifiziert werden kann.",
       "no_face_embedding": "Auf dem Verifizierungsfoto dieses Nutzers wurde kein Gesicht erkannt. Bitten Sie ihn, es erneut hochzuladen.",
-      "reconfirmation_pending": "Das Foto dieses Nutzers wurde kürzlich geändert und wartet auf Bestätigung (3 erforderlich).",
       "face_duplicate": "Verifizierung blockiert: Dieses Gesicht stimmt mit einem bereits verifizierten Profil überein.",
       "already_verified": "Sie haben diesen Nutzer bereits verifiziert.",
       "invalid_method": "Ungültige Verifizierungsmethode.",
@@ -435,6 +506,7 @@
       "invalid_signature": "Ungültige PGP-Signatur. Stellen Sie sicher, dass Sie mit Ihrem registrierten PGP-Schlüssel signiert haben.",
       "signature_error": "Ihre PGP-Signatur konnte nicht überprüft werden. Bitte versuchen Sie es erneut.",
       "internal_error": "Auf unserer Seite ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut."
-    }
+    },
+    "photo_reconfirmation_title": "Foto geändert"
   }
 }

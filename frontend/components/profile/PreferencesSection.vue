@@ -207,10 +207,11 @@ const { isSubscribed: pushSubscribed } = usePushNotifications()
 
 // Notification category preferences
 const notifGroupId = useId()
-type NotifCategory = 'social' | 'contracts' | 'governance' | 'calls' | 'rental'
+type NotifCategory = 'social' | 'messages' | 'contracts' | 'governance' | 'calls' | 'rental'
 
 const notifPrefs = reactive<Record<NotifCategory, boolean>>({
   social: true,
+  messages: true,
   contracts: true,
   governance: true,
   calls: true,
@@ -219,6 +220,9 @@ const notifPrefs = reactive<Record<NotifCategory, boolean>>({
 
 const notifCategories = computed(() => [
   { key: 'social' as NotifCategory, label: t('profile.preferences.notify_social'), hint: t('profile.preferences.notify_social_hint') },
+  // Separate from social on purpose: silencing partner-add chatter must not
+  // silence a person sending you a message.
+  { key: 'messages' as NotifCategory, label: t('profile.preferences.notify_messages'), hint: t('profile.preferences.notify_messages_hint') },
   { key: 'contracts' as NotifCategory, label: t('profile.preferences.notify_contracts'), hint: t('profile.preferences.notify_contracts_hint') },
   { key: 'rental' as NotifCategory, label: t('profile.preferences.notify_rental'), hint: t('profile.preferences.notify_rental_hint') },
   { key: 'governance' as NotifCategory, label: t('profile.preferences.notify_governance'), hint: t('profile.preferences.notify_governance_hint') },
@@ -299,7 +303,7 @@ onMounted(() => {
   // Load notification preferences (empty object = all enabled by default)
   const saved = authStore.profile?.notification_prefs
   if (saved && typeof saved === 'object') {
-    for (const key of ['social', 'contracts', 'governance', 'calls', 'rental'] as NotifCategory[]) {
+    for (const key of ['social', 'messages', 'contracts', 'governance', 'calls', 'rental'] as NotifCategory[]) {
       if (key in saved) {
         notifPrefs[key] = Boolean(saved[key])
       }

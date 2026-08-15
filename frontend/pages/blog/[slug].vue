@@ -36,7 +36,7 @@ const { data: post, error } = await useAsyncData(
 
 const backLink = computed(() => {
   if (post.value?.establishment_slug) return `/org/${post.value.establishment_slug}/blog`
-  if (post.value?.author_local_name) return `/u/${post.value.author_local_name}/blog`
+  if (post.value?.author_local_name) return `/@${post.value.author_local_name}/blog`
   return '/blog'
 })
 const backLabel = computed(() => post.value?.establishment_name || post.value?.author_display_name || t('cms.blog'))

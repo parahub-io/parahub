@@ -7,6 +7,8 @@ Actual OTS stamping happens in batches via batch_ots_stamp management command (e
 import hashlib
 import json
 import logging
+import threading
+from contextlib import contextmanager
 from typing import Optional
 
 from django.db.models.signals import post_save
@@ -17,6 +19,7 @@ from django.db import IntegrityError
 from asgiref.sync import async_to_sync
 
 from identity.models import Profile, Verification
+from identity.visibility import account_is_synthetic
 from contracts.models import Contract
 from debts.models import Debt
 from geo.models import Establishment
@@ -50,12 +53,40 @@ def _create_pending_proof(obj, data_to_timestamp: dict) -> Optional['TimestampPr
         return None  # Duplicate — proof already exists
 
 
+def _excluded_from_public_registry(profile) -> bool:
+    """Test-seed and bot accounts never enter the public keyring/registry."""
+    account = getattr(profile, 'account', None)
+    return account is None or account_is_synthetic(account)
+
+
+_registry_suspension = threading.local()
+
+
+@contextmanager
+def suspend_registry_registration():
+    """
+    Skip federation-registry registration for establishments created inside
+    this context. For seed/import commands whose establishments are catalog
+    content, not organizations registered by their creators — the owner-flag
+    guard can't catch them when they are deliberately owned by a real account
+    (seed_test_establishments owns them as norn for public visibility).
+    """
+    _registry_suspension.active = True
+    try:
+        yield
+    finally:
+        _registry_suspension.active = False
+
+
 @receiver(post_save, sender=Profile)
 def publish_pgp_key(sender, instance, created, **kwargs):
     """
     Auto-publish PGP public key to Git repository when profile is created or key is updated.
     """
     if not instance.pgp_public_key:
+        return
+
+    if _excluded_from_public_registry(instance):
         return
 
     try:
@@ -198,6 +229,20 @@ def register_organization_in_registry(sender, instance, created, **kwargs):
         return
 
     if not getattr(settings, 'FEDERATION_ENABLED', False):
+        return
+
+    if getattr(_registry_suspension, 'active', False):
+        return
+
+    # Ownerless establishments are imported catalog entries (xeno/OSM), not
+    # organizations registered by their creators — they don't belong in the
+    # federation registry, and neither does anything owned by test/bot accounts.
+    if instance.owner is None or _excluded_from_public_registry(instance.owner):
+        return
+
+    # Demo-seeded content stays out of the public registry regardless of owner
+    attrs = instance.attributes or {}
+    if attrs.get('__demo_seed') or attrs.get('demo'):
         return
 
     def _register():

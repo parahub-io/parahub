@@ -3,6 +3,7 @@
     "title": "Dispatch",
     "page_title": "Dispatch - Parahub",
     "subtitle": "Vehicle → Route assignments",
+    "assignments": "Assignments",
     "staff_only": "Staff only",
     "assign": "Assign",
     "stats_active": "Active",
@@ -35,6 +36,15 @@
     "notes_placeholder": "Optional notes...",
     "create_assignment": "Create Assignment",
     "error_create": "Failed to create assignment",
-    "error_action": "Failed"
+    "error_action": "Failed",
+    "cancel_sure": "Sure?",
+    "status": {
+      "ACTIVE": "Active",
+      "ASSIGNED": "Assigned",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    },
+    "no_operator": "No operator",
+    "no_operator_hint": "Dispatch is for transit operators — you manage none yet. Ask an operator to add you, or create your own agency."
   }
 }

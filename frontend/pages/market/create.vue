@@ -646,7 +646,12 @@ const loadEditData = async () => {
   loadingEdit.value = true
   try {
     await authStore.ensureToken()
-    const item = await $fetch(`/api/v1/items/${editItemId.value}/`)
+    // Authenticated: the owner's own hidden / registered-only items are 404 to
+    // anonymous readers, and `exact_location` is owner-gated.
+    const item = await $fetch(`/api/v1/items/${editItemId.value}/`, {
+      credentials: 'include',
+      headers: authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
+    })
 
     // Pre-fill form
     newItem.value.type = item.item_type || 'CREDIT'
@@ -658,10 +663,13 @@ const loadEditData = async () => {
     newItem.value.visibility = item.visibility || 'PUBLIC'
     newItem.value.establishment_id = item.establishment_id || null
 
-    // Location (API returns fuzzed {latitude, longitude})
-    if (item.location) {
-      newItem.value.location.latitude = item.location.latitude
-      newItem.value.location.longitude = item.location.longitude
+    // `location` is snapped to the ~100m privacy grid for everyone else; the
+    // owner gets `exact_location`, and only that may be round-tripped back into
+    // the save payload — the fuzzed point would become the item's real one.
+    const editLocation = item.exact_location || item.location
+    if (editLocation) {
+      newItem.value.location.latitude = editLocation.latitude
+      newItem.value.location.longitude = editLocation.longitude
     }
 
     // Pricing options

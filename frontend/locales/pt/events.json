@@ -77,7 +77,16 @@
       "max_participants_hint": "Deixe vazio se não houver limite",
       "cover_image": "Imagem de capa",
       "cover_image_drop": "Clique ou arraste uma imagem aqui",
-      "submit": "Criar Evento"
+      "submit": "Criar Evento",
+      "errors": {
+        "title_min": "O título deve ter pelo menos 3 caracteres",
+        "description_min": "A descrição deve ter pelo menos 10 caracteres",
+        "starts_required": "Indique a data e hora de início",
+        "location_required": "O local é obrigatório para eventos presenciais e híbridos",
+        "online_url_required": "A ligação de acesso é obrigatória para eventos online e híbridos",
+        "image_too_large": "A imagem deve ter menos de 10 MB",
+        "failed": "Não foi possível criar o evento"
+      }
     },
     "landing_title": "Eventos comunitários",
     "landing_meta": "Organize e descubra eventos da comunidade com chat integrado. Presencial, online ou híbrido. Gratuito e open-source.",

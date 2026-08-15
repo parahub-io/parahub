@@ -34,6 +34,8 @@
     "error_internal": "Erro interno do servidor. Tente novamente mais tarde.",
     "error_unknown": "Ocorreu um erro desconhecido",
     "error_already_partner": "Já está na sua lista de parceiros",
-    "error_accept_failed": "Falha ao aceitar convite"
+    "error_accept_failed": "Falha ao aceitar convite",
+    "have_account": "Já tem uma conta?",
+    "log_in_instead": "Iniciar sessão"
   }
 }

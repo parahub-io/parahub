@@ -85,7 +85,7 @@
             <!-- Rating -->
             <div v-if="establishment.rating_count > 0" class="flex-shrink-0 text-right">
               <div class="flex items-center gap-1">
-                <Star class="w-5 h-5 text-amber-600 fill-amber-600" />
+                <Star class="w-5 h-5 star-on" />
                 <span class="text-lg font-bold text-neutral-900">{{ Number(establishment.rating_avg).toFixed(1) }}</span>
               </div>
               <span class="text-xs text-neutral-900/60">{{ establishment.rating_count }} {{ establishment.rating_count === 1 ? 'review' : 'reviews' }}</span>
@@ -101,7 +101,7 @@
       <div class="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
 
         <!-- Quick links row: public links + a single, clearly-marked owner menu -->
-        <!-- (Аренда + owner menu moved into the unified action row below) -->
+        <!-- (Rental + owner menu moved into the unified action row below) -->
         <!-- Shared hidden photo input — triggered from owner menu and gallery -->
         <input v-if="isOwner" ref="photoInput" type="file" accept="image/*" multiple class="hidden" @change="handlePhotoUpload" />
 
@@ -159,12 +159,19 @@
             {{ $t('booking.board.link') }}
           </UiButton>
           <!-- Join -->
+          <span
+            v-if="authStore.isAuthenticated && isJoinable && !establishment.is_member && requestPending"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+          >
+            <Clock class="w-4 h-4" />
+            {{ $t('directory.members.request_pending') }}
+          </span>
           <UiButton
-            v-if="authStore.isAuthenticated && isJoinable && !establishment.is_member"
+            v-else-if="authStore.isAuthenticated && isJoinable && !establishment.is_member"
             variant="primary" size="sm" :loading="isJoining"
             @click="establishment.requires_terms_acceptance ? showJoinModal = true : joinEstablishment()"
           >
-            {{ $t('directory.organizations.join_button') }}
+            {{ isByRequest ? $t('directory.members.request_join') : $t('directory.organizations.join_button') }}
           </UiButton>
           <!-- Pay -->
           <UiButton
@@ -181,6 +188,15 @@
             :to="establishment.terms_url.startsWith('/') ? localePath(establishment.terms_url) : establishment.terms_url"
           >
             {{ $t('directory.organizations.view_terms') }}
+          </UiButton>
+          <!-- Polls: the org's slice of the shared governance feed -->
+          <UiButton
+            v-if="establishment.organization_type && (pollsCount > 0 || establishment.is_member)"
+            variant="outline" size="sm" :icon="Vote"
+            :to="localePath(`/governance/polls?org=${establishment.id}`)"
+          >
+            {{ $t('governance.polls') }}
+            <span v-if="pollsCount > 0" class="text-neutral-400 dark:text-neutral-500">{{ pollsCount }}</span>
           </UiButton>
           <!-- Treasury -->
           <UiButton
@@ -250,6 +266,15 @@
               </NuxtLink>
               <NuxtLink
                 v-if="canManageTreasurer"
+                :to="localePath(`/org/${establishment.slug || props.id}/members`)"
+                class="flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-primary-100 dark:hover:bg-primary-900/40"
+                role="menuitem"
+                @click="ownerMenuOpen = false"
+              >
+                <Users class="w-4 h-4 text-neutral-400" /> {{ $t('directory.members.title') }}
+              </NuxtLink>
+              <NuxtLink
+                v-if="canManageTreasurer"
                 :to="localePath(`/blog/create?est=${establishment.slug || props.id}`)"
                 class="flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-primary-100 dark:hover:bg-primary-900/40"
                 role="menuitem"
@@ -284,7 +309,7 @@
             >
               <div class="flex items-center gap-2 min-w-0">
                 <NuxtLink
-                  :to="localePath(`/u/${bm.profile_hna.split('@')[0]}`)"
+                  :to="localePath(`/@${bm.profile_hna.split('@')[0]}`)"
                   class="text-neutral-900 dark:text-neutral-100 font-medium hover:text-secondary truncate"
                 >
                   {{ bm.profile_display_name || bm.profile_hna.split('@')[0] }}
@@ -1123,10 +1148,18 @@ const displayAttributes = computed(() => {
 })
 
 const JOINABLE_TYPES = new Set(['ASSOCIATION', 'COOPERATIVE', 'NGO', 'COMMUNITY', 'CONDOMINIUM'])
+// membership_policy decides it, not the organization type: a condominium or a
+// municipality is an organization nobody may join from the outside. The backend
+// rejects a join under INVITE — this only keeps the button honest.
 const isJoinable = computed(() => {
-  const type = establishment.value?.organization_type
-  return type && JOINABLE_TYPES.has(type)
+  const est = establishment.value
+  return !!est && (est.membership_policy === 'OPEN' || est.membership_policy === 'REQUEST')
+    && JOINABLE_TYPES.has(est.organization_type)
 })
+// Under REQUEST the button asks rather than joins, and stays asked until an
+// admin answers — the membership row only exists after approval.
+const isByRequest = computed(() => establishment.value?.membership_policy === 'REQUEST')
+const requestPending = computed(() => !!establishment.value?.user_request_pending)
 
 const mapCoords = computed(() => {
   const e = establishment.value
@@ -1258,6 +1291,22 @@ const fetchAuditor = async () => {
     auditor.value = data
   } catch {
     auditor.value = null
+  }
+}
+
+// Organizations only — a shop or a cafe has no governance feed to link to
+const pollsCount = ref(0)
+const fetchPollsCount = async () => {
+  const est: any = establishment.value
+  if (!est?.organization_type || !est?.id) return
+  try {
+    const res: any = await $fetch('/api/v1/governance/polls/', {
+      credentials: 'include',
+      query: { context_id: est.id, page: 1 },
+    })
+    pollsCount.value = res?.count ?? 0
+  } catch {
+    pollsCount.value = 0
   }
 }
 
@@ -1476,7 +1525,7 @@ const goBack = () => {
 onMounted(async () => {
   // Re-fetch with auth on client (for is_member, membership data)
   await fetchEstablishment()
-  await Promise.all([fetchTreasurer(), fetchAuditor(), fetchMembers()])
+  await Promise.all([fetchTreasurer(), fetchAuditor(), fetchMembers(), fetchPollsCount()])
   detectUserRole()
 })
 </script>

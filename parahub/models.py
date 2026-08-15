@@ -19,19 +19,23 @@ class AISettings(models.Model):
     image-generation scripts all read their keys from this model.
     """
 
+    # Labels carry no prices and no model version: both go stale the moment a
+    # tier is repointed, and a stale price on the control you pick a provider
+    # with is worse than none. The admin renders each option with the model id
+    # and rate it actually bills, read from `services/ai_pricing` at form time.
     class Provider(models.TextChoices):
-        HAIKU = 'haiku', 'Claude Haiku 4.5 ($1/$5 per 1M)'
-        GPT5_MINI = 'gpt-5-mini', 'GPT-5 mini ($0.50/$5 per 1M)'
-        GPT5_NANO = 'gpt-5-nano', 'GPT-5 nano ($0.15/$1.50 per 1M)'
-        GEMINI_FLASH = 'gemini-flash', 'Gemini 2.5 Flash ($0.30/$2.50 per 1M)'
-        GEMINI_FLASH_LITE = 'gemini-flash-lite', 'Gemini 2.5 Flash-Lite ($0.10/$0.40 per 1M)'
+        HAIKU = 'haiku', 'Claude Haiku'
+        GPT5_MINI = 'gpt-5-mini', 'GPT-5 mini'
+        GPT5_NANO = 'gpt-5-nano', 'GPT-5 nano'
+        GEMINI_FLASH = 'gemini-flash', 'Gemini Flash'
+        GEMINI_FLASH_LITE = 'gemini-flash-lite', 'Gemini Flash-Lite'
 
     class CategorizationProvider(models.TextChoices):
-        HAIKU = 'haiku', 'Claude Haiku 4.5 ($1/$5 per 1M)'
-        GPT5_NANO = 'gpt-5-nano', 'GPT-5 nano ($0.15/$1.50 per 1M)'
-        GPT5_MINI = 'gpt-5-mini', 'GPT-5 mini ($0.50/$5 per 1M)'
-        GEMINI_FLASH = 'gemini-flash', 'Gemini 2.5 Flash ($0.30/$2.50 per 1M)'
-        GEMINI_FLASH_LITE = 'gemini-flash-lite', 'Gemini 2.5 Flash-Lite ($0.10/$0.40 per 1M)'
+        HAIKU = 'haiku', 'Claude Haiku'
+        GPT5_NANO = 'gpt-5-nano', 'GPT-5 nano'
+        GPT5_MINI = 'gpt-5-mini', 'GPT-5 mini'
+        GEMINI_FLASH = 'gemini-flash', 'Gemini Flash'
+        GEMINI_FLASH_LITE = 'gemini-flash-lite', 'Gemini Flash-Lite'
         SAME = 'same', 'Same as vision provider'
 
     enabled = models.BooleanField(
@@ -277,7 +281,7 @@ class QuotaUsageLog(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.account.user.username} - {self.resource_type} - {self.used_at.date()}"
+        return f"{self.account.username} - {self.resource_type} - {self.used_at.date()}"
 
 
 class ZenithSettings(models.Model):
@@ -419,3 +423,151 @@ class ZenithQueryLog(models.Model):
     def __str__(self):
         querier_name = self.querier.hna if self.querier else "self"
         return f"Zenith query to {self.zenith_owner.hna} by {querier_name} - {self.created_at}"
+
+
+class TranslationLog(models.Model):
+    """One machine-translation provider call — the spend ledger for the MT path.
+
+    Vision has `AIAnalysisLog` and Zenith has `ZenithQueryLog`; machine
+    translation ran with no counter at all, so its cost was invisible. Rows stay
+    cheap because the read path is cache-first: a call happens once per
+    (object, language, field) and the result then lives in that row's
+    `mt_cache` forever. A burst of rows for one object therefore means its cache
+    is being wiped repeatedly (an edit loop) — worth being able to see.
+
+    Failures are logged too (`success=False`). A provider outage degrades to the
+    original text silently on the read path by design, and this is the only
+    place that shows it happened.
+    """
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    model_name = models.CharField(max_length=64, help_text="Provider model id the call was billed against")
+    source_lang = models.CharField(max_length=10)
+    target_lang = models.CharField(max_length=10)
+
+    # What was translated. Blank when the caller did not name it — the service
+    # never refuses to translate just because context is missing.
+    object_type = models.CharField(max_length=32, blank=True, help_text="item, ad, civic_idea …")
+    object_id = models.CharField(max_length=26, blank=True, db_index=True, help_text="ULID of the translated row")
+    field_name = models.CharField(max_length=32, blank=True, help_text="title, description, body …")
+
+    source_chars = models.IntegerField(default=0, help_text="Length of the source text")
+    is_html = models.BooleanField(default=False, help_text="Went through the HTML-preserving prompt")
+
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
+    cost_usd = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal('0'),
+                                   help_text="Priced via services/ai_pricing; 0 when the model has no price entry")
+    duration_ms = models.IntegerField(default=0)
+
+    success = models.BooleanField(default=True)
+    error_message = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        verbose_name = "Translation Log"
+        verbose_name_plural = "Translation Logs"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['target_lang', '-created_at']),
+            models.Index(fields=['object_type', 'object_id']),
+        ]
+
+    def __str__(self):
+        where = f"{self.object_type}.{self.field_name}" if self.object_type else "text"
+        return f"MT {self.source_lang}->{self.target_lang} ({where}) - {self.created_at}"
+
+
+class AIUsageLog(models.Model):
+    """One paid model call from a path that has no ledger of its own.
+
+    Vision has `AIAnalysisLog`, Zenith has `ZenithQueryLog`, machine translation
+    has `TranslationLog`. Everything else — illustration and avatar generation,
+    the ID-photo validator, the voice bot — spent money invisibly. This is the
+    catch-all so that a new paid call site has somewhere to write on day one
+    instead of shipping unmetered and being discovered later.
+
+    Rows are written after the provider answers, success or not: a failed call
+    that consumed tokens still costs money, and a burst of failures is the
+    cheapest thing to notice here.
+
+    Image generation is the reason the token columns are split three ways. An
+    image comes back as output tokens billed at ~10x the text rate (Gemini 3 Pro
+    Image: $120 vs $12 per 1M), so a single `output_tokens` column priced at one
+    rate would understate an illustration by an order of magnitude. Providers
+    that do not bill by token at all (speech) use `units`/`unit_kind` instead.
+    """
+
+    KIND_CMS_ILLUSTRATION = 'cms_illustration'
+    KIND_AVATAR_STYLIZE = 'avatar_stylize'
+    KIND_ID_PHOTO_VALIDATION = 'id_photo_validation'
+    KIND_VOICE_STT = 'voice_stt'
+    KIND_VOICE_THINK = 'voice_think'
+    KIND_VOICE_TTS = 'voice_tts'
+    KIND_VOICE_TRANSLATE = 'voice_translate'
+    KIND_CHOICES = [
+        (KIND_CMS_ILLUSTRATION, 'CMS illustration'),
+        (KIND_AVATAR_STYLIZE, 'Avatar stylize'),
+        (KIND_ID_PHOTO_VALIDATION, 'ID-photo validation'),
+        (KIND_VOICE_STT, 'Voice — transcribe'),
+        (KIND_VOICE_THINK, 'Voice — answer'),
+        (KIND_VOICE_TTS, 'Voice — speak'),
+        (KIND_VOICE_TRANSLATE, 'Voice — translate'),
+    ]
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    kind = models.CharField(max_length=32, choices=KIND_CHOICES, db_index=True,
+                            help_text="Which path spent the money")
+    model_name = models.CharField(max_length=64, help_text="Provider model id the call was billed against")
+
+    profile = models.ForeignKey(
+        'identity.Profile', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='ai_usage_logs',
+        help_text="Who triggered it; null for anonymous paths such as the voice bot"
+    )
+
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0, help_text="Text and thinking output — the text rate")
+    image_tokens = models.IntegerField(default=0, help_text="Image-modality output — the image rate")
+
+    units = models.DecimalField(max_digits=12, decimal_places=3, default=Decimal('0'),
+                                help_text="For providers not billed by token: characters, audio seconds")
+    unit_kind = models.CharField(max_length=20, blank=True, help_text="What `units` counts")
+
+    cost_usd = models.DecimalField(max_digits=10, decimal_places=6, default=Decimal('0'),
+                                   help_text="Priced via services/ai_pricing; 0 when the model has no price entry")
+    duration_ms = models.IntegerField(default=0)
+
+    success = models.BooleanField(default=True)
+    error_message = models.CharField(max_length=300, blank=True)
+    meta = models.JSONField(default=dict, blank=True,
+                            help_text="Path-specific context: post id, source, session")
+
+    class Meta:
+        verbose_name = "AI Usage Log"
+        verbose_name_plural = "AI Usage Logs"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['kind', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} ({self.model_name}) - {self.created_at}"
+
+
+class AISpend(AIAnalysisLog):
+    """Proxy that exists only to hang the cross-provider spend dashboard off the
+    admin — it stores nothing of its own.
+
+    AI spend is split across ledgers written by unrelated subsystems
+    (`AIAnalysisLog` for vision + categorization, `ZenithQueryLog`,
+    `TranslationLog`, and `AIUsageLog` for everything else), so "what has AI cost
+    me this month" could not be answered from any single changelist. The
+    dashboard reads them all per day and adds them up, and names any path that is
+    still unmetered so the total is never mistaken for everything.
+    """
+    class Meta:
+        proxy = True
+        verbose_name = "AI Spend"
+        verbose_name_plural = "AI Spend"

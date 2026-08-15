@@ -37,6 +37,9 @@ jwcrypto==1.5.8
 # HTTP client for async requests (Matrix integration)
 httpx==0.28.1
 
+# Nostr Wallet Connect (NIP-47) — advertiser payout wallets stay with the advertiser
+nostr-sdk==0.45.0
+
 # Neo4j Graph Database for Barter Exchange Matching
 neo4j==6.2.0
 coolname==2.2.0

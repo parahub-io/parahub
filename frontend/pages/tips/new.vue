@@ -1,11 +1,13 @@
 <template>
   <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <NuxtLink :to="localePath('/tips')" class="text-sm text-neutral-500 hover:text-primary">
+    <NuxtLink :to="localePath('/tips')" class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-secondary dark:hover:text-secondary-400">
       ← {{ $t('tips.title') }}
     </NuxtLink>
     <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-2 mb-6">
       {{ $t('tips.new.title') }}
     </h1>
+
+    <img src="/images/tips/mint.webp" alt="" class="mx-auto h-24 sm:h-28 w-auto object-contain mb-6" />
 
     <!-- Funding in progress: one note at a time, so a failure is isolated -->
     <div v-if="funding" class="card p-6 text-center">
@@ -15,7 +17,22 @@
       <p class="mt-4 font-semibold text-neutral-900 dark:text-neutral-100">
         {{ $t('tips.new.funding', { n: Math.min(fundedCount + 1, form.count), total: form.count }) }}
       </p>
-      <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{{ $t('tips.new.fundingHint') }}</p>
+
+      <!-- Each note is a separate on-network transfer that takes seconds, so the
+           wait is measured, not just spun: elapsed always, ETA once one note has
+           landed and there is a real per-note average to extrapolate from. -->
+      <div class="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+        <div
+          class="h-full rounded-full bg-neutral-900 transition-all duration-500 dark:bg-neutral-100"
+          :style="{ width: `${(fundedCount / form.count) * 100}%` }"
+        />
+      </div>
+      <p class="mt-2 text-sm tabular-nums text-neutral-600 dark:text-neutral-300">
+        {{ $t('tips.new.elapsed', { time: formatDuration(elapsedMs) }) }}
+        <span v-if="remainingMs">· {{ $t('tips.new.remaining', { time: formatDuration(remainingMs) }) }}</span>
+      </p>
+
+      <p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">{{ $t('tips.new.fundingHint') }}</p>
     </div>
 
     <form v-else class="space-y-6" @submit.prevent="submit">
@@ -93,6 +110,39 @@ const error = ref('')
 const total = computed(() => (form.sats || 0) * (form.count || 0))
 const canSubmit = computed(() => total.value > 0 && !preparing.value)
 
+// Funding clock. Every note costs a full round of network work, so a nine-note
+// batch legitimately runs tens of seconds — without a moving number that reads
+// as a hang. ETA extrapolates the average of the notes already funded.
+const startedAt = ref(0)
+const clockNow = ref(0)
+let ticker: ReturnType<typeof setInterval> | null = null
+
+const elapsedMs = computed(() => (startedAt.value ? Math.max(0, clockNow.value - startedAt.value) : 0))
+const remainingMs = computed(() => {
+  const left = form.count - fundedCount.value
+  if (!fundedCount.value || left <= 0) return 0
+  return Math.round((elapsedMs.value / fundedCount.value) * left)
+})
+
+const formatDuration = (ms: number) => {
+  const secs = Math.max(0, Math.round(ms / 1000))
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`
+}
+
+const stopClock = () => {
+  if (ticker) clearInterval(ticker)
+  ticker = null
+}
+
+const startClock = () => {
+  stopClock()
+  startedAt.value = Date.now()
+  clockNow.value = startedAt.value
+  ticker = setInterval(() => { clockNow.value = Date.now() }, 1000)
+}
+
+onUnmounted(stopClock)
+
 onMounted(() => {
   fetchBtcPrice()
   initSdk()
@@ -126,6 +176,7 @@ const submit = async () => {
     }
 
     funding.value = true
+    startClock()
     for (let i = 0; i < form.count; i++) {
       const note = await mintTipNote()
       try {
@@ -146,6 +197,7 @@ const submit = async () => {
   } catch (e: any) {
     error.value = String(e?.message || e)
   } finally {
+    stopClock()
     preparing.value = false
     funding.value = false
   }

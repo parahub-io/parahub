@@ -354,6 +354,20 @@ class CivicIdea(ULIDModel):
                               related_name='civic_ideas')
     title = models.CharField(max_length=200)
     body = models.TextField(max_length=4000)
+    language = models.CharField(
+        max_length=5, blank=True, default='',
+        help_text="Auto-detected source language of title/body (ISO 639-1); "
+                  "empty = unknown, machine translation is skipped.",
+    )
+    mt_cache = models.JSONField(
+        default=dict, blank=True,
+        help_text=(
+            "Machine-translation cache: {lang: {'title': ..., 'body': ...}}. "
+            "Filled lazily by the ideas API (TranslationService). Idea text is "
+            "immutable after creation, so there is no invalidation path. "
+            "Machine output only — never holds human input."
+        ),
+    )
     author = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='civic_ideas')
 
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN, db_index=True)

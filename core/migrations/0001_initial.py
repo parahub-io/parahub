@@ -77,7 +77,7 @@ class Migration(migrations.Migration):
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('attributes', models.JSONField(blank=True, default=dict, help_text='Key-value store for intrinsic properties of this object')),
                 ('relations', models.JSONField(blank=True, default=list, help_text='List of relationships to other objects. Format: [{type: str, target_id: str, target_type: str}]')),
-                ('from_hna', models.CharField(help_text='Source HNA (e.g. deploy@parahub.io)', max_length=255)),
+                ('from_hna', models.CharField(help_text='Source HNA (e.g. norn@parahub.io)', max_length=255)),
                 ('to_hna', models.CharField(blank=True, help_text='Destination HNA (e.g. andrey@perliev.com)', max_length=255)),
                 ('from_node', models.CharField(max_length=255)),
                 ('to_node', models.CharField(blank=True, max_length=255)),

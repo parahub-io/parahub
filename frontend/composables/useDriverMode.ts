@@ -40,6 +40,11 @@ export function useDriverMode() {
   const headsign = ref('')
   const stops = ref<StopInfo[]>([])
   const ttsEnabled = ref(true)
+  // Passengers who marked themselves waiting for THIS route in THIS direction,
+  // by stop source id: {stop_id: {n, active}}. Server-filtered — a count mixing
+  // in people waiting for another line is worse than none, because this is the
+  // number a driver would act on.
+  const waitingByStop = ref<Record<string, { n: number, active: number }>>({})
 
   let ws: WebSocket | null = null
   let watchId: number | null = null
@@ -224,6 +229,13 @@ export function useDriverMode() {
         }
         currentStop.value = null
         nextStop.value = null
+        // The other side's passengers are not this driver's any more; the
+        // server re-sends the filtered set right after this message.
+        waitingByStop.value = {}
+        break
+
+      case 'waiting':
+        waitingByStop.value = msg.stops || {}
         break
 
       case 'error':
@@ -360,6 +372,7 @@ export function useDriverMode() {
     headsign,
     stops,
     ttsEnabled,
+    waitingByStop,
     // Actions
     startShift,
     stopShift,

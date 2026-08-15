@@ -44,7 +44,7 @@
           <span class="mc-pop-badge">{{ $t('map.controls.on_count', { count: activeLayerCount }) }}</span>
         </div>
         <div class="mc-pop-body">
-          <MapControlMatrix :groups="layerMatrixGroups" @pick="onLayerPick" />
+          <UiTileMatrix :groups="layerMatrixGroups" fill="primary" @pick="onLayerPick" />
         </div>
       </div>
     </Transition>
@@ -58,7 +58,7 @@
           <span class="mc-pop-badge">{{ activeToolLabel }}</span>
         </div>
         <div class="mc-pop-body">
-          <MapControlMatrix :groups="toolMatrixGroups" @pick="onToolPick" />
+          <UiTileMatrix :groups="toolMatrixGroups" fill="primary" @pick="onToolPick" />
         </div>
       </div>
     </Transition>
@@ -99,7 +99,7 @@
 /**
  * Right control strip of the map (layers / map tools / IoT consoles).
  *
- * Layers and tools render as a tile matrix (MapControlMatrix), IoT devices as
+ * Layers and tools render as a tile matrix (UiTileMatrix), IoT devices as
  * a device console (MapDeviceConsole). On phones (<768px) the popovers become
  * full-bleed bottom sheets so long device lists can never run off screen.
  *
@@ -516,7 +516,7 @@ function onPreview(pos: { lat: number; lon: number } | null) {
 .mc-backdrop-leave-to { opacity: 0; }
 
 /* Phones: fused full-bleed bottom sheet — capped height, internal scroll,
-   safe-area padded (Android gesture bar overlays the viewport bottom). */
+   seated on the nav dock (which already carries the gesture-bar safe area). */
 @media (max-width: 767px) {
   .mc-backdrop {
     display: block;
@@ -531,7 +531,9 @@ function onPreview(pos: { lat: number; lon: number } | null) {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
+    /* Sits ON the nav bar's top edge — the bar keeps working while a sheet is
+       up, so the sheet is a standard (non-modal) one, not a cover. */
+    bottom: var(--nav-inset-bottom);
     top: auto;
     width: auto;
     max-height: 76dvh;
@@ -539,7 +541,7 @@ function onPreview(pos: { lat: number; lon: number } | null) {
     border-left: none;
     border-right: none;
     border-bottom: none;
-    padding: 0 12px calc(10px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    padding: 0 12px 10px;
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18);
   }
 

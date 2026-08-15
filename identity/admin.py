@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (Account, Profile, Verification, SocialRecovery, Partner, PGPKeyHistory,
-                     PsychProfile, ProfileNote)
+                     PsychProfile, ProfileNote, ProfileBlock)
 
 
 class TestUserFilter(admin.SimpleListFilter):
@@ -98,6 +98,13 @@ class ProfileNoteAdmin(admin.ModelAdmin):
     list_display = ['owner', 'about', 'created_at']
     list_filter = ['created_at']
     search_fields = ['owner__local_name', 'about__local_name']
+    readonly_fields = ['id', 'created_at', 'updated_at']
+
+
+@admin.register(ProfileBlock)
+class ProfileBlockAdmin(admin.ModelAdmin):
+    list_display = ['blocker', 'blocked', 'created_at']
+    search_fields = ['blocker__local_name', 'blocked__local_name']
     readonly_fields = ['id', 'created_at', 'updated_at']
 
 

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { useNuxtApp } from '#app'
 import { syncPreferencesFromProfile } from '~/composables/usePreferencesSync'
+import { logoutCinnySession, clearCinnyData } from '~/composables/useMatrixSession'
 
 export interface User {
   id: string
@@ -10,6 +11,11 @@ export interface User {
   username?: string
   profile?: any
   is_staff?: boolean  // Admin flag from backend
+  // Node owner. Granting a platform capability is theirs alone — see useCapabilities().
+  is_superuser?: boolean
+  // Node-level authority of this login (parahub/capabilities.py). Gate on these,
+  // not on is_staff: a surface can be delegated without handing out everything.
+  capabilities?: string[]
 }
 
 export interface ProfileDetail {
@@ -127,7 +133,11 @@ export const useAuthStore = defineStore('auth', {
           first_name: user.display_name?.split(' ')[0] || '',
           last_name: user.display_name?.split(' ').slice(1).join(' ') || '',
           profile: user,
-          is_staff: user.is_staff || false  // Admin flag for UI features
+          is_staff: user.is_staff || false,  // Admin flag for UI features
+          // Left undefined when the payload predates the field, so useCapabilities()
+          // can tell "no such key" from "not the owner".
+          is_superuser: user.is_superuser,
+          capabilities: user.capabilities || []
         } as User
 
         // Sync server preferences → localStorage
@@ -196,10 +206,23 @@ export const useAuthStore = defineStore('auth', {
         // Seed phrase
         localStorage.removeItem('parahub_seed')
         localStorage.removeItem('parahub_seed_version')
+        localStorage.removeItem('parahub_seed_owner')
         localStorage.removeItem('parahub_encrypted_seed')  // legacy
         // Bitcoin wallet (legacy)
         localStorage.removeItem('parahub_btc_address_index')
         localStorage.removeItem('parahub_btc_known_addresses')
+
+        // Kill the Cinny/Matrix session — it lives in localStorage/IndexedDB
+        // independently of the Django session and would otherwise survive
+        // logout, leaking the chat to the next account on this browser.
+        // Token is invalidated on the homeserver first, which also stops
+        // Cinny instances still syncing in other tabs.
+        try {
+          await logoutCinnySession()
+          await clearCinnyData()
+        } catch {
+          // Best-effort: hard redirect after logout unloads the iframe anyway
+        }
       }
 
       // Navigation is the caller's responsibility — store should not navigate

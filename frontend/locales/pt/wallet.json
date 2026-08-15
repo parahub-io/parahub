@@ -21,6 +21,9 @@
     "insufficientFunds": "Saldo insuficiente para este pagamento",
     "invalidInput": "Entrada de pagamento inválida. Verifique o formato.",
     "noLocalSeed": "Você não tem uma carteira neste dispositivo. Escolha uma opção:",
+    "foreignWalletTitle": "Esta carteira pertence a outra conta",
+    "foreignWalletText": "A carteira guardada neste navegador foi configurada com outra conta Parahub, por isso não será aberta aqui para proteger os seus fundos.",
+    "foreignWalletHint": "Inicie sessão com a conta que a criou, ou configure a sua própria carteira abaixo — isso remove a outra carteira deste navegador. Os fundos dela só podem ser recuperados com a frase de segurança de 12 palavras.",
     "generateNewSeed": "Gerar novo Seed (a chave antiga expirará)",
     "loading": "Conectando carteira...",
     "lightningInvoice": "Lightning",
@@ -35,9 +38,9 @@
     "lnAddress": "Endereço Lightning",
     "lnAddressDescription": "Registre um endereço Lightning para receber pagamentos facilmente",
     "lnAddressPlaceholder": "nome_de_usuário",
-    "registerLnAddress": "Registrar",
+    "registerLnAddress": "Registar",
     "copyLnAddress": "Copiar endereço Lightning",
-    "lnAddressRegisterFailed": "Falha ao registrar endereço",
+    "lnAddressRegisterFailed": "Falha ao registar o endereço",
     "walletOpenInAnotherTab": "A carteira está ativa em outra aba ou janela deste navegador.",
     "openHere": "Abrir aqui",
     "initError": "Falha ao conectar carteira",
@@ -46,6 +49,21 @@
     "loadMore": "Carregar mais",
     "status_pending": "pendente",
     "status_failed": "falhou",
+    "status_returned": "devolvido",
+    "status_claimed": "resgatado",
+    "status_unclaimed": "por resgatar",
+    "txTipNote": "Cupão de gorjeta",
+    "txTipNotes": "{count} cupão de gorjeta | {count} cupões de gorjeta",
+    "txAdReward": "Recompensa de anúncio · {name}",
+    "txAdRewards": "{count} recompensa de anúncio | {count} recompensas de anúncio",
+    "txViewBatch": "Ver lote",
+    "txClaimedCount": "{count} resgatado | {count} resgatados",
+    "txReturnedCount": "{count} devolvido | {count} devolvidos",
+    "txWaitingCount": "{count} por resgatar",
+    "txTo": "Para {name}",
+    "txSupport": "Apoio mensal · {name}",
+    "txDonation": "Donativo à associação",
+    "txTicket": "Bilhete · {name}",
     "unclaimedDeposits": "Depósitos On-Chain não reivindicados",
     "unclaimedDepositDesc": "Bitcoin recebido on-chain. Reivindique para adicionar ao saldo.",
     "claimDeposit": "Reivindicar",
@@ -54,12 +72,13 @@
     "depositClaimed": "Depósito reivindicado com sucesso!",
     "depositClaimFailed": "Falha ao reivindicar depósito",
     "scanQr": "Escanear código QR",
-    "noCameraAvailable": "Nenhuma câmera disponível neste dispositivo",
-    "cameraPermissionDenied": "Permissão da câmera negada",
+    "noCameraAvailable": "Nenhuma câmara disponível neste dispositivo",
+    "cameraPermissionDenied": "Acesso à câmara negado — permita a câmara para o Parahub nas definições do sistema",
     "scannerUnavailable": "Scanner QR não disponível",
     "invoice_qr_aria_label": "Código QR da fatura Lightning",
     "introTitle": "Carteira Lightning",
     "introDescription": "Envie e receba pagamentos Bitcoin instantaneamente com taxas quase zero. As suas chaves ficam no seu dispositivo — só você controla os seus fundos.",
+    "introSatsHint": "O bitcoin conta-se em satoshis, ou «sats»: um bitcoin são 100 milhões deles, por isso {amount} são hoje cerca de {sats} sats.",
     "introFeature1": "Pagamentos instantâneos via Lightning Network — sem espera por confirmações",
     "introFeature2": "As chaves da carteira nunca saem do seu dispositivo — totalmente não custodial",
     "introFeature3": "Compre bilhetes para eventos e passes de transporte diretamente da carteira",
@@ -68,14 +87,108 @@
     "hideBalance": "Ocultar saldo",
     "showBalance": "Mostrar saldo",
     "recentRecipients": "Recentes",
-    "exportCsv": "Exportar CSV"
+    "exportCsv": "Exportar CSV",
+    "exchangeTitle": "Trocar BTC ↔ EUR",
+    "exchangeDisclaimer": "Serviços de terceiros — o Parahub não é operador e nunca guarda os seus fundos.",
+    "exchangePage": {
+      "title": "Bitcoin ↔ euros em Portugal",
+      "lead": "A Parahub não converte nada nem guarda nada — as suas chaves ficam neste navegador. Estes serviços são independentes; aqui fica o que cada caminho custa realmente e quanto tempo demora.",
+      "tabSell": "Bitcoin → euros",
+      "tabBuy": "Euros → bitcoin",
+      "routes": {
+        "kraken": {
+          "name": "Kraken",
+          "what": "Bolsa licenciada (MiCA, Banco Central da Irlanda). Lightning à entrada e à saída, euros por SEPA Instantâneo.",
+          "cost": "≈0,8% + 1 €",
+          "time": "Minutos",
+          "id": "Exige identificação",
+          "sell": [
+            "Abra uma conta na Kraken e verifique a identidade — uma única vez.",
+            "Na Kraken: Depositar → Bitcoin → Lightning e copie a fatura.",
+            "Na Parahub: Enviar → cole essa fatura → pague. Os sats chegam em segundos.",
+            "Venda BTC/EUR na vista de negociação e depois Levantar → SEPA Instantâneo (1 €, quase imediato)."
+          ],
+          "buy": [
+            "Abra uma conta na Kraken e verifique a identidade — uma única vez.",
+            "Envie euros do seu banco por SEPA Instantâneo — gratuito, em minutos.",
+            "Compre BTC/EUR na vista de negociação.",
+            "Na Parahub: Receber → Lightning, copie a fatura e cole-a no levantamento Lightning da Kraken."
+          ],
+          "note": "Use a vista de negociação e não a compra imediata de um toque: essa custa entre 1% e 1,5%. No escalão mais baixo de volume as comissões são 0,40% maker e 0,80% taker. Levante montantes grandes on-chain — a Lightning foi feita para transferências pequenas e instantâneas."
+        },
+        "bringin": {
+          "name": "Bringin",
+          "what": "Ponte para euros construída sobre a Lightning, assente na Lightspark Payments Europe (licenciada MiCA).",
+          "cost": "≈1,5%",
+          "time": "Minutos",
+          "id": "Exige identificação",
+          "sell": [
+            "Registe-se em bringin.app e verifique a identidade — uma única vez.",
+            "Indique o seu IBAN e abra uma ligação Lightning.",
+            "Pague-a a partir da Parahub por Lightning; os euros entram na sua conta por SEPA Instantâneo."
+          ],
+          "buy": [
+            "Registe-se em bringin.app e verifique a identidade — uma única vez.",
+            "Transfira euros para a conta que a Bringin lhe indica.",
+            "Os sats regressam por Lightning — cole uma fatura da Parahub ou o seu endereço Spark."
+          ],
+          "note": "A ponte bancária começa à volta de 30 € por transferência, por isso não serve para montantes muito pequenos."
+        },
+        "p2p": {
+          "name": "RoboSats · Mostro",
+          "what": "Pessoa a pessoa com garantia (escrow) em Lightning. Sem conta e sem documentos — o protocolo guarda os sats até ambas as partes confirmarem.",
+          "cost": "Prémio variável",
+          "time": "10–60 min",
+          "id": "Sem conta",
+          "sell": [
+            "Abra robosats.org (por Tor, se puder) ou qualquer cliente Mostro — recebe um nome de robô aleatório, não há registo.",
+            "Aceite uma ordem de compra em euros ou publique a sua com o método que preferir: SEPA Instantâneo, Revolut, MB Way.",
+            "Bloqueie os sats na garantia Lightning a partir da Parahub, espere pelos euros no banco e confirme."
+          ],
+          "buy": [
+            "Abra robosats.org (por Tor, se puder) ou qualquer cliente Mostro — recebe um nome de robô aleatório, não há registo.",
+            "Aceite uma ordem de venda em euros ou publique a sua com o método que preferir.",
+            "Envie os euros; a garantia liberta os sats diretamente para uma fatura Lightning da Parahub."
+          ],
+          "note": "O livro de ordens em euros é pouco líquido e o prémio pedido do outro lado pode chegar a vários por cento em qualquer sentido. Leia o preço antes de avançar — num dia parado, uma bolsa licenciada fica mais barata."
+        },
+        "cash": {
+          "name": "Dinheiro, em pessoa",
+          "what": "O caminho mais antigo: alguém lhe entrega notas e você envia os sats do telemóvel.",
+          "cost": "0%",
+          "time": "Imediato",
+          "id": "Sem conta",
+          "sell": [
+            "Combine o preço — a cotação de mercado de qualquer fonte.",
+            "Receba o dinheiro e envie os sats da Parahub por Lightning; os dois olham para o ecrã.",
+            "Para encontrar quem troca fora do seu círculo, a Vexl liga-o através dos contactos do telemóvel — licenciada MiCA, não guarda nada."
+          ],
+          "buy": [
+            "Combine o preço — a cotação de mercado de qualquer fonte.",
+            "Entregue o dinheiro e receba os sats numa fatura da Parahub; os dois olham para o ecrã.",
+            "Para encontrar quem troca fora do seu círculo, a Vexl liga-o através dos contactos do telemóvel — licenciada MiCA, não guarda nada."
+          ],
+          "note": "É o caminho mais barato e mais rápido para montantes pequenos e, como não há garantia, assenta inteiramente na confiança em quem está à sua frente. Os encontros da associação são o sítio natural para isto."
+        }
+      },
+      "spendTitle": "Ou não troque de todo",
+      "spendLead": "Metade da razão para converter desaparece quando os sats se podem gastar tal como estão.",
+      "spend": [
+        "Bitrefill: carregue MEO, NOS, Vodafone, UZO ou Moche e compre cartões IKEA Portugal, Decathlon Portugal ou multimarca — pagos por Lightning, entregues de imediato.",
+        "Mercado Parahub: pague diretamente em sats a outros membros, sem conversão e sem comissão.",
+        "Quotas de associado, bilhetes de eventos e acertos de energia aceitam sats."
+      ],
+      "disclaimer": "Estes serviços são independentes. A Parahub não os opera, nunca guarda os seus fundos e não cobra nada por estes caminhos. Comissões, limites e disponibilidade mudam — confirme do lado deles antes de trocar."
+    },
+    "partners": "Parceiros",
+    "partner_no_address": "Ainda sem endereço de pagamento"
   },
   "seed": {
     "title": "Configurar Carteira",
     "noSeedTitle": "Frase seed ausente",
     "noSeedText": "Não há frase seed guardada neste dispositivo. Restaure-a ou crie uma nova.",
     "step1Description": "Anote estas 12 palavras em ordem. São a frase de recuperação da sua carteira.",
-    "step2Description": "Verifique se salvou as palavras corretamente",
+    "step2Description": "Verifique se guardou as palavras corretamente",
     "step3Description": "Crie um PIN de 4 dígitos para proteger sua seed",
     "step4Description": "Confirme seu PIN",
     "warningTitle": "Anote estas palavras!",
@@ -90,7 +203,7 @@
     "confirmPinDescription": "Digite seu PIN novamente para confirmar",
     "pinMismatch": "Os PINs não conferem. Tente novamente.",
     "saving": "Protegendo sua carteira...",
-    "saveFailed": "Falha ao salvar. Tente novamente.",
+    "saveFailed": "Falha ao guardar. Tente novamente.",
     "alreadyHaveSeed": "Já tem uma frase seed?",
     "restoreFromSeed": "Restaurar da seed",
     "skipForNow": "Pular por agora",

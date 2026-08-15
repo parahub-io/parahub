@@ -77,7 +77,7 @@
                 <div class="flex gap-2">
                   <button
                     @click="copySignature"
-                    class="text-sm text-primary hover:underline"
+                    class="text-sm text-link"
                   >
                     Copy Signature
                   </button>
@@ -165,7 +165,7 @@
                     ></textarea>
                     <button
                       @click="copyEncrypted"
-                      class="text-sm text-primary hover:underline"
+                      class="text-sm text-link"
                     >
                       Copy Encrypted Message
                     </button>

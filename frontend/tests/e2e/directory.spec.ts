@@ -99,7 +99,7 @@ test.describe('Directory — authenticated', () => {
     await page.waitForTimeout(1500);
 
     // Should show user cards with @parahub.io HNA
-    const userCards = page.locator('a[href*="/u/"]');
+    const userCards = page.locator('a[href*="/@"]');
     await expect(userCards.first()).toBeVisible({ timeout: 10_000 });
   });
 });

@@ -38,6 +38,7 @@ useHead({
 })
 
 const route = useRoute()
+const authStore = useAuthStore()
 const cinnyIframe = ref(null)
 const iframeContainer = ref(null)
 const isActive = ref(true)
@@ -45,6 +46,7 @@ const isReady = ref(false)
 const iframeLoaded = ref(false)
 const pendingRoomNavigation = ref(null)
 const ssoClickCount = ref(0) // Track SSO clicks to prevent double-click
+const masConsentClickCount = ref(0) // Track MAS consent-page confirm clicks
 const hasTriedRecovery = ref(false) // Prevent infinite reload loop on error
 const isRecovering = ref(false) // Prevent concurrent recovery attempts
 const cinnyNavCleanup = ref(null) // Cleanup function for iframe navigation tracking
@@ -70,8 +72,9 @@ async function attemptDeviceIdRecovery() {
   // Extra wait to ensure cleanup is complete
   await new Promise(resolve => setTimeout(resolve, 300))
 
-  // Reset SSO click counter for fresh start
+  // Reset SSO click counters for fresh start
   ssoClickCount.value = 0
+  masConsentClickCount.value = 0
 
   // Recreate iframe
   isReady.value = true
@@ -80,56 +83,29 @@ async function attemptDeviceIdRecovery() {
   return true
 }
 
-// Clear all Cinny/Matrix data (localStorage + all IndexedDB) to fix device_id conflicts
-async function clearCinnyData() {
-  // Clear ALL localStorage (Cinny stores session data here)
-  const keysToRemove = []
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    // Cinny and Matrix SDK use various prefixes
-    if (key?.startsWith('cinny') || key?.startsWith('matrix') || key?.startsWith('mx_')) {
-      keysToRemove.push(key)
-    }
-  }
-  keysToRemove.forEach(key => {
-    localStorage.removeItem(key)
-  })
+// Wipe a Cinny session cached by a different Parahub account.
+// Cinny silently resumes any valid cached session instead of showing the
+// SSO login, so without this check an account switch (or a shared computer)
+// opens the chat as the previous user. Expected Matrix ID comes from the
+// backend — it is derived from the PRIMARY profile, so comparing against
+// the active (possibly pseudonym) profile's local_name would misfire.
+async function ensureCinnySessionOwner() {
+  const cachedUserId = getCinnySessionUserId()
+  if (!cachedUserId) return
 
-  // Get list of all IndexedDB databases and delete Matrix/Cinny related ones
   try {
-    const databases = await indexedDB.databases()
-
-    for (const db of databases) {
-      // Delete all databases that might be Matrix/Cinny related
-      if (db.name && (
-        db.name.includes('matrix') ||
-        db.name.includes('cinny') ||
-        db.name.includes('crypto') ||
-        db.name.startsWith('_matrix')
-      )) {
-        await new Promise((resolve) => {
-          const req = indexedDB.deleteDatabase(db.name)
-          req.onsuccess = () => resolve(true)
-          req.onerror = () => resolve(false)
-          req.onblocked = () => resolve(false)
-        })
-      }
+    await authStore.ensureToken()
+    const res = await $fetch('/api/v1/matrix/whoami', {
+      credentials: 'include',
+      headers: authStore.token ? { 'Authorization': `Bearer ${authStore.token}` } : {}
+    })
+    if (res?.user_id && res.user_id.toLowerCase() !== cachedUserId.toLowerCase()) {
+      await logoutCinnySession()
+      await clearCinnyData()
     }
   } catch (e) {
-    // Fallback: try to delete known database names
-    const knownDbs = ['cinny', 'matrix-js-sdk', 'matrix-js-sdk:crypto']
-    for (const dbName of knownDbs) {
-      try {
-        await new Promise((resolve) => {
-          const req = indexedDB.deleteDatabase(dbName)
-          req.onsuccess = () => resolve(true)
-          req.onerror = () => resolve(false)
-          req.onblocked = () => resolve(false)
-        })
-      } catch (err) {
-        // Ignore
-      }
-    }
+    // Expected user unknown (offline, API error) — keep the cached session
+    console.error('[chat.vue] Session owner check failed:', e)
   }
 }
 
@@ -148,6 +124,10 @@ onMounted(async () => {
   // Listen for unhandled errors/rejections that might come from iframe
   window.addEventListener('error', handleGlobalError)
   window.addEventListener('unhandledrejection', handleGlobalError)
+
+  // Must run BEFORE the iframe mounts: a stale session from another account
+  // has to be wiped while IndexedDB connections are still closed
+  await ensureCinnySessionOwner()
 
   // Load iframe immediately - don't clear data unless there's a conflict
   isReady.value = true
@@ -183,20 +163,34 @@ async function onIframeLoad() {
         if (recovered) return
       }
 
-      // Check for SSO link
-      const links = iframe.contentDocument.querySelectorAll('a')
-
-      for (const link of links) {
-        if (link.textContent && link.textContent.includes('Continue with Parahub')) {
-          // Only click once
-          if (ssoClickCount.value > 0) return
-
-          ssoClickCount.value++
-          link.click()
-
-          // After SSO redirect, iframe will reload with room already in URL
-          return
+      // MAS consent page ("Continue to …?"), served same-origin under /mas/.
+      // Confirm the compat-SSO hand-off back to Cinny automatically; the
+      // second form on that page ("Use another account") is data-kind=secondary.
+      const iframePath = iframe.contentWindow?.location?.pathname || ''
+      if (iframePath.startsWith('/mas/')) {
+        if (masConsentClickCount.value > 0) return
+        const consentBtn = iframe.contentDocument.querySelector(
+          'form button[type="submit"]:not([data-kind="secondary"])'
+        )
+        if (consentBtn) {
+          masConsentClickCount.value++
+          consentBtn.click()
         }
+        return
+      }
+
+      // Cinny login page: auto-click the SSO button. Match by href — the
+      // label ("Continue with …") is locale-dependent after the i18n rebuild.
+      const ssoLink = iframe.contentDocument.querySelector('a[href*="/login/sso/redirect"]')
+      if (ssoLink) {
+        // Only click once
+        if (ssoClickCount.value > 0) return
+
+        ssoClickCount.value++
+        ssoLink.click()
+
+        // After SSO redirect, iframe will reload with room already in URL
+        return
       }
 
       // No SSO link = already logged in, start tracking navigation
@@ -350,26 +344,14 @@ onBeforeUnmount(() => {
 <style>
 .parahub-chat-iframe-container {
   position: fixed;
-  /* Match navbar responsive height (h-14/sm:h-16/md:h-20) + safe area for notched devices */
-  top: calc(3.5rem + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  /* Fills the band between the chrome bars, wherever the nav bar is docked */
+  top: var(--nav-inset-top);
   left: 0;
   right: 0;
-  bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  bottom: var(--nav-inset-bottom);
   z-index: 40;
   background: rgb(250 250 250);
   overflow: hidden;
-}
-
-@media (min-width: 640px) {
-  .parahub-chat-iframe-container {
-    top: calc(4rem + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-  }
-}
-
-@media (min-width: 768px) {
-  .parahub-chat-iframe-container {
-    top: calc(5rem + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-  }
 }
 
 .dark .parahub-chat-iframe-container {

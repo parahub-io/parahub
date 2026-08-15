@@ -1,0 +1,12 @@
+[Unit]
+Description=Parahub voice retention (expired note audio + abandoned clone samples)
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=norn
+WorkingDirectory=/opt/parahub
+ExecStart=/opt/parahub/venv/bin/python3 manage.py purge_voice_audio
+Nice=19
+IOSchedulingClass=idle

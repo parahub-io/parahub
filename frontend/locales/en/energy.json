@@ -60,6 +60,10 @@
       "step4": "Parahub registers the ACC (Autoconsumo Coletivo — collective self-consumption) group with DGEG (Portuguese energy regulator) and manages billing"
     },
     "detail": {
+      "delete_cell": "Delete cell",
+      "delete_confirm": "The cell will be permanently deleted. This cannot be undone.",
+      "delete_blocked": "Members must leave the cell first",
+      "deleted": "Cell deleted",
       "created_by": "by {name}",
       "members": "Members",
       "technical": "Technical Details",
@@ -88,7 +92,10 @@
       "location_hint": "Location (transformer substation)",
       "use_location": "Use my current location",
       "location_error": "Could not get location",
-      "created": "Energy cell created!"
+      "created": "Energy cell created!",
+      "step_basics": "Basics",
+      "step_location": "Location",
+      "click_map": "Click on the map to set the substation location"
     },
 
     "relay": {
@@ -151,7 +158,9 @@
       "none": "No cooperative",
       "create_new": "Create new cooperative",
       "name_placeholder": "Cooperative name",
-      "created": "Cooperative created!"
+      "created": "Cooperative created!",
+      "step_label": "Cooperative",
+      "hint": "A cooperative lets neighbors invest in the cell and share revenue. You can skip this step."
     },
 
     "landing_title": "Free P2P solar energy",

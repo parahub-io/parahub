@@ -91,7 +91,7 @@
 
       <!-- Create modal -->
       <Teleport to="body">
-        <div v-if="showCreateModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showCreateModal = false">
+        <div v-if="showCreateModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" @click.self="showCreateModal = false">
           <div class="bg-white dark:bg-neutral-800 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <h2 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">{{ $t('shipments.create') }}</h2>
 
@@ -112,7 +112,7 @@
                     :class="[
                       'px-4 py-2 rounded-lg border text-sm font-medium transition-colors',
                       form.size_category === size
-                        ? 'border-primary bg-primary/10 text-primary'
+                        ? 'border-secondary bg-secondary text-white'
                         : 'border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400'
                     ]">
                     {{ size }}

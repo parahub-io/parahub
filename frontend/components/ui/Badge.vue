@@ -47,7 +47,7 @@ const softClasses: Record<BadgeVariant, string> = {
 }
 
 const outlineClasses: Record<BadgeVariant, string> = {
-  primary: 'border border-primary text-primary',
+  primary: 'border border-primary text-primary-800 dark:text-primary-200',
   secondary: 'border border-secondary text-secondary',
   success: 'border border-success text-success',
   warning: 'border border-warning text-warning',

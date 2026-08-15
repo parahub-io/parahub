@@ -2,10 +2,10 @@
 // DO NOT EDIT MANUALLY
 
 export const CATEGORY_VERSIONS = {
-  de: 'a5d2e4df',
-  en: 'a5d2e4df',
-  es: 'a13cc8a8',
-  fr: '6766f76f',
-  pt: '0c93a0ea',
-  ru: '9188c790'
+  de: 'fcad1b17',
+  en: '60e28c92',
+  es: 'eef879cd',
+  fr: '209d1a37',
+  pt: '52e42b60',
+  ru: '00fdd9b0'
 }

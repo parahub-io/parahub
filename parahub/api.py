@@ -59,7 +59,21 @@ def create_ninja_api() -> NinjaAPI:
     )
     
     # Global exception handlers
-    from parahub.errors import LocalizedHttpError
+    from parahub.errors import LocalizedHttpError, RateLimitedError
+
+    @api.exception_handler(RateLimitedError)
+    def rate_limited_handler(request, exc):
+        """429 with the window's remaining seconds, both as a header and in the
+        body (Retry-After is not readable from JS on cross-origin responses).
+        Registered separately from LocalizedHttpError: Ninja resolves handlers
+        along the exception's MRO, so the subclass wins."""
+        response = api.create_response(
+            request,
+            {"detail": exc.message, "code": exc.code, "retry_after": exc.retry_after},
+            status=exc.status_code,
+        )
+        response["Retry-After"] = str(exc.retry_after)
+        return response
 
     @api.exception_handler(LocalizedHttpError)
     def localized_http_error_handler(request, exc):
@@ -168,12 +182,15 @@ from treasury.api import router as treasury_router
 from agents.api import router as agents_router
 from parahub.endpoints.income import income_router
 from parahub.endpoints.subscriptions import subscriptions_router
+from parahub.endpoints.wallet_sync import wallet_sync_router
 from parahub.endpoints.federation import router as federation_router
+from parahub.endpoints.platform import router as platform_router
 from tickets.api import router as tickets_router
 from parahub.endpoints.likes import likes_router
 from parasos.api import router as parasos_router
 from core.api import router as core_router
 from cms.api import router as cms_router
+from voice.endpoints import router as voice_router
 
 # Create versioned router
 from ninja import Router
@@ -206,13 +223,16 @@ v1_router.add_router("/treasury", treasury_router)
 v1_router.add_router("/agents", agents_router)
 v1_router.add_router("/income", income_router)
 v1_router.add_router("/subscriptions", subscriptions_router)
+v1_router.add_router("/wallet-sync", wallet_sync_router)
 v1_router.add_router("/federation", federation_router)
+v1_router.add_router("/platform", platform_router)
 v1_router.add_router("/tickets", tickets_router)
 v1_router.add_router("/shipments", shipments_router)
 v1_router.add_router("/likes", likes_router)
 v1_router.add_router("/parasos", parasos_router)
 v1_router.add_router("/core", core_router)
 v1_router.add_router("/cms", cms_router)
+v1_router.add_router("/voice", voice_router)
 
 # Add versioned router to main API
 api.add_router("/v1", v1_router)

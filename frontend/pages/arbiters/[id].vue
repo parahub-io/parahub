@@ -23,7 +23,7 @@
             </div>
             <div>
               <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{{ stats.display_name }}</h1>
-              <NuxtLink :to="localePath(`/u/${stats.hna}`)" class="text-link text-sm">@{{ stats.hna }}</NuxtLink>
+              <NuxtLink :to="localePath(`/@${stats.hna.split('@')[0]}`)" class="text-link text-sm">@{{ stats.hna }}</NuxtLink>
             </div>
           </div>
 
@@ -76,11 +76,11 @@
             <div v-if="stats.rating_count > 0" class="space-y-2">
               <div v-for="star in [5, 4, 3, 2, 1]" :key="star" class="flex items-center gap-3">
                 <div class="w-12 text-sm text-neutral-600 dark:text-neutral-400 flex items-center gap-1">
-                  {{ star }} <Star class="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  {{ star }} <Star class="w-3.5 h-3.5 star-on" />
                 </div>
                 <div class="flex-1 h-5 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
                   <div
-                    class="h-full bg-amber-500 rounded-full transition-all duration-500"
+                    class="h-full bg-warning-600 dark:bg-warning-400 rounded-full transition-all duration-500"
                     :style="{ width: ratingPercent(star) + '%' }"
                   />
                 </div>

@@ -1,0 +1,30 @@
+# LiveKit SFU — media backend for MatrixRTC (Element Call inside Matrix rooms).
+# Copy to livekit.yaml and fill in the key pair; it must match LIVEKIT_API_KEY /
+# LIVEKIT_API_SECRET in .env, which is what lk-jwt-service signs tokens with.
+# Reverse-proxied at https://parahub.io/livekit/sfu — see PK/element-call-system.md
+
+port: 7880
+
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  # Two NAT layers (flat host -> LXC -> docker) hide the public address, the same
+  # trap as the Jitsi bridge: discovery would report the LXC-private <LXC_IP>,
+  # which is useless to remote clients and collides with their own 10.x LANs.
+  use_external_ip: false
+  node_ip: <VPS_IP>
+
+keys:
+  CHANGE_ME_same_as_LIVEKIT_API_KEY_in_env: CHANGE_ME_same_as_LIVEKIT_API_SECRET_in_env
+
+room:
+  # Only a token minted by lk-jwt-service may open a room; without this anyone
+  # who can reach the websocket could create one.
+  auto_create: false
+
+# No webhook block: lk-jwt-service v0.5.0 (the newest release) has no
+# /sfu_webhook route, so every room event would just log a 404. Participants
+# keep their own delayed leave events alive against Synapse instead.
+
+logging:
+  level: info

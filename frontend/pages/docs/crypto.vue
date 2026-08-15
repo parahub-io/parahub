@@ -6,6 +6,8 @@
 
       <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">{{ $t('about.cryptoProofs.intro') }}</p>
 
+      <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">{{ $t('about.cryptoProofs.why') }}</p>
+
       <!-- Live anchoring status -->
       <div class="border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 space-y-4">
         <div class="flex items-center gap-2">
@@ -18,18 +20,18 @@
         </div>
         <template v-else-if="anchoring?.enabled">
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div>
+            <a :href="`${REPO_URL}/src/branch/master/pgp-keyring`" target="_blank" rel="noopener" class="group">
               <div class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ anchoring.keys_published }}</div>
-              <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.keys') }}</div>
-            </div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400 group-hover:underline">{{ $t('about.cryptoProofs.live.keys') }}</div>
+            </a>
             <div>
               <div class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ anchoring.proofs_anchored }}</div>
               <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.anchored') }}</div>
             </div>
-            <div>
+            <a :href="`${REPO_URL}/src/branch/master/batch_commits`" target="_blank" rel="noopener" class="group">
               <div class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ anchoring.batches_confirmed }}</div>
-              <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.confirmed') }}</div>
-            </div>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400 group-hover:underline">{{ $t('about.cryptoProofs.live.confirmed') }}</div>
+            </a>
             <div>
               <div class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ anchoring.proofs_pending }}</div>
               <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.pending') }}</div>
@@ -38,14 +40,17 @@
 
           <div v-if="anchoring.latest_batch" class="text-sm text-neutral-600 dark:text-neutral-400 flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 border-t border-neutral-100 dark:border-neutral-800">
             <span class="font-medium text-neutral-700 dark:text-neutral-300">{{ $t('about.cryptoProofs.live.latest') }}:</span>
-            <span v-if="anchoring.latest_batch.bitcoin_block" class="inline-flex items-center gap-1 text-neutral-700 dark:text-neutral-300">
+            <a v-if="anchoring.latest_batch.bitcoin_block" :href="`https://mempool.space/block/${anchoring.latest_batch.bitcoin_block}`" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-link">
               <Bitcoin class="w-3.5 h-3.5 text-yellow-500" />{{ $t('about.cryptoProofs.live.block', { block: anchoring.latest_batch.bitcoin_block }) }}
-            </span>
-            <span v-else class="inline-flex items-center gap-1 text-neutral-500 dark:text-neutral-400">
+            </a>
+            <a v-else href="https://opentimestamps.org" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-neutral-500 dark:text-neutral-400 hover:underline">
               <Clock class="w-3.5 h-3.5" />{{ $t('about.cryptoProofs.live.awaiting') }}
-            </span>
+            </a>
             <span class="text-neutral-300 dark:text-neutral-600">·</span>
-            <code class="font-mono text-xs">{{ $t('about.cryptoProofs.live.commit', { hash: anchoring.latest_batch.git_commit_hash.slice(0, 10) }) }}</code>
+            <a v-if="batchFileUrl" :href="batchFileUrl" target="_blank" rel="noopener" class="text-link">
+              <code class="font-mono text-xs">{{ $t('about.cryptoProofs.live.commit', { hash: anchoring.latest_batch.git_commit_hash.slice(0, 10) }) }}</code>
+            </a>
+            <code v-else class="font-mono text-xs">{{ $t('about.cryptoProofs.live.commit', { hash: anchoring.latest_batch.git_commit_hash.slice(0, 10) }) }}</code>
           </div>
           <p v-else class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('about.cryptoProofs.live.none') }}</p>
         </template>
@@ -80,6 +85,12 @@
               <span>{{ $t(`about.cryptoProofs.ots.${p}`) }}</span>
             </li>
           </ul>
+          <a
+            href="https://opentimestamps.org" target="_blank" rel="noopener"
+            class="inline-flex items-center gap-1 text-sm font-medium text-secondary hover:underline"
+          >
+            opentimestamps.org<ExternalLink class="w-3.5 h-3.5" />
+          </a>
         </div>
       </div>
 
@@ -144,6 +155,13 @@ const { t } = useI18n()
 // request actually routes to (dev-slot cookie aware); fail-soft on error.
 const anchoring = ref<any>(null)
 const anchoringLoading = ref(true)
+// Published batch file (dual-root .txt) in the public registry repo — the
+// verifiable artifact behind the displayed events-commit hash. Legacy batches
+// without git_commit_file fall back to plain text.
+const batchFileUrl = computed(() =>
+  anchoring.value?.latest_batch?.git_commit_file
+    ? `${REPO_URL}/src/branch/master/${anchoring.value.latest_batch.git_commit_file}`
+    : null)
 onMounted(async () => {
   try {
     anchoring.value = await $fetch('/api/v1/audit/anchoring')

@@ -1,0 +1,90 @@
+{
+  "version": "v0.9.30",
+  "date": "2026-07-05",
+  "locales": {
+    "en": {
+      "title": "Your area gets a voice",
+      "summary": "This release opens civic polls — a way for residents to show where they stand on local questions, from a parish to the whole country — and makes the entire platform noticeably faster.",
+      "highlights": [
+        { "icon": "vote", "title": "Civic polls", "body": "Opinion polls tied to a real territory — your parish, municipality or country. Ballots are pseudonymous, and every vote comes with a receipt you can verify." },
+        { "icon": "users", "title": "Household and condominium votes", "body": "Small communities can run open ballots among themselves, including slider questions for matters of degree rather than yes/no." },
+        { "icon": "zap", "title": "A faster platform", "body": "Connection pooling, smarter caching and lighter images across the board — pages load quicker on every device." },
+        { "icon": "shield-check", "title": "Security hardening", "body": "A dedicated pass over content handling and browser policies, with stricter sanitization of user-provided text." }
+      ],
+      "notes": [
+        "Standing delegations: trust someone to vote for you on a topic, revoke any time.",
+        "Automated tests now run on every code change."
+      ]
+    },
+    "ru": {
+      "title": "Голос вашей территории",
+      "summary": "В этом релизе открываются гражданские опросы — способ показать позицию жителей по местным вопросам, от фрегезии до всей страны, — а сама платформа стала заметно быстрее.",
+      "highlights": [
+        { "icon": "vote", "title": "Гражданские опросы", "body": "Опросы, привязанные к реальной территории — фрегезии, муниципалитету или стране. Бюллетени псевдонимны, каждый голос получает квитанцию, которую можно проверить." },
+        { "icon": "users", "title": "Голосования дома и в кондоминиуме", "body": "Небольшие сообщества могут проводить открытые голосования между собой, включая вопросы-шкалы для тем, где ответ — степень, а не «да/нет»." },
+        { "icon": "zap", "title": "Платформа стала быстрее", "body": "Пул соединений, умное кеширование и облегчённые изображения — страницы открываются быстрее на любом устройстве." },
+        { "icon": "shield-check", "title": "Укрепление безопасности", "body": "Отдельный проход по обработке контента и браузерным политикам, более строгая очистка пользовательского текста." }
+      ],
+      "notes": [
+        "Постоянные делегирования: доверьте кому-то голосовать за вас по теме и отзовите в любой момент.",
+        "Автоматические тесты теперь выполняются при каждом изменении кода."
+      ]
+    },
+    "pt": {
+      "title": "A sua terra ganha voz",
+      "summary": "Esta versão abre as sondagens cívicas — uma forma de os residentes mostrarem a sua posição sobre questões locais, da freguesia ao país inteiro — e torna toda a plataforma visivelmente mais rápida.",
+      "highlights": [
+        { "icon": "vote", "title": "Sondagens cívicas", "body": "Sondagens de opinião ligadas a um território real — a sua freguesia, o seu município ou o país. Os boletins são pseudónimos e cada voto tem um recibo verificável." },
+        { "icon": "users", "title": "Votações em casa e no condomínio", "body": "Pequenas comunidades podem realizar votações abertas entre si, incluindo perguntas de escala para questões de grau, não de sim/não." },
+        { "icon": "zap", "title": "Uma plataforma mais rápida", "body": "Pooling de ligações, cache mais inteligente e imagens mais leves — as páginas carregam mais depressa em qualquer dispositivo." },
+        { "icon": "shield-check", "title": "Reforço de segurança", "body": "Uma passagem dedicada ao tratamento de conteúdos e às políticas do navegador, com sanitização mais rigorosa do texto dos utilizadores." }
+      ],
+      "notes": [
+        "Delegações permanentes: confie o seu voto a alguém num tema e revogue quando quiser.",
+        "Os testes automáticos correm agora a cada alteração do código."
+      ]
+    },
+    "es": {
+      "title": "Tu zona gana voz",
+      "summary": "Esta versión estrena las encuestas cívicas — una forma de mostrar dónde están los vecinos en las cuestiones locales, desde tu localidad hasta el país entero — y hace toda la plataforma notablemente más rápida.",
+      "highlights": [
+        { "icon": "vote", "title": "Encuestas cívicas", "body": "Encuestas de opinión ligadas a un territorio real: tu localidad, tu municipio o tu país. Las papeletas son pseudónimas y cada voto lleva un recibo verificable." },
+        { "icon": "users", "title": "Votaciones en casa y en la comunidad", "body": "Las comunidades pequeñas pueden votar abiertamente entre sí, incluidas preguntas de escala para cuestiones de grado y no de sí o no." },
+        { "icon": "zap", "title": "Una plataforma más rápida", "body": "Agrupación de conexiones, caché más inteligente e imágenes más ligeras: las páginas cargan más rápido en cualquier dispositivo." },
+        { "icon": "shield-check", "title": "Refuerzo de seguridad", "body": "Una revisión dedicada del tratamiento de contenidos y las políticas del navegador, con una limpieza más estricta del texto de los usuarios." }
+      ],
+      "notes": [
+        "Delegaciones permanentes: confía tu voto a alguien en un tema y revócalo cuando quieras.",
+        "Las pruebas automáticas se ejecutan ahora con cada cambio del código."
+      ]
+    },
+    "fr": {
+      "title": "Votre territoire prend la parole",
+      "summary": "Cette version inaugure les sondages civiques — un moyen pour les habitants d'exprimer leur position sur les questions locales, de la commune au pays entier — et rend toute la plateforme nettement plus rapide.",
+      "highlights": [
+        { "icon": "vote", "title": "Sondages civiques", "body": "Des sondages d'opinion rattachés à un territoire réel : votre commune, votre municipalité ou votre pays. Les bulletins sont pseudonymes et chaque vote produit un reçu vérifiable." },
+        { "icon": "users", "title": "Votes du foyer et de la copropriété", "body": "Les petites communautés peuvent organiser des votes ouverts entre elles, y compris des questions à curseur pour les sujets de degré plutôt que de oui ou non." },
+        { "icon": "zap", "title": "Une plateforme plus rapide", "body": "Mutualisation des connexions, cache plus intelligent et images allégées : les pages se chargent plus vite sur tous les appareils." },
+        { "icon": "shield-check", "title": "Renforcement de la sécurité", "body": "Une passe dédiée sur le traitement des contenus et les politiques du navigateur, avec un nettoyage plus strict du texte fourni par les utilisateurs." }
+      ],
+      "notes": [
+        "Délégations permanentes : confiez votre vote à quelqu'un sur un sujet, révocable à tout moment.",
+        "Les tests automatiques s'exécutent désormais à chaque modification du code."
+      ]
+    },
+    "de": {
+      "title": "Ihre Gegend bekommt eine Stimme",
+      "summary": "Diese Version startet die Bürgerumfragen — ein Weg für Anwohner, ihre Haltung zu lokalen Fragen zu zeigen, von der Gemeinde bis zum ganzen Land — und macht die gesamte Plattform spürbar schneller.",
+      "highlights": [
+        { "icon": "vote", "title": "Bürgerumfragen", "body": "Meinungsumfragen mit Bezug auf ein echtes Gebiet: Ihre Gemeinde, Ihren Landkreis oder Ihr Land. Die Stimmzettel sind pseudonym, jede Stimme erhält eine überprüfbare Quittung." },
+        { "icon": "users", "title": "Abstimmungen im Haushalt und in der Eigentümergemeinschaft", "body": "Kleine Gemeinschaften können offen untereinander abstimmen, auch mit Skalenfragen für Themen, bei denen es um das Maß geht, nicht um Ja oder Nein." },
+        { "icon": "zap", "title": "Eine schnellere Plattform", "body": "Verbindungs-Pooling, klügeres Caching und leichtere Bilder — Seiten laden auf jedem Gerät schneller." },
+        { "icon": "shield-check", "title": "Härtung der Sicherheit", "body": "Ein eigener Durchgang durch Inhaltsverarbeitung und Browser-Richtlinien, mit strengerer Bereinigung von Nutzertexten." }
+      ],
+      "notes": [
+        "Dauerhafte Delegationen: Vertrauen Sie Ihre Stimme zu einem Thema jemandem an — jederzeit widerrufbar.",
+        "Automatische Tests laufen jetzt bei jeder Codeänderung."
+      ]
+    }
+  }
+}

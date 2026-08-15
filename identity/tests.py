@@ -792,13 +792,21 @@ class ManageableProfilesTest(TestCase):
 # Reputation scoring tests
 # ===========================================================================
 
-import math
-from identity.reputation import calculate_reputation
+from identity.reputation import (
+    MAXIMA, TARGET_REVIEWS, TARGET_VERIFICATIONS_RECEIVED,
+    calculate_reputation,
+)
+from datetime import timedelta
+
 from contracts.models import Contract, ContractReview
 from geo.models import (
-    Event, EventParticipant, Establishment, EstablishmentMembership,
+    Event, EventParticipant, Establishment, EstablishmentMembership, Territory,
 )
-from governance.models import PollContext, Poll, PollOption, PollVote, PollVoteDelegation
+from governance.models import (
+    PollContext, Poll, PollOption, PollVote, PollVoteDelegation,
+    StandingDelegation, CivicIdea,
+)
+from market.models import Item
 from debts.models import Debt
 from django.utils import timezone
 
@@ -838,32 +846,30 @@ class ReputationIdentityDimensionTest(TestCase):
         self.instance = _create_instance()
         self.account = _create_account(self.instance, username='rep_id')
         self.profile = _create_profile(self.account, self.instance, local_name='rep_id')
-        # Create verifiers
+        # Create verifiers (enough to push identity past its target)
         self.verifiers = []
-        for i in range(5):
+        for i in range(TARGET_VERIFICATIONS_RECEIVED + 5):
             acc = _create_account(self.instance, username=f'verifier{i}')
             prof = _create_profile(acc, self.instance, local_name=f'verifier{i}')
             self.verifiers.append(prof)
 
-    def test_one_verification(self):
-        Verification.objects.create(
-            verifier=self.verifiers[0], verified_profile=self.profile,
-            is_active=True,
-        )
-        result = calculate_reputation(self.profile)
-        expected = min(Decimal('25'), Decimal(str(8.3 * math.log(2))))
-        self.assertEqual(result['identity'], expected.quantize(Decimal('0.0001')))
-        self.assertGreater(result['identity'], Decimal('0'))
-
-    def test_three_verifications(self):
-        for i in range(3):
+    def _verify(self, count):
+        for i in range(count):
             Verification.objects.create(
                 verifier=self.verifiers[i], verified_profile=self.profile,
                 is_active=True,
             )
+
+    def test_one_verification(self):
+        self._verify(1)
         result = calculate_reputation(self.profile)
-        expected = min(Decimal('25'), Decimal(str(8.3 * math.log(4))))
-        self.assertEqual(result['identity'], expected.quantize(Decimal('0.0001')))
+        self.assertEqual(result['identity'], Decimal('7.2266'))
+
+    def test_three_verifications(self):
+        """The WoT gate (3 verifications) is worth well over half the dimension."""
+        self._verify(3)
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['identity'], Decimal('14.4532'))
 
     def test_inactive_verification_not_counted(self):
         Verification.objects.create(
@@ -873,15 +879,17 @@ class ReputationIdentityDimensionTest(TestCase):
         result = calculate_reputation(self.profile)
         self.assertEqual(result['identity'], Decimal('0.0000'))
 
-    def test_identity_capped_at_25(self):
-        """Even with many verifications, identity maxes at 25."""
-        for i in range(5):
-            Verification.objects.create(
-                verifier=self.verifiers[i], verified_profile=self.profile,
-                is_active=True,
-            )
+    def test_ceiling_is_reachable_at_target(self):
+        """The 25 is a number a real member can hit, not an asymptote."""
+        self._verify(TARGET_VERIFICATIONS_RECEIVED)
         result = calculate_reputation(self.profile)
-        self.assertLessEqual(result['identity'], Decimal('25.0000'))
+        self.assertEqual(result['identity'], Decimal('25.0000'))
+
+    def test_identity_capped_at_25(self):
+        """Past the target, identity stays at the ceiling."""
+        self._verify(TARGET_VERIFICATIONS_RECEIVED + 5)
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['identity'], Decimal('25.0000'))
 
     def test_identity_counted_as_active_dimension(self):
         Verification.objects.create(
@@ -893,7 +901,7 @@ class ReputationIdentityDimensionTest(TestCase):
 
 
 class ReputationCommerceDimensionTest(TestCase):
-    """Test commerce dimension: contract review average (min 3 reviews)."""
+    """Test commerce dimension: review quality scaled by review volume."""
 
     def setUp(self):
         self.instance = _create_instance()
@@ -915,24 +923,42 @@ class ReputationCommerceDimensionTest(TestCase):
         )
         return contract
 
-    def test_fewer_than_3_reviews_is_zero(self):
+    def test_single_review_counts_partially(self):
+        """No cliff: one review scores, but only a fraction of its quality."""
         self._create_contract_and_review(5, 'rev1')
-        self._create_contract_and_review(5, 'rev2')
         result = calculate_reputation(self.profile)
-        self.assertEqual(result['commerce'], Decimal('0.0000'))
+        self.assertEqual(result['commerce'], Decimal('4.3360'))
+
+    def test_three_perfect_reviews_below_ceiling(self):
+        """Three friendly 5-star reviews must not hand out the whole dimension."""
+        for i in range(3):
+            self._create_contract_and_review(5, f'rev5_{i}')
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['commerce'], Decimal('8.6719'))
 
     def test_3_reviews_scored(self):
         self._create_contract_and_review(4, 'rev1')
         self._create_contract_and_review(5, 'rev2')
         self._create_contract_and_review(3, 'rev3')
         result = calculate_reputation(self.profile)
-        avg_rating = (4 + 5 + 3) / 3
-        expected = min(Decimal('15'), Decimal(str(avg_rating * 3.0)))
-        self.assertEqual(result['commerce'], expected.quantize(Decimal('0.0001')))
-        self.assertGreater(result['commerce'], Decimal('0'))
+        # avg 4.0 → quality 0.75, three reviews → 57.8% confidence
+        self.assertEqual(result['commerce'], Decimal('6.5040'))
+
+    def test_worst_rating_earns_nothing(self):
+        """1-star average is the bottom of the scale, not a floor of free points."""
+        for i in range(3):
+            self._create_contract_and_review(1, f'rev1_{i}')
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['commerce'], Decimal('0.0000'))
+
+    def test_commerce_ceiling_reached_at_target(self):
+        for i in range(TARGET_REVIEWS):
+            self._create_contract_and_review(5, f'rev5_{i}')
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['commerce'], Decimal('15.0000'))
 
     def test_commerce_capped_at_15(self):
-        for i in range(5):
+        for i in range(TARGET_REVIEWS + 4):
             self._create_contract_and_review(5, f'rev5_{i}')
         result = calculate_reputation(self.profile)
         self.assertEqual(result['commerce'], Decimal('15.0000'))
@@ -948,14 +974,29 @@ class ReputationReliabilityDimensionTest(TestCase):
         self.other_acc = _create_account(self.instance, username='rep_rel_other')
         self.other_profile = _create_profile(self.other_acc, self.instance, local_name='rep_rel_other')
 
-    def test_fewer_than_3_commitments_neutral(self):
-        """< 3 total commitments = neutral 5.0."""
+    def _debt(self, status, count=1):
+        for _ in range(count):
+            Debt.objects.create(
+                creditor=self.other_profile, debtor=self.profile,
+                amount=Decimal('10'),
+                remaining_amount=Decimal('0') if status == 'FULLY_SETTLED' else Decimal('10'),
+                status=status,
+            )
+
+    def test_no_commitments_is_neutral_without_data(self):
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['reliability'], Decimal('5.0000'))
+        self.assertFalse(result['reliability_has_data'])
+
+    def test_single_commitment_blended_toward_neutral(self):
+        """One kept promise is evidence, but not yet a perfect record."""
         Contract.objects.create(
             creator=self.profile, partner=self.other_profile,
             title='C1', status=Contract.Status.COMPLETED,
         )
         result = calculate_reputation(self.profile)
-        self.assertEqual(result['reliability'], Decimal('5.0000'))
+        self.assertEqual(result['reliability'], Decimal('6.6667'))
+        self.assertTrue(result['reliability_has_data'])
 
     def test_perfect_completion(self):
         """3 completed contracts + 0 debts = perfect reliability."""
@@ -965,8 +1006,6 @@ class ReputationReliabilityDimensionTest(TestCase):
                 title=f'C{i}', status=Contract.Status.COMPLETED,
             )
         result = calculate_reputation(self.profile)
-        # completion_rate=1.0, repayment_rate=1.0 (no debts)
-        # 10 * (0.6 * 1.0 + 0.4 * 1.0) = 10.0
         self.assertEqual(result['reliability'], Decimal('10.0000'))
 
     def test_mixed_completion(self):
@@ -981,21 +1020,201 @@ class ReputationReliabilityDimensionTest(TestCase):
             title='Still signed', status=Contract.Status.SIGNED,
         )
         result = calculate_reputation(self.profile)
-        # completion_rate = 2/3, repayment_rate = 1.0 (no debts)
-        expected_raw = 10 * (0.6 * (2/3) + 0.4 * 1.0)
-        expected = min(Decimal('10'), Decimal(str(expected_raw)))
-        self.assertEqual(result['reliability'], expected.quantize(Decimal('0.0001')))
+        self.assertEqual(result['reliability'], Decimal('6.6667'))
+
+    def test_defaulting_scores_below_neutral(self):
+        """Unpaid debts must cost more than having no history at all."""
+        self._debt('ACTIVE', count=3)
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['reliability'], Decimal('0.0000'))
+        self.assertLess(result['reliability'], Decimal('5.0000'))
+
+    def test_missing_component_grants_no_free_credit(self):
+        """A profile with only debts is judged on debts, not on absent contracts."""
+        self._debt('FULLY_SETTLED', count=3)
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['reliability'], Decimal('10.0000'))
+
+    def test_cancelled_after_signing_stays_in_the_record(self):
+        """Walking away from a mutually signed contract cannot erase it."""
+        Contract.objects.create(
+            creator=self.profile, partner=self.other_profile,
+            title='Done', status=Contract.Status.COMPLETED,
+        )
+        for i in range(3):
+            Contract.objects.create(
+                creator=self.profile, partner=self.other_profile,
+                title=f'Walked away {i}', status=Contract.Status.CANCELLED,
+                partner_signed_at=timezone.now(),
+            )
+        self._debt('FULLY_SETTLED', count=3)
+        result = calculate_reputation(self.profile)
+        # 1 of 4 signed contracts completed (0.25) + debts fully repaid (1.0)
+        self.assertEqual(result['reliability'], Decimal('5.5000'))
+
+    def test_cancelled_before_signing_is_not_a_commitment(self):
+        """A draft the partner never signed was never a promise."""
+        Contract.objects.create(
+            creator=self.profile, partner=self.other_profile,
+            title='Done', status=Contract.Status.COMPLETED,
+        )
+        Contract.objects.create(
+            creator=self.profile, partner=self.other_profile,
+            title='Never signed', status=Contract.Status.CANCELLED,
+        )
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['reliability'], Decimal('6.6667'))
 
     def test_reliability_active_dimension(self):
-        """When reliability differs from neutral 5.0, it counts as active."""
+        """Reliability counts as active as soon as there is data to measure."""
         for i in range(3):
             Contract.objects.create(
                 creator=self.profile, partner=self.other_profile,
                 title=f'C{i}', status=Contract.Status.COMPLETED,
             )
         result = calculate_reputation(self.profile)
-        # reliability should be 10.0 != 5.0 → active
-        self.assertNotEqual(result['reliability'], Decimal('5.0000'))
+        self.assertTrue(result['reliability_has_data'])
+        self.assertGreaterEqual(result['active_dimensions'], 1)
+
+    def test_exactly_neutral_rate_still_counts_as_data(self):
+        """A computed 5.0 is a real measurement, not a missing one."""
+        for i in range(2):
+            Contract.objects.create(
+                creator=self.profile, partner=self.other_profile,
+                title=f'Done {i}', status=Contract.Status.COMPLETED,
+            )
+        for i in range(2):
+            Contract.objects.create(
+                creator=self.profile, partner=self.other_profile,
+                title=f'Open {i}', status=Contract.Status.SIGNED,
+            )
+        self._debt('FULLY_SETTLED', count=2)
+        self._debt('ACTIVE', count=2)
+        result = calculate_reputation(self.profile)
+        # both rates land on 0.5 → the dimension lands exactly on its neutral point
+        self.assertEqual(result['reliability'], Decimal('5.0000'))
+        self.assertTrue(result['reliability_has_data'])
+
+
+class ReputationCommunityDimensionTest(TestCase):
+    """Test community dimension: attended events + establishment memberships."""
+
+    def setUp(self):
+        self.instance = _create_instance()
+        self.account = _create_account(self.instance, username='rep_comm')
+        self.profile = _create_profile(self.account, self.instance, local_name='rep_comm')
+
+    def _event(self, starts_at, status=Event.Status.PUBLISHED):
+        event = Event.objects.create(
+            organizer=self.profile, title='E', description='d',
+            starts_at=starts_at, status=status,
+        )
+        EventParticipant.objects.create(
+            event=event, profile=self.profile,
+            status=EventParticipant.ParticipantStatus.GOING,
+        )
+        return event
+
+    def test_future_rsvp_does_not_score(self):
+        """An RSVP to an event that has not happened is a plan, not participation."""
+        self._event(timezone.now() + timedelta(days=7))
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['community'], Decimal('0.0000'))
+
+    def test_past_event_scores(self):
+        self._event(timezone.now() - timedelta(days=7))
+        result = calculate_reputation(self.profile)
+        self.assertGreater(result['community'], Decimal('0'))
+
+    def test_cancelled_event_does_not_score(self):
+        self._event(timezone.now() - timedelta(days=7), status=Event.Status.CANCELLED)
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['community'], Decimal('0.0000'))
+
+
+class ReputationContributionDimensionTest(TestCase):
+    """Test contribution dimension: verifications given + live listings + barter."""
+
+    def setUp(self):
+        self.instance = _create_instance()
+        self.account = _create_account(self.instance, username='rep_contrib')
+        self.profile = _create_profile(self.account, self.instance, local_name='rep_contrib')
+
+    def _item(self, is_active=True):
+        return Item.objects.create(
+            owner=self.profile, title='I', description='d',
+            type=Item.ItemType.CREDIT, is_active=is_active,
+        )
+
+    def test_live_listing_scores(self):
+        self._item()
+        result = calculate_reputation(self.profile)
+        self.assertGreater(result['contribution'], Decimal('0'))
+
+    def test_paused_listing_does_not_score(self):
+        """Drafts and paused listings are not contributions to the market."""
+        self._item(is_active=False)
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['contribution'], Decimal('0.0000'))
+
+    def test_listings_alone_cannot_max_the_dimension(self):
+        """Posting is the cheapest signal, so it carries the smallest ceiling."""
+        for _ in range(40):
+            self._item()
+        result = calculate_reputation(self.profile)
+        self.assertLessEqual(result['contribution'], Decimal('4.0000'))
+
+
+class ReputationGovernanceDimensionTest(TestCase):
+    """Test governance dimension: votes, delegations, civic ideas, budget votes."""
+
+    def setUp(self):
+        self.instance = _create_instance()
+        self.account = _create_account(self.instance, username='rep_gov')
+        self.profile = _create_profile(self.account, self.instance, local_name='rep_gov')
+        self.other_acc = _create_account(self.instance, username='rep_gov_other')
+        self.other_profile = _create_profile(self.other_acc, self.instance, local_name='rep_gov_other')
+
+    def _idea(self, status):
+        territory = Territory.objects.create(
+            code=f'T{CivicIdea.objects.count()}', name='T', country='PT',
+            level=Territory.Level.MUNICIPALITY,
+        )
+        return CivicIdea.objects.create(
+            territory=territory, title='Idea', body='body',
+            author=self.profile, status=status,
+        )
+
+    def test_supported_idea_scores(self):
+        """An idea that cleared the peer support threshold is civic contribution."""
+        self._idea(CivicIdea.Status.REVIEW)
+        result = calculate_reputation(self.profile)
+        self.assertGreater(result['governance'], Decimal('0'))
+
+    def test_unsupported_idea_does_not_score(self):
+        """Posting an idea nobody backed is not participation yet."""
+        self._idea(CivicIdea.Status.OPEN)
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['governance'], Decimal('0.0000'))
+
+    def test_operational_standing_delegation_scores(self):
+        """Holding a civic delegation is trust placed in you, same as a poll one."""
+        StandingDelegation.objects.create(
+            delegator=self.other_profile, delegate=self.profile,
+            scope_type=StandingDelegation.ScopeType.TERRITORY,
+            is_active=True, accepted_at=timezone.now(),
+        )
+        result = calculate_reputation(self.profile)
+        self.assertGreater(result['governance'], Decimal('0'))
+
+    def test_unaccepted_standing_delegation_does_not_score(self):
+        StandingDelegation.objects.create(
+            delegator=self.other_profile, delegate=self.profile,
+            scope_type=StandingDelegation.ScopeType.TERRITORY,
+            is_active=True,
+        )
+        result = calculate_reputation(self.profile)
+        self.assertEqual(result['governance'], Decimal('0.0000'))
 
 
 class ReputationTotalTest(TestCase):
@@ -1005,6 +1224,18 @@ class ReputationTotalTest(TestCase):
         self.instance = _create_instance()
         self.account = _create_account(self.instance, username='rep_total')
         self.profile = _create_profile(self.account, self.instance, local_name='rep_total')
+
+    def test_ceilings_sum_to_100(self):
+        self.assertEqual(sum(MAXIMA.values()), 100)
+
+    def test_maxima_reported_for_every_dimension(self):
+        result = calculate_reputation(self.profile)
+        self.assertEqual(set(result['maxima']), set(MAXIMA))
+
+    def test_no_dimension_exceeds_its_ceiling(self):
+        result = calculate_reputation(self.profile)
+        for key, ceiling in MAXIMA.items():
+            self.assertLessEqual(result[key], Decimal(ceiling))
 
     def test_total_is_sum_of_dimensions(self):
         result = calculate_reputation(self.profile)

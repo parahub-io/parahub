@@ -155,7 +155,7 @@
 
     <!-- Export Private Key Warning Modal -->
     <Teleport to="body">
-      <div v-if="showExportPrivateKeyWarning" class="fixed inset-0 z-50 overflow-y-auto">
+      <div v-if="showExportPrivateKeyWarning" class="fixed inset-0 z-[60] overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
           <div @click="showExportPrivateKeyWarning = false" class="fixed inset-0 bg-neutral-900 bg-opacity-75" aria-hidden="true"></div>
 
@@ -226,6 +226,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePGP } from '~/composables/usePGP'
 import { useSeed } from '~/composables/useSeed'
 import { useNotification } from '~/composables/useNotification'
+import { saveText } from '~/utils/download'
 import AccordionSection from './AccordionSection.vue'
 import PGPHistoryList from './PGPHistoryList.vue'
 
@@ -297,15 +298,7 @@ const confirmExportPrivateKey = async () => {
     const fingerprint = pgpKeyPair.value.fingerprint
     const filename = `parahub_private_key_${fingerprint}.asc`
 
-    const blob = new Blob([privateKey], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    await saveText(privateKey, filename)
 
     showExportPrivateKeyWarning.value = false
     showSuccess(t('profile.security.private_key_exported'))
@@ -376,16 +369,7 @@ const exportPublicKeyFromHistory = async (key: any) => {
       return
     }
 
-    const filename = `parahub_public_key_${key.fingerprint}.asc`
-    const blob = new Blob([publicKey], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    await saveText(publicKey, `parahub_public_key_${key.fingerprint}.asc`)
 
     showSuccess(t('profile.security.public_key_exported'))
   } catch (e) {

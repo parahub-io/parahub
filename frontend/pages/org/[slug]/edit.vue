@@ -121,6 +121,30 @@
                 </button>
               </div>
             </div>
+
+            <!-- Membership policy — only organizations can be joined at all -->
+            <div v-if="form.organization_type">
+              <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                {{ $t('directory.form.membership_policy') }}
+              </label>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  v-for="policy in MEMBERSHIP_POLICIES"
+                  :key="policy"
+                  type="button"
+                  @click="form.membership_policy = policy"
+                  class="px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors"
+                  :class="form.membership_policy === policy
+                    ? 'bg-primary/15 border-primary/40 text-neutral-900 dark:text-neutral-100'
+                    : 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500'"
+                >
+                  {{ $t(`directory.form.membership_policy_${policy.toLowerCase()}`) }}
+                </button>
+              </div>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                {{ $t('directory.form.membership_policy_hint') }}
+              </p>
+            </div>
           </div>
 
           <!-- Contact -->
@@ -356,6 +380,7 @@ const form = reactive({
   logo_url: '',
   category_id: null as string | null,
   organization_type: '',
+  membership_policy: 'INVITE',
   floor: '',
   office_number: '',
   latitude: null as number | null,
@@ -367,6 +392,11 @@ const logoUploading = ref(false)
 // Organization types — same set as the create form (CONDOMINIUM is created via
 // its own flow and preserved untouched when absent from this picker).
 const ORG_TYPES = ['ASSOCIATION', 'COOPERATIVE', 'COMPANY', 'NGO', 'COMMUNITY', 'GOVERNMENT']
+
+// Who may become a member. INVITE is the default everywhere: an organization
+// opens itself for self-service joining deliberately, one switch at a time.
+// REQUEST sits in between — anyone may apply, an admin decides.
+const MEMBERSHIP_POLICIES = ['INVITE', 'REQUEST', 'OPEN']
 
 // ---- Opening hours editor (OSM-style {day|range: 'HH:MM-HH:MM'|'closed'}) ----
 // A per-day open/close editor for the common case. Anything it can't represent
@@ -720,6 +750,7 @@ const save = async () => {
       slug: e.slug,
       is_online: e.is_online ?? false,
       organization_type: form.organization_type,
+      membership_policy: form.membership_policy,
       requires_terms_acceptance: e.requires_terms_acceptance ?? false,
       member_visibility: e.member_visibility || 'PUBLIC',
       world_object_id: linkedBuilding.value?.id || null,
@@ -764,6 +795,7 @@ onMounted(async () => {
     form.logo_url = e.logo_url || ''
     form.category_id = e.category_id || null
     form.organization_type = e.organization_type || ''
+    form.membership_policy = e.membership_policy || 'INVITE'
     form.floor = e.floor || ''
     form.office_number = e.office_number || ''
     parseOpeningHours(e.opening_hours)

@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ImagePlus, Trash2, Loader2 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -76,6 +76,10 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const dragActive = ref(false)
 const uploading = ref(false)
 const previewUrl = ref<string | null>(props.modelValue || null)
+
+watch(() => props.modelValue, (v) => {
+  previewUrl.value = v || null
+})
 
 function triggerFileInput() {
   fileInput.value?.click()

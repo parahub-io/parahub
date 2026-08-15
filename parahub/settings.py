@@ -101,6 +101,7 @@ INSTALLED_APPS = [
     'parasos',
     'cms',
     'rental',
+    'voice',
 ]
 
 MIDDLEWARE = [
@@ -116,6 +117,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
     'parahub.middleware.SessionRenewalMiddleware',  # sliding expiry, must be after SessionMiddleware
+    'iot.middleware.DeviceActionLogMiddleware',  # device console journal, must run outside the view
 ]
 
 ROOT_URLCONF = 'parahub.urls'
@@ -144,6 +146,9 @@ ASGI_APPLICATION = 'parahub.asgi.application'
 # Redis
 REDIS_HOST = env('REDIS_HOST', default='127.0.0.1')
 REDIS_PORT = env.int('REDIS_PORT', default=6379)
+# DB for app-level Redis data structures (market view counters etc.).
+# Tests override this to 15 (below) so `manage.py test` can't touch live data.
+REDIS_APP_DB = env.int('REDIS_APP_DB', default=0)
 
 # Civic polls (PK/civic-polls-system.md)
 # Dedicated HMAC key for pseudonymous opinion-vote tokens. Stable by design:
@@ -157,8 +162,12 @@ CIVIC_LIVE_THRESHOLD = env.int('CIVIC_LIVE_THRESHOLD', default=20)
 CIVIC_COUNTRY_MIN_ACCOUNT_AGE_DAYS = env.int('CIVIC_COUNTRY_MIN_ACCOUNT_AGE_DAYS', default=7)
 # Residency change cooldown (poll-shopping guard).
 CIVIC_RESIDENCY_COOLDOWN_DAYS = env.int('CIVIC_RESIDENCY_COOLDOWN_DAYS', default=30)
-# Supports needed before a citizen idea enters staff review (formulation pass).
-CIVIC_IDEA_SUPPORT_THRESHOLD = env.int('CIVIC_IDEA_SUPPORT_THRESHOLD', default=10)
+# Share of a territory's residents whose support turns a citizen idea into a live
+# poll. Applied over a per-scope floor (governance.civic.IDEA_SUPPORT_FLOOR): a
+# flat constant is unreachable in a parish of six and trivial in a country.
+CIVIC_IDEA_SUPPORT_PERCENT = env.int('CIVIC_IDEA_SUPPORT_PERCENT', default=5)
+# Voting window of a poll promoted from a citizen idea.
+CIVIC_IDEA_POLL_DAYS = env.int('CIVIC_IDEA_POLL_DAYS', default=30)
 
 # Channels (kept for ASGI routing, channels_redis removed)
 CHANNEL_LAYERS = {
@@ -430,9 +439,13 @@ MESH_DEFAULT_OWNER_PROFILE_ID = env('MESH_DEFAULT_OWNER_PROFILE_ID', default='')
 MESH_SUPPORT_PROFILE_ID = env('MESH_SUPPORT_PROFILE_ID', default='')
 MESH_SSH_KEY_PATH = env('MESH_SSH_KEY_PATH', default=os.path.expanduser('~/.ssh/id_ed25519'))
 MESH_SSH_TIMEOUT = 5
-MESH_SUBSCRIPTION_PRICE_SATS = int(env('MESH_SUBSCRIPTION_PRICE_SATS', default='50000'))
-MESH_SUBSCRIPTION_DURATION_DAYS = int(env('MESH_SUBSCRIPTION_DURATION_DAYS', default='30'))
+# Pass price/duration live in CONSTANCE_CONFIG (admin-editable, see below).
 MESH_PASS_MAX_DEVICES = int(env('MESH_PASS_MAX_DEVICES', default='5'))
+# Hosting reciprocity: every heartbeat from an owned node keeps its owner's mesh
+# pass covering MESH_HOST_PASS_DAYS ahead, renewed once coverage drops below
+# MESH_HOST_PASS_RENEW_BELOW_DAYS. Set MESH_HOST_PASS_DAYS=0 to disable.
+MESH_HOST_PASS_DAYS = int(env('MESH_HOST_PASS_DAYS', default='30'))
+MESH_HOST_PASS_RENEW_BELOW_DAYS = int(env('MESH_HOST_PASS_RENEW_BELOW_DAYS', default='7'))
 # Shared secret the nginx Yggdrasil server blocks stamp as X-Ygg-Gate so the
 # backend can trust X-Ygg-Client-IP/Port (mesh device binding). Empty = off.
 MESH_YGG_GATE_TOKEN = env('MESH_YGG_GATE_TOKEN', default='')
@@ -480,6 +493,14 @@ OAUTH2_PROVIDER = {
 SYNAPSE_REGISTRATION_SHARED_SECRET = env('SYNAPSE_REGISTRATION_SHARED_SECRET')
 SYNAPSE_ADMIN_USER = env('SYNAPSE_ADMIN_USER', default='admin')
 SYNAPSE_ADMIN_TOKEN = env('SYNAPSE_ADMIN_TOKEN')
+
+# MAS (Matrix Authentication Service) — Synapse delegates auth to it.
+# Web listener is mounted under the /mas prefix; the admin client must be
+# listed in mas/config.yaml `clients` + `policy.data.admin_clients`.
+MAS_BASE_URL = env('MAS_BASE_URL', default='http://localhost:8081/mas')
+MAS_ADMIN_CLIENT_ID = env('MAS_ADMIN_CLIENT_ID', default=None)
+MAS_ADMIN_CLIENT_SECRET = env('MAS_ADMIN_CLIENT_SECRET', default=None)
+MAS_UPSTREAM_PROVIDER_ID = env('MAS_UPSTREAM_PROVIDER_ID', default=None)
 
 # Neo4j Graph Database Settings (for Barter Exchange Matching)
 NEO4J_URI = env('NEO4J_URI', default='bolt://localhost:7687')
@@ -537,11 +558,30 @@ CONSTANCE_REDIS_CONNECTION = env('REDIS_URL', default='redis://localhost:6379/1'
 #   - Neo4j -> a dead port, so any accidental real connection fails loudly in
 #     the test instead of mutating the live barter graph. Community edition has
 #     no second database to redirect to, so fail-fast is the only guard.
+#   - Audit/federation git repos -> a throwaway root. The public registry repo
+#     is pushed to Gitea and its commits get Bitcoin-anchored, so test-created
+#     records are permanent public noise. Repos are git-initialized here so
+#     RegistryService/PGPKeyringService keep working end-to-end in tests.
 if 'test' in sys.argv:
     _TEST_REDIS_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/15'
     CACHES['default']['LOCATION'] = _TEST_REDIS_URL
     CONSTANCE_REDIS_CONNECTION = _TEST_REDIS_URL
+    REDIS_APP_DB = 15
     NEO4J_URI = 'bolt://127.0.0.1:9099'  # unused port -> connection refused
+
+    import subprocess as _subprocess
+    from parahub.tmpdirs import make_scratch_dir as _make_scratch_dir
+    from parahub.tmpdirs import register_cleanup as _register_cleanup
+    AUDIT_LOG_GIT_PATH = Path(_make_scratch_dir('test-audit'))
+    _register_cleanup(str(AUDIT_LOG_GIT_PATH))  # two git repos per run, ~4 MB
+    AUDIT_LOG_PUBLIC_GIT_REMOTE = ''  # never push anywhere from tests
+    for _sub in ('public-git', 'events-local'):
+        _repo_dir = AUDIT_LOG_GIT_PATH / _sub
+        _repo_dir.mkdir(parents=True, exist_ok=True)
+        _subprocess.run(['git', 'init', '-q', str(_repo_dir)], check=False)
+        # Commit identity must exist for GitPython index.commit on a fresh repo
+        _subprocess.run(['git', '-C', str(_repo_dir), 'config', 'user.email', 'test@parahub.local'], check=False)
+        _subprocess.run(['git', '-C', str(_repo_dir), 'config', 'user.name', 'Parahub Test'], check=False)
 
 CONSTANCE_CONFIG = {
     # Email Settings
@@ -584,6 +624,10 @@ CONSTANCE_CONFIG = {
     # Barter
     'BARTER_MAX_CHAIN_LENGTH': (5, 'Maximum barter cycle chain length (2=direct, 3=triangular, etc). Higher values increase Neo4j query time significantly.', int),
 
+    # Mesh Network
+    'MESH_SUBSCRIPTION_PRICE_SATS': (5000, 'Mesh pass price in satoshis. Fixed in sats, so its fiat value drifts with the BTC rate — revisit when the rate moves', int),
+    'MESH_SUBSCRIPTION_DURATION_DAYS': (30, 'Days of full-speed access one paid mesh pass buys', int),
+
     # Governance
     'GOVERNING_ASSOCIATION_SLUG': ('parahub-associacao', 'Slug of the Establishment that acts as the governing body of this instance (grants foundation member status)', str),
 
@@ -624,6 +668,10 @@ CONSTANCE_CONFIG_FIELDSETS = {
     },
     'Barter': {
         'fields': ('BARTER_MAX_CHAIN_LENGTH',),
+        'collapse': False,
+    },
+    'Mesh Network': {
+        'fields': ('MESH_SUBSCRIPTION_PRICE_SATS', 'MESH_SUBSCRIPTION_DURATION_DAYS'),
         'collapse': False,
     },
     'Governance': {

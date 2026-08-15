@@ -66,43 +66,38 @@ macaroon_secret_key: "CHANGE_ME"
 password_config:
   enabled: false
 
-# ==================== OIDC CONFIGURATION ====================
-# Temporarily disabled - using Widget API with shared secret registration
-# oidc_providers:
-#   - idp_id: parahub_django
-#     idp_name: "Parahub Identity"
-#     idp_icon: "mxc://parahub.io/qLrKkIVqvbTitoSkYgGlmhuf"
-#     discover: false
-#     issuer: "https://parahub.io"
-#     client_id: "synapse-client"
-#     client_secret: "36Tykk8IW0aCvZr7FxVteH1wgrkBY3sNyQWfUrtD2sdDc4fjoUaceIrMOmiivX2z"
-#     authorization_endpoint: "https://parahub.io/oauth/authorize/"
-#     token_endpoint: "https://parahub.io/oauth/token/"
-#     userinfo_endpoint: "https://parahub.io/oauth/userinfo/"
-#     jwks_uri: "https://parahub.io/oauth/.well-known/jwks.json"
-#     scopes: ["openid", "profile", "email"]
-#     skip_verification: false
-#     user_mapping_provider:
-#       config:
-        allow_existing_users: true
-#         localpart_template: "{{ user.id|lower|replace('-', '_') }}"
-#         display_name_template: "{{ user.hna }}"
-#         email_template: "{{ user.email }}"
-#     attribute_requirements:
-#       - attribute: "cri"
-#         value: ".*"  # CRI must be present
-
-# ==================== SSO SETTINGS ====================
-sso:
-  client_whitelist:
-    - "https://parahub.io/"
-    - "https://element.parahub.io/"
-  update_profile_information: true
+# ==================== AUTH DELEGATION ====================
+# Auth is delegated to MAS (Matrix Authentication Service) — see mas/config.yaml.
+# The upstream Parahub OIDC provider is configured in MAS, not here.
+# oidc_providers / sso blocks must NOT be present when MAS is enabled.
 
 # ==================== ENCRYPTION ====================
 # Enable E2E encryption by default for private rooms
 encryption_enabled_by_default_for_room_type: "invite"
 enable_group_creation: true
+
+# ==================== VOIP (TURN) ====================
+# Relay for legacy 1:1 calls placed from third-party Matrix clients. Without it
+# a call only connects when both peers punch through NAT directly, so anyone on
+# a symmetric-NAT or mobile network silently fails to connect.
+# Same coturn that serves Jitsi, on the flat host. turn_shared_secret must equal
+# TURN_SECRET in .env and TURN_CREDENTIALS on the jitsi-prosody container.
+# Group conferences (Element Call / MatrixRTC) do NOT use this -- they need a
+# LiveKit SFU advertised via .well-known, which is not deployed.
+turn_uris:
+  - "turn:turn.parahub.io:3478?transport=udp"
+  - "turn:turn.parahub.io:3478?transport=tcp"
+  - "turns:turn.parahub.io:5349?transport=tcp"
+turn_shared_secret: "CHANGE_ME_same_as_TURN_SECRET_in_env"
+turn_user_lifetime: "1h"
+turn_allow_guests: false
+
+# ==================== MATRIXRTC (Element Call) ====================
+# Delayed events (MSC4140): a client schedules its own "I have left" event up
+# front and keeps postponing it while the call runs, so a participant who
+# crashes or loses the network does not leave the call ringing forever.
+# Disabled unless a duration is given.
+max_event_delay_duration: 24h
 
 # ==================== MEDIA STORAGE ====================
 media_store_path: "/data/media_store"
@@ -143,8 +138,16 @@ max_spider_size: "10M"
 
 # ==================== RATE LIMITING ====================
 rc_message:
+  # Element Call shares e2ee keys in a burst as people join a call; upstream
+  # asks for at least 30 (element-call docs/self_hosting.md).
   per_second: 5
-  burst_count: 10
+  burst_count: 30
+
+# Every participant of a MatrixRTC call restarts its delayed leave event on a
+# 5s heartbeat, and each restart counts against this limiter.
+rc_delayed_event_mgmt:
+  per_second: 1
+  burst_count: 20
 
 rc_registration:
   per_second: 0.17
@@ -212,7 +215,7 @@ app_service_config_files: []
 # ==================== LOGIN VIA EXISTING SESSION ====================
 # Required for MSC3882 - allows existing session to mint login token
 login_via_existing_session:
-  enabled: true
+  enabled: false
   require_ui_auth: false  # Do not require re-authentication for auto-login
   token_timeout: "5m"
 
@@ -221,6 +224,11 @@ experimental_features:
   msc2716_enabled: false
   msc3026_enabled: false
   msc3916_authenticated_media_enabled: true
+  msc3882_enabled: true  # Login token API for auto-login
+  msc3881_enabled: true
+  msc4108_enabled: true  # QR sign-in rendezvous (requires MAS)
+  msc3266_enabled: true  # Room summary API, used by Element Call over federation
+  msc4222_enabled: true  # sync v2 state_after, so Element Call tracks room state
 
 # ==================== MODULES ====================
 modules: []
@@ -239,3 +247,8 @@ server_notices:
   system_mxid_localpart: notices
   system_mxid_display_name: "Parahub System"
   room_name: "Server Notices"
+# ==================== MAS INTEGRATION (stable, Synapse >=1.136) ====================
+matrix_authentication_service:
+  enabled: true
+  endpoint: http://mas:8080/mas/
+  secret: "CHANGE_ME"  # must match matrix.secret in mas/config.yaml

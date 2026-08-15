@@ -2,8 +2,10 @@
   <div ref="container" class="static-map" :style="{ height: height + 'px' }">
     <!-- MapLibre renders here when visible -->
     <div ref="mapEl" class="map-inner" />
-    <!-- Centered marker (always visible, even while map loads) -->
-    <div class="marker">
+    <!-- Centered marker (visible even while map loads). Callers showing a
+         design-system entity (device hex, place square) hide it and overlay
+         their own SnapshotMarker instead. -->
+    <div v-if="!hideMarker" class="marker">
       <div class="marker-pulse" />
       <div class="marker-dot" />
     </div>
@@ -17,6 +19,8 @@ interface Props {
   zoom?: number
   height?: number
   interactive?: boolean
+  /** Hide the built-in pulse dot (caller overlays a SnapshotMarker) */
+  hideMarker?: boolean
 }
 
 const emit = defineEmits<{
@@ -27,6 +31,7 @@ const props = withDefaults(defineProps<Props>(), {
   zoom: 15,
   height: 150,
   interactive: false,
+  hideMarker: false,
 })
 
 const colorMode = useColorMode()
@@ -102,6 +107,21 @@ watch(
     map.jumpTo({ center: [lon, lat], zoom: props.zoom })
   }
 )
+
+/**
+ * Animated recenter for "my places" fly-to chips (PK/design-system § Minimap):
+ * the caller must not also write the coordinates, or the props watch above
+ * jumpTo()s mid-flight — the interactive `moveend` emit syncs them instead.
+ * Returns false when the flight can't carry the coordinates back — lazy map not
+ * up yet, or non-interactive (no `moveend` emit) — so the caller can fall back.
+ */
+function flyTo(lat: number, lon: number): boolean {
+  if (!map || !props.interactive) return false
+  map.flyTo({ center: [lon, lat], zoom: 17, essential: true, speed: 4.5 })
+  return true
+}
+
+defineExpose({ flyTo })
 
 onUnmounted(() => {
   observer?.disconnect()

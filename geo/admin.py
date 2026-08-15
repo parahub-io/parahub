@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (TransitDataSource, OpenSkyMission, Agency, Stop, StopGroup, Route, Shape, Trip, StopTime,
                      RouteStop, Vehicle, Place, WorldObject, Establishment, EstablishmentMembership,
-                     EstablishmentReview, CalendarDate, Event, EventParticipant, DriverShift, DroneZone)
+                     EstablishmentInvite, EstablishmentReview, CalendarDate, Event, EventParticipant,
+                     DriverShift, DroneZone)
 
 
 @admin.register(TransitDataSource)
@@ -127,6 +128,15 @@ class EstablishmentAdmin(admin.ModelAdmin):
     autocomplete_fields = ['owner', 'world_object', 'category', 'parent']
     filter_horizontal = ['items']
     inlines = [EstablishmentMembershipInline]
+
+
+@admin.register(EstablishmentInvite)
+class EstablishmentInviteAdmin(admin.ModelAdmin):
+    list_display = ['establishment', 'direction', 'target_profile', 'role', 'status', 'created_by', 'created_at']
+    list_filter = ['direction', 'status', 'role']
+    search_fields = ['establishment__name', 'target_profile__local_name', 'target_profile__hna']
+    raw_id_fields = ['establishment', 'target_profile', 'created_by', 'resolved_by']
+    readonly_fields = ['id', 'token', 'created_at', 'updated_at', 'resolved_at']
 
 
 @admin.register(EstablishmentReview)

@@ -6,6 +6,7 @@ Handles invite links and partner relationships
 from ninja import Router
 from ninja.pagination import paginate, PageNumberPagination
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 from django.db.models import Count, Q, Subquery, OuterRef, IntegerField, Value
 from django.db.models.functions import Coalesce
 from typing import List, Optional
@@ -20,6 +21,12 @@ from market.models import Item
 logger = logging.getLogger(__name__)
 
 partner_router = Router()
+
+
+def _build_invite_url(token: str) -> str:
+    """Absolute invite URL on this node (federation nodes have their own SITE_URL)."""
+    from django.conf import settings
+    return f"{settings.SITE_URL.rstrip('/')}/invite/{token}"
 
 
 def get_profile_by_id_or_username(profile_id: str) -> Profile:
@@ -45,8 +52,20 @@ class InviteResponse(BaseModel):
     invite_token: str
     is_active: bool
     invited_count: int = 0
+    rooted_count: int = 0  # invitees who reached WoT verification (3+) — the ungameable half of the counter
 
     model_config = ConfigDict(from_attributes=True)
+
+
+def _invite_response(profile) -> 'InviteResponse':
+    """One place for the invite payload — all three invite endpoints return it."""
+    return InviteResponse(
+        invite_url=_build_invite_url(profile.invite_token),
+        invite_token=profile.invite_token,
+        is_active=profile.invite_token_active,
+        invited_count=profile.invited_profiles.count(),
+        rooted_count=profile.invited_profiles.filter(is_verified_wot=True).count(),
+    )
 
 
 class PartnerResponse(BaseModel):
@@ -88,15 +107,7 @@ def get_invite_link(request):
         if not profile.invite_token:
             profile.generate_invite_token()
 
-        # Build invite URL
-        invite_url = f"https://parahub.io/invite/{profile.invite_token}"
-
-        return InviteResponse(
-            invite_url=invite_url,
-            invite_token=profile.invite_token,
-            is_active=profile.invite_token_active,
-            invited_count=profile.invited_profiles.count()
-        )
+        return _invite_response(profile)
 
     except Exception as e:
         logger.error(f"Error getting invite link: {e}")
@@ -113,16 +124,9 @@ def regenerate_invite_token(request):
         profile = request.auth_profile
         profile.generate_invite_token(force_regenerate=True)
 
-        invite_url = f"https://parahub.io/invite/{profile.invite_token}"
-
         logger.info(f"Invite token regenerated for {profile.hna}: {profile.invite_token}")
 
-        return InviteResponse(
-            invite_url=invite_url,
-            invite_token=profile.invite_token,
-            is_active=profile.invite_token_active,
-            invited_count=profile.invited_profiles.count()
-        )
+        return _invite_response(profile)
 
     except Exception as e:
         logger.error(f"Error regenerating invite token: {e}")
@@ -144,14 +148,7 @@ def toggle_invite_token(request, data: ToggleInviteRequest):
         profile.invite_token_active = data.active
         profile.save(update_fields=['invite_token_active'])
 
-        invite_url = f"https://parahub.io/invite/{profile.invite_token}"
-
-        return InviteResponse(
-            invite_url=invite_url,
-            invite_token=profile.invite_token,
-            is_active=profile.invite_token_active,
-            invited_count=profile.invited_profiles.count()
-        )
+        return _invite_response(profile)
 
     except Exception as e:
         logger.error(f"Error toggling invite token: {e}")
@@ -236,6 +233,10 @@ def quick_signup_via_invite(request, data: QuickSignupRequest):
                     # Generate readable name: adjective-noun (e.g., brave-panda)
                     candidate = generate_slug(2)  # 2 words: shorter and more readable
 
+                    # Same format/reserved-word gate as a user-chosen name
+                    if not _is_username_valid(candidate)[0]:
+                        continue
+
                     # Check uniqueness in both Account, Profile, and Matrix
                     if (Account.objects.filter(username=candidate).exists() or
                             Profile.objects.filter(instance=instance, local_name=candidate).exists()):
@@ -266,55 +267,56 @@ def quick_signup_via_invite(request, data: QuickSignupRequest):
         # client-spoofable.
         reg_ip = request.META.get('REMOTE_ADDR', '')
 
-        # Create account (instance already defined above)
-        account = Account.objects.create_user(
-            username=username,
-            email=email,
-            password=password,
-            instance=instance,
-            first_name='',
-            last_name='',
-            registration_ip=reg_ip,
-        )
+        # Account + profile + both partnership rows are one unit: a half-created
+        # signup leaves an account that can log in but has no profile.
+        from django.db import transaction
 
-        # Create profile (this is the primary/first profile for this account)
-        profile = Profile.objects.create(
-            account=account,
-            instance=instance,
-            local_name=username,
-            display_name=username.replace('-', ' ').title(),
-            profile_type=Profile.ProfileType.PERSONAL,
-            is_primary=True,
-            is_publicly_linked=True,
-            invited_by=inviter_profile
-        )
+        with transaction.atomic():
+            account = Account.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                instance=instance,
+                first_name='',
+                last_name='',
+                registration_ip=reg_ip,
+            )
 
-        # Mutual partnership: both users add each other
-        Partner.objects.create(
-            profile=profile,
-            partner_profile=inviter_profile
-        )
-        Partner.objects.create(
-            profile=inviter_profile,
-            partner_profile=profile
-        )
+            # Create profile (this is the primary/first profile for this account)
+            profile = Profile.objects.create(
+                account=account,
+                instance=instance,
+                local_name=username,
+                display_name=username.replace('-', ' ').title(),
+                profile_type=Profile.ProfileType.PERSONAL,
+                is_primary=True,
+                is_publicly_linked=True,
+                invited_by=inviter_profile
+            )
 
-        # Auto-create Matrix DM between new user and inviter (fire-and-forget)
+            # Mutual partnership: both users add each other
+            Partner.objects.create(
+                profile=profile,
+                partner_profile=inviter_profile
+            )
+            Partner.objects.create(
+                profile=inviter_profile,
+                partner_profile=profile
+            )
+
+            # Generate JWT tokens for auto-login using ninja_jwt (NOT rest_framework_simplejwt!)
+            from ninja_jwt.tokens import RefreshToken
+            refresh = RefreshToken.for_user(account)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+
+        # Auto-create Matrix DM between new user and inviter (fire-and-forget).
+        # After commit: Synapse calls back into our API and must see the account.
         try:
             from parahub.endpoints.matrix_auth import create_dm_between_accounts
             create_dm_between_accounts(account.id, inviter_profile.account_id)
         except Exception as e:
             logger.error(f"Failed to auto-create DM for invite signup: {e}")
-
-        # Ensure all changes are committed to DB before generating tokens
-        from django.db import transaction
-        transaction.on_commit(lambda: None)  # Force commit point
-
-        # Generate JWT tokens for auto-login using ninja_jwt (NOT rest_framework_simplejwt!)
-        from ninja_jwt.tokens import RefreshToken
-        refresh = RefreshToken.for_user(account)
-        access_token = str(refresh.access_token)
-        refresh_token = str(refresh)
 
         logger.info(f"Quick signup via invite: {profile.hna} → invited by {inviter_profile.hna}")
         logger.debug(f"Generated tokens - Access: {access_token[:30]}... Refresh: {refresh_token[:30]}...")
@@ -340,10 +342,10 @@ def quick_signup_via_invite(request, data: QuickSignupRequest):
 @ratelimit(group='partners:accept', key=user_or_ip, rate='20/h', method='POST')
 def accept_invitation(request, data: AddPartnerRequest):
     """
-    Accept invitation and add the inviter to YOUR partners list (one-way)
+    Accept invitation and become mutual partners with the inviter
 
-    Validates the invite token and creates partner relationship.
-    This is one-directional - only you add them to your list.
+    Validates the invite token and creates the partnership in BOTH directions
+    (invite-based partnerships are mutual; direct adds via /add/{id}/ are one-way).
     For unauthenticated users, use /quick-signup/ instead.
     """
     try:
@@ -367,7 +369,14 @@ def accept_invitation(request, data: AddPartnerRequest):
             profile=current_profile,
             partner_profile=inviter_profile
         ).exists():
-            return {"message": "Already in your partners"}, 200
+            return {
+                "message": "Already in your partners",
+                "partner": {
+                    "cri": inviter_profile.id,
+                    "hna": inviter_profile.hna,
+                    "display_name": inviter_profile.display_name
+                }
+            }
 
         # Mutual partnership: both users add each other
         Partner.objects.create(
@@ -456,7 +465,12 @@ def list_partners(request):
             results.append(PartnerResponse(
                 id=partner.id,
                 hna=partner.hna,
-                display_name=partner.display_name or partner.local_name or partner.hna,
+                # Adding a partner is one-way and needs no consent, so this list
+                # is reachable by anyone — the real name stays behind
+                # name_visible_to like everywhere else
+                display_name=(
+                    partner.display_name if partner.name_visible_to(current_profile) else ''
+                ) or partner.local_name or partner.hna,
                 local_name=partner.local_name,
                 reputation_score=partner.reputation_score,
                 is_verified_wot=partner.is_verified_wot,
@@ -516,6 +530,8 @@ def remove_partner(request, partner_id: str):
 
         return {"message": "Partner removed successfully"}
 
+    except Http404:
+        raise
     except Exception as e:
         logger.error(f"Error removing partner: {e}")
         return 500, {"error": "Failed to remove partner"}
@@ -544,7 +560,14 @@ def add_partner_direct(request, profile_id: str):
             profile=current_profile,
             partner_profile=partner_profile
         ).exists():
-            return {"message": "Already in your partners"}, 200
+            return {
+                "message": "Already in your partners",
+                "partner": {
+                    "cri": partner_profile.id,
+                    "hna": partner_profile.hna,
+                    "display_name": partner_profile.display_name
+                }
+            }
 
         # Create one-way partnership (only add to current user's list)
         Partner.objects.create(
@@ -579,6 +602,8 @@ def add_partner_direct(request, profile_id: str):
             }
         }
 
+    except Http404:
+        raise
     except Exception as e:
         logger.error(f"Error adding partner: {e}")
         return 500, {"error": "Failed to add partner"}
@@ -634,6 +659,8 @@ def check_partnership_status(request, profile_id: str):
             is_mutual=i_added_them and they_added_me
         )
 
+    except Http404:
+        raise
     except Exception as e:
         logger.error(f"Error checking partnership status: {e}")
         return 500, {"error": "Failed to check partnership status"}

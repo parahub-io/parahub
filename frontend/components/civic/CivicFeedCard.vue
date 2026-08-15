@@ -13,6 +13,10 @@
         <UiBadge v-if="item.kind === 'civic'" variant="secondary" type="soft" :title="$t('civic.badgeHint')">
           {{ $t('civic.badge') }}
         </UiBadge>
+        <!-- A neighbour's proposal that gathered enough support to reach the ballot -->
+        <UiBadge v-if="item.citizen_authored" variant="primary" type="soft">
+          <Lightbulb class="w-3.5 h-3.5 mr-1 inline" aria-hidden="true" />{{ $t('civic.citizen.badge') }}
+        </UiBadge>
         <span
           v-if="item.status !== 'active'"
           class="px-3 py-1 rounded-full text-xs font-semibold" :class="statusClass(item.status)"
@@ -68,7 +72,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Users, Calendar, CheckCircle, Send, MessageSquare } from 'lucide-vue-next'
+import { Users, Calendar, CheckCircle, Send, MessageSquare, Lightbulb } from 'lucide-vue-next'
 
 const props = defineProps<{
   item: any

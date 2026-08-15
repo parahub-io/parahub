@@ -409,7 +409,7 @@ def posts_rss(request, establishment_slug: str = None, author_name: str = None):
         feed_link = f'{base}/org/{establishment_slug}/blog/'
     elif author_name:
         feed_title = f'Blog — {author_name}'
-        feed_link = f'{base}/u/{author_name}/blog/'
+        feed_link = f'{base}/@{author_name}/blog/'
     else:
         feed_title = 'Parahub Blog'
         feed_link = f'{base}/blog/'
@@ -420,7 +420,7 @@ def posts_rss(request, establishment_slug: str = None, author_name: str = None):
             link = f'{base}/org/{p.establishment.slug}/blog/{p.slug}'
         else:
             author_ln = p.author.local_name if p.author else ''
-            link = f'{base}/u/{author_ln}/blog/{p.slug}'
+            link = f'{base}/@{author_ln}/blog/{p.slug}'
         pub = p.published_at.strftime('%a, %d %b %Y %H:%M:%S +0000') if p.published_at else ''
         title = xml_escape(p.title or '')
         desc = xml_escape(p.excerpt or '')

@@ -142,11 +142,11 @@
         <h3>WiFi networks</h3>
         <table class="t">
           <tr><th>Name</th><th>What it is</th></tr>
-          <tr><td>Parahub<span class="use">factory default — rename it to anything</span></td><td>Private, password-protected. One name + password across all nodes; devices roam seamlessly.</td></tr>
+          <tr><td>Parahub<span class="use">factory default — rename it to anything</span></td><td>Private. Fresh node = own random password (in /iot); one name + password across your nodes; seamless roaming.</td></tr>
           <tr><td>parahub.io/free</td><td>Public, open, for everyone. Sandboxed away from the private network.</td></tr>
           <tr><td>parahub.io/mesh</td><td>Node-to-node backhaul. Joins automatically — not for people.</td></tr>
         </table>
-        <p class="note"><b>Change the password</b> in /iot → device card → WiFi (rename the network there too). Applies fleet-wide at once — one roaming domain.</p>
+        <p class="note"><b>Change the password</b> in /iot → device card → WiFi (rename the network there too). Applies to all your nodes at once.</p>
       </div>
 
       <div class="panel">
@@ -154,11 +154,12 @@
         <table class="t">
           <tr><th>Looks like</th><th>It is</th></tr>
           <tr><td>10.P1.P2.x</td><td>Private LAN of one node (unique per node, derived from its MAC; router itself = <code>.1</code>).</td></tr>
-          <tr><td>10.G1.G2.x</td><td>Guest network of one node — same idea, separate world.</td></tr>
-          <tr><td>10.250.250.1</td><td>"Nearest internet gateway" — answered by whichever bumblebee currently has a healthy VPN.</td></tr>
+          <tr><td>10.G1.G2.x</td><td>Guest network of one node — separate world; <code>.1</code> = the node's live status page.</td></tr>
+          <tr><td>10.250.250.1</td><td>"Nearest internet gateway" — answered by the closest VPN-healthy bumblebee.</td></tr>
           <tr><td>10.99.0.x</td><td>VPN tunnel between a node and the exit server.</td></tr>
+          <tr><td>172.30.x.y</td><td>Node-to-node transit — cable-less nodes' uplink rides here.</td></tr>
           <tr><td>200:…</td><td>Yggdrasil address of the node itself — management plane, stable across updates.</td></tr>
-          <tr><td>300:…</td><td>A private client's global Yggdrasil IPv6 — reachable from outside only if whitelisted in /iot.</td></tr>
+          <tr><td>300:…</td><td>Private client's Yggdrasil IPv6 — inbound only if whitelisted in /iot.</td></tr>
           <tr><td>fd00:bee5:…</td><td>Guest IPv6 — outbound-only, reaches Parahub services at full speed.</td></tr>
         </table>
       </div>
@@ -171,8 +172,8 @@
           <tr><td>Mesh Pass</td><td><b>Full speed.</b> Up to 5 devices per account; follows the device across every island.</td></tr>
           <tr><td>Private WiFi</td><td>Full speed on a bumblebee; on a bee capped at <b>10 Mbps</b> total (default).</td></tr>
         </table>
-        <p class="note">Both defaults are the gateway owner's, tunable in /iot — their uplink carries this traffic. A bee host's private traffic exits via the owner and shows <b>that owner's public IP</b>.</p>
-        <p class="note"><b>Kill switch:</b> no working VPN on the island ⇒ free guests get <b>no internet at all</b> — never routed through a raw connection. The free network stays up in <b>local mode</b>: Parahub services only.</p>
+        <p class="note">Both defaults are the gateway owner's, tunable in /iot — their uplink carries this traffic. A cable-less node's private traffic exits via the donor's <b>VPN</b>, never their public IP.</p>
+        <p class="note"><b>Kill switch:</b> no working VPN on the island ⇒ free guests get <b>no internet at all</b> — never a raw line. The network stays up in <b>local mode</b>: Parahub services only.</p>
       </div>
     </div>
 
@@ -181,8 +182,8 @@
       <div class="panel">
         <h3>Free vs private — trust model</h3>
         <ul>
-          <li><b>Free</b> = anonymous &amp; sandboxed: no access to anyone's LAN, and it exits <b>always</b> through the VPN chain — a guest's visible IP is the Mullvad Portugal exit, never the host's. DNS is resolved inside the tunnel too.</li>
-          <li><b>Private</b> = trusted: one big LAN across all nodes, exits through the node's own internet connection.</li>
+          <li><b>Free</b> = anonymous &amp; sandboxed: no access to anyone's LAN, and it exits <b>always</b> through the VPN chain — a guest's visible IP is the Mullvad Portugal exit, never the host's; DNS resolves inside the tunnel.</li>
+          <li><b>Private</b> = trusted: one LAN across all <b>your</b> nodes (linked by an encrypted tunnel), exits through the node's own internet connection.</li>
           <li>Paying for Mesh Pass changes <b>speed only</b> — a guest stays sandboxed and VPN-routed.</li>
         </ul>
       </div>
@@ -190,7 +191,7 @@
       <div class="panel">
         <h3>Where traffic goes</h3>
         <p class="flow"><b class="tag">FREE</b>any node <span class="arr">→</span> island's gateway node <span class="arr">→</span> VPN <span class="arr">→</span> Mullvad PT <span class="arr">→</span> Internet</p>
-        <p class="flow"><b class="tag">PRIVATE</b>the node's own internet; if it dies <span class="arr">→</span> automatic detour via another bumblebee</p>
+        <p class="flow"><b class="tag">PRIVATE</b>the node's own internet; if it dies <span class="arr">→</span> automatic detour via another bumblebee's VPN</p>
         <p class="flow"><b class="tag">MGMT</b>nodes phone home every 5 min; auto-update nightly at 03:00</p>
         <p class="note">An <b>island</b> = nodes currently meshed together; a separate group forms its own. One gateway per island, auto-elected among VPN-healthy bumblebees; failover ~5 min. Every VPN down ⇒ a <b>local-only</b> gateway (free up, internet off).</p>
       </div>
@@ -198,7 +199,7 @@
       <div class="panel">
         <h3>Mesh Pass — full speed in 4 steps</h3>
         <ol>
-          <li>Join the <b>parahub.io/free</b> WiFi — open it in your browser (the portal loads at full speed even on the free tier).</li>
+          <li>Join the <b>parahub.io/free</b> WiFi and open it in your browser.</li>
           <li>Log in or create an account.</li>
           <li>Pay with Lightning — or earn the pass.</li>
           <li>Tap <b>"Enable full speed on this device"</b> — active instantly, on every island.</li>
@@ -209,11 +210,12 @@
         <h3>If something's wrong</h3>
         <ul>
           <li><b>Power-cycle first — always safe.</b> The node rebuilds its config and re-registers by itself; fixes most unreachable-node cases.</li>
+          <li><b>node.parahub.net</b> on the free or private WiFi — live status from the router itself: exit state, neighbor signal, your speed tier. Works with the internet down.</li>
           <li>Check <b>/iot</b>: online badge (heartbeat every 5 min), firmware version, uplink &amp; client charts per node.</li>
-          <li>Whole island offline ⇒ the gateway node lost its uplink or VPN — check <b>that</b> node's cable first. Parahub loads but nothing else ⇒ <b>every</b> VPN down (local mode).</li>
+          <li>Whole island offline ⇒ the gateway lost uplink/VPN — check <b>that</b> node's cable. Parahub-only internet ⇒ <b>every</b> VPN down (local mode).</li>
           <li>A just-rebooted node without its own uplink can look dead ~20 min — give it time.</li>
-          <li><b>Unexpected reboot ≠ fault</b> — the node self-heals a dead management link.</li>
-          <li>Settings changed <b>outside /iot</b> quietly revert on the nightly update — by design. Persistent changes go through /iot.</li>
+          <li><b>Unexpected reboot ≠ fault</b> — self-healing a dead management link.</li>
+          <li>Settings changed <b>outside /iot</b> revert on the nightly update — persistent changes go through /iot.</li>
           <li>Anything deeper — hand it to the AI operator.</li>
         </ul>
       </div>

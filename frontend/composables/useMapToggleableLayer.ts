@@ -75,6 +75,21 @@ export const ZAP_GLYPH = ['M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-
 export const LEAF_GLYPH = ['M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z', 'M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12']
 export const WIND_GLYPH = ['M12.8 19.6A2 2 0 1 0 14 16H2', 'M17.5 8a2.5 2.5 0 1 1 2 4H2', 'M9.8 4.4A2 2 0 1 1 11 8H2']
 export const NAVIGATION_GLYPH = ['M3 11L22 2L13 21L11 13Z']
+// Event venue (rect primitive converted to a path, like the property glyphs).
+export const CALENDAR_GLYPH = ['M8 2v4', 'M16 2v4', 'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'M3 10h18']
+
+// Property-type glyphs — lucide 24×24 path data mirroring the lucide-vue-next
+// icons used in PropertyCard's typeIcon (rect/circle primitives converted to
+// path arcs for Path2D stroking). Shared by card snapshots and pickers.
+export const PROPERTY_TYPE_GLYPHS: Record<string, string[]> = {
+  house: ['M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8', 'M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
+  apartment: ['M12 10h.01', 'M12 14h.01', 'M12 6h.01', 'M16 10h.01', 'M16 14h.01', 'M16 6h.01', 'M8 10h.01', 'M8 14h.01', 'M8 6h.01', 'M9 22v-3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3', 'M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'],
+  office: ['M10 18v-7', 'M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z', 'M14 18v-7', 'M18 18v-7', 'M3 22h18', 'M6 18v-7'],
+  dacha: ['M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z', 'M7 16v6', 'M13 19v3', 'M12 19h8.3a1 1 0 0 0 .7-1.7L18 14h.3a1 1 0 0 0 .7-1.7L16 9h.2a1 1 0 0 0 .8-1.7L13 3l-1.4 1.5'],
+  garage: ['M18 21V10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v11', 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 1.132-1.803l7.95-3.974a2 2 0 0 1 1.837 0l7.948 3.974A2 2 0 0 1 22 8z', 'M6 13h12', 'M6 17h12'],
+  land: ['M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0', 'M15 10a3 3 0 1 1-6 0a3 3 0 1 1 6 0'],
+}
+PROPERTY_TYPE_GLYPHS.other = PROPERTY_TYPE_GLYPHS.land
 // Static device layers (env stations, mesh routers, energy cells) appear from
 // this zoom — device hexes are noise at regional/country scale. Labels follow
 // at DEVICE_LABEL_MINZOOM; HUD readout columns later still (ENV_HUD_MINZOOM=12).
@@ -186,12 +201,11 @@ export function createToggleableDataLayer(spec: ToggleableLayerSpec) {
       f.properties.ensemble = inEnsemble
       // labelPos null = a readout column (or the center slot) replaces the label
       f.properties.labelHidden = pl ? pl.labelPos === null : false
-      if (pl?.labelPos === 'above') {
-        f.properties.labelOffset = [0, -1.6]
-        f.properties.labelAnchor = 'bottom'
-      } else if (inEnsemble && pl?.labelPos === 'below') {
-        // 28 px ensemble hexes need a touch more clearance than the 22 px base
-        f.properties.labelOffset = [0, 1.6]
+      // The label carries the member's slot offset itself (icon-offset moves
+      // the icon only) — see EnsemblePlacement.labelOffset
+      if (inEnsemble && pl?.labelOffset) {
+        f.properties.labelOffset = pl.labelOffset
+        f.properties.labelAnchor = pl.labelAnchor
       }
       return f
     }).filter(Boolean),

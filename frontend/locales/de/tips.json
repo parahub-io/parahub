@@ -51,6 +51,8 @@
       "submit": "Prägen und decken",
       "funding": "Gutschein {n} von {total} wird gedeckt",
       "fundingHint": "Diesen Tab nicht schließen — jeder Gutschein wird einzeln gedeckt.",
+      "elapsed": "{time} vergangen",
+      "remaining": "ca. {time} übrig",
       "walletNeeded": "Öffnen Sie zuerst Ihre Wallet: der Satz wird daraus gedeckt.",
       "insufficient": "Guthaben reicht nicht für {sats} Sats."
     },
@@ -97,6 +99,11 @@
       "remembered": "Mit der Adresse Ihrer letzten Auszahlung vorausgefüllt.",
       "forget": "Löschen",
       "tooSmall": "Dieser Schein ist zu klein für einen Versand über Lightning — die Gebühr übersteigt seinen Wert. Versuchen Sie es mit einer Spark-Adresse."
+    },
+    "sync": {
+      "offHint": "Serie auf einem anderen Gerät ausgegeben? Serien bleiben dort, wo sie erstellt wurden, solange die Wallet-Synchronisierung aus ist.",
+      "settingsLink": "In den Profileinstellungen aktivieren",
+      "keyMismatch": "Die Synchronisierung ist an, aber die Wallet auf diesem Gerät unterscheidet sich von der synchronisierten. Stellen Sie dieselbe 12-Wort-Seed wieder her, um Serien anderer Geräte zu sehen."
     }
   }
 }

@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 
+import { buildWsUrl, clearWsAuthCookie, setWsAuthCookie, shouldRetryWithToken } from '~/utils/wsAuth'
+
 export interface ObjectUpdate {
   id: string
   object_type: string
@@ -119,7 +121,7 @@ export const useRealtimeStore = defineStore('realtime', {
         this._handleObjectUpdated(data)
       } else if (type === 'ads.feed_updated') {
         const { loadFeedCount } = useAdsState()
-        loadFeedCount()
+        loadFeedCount({ live: true })
       }
       // subscribed/unsubscribed/room.joined/room.left — silently acknowledged
 
@@ -207,6 +209,9 @@ let _ws: WebSocket | null = null
 let _connecting = false
 let _reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 let _reconnectAttempts = 0
+// Sticky for the tab's lifetime: once the cookie is known not to survive this
+// WebView, every later reconnect carries the token too.
+let _tokenInUrl = false
 let _heartbeat: ReturnType<typeof setInterval> | null = null
 const _eventHandlers = new Map<string, Set<EventHandler>>()
 
@@ -269,13 +274,9 @@ async function _doConnect(store: ReturnType<typeof useRealtimeStore>) {
     return
   }
 
-  // Set ws_token cookie (same pattern as useWebSocket)
-  document.cookie = `ws_token=${token}; path=/; SameSite=Strict; Secure`
+  setWsAuthCookie(token)
 
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = window.location.host
-
-  _ws = new WebSocket(`${protocol}//${host}/ws/v1/realtime/`)
+  _ws = new WebSocket(buildWsUrl('/ws/v1/realtime/', token, _tokenInUrl))
 
   _ws.onopen = () => {
     _connecting = false
@@ -298,7 +299,15 @@ async function _doConnect(store: ReturnType<typeof useRealtimeStore>) {
     store._onClose()
 
     // Clear auth cookie
-    document.cookie = 'ws_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    clearWsAuthCookie()
+
+    // The WebView withheld the cookie: come straight back with the token in
+    // the URL rather than serving the whole app a socket that never opens.
+    if (shouldRetryWithToken(event.code, _tokenInUrl)) {
+      _tokenInUrl = true
+      _reconnectTimeout = setTimeout(() => _doConnect(store), 200)
+      return
+    }
 
     // Auto-reconnect (not on clean close)
     if (event.code !== 1000) {

@@ -92,7 +92,7 @@
                   <NuxtLink
                     v-for="item in peopleResults"
                     :key="item.id"
-                    :to="localePath(`/u/${item.hna.split('@')[0]}`)"
+                    :to="localePath(`/@${item.hna.split('@')[0]}`)"
                     class="block bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-primary-100 dark:hover:bg-primary-900/40 hover:border-primary transition-colors cursor-pointer"
                   >
                     <div class="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3">
@@ -125,7 +125,7 @@
                             <span class="mx-1 text-neutral-300 dark:text-neutral-600">&middot;</span>
                           </span>
                           <span v-if="item.reputation_score" :title="$t('directory.users.reputation_tooltip')">
-                            <Star class="w-3 h-3 inline -mt-0.5 text-warning" />
+                            <Star class="w-3 h-3 inline -mt-0.5 text-secondary dark:text-secondary-400" />
                             {{ $t('directory.users.reputation_label') }} {{ formatReputation(item.reputation_score) }}
                           </span>
                           <span class="mx-1.5 text-neutral-300 dark:text-neutral-600">&middot;</span>
@@ -214,7 +214,7 @@
                       <!-- Right side stats -->
                       <div class="flex-shrink-0 flex items-center gap-3 text-xs text-neutral-400 dark:text-neutral-500">
                         <span v-if="item.rating_count > 0" class="flex items-center gap-1" :title="$t('directory.organizations.rating_tooltip', { rating: item.rating_avg.toFixed(1), count: item.rating_count })">
-                          <Star class="w-3.5 h-3.5 text-warning fill-warning" />
+                          <Star class="w-3.5 h-3.5 star-on" />
                           {{ item.rating_avg.toFixed(1) }}
                         </span>
                         <span v-if="item.member_count > 0" class="flex items-center gap-1" :title="$t('directory.organizations.members_tooltip', { count: item.member_count })">
@@ -249,7 +249,7 @@
 import {
   Users, Shield, Star, Search, Package, ShoppingBag, Building2,
   MapPin, ChevronRight, BadgeCheck, UserPlus, Clock, LayoutGrid,
-  Store, Landmark, Briefcase, Heart, UtensilsCrossed, Building, Plus
+  Store, Landmark, Briefcase, Heart, UtensilsCrossed, Building, Plus, FlaskConical
 } from 'lucide-vue-next'
 import DirectoryCardSkeleton from '~/components/DirectoryCardSkeleton.vue'
 import { checkIsOpen } from '~/composables/useOpeningHours'
@@ -298,7 +298,11 @@ useSeoMeta({
 })
 
 type ViewType = 'all' | 'people' | 'organizations'
-type FilterKey = 'partners' | 'memberships' | 'verified' | 'openNow'
+type FilterKey = 'partners' | 'memberships' | 'verified' | 'openNow' | 'testProfiles'
+
+// Staff see the real community by default like everyone else; this opts them
+// back into the synthetic (test/bot) profiles when they need to inspect them.
+const isStaff = computed(() => !!authStore.user?.is_staff)
 
 const searchQuery = ref<string>((route.query.q as string) || '')
 
@@ -314,6 +318,7 @@ const parseFromQuery = (): { viewType: ViewType; filters: Record<FilterKey, bool
     memberships: auth && fl.includes('memberships'),
     verified: auth && fl.includes('verified'),
     openNow: fl.includes('open_now'),
+    testProfiles: auth && fl.includes('test'),
   }
 
   // Anonymous users can only browse organizations (people are private).
@@ -349,10 +354,13 @@ const FILTER_DEFS = [
   { key: 'verified' as FilterKey, labelKey: 'directory.filters.verified', icon: Shield, types: ['all', 'people'], authOnly: true },
   { key: 'memberships' as FilterKey, labelKey: 'directory.filters.my_memberships', icon: BadgeCheck, types: ['all', 'organizations'], authOnly: true },
   { key: 'openNow' as FilterKey, labelKey: 'directory.filters.open_now', icon: Clock, types: ['all', 'organizations'], authOnly: false },
+  { key: 'testProfiles' as FilterKey, labelKey: 'directory.filters.test_profiles', icon: FlaskConical, types: ['all', 'people'], authOnly: true, staffOnly: true },
 ]
 
 const visibleFilters = computed(() => FILTER_DEFS.filter(f =>
-  f.types.includes(viewType.value) && (!f.authOnly || authStore.isAuthenticated)
+  f.types.includes(viewType.value)
+  && (!f.authOnly || authStore.isAuthenticated)
+  && (!('staffOnly' in f && f.staffOnly) || isStaff.value)
 ))
 
 // One active treatment for every filter toggle: indigo = "this refinement is on".
@@ -374,6 +382,7 @@ const syncQueryParams = () => {
   if (filters.memberships) fl.push('memberships')
   if (filters.verified) fl.push('verified')
   if (filters.openNow) fl.push('open_now')
+  if (filters.testProfiles) fl.push('test')
   if (fl.length > 0) query.filter = fl.join(',')
 
   if (searchQuery.value) query.q = searchQuery.value
@@ -385,7 +394,7 @@ const setViewType = (v: ViewType) => {
   viewType.value = v
   // Drop filters that don't apply to the new view type
   if (v === 'people') { filters.memberships = false; filters.openNow = false }
-  else if (v === 'organizations') { filters.partners = false; filters.verified = false }
+  else if (v === 'organizations') { filters.partners = false; filters.verified = false; filters.testProfiles = false }
   syncQueryParams()
   loadResults()
 }
@@ -416,6 +425,8 @@ const loadUsers = async (): Promise<any[]> => {
     const params = new URLSearchParams({ page_size: '50' })
     if (filters.partners) params.append('only_partners', 'true')
     if (filters.verified) params.append('verified_only', 'true')
+    // The directory hides synthetic profiles from staff too — the chip opts back in
+    if (!filters.testProfiles) params.append('exclude_test', 'true')
     if (searchQuery.value) params.append('q', searchQuery.value)
 
     const headers: Record<string, string> = {}
@@ -484,6 +495,20 @@ const { data: results, pending: loading } = resultsData
 
 const loadResults = () => resultsData.refresh()
 
+// The merged fetch can legitimately come back people-less even for a signed-in
+// visitor: the profile search needs a JWT, and tokens are memory-only — absent
+// during SSR and not yet minted when the fetch first runs on the client. Both
+// paths swallow the 401 and return []. Fill the gap once per page instance,
+// whichever comes first: mount, or the auth store reporting a session.
+let peopleRetried = false
+const ensurePeopleLoaded = async () => {
+  if (peopleRetried || !shouldLoadPeople.value || peopleResults.value.length > 0) return
+  peopleRetried = true
+  try { await authStore.ensureToken() } catch { /* anonymous — nothing to retry with */ }
+  loadResults()
+}
+watch(() => authStore.isAuthenticated, (authed) => { if (authed) ensurePeopleLoaded() })
+
 let searchTimeout: NodeJS.Timeout
 const debouncedSearch = () => {
   clearTimeout(searchTimeout)
@@ -532,6 +557,7 @@ onMounted(() => {
   }
   // No unconditional load here — the setup-level useAsyncData already ran
   // (SSR or client) and its payload hydrates the first render.
+  ensurePeopleLoaded()
 })
 
 // Pages are KeepAlive-cached globally (app.vue): setup/useAsyncData do NOT

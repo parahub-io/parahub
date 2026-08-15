@@ -11,7 +11,7 @@
         @create="showForm = !showForm"
       />
       <p class="text-sm text-neutral-500 dark:text-neutral-400 -mt-3 mb-6">
-        {{ $t('civic.ideas.hint', { threshold }) }}
+        {{ $t('civic.ideas.hint') }}
       </p>
 
       <!-- Create form -->
@@ -68,70 +68,26 @@
 
       <!-- Ideas list -->
       <div v-else class="space-y-4">
-        <div v-for="idea in ideas" :key="idea.id" class="card p-5">
-          <div class="flex flex-wrap items-center gap-2 mb-2">
-            <CivicScopeBadge :level="idea.territory_level" :name="idea.territory_name" />
-            <UiBadge v-if="idea.status === 'review'" variant="warning" type="soft">{{ $t('civic.ideas.statusReview') }}</UiBadge>
-            <UiBadge v-else-if="idea.status === 'promoted'" variant="success" type="soft">{{ $t('civic.ideas.statusPromoted') }}</UiBadge>
-            <UiBadge v-else-if="idea.status === 'rejected'" variant="error" type="soft">{{ $t('civic.ideas.statusRejected') }}</UiBadge>
-          </div>
-          <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{{ idea.title }}</h3>
-          <p class="text-sm text-neutral-600 dark:text-neutral-400 whitespace-pre-line mb-3">{{ idea.body }}</p>
-
-          <!-- Support progress toward the threshold -->
-          <div v-if="idea.status === 'open' || idea.status === 'review'" class="mb-3">
-            <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 overflow-hidden">
-              <div class="bg-secondary h-2 rounded-full transition-all duration-500"
-                   :style="`width: ${Math.min(100, idea.support_count / idea.threshold * 100)}%`"></div>
-            </div>
-            <div class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {{ $t('civic.ideas.supporters', { n: idea.support_count, threshold: idea.threshold }) }}
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <template v-if="idea.status === 'open' || idea.status === 'review'">
-              <UiButton
-                v-if="authStore.isAuthenticated"
-                :variant="idea.supported_by_me ? 'secondary' : 'outline'"
-                size="sm" :icon="ThumbsUp"
-                @click="toggleSupport(idea)"
-              >
-                {{ idea.supported_by_me ? $t('civic.ideas.supported') : $t('civic.ideas.support') }}
-              </UiButton>
-            </template>
-            <UiButton
-              v-if="idea.status === 'promoted' && idea.promoted_poll_id"
-              variant="secondary" size="sm"
-              :to="localePath(`/governance/polls/${idea.promoted_poll_id}`)"
-            >
-              {{ $t('civic.ideas.openPoll') }}
-            </UiButton>
-
-            <!-- Staff formulation review -->
-            <template v-if="isStaff && (idea.status === 'review' || idea.status === 'open')">
-              <UiButton variant="outline-success" size="sm"
-                        :to="localePath(`/governance/polls/create?from_idea=${idea.id}&territory=${idea.territory_id}&title=${encodeURIComponent(idea.title)}`)">
-                {{ $t('civic.ideas.promote') }}
-              </UiButton>
-              <UiButton :variant="pendingReject === idea.id ? 'error' : 'outline-error'" size="sm"
-                        @click="rejectIdea(idea)">
-                {{ pendingReject === idea.id ? $t('civic.ideas.rejectSure') : $t('civic.ideas.reject') }}
-              </UiButton>
-            </template>
-          </div>
-        </div>
+        <CivicIdeaCard
+          v-for="(idea, index) in ideas"
+          :key="idea.id"
+          :idea="idea"
+          show-scope
+          @update="ideas[index] = $event"
+          @changed="load"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { ArrowLeft, Lightbulb, ThumbsUp } from 'lucide-vue-next'
+import { ref, onMounted } from 'vue'
+import { ArrowLeft, Lightbulb } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const localePath = useLocalePath()
 const authStore = useAuthStore()
 const { t: $t, locale } = useI18n()
@@ -143,13 +99,8 @@ const loading = ref(true)
 const showForm = ref(false)
 const creating = ref(false)
 const createError = ref('')
-const pendingReject = ref<string | null>(null)
-let rejectTimer: ReturnType<typeof setTimeout> | null = null
 
 const form = ref({ title: '', body: '', territory_id: '', topic_slug: '' })
-
-const isStaff = computed(() => !!authStore.user?.is_staff)
-const threshold = computed(() => ideas.value[0]?.threshold ?? 10)
 
 async function authed(): Promise<Record<string, string>> {
   if (!authStore.isAuthenticated) return {}
@@ -165,7 +116,7 @@ async function load() {
   loading.value = true
   try {
     const headers = await authed()
-    const query: Record<string, string> = {}
+    const query: Record<string, string> = { translate_to: locale.value }
     if (!authStore.isAuthenticated) {
       const guess = (navigator.language?.split('-')[1] || '').toUpperCase()
       if (guess) query.country = guess
@@ -199,38 +150,10 @@ async function submitIdea() {
   }
 }
 
-async function toggleSupport(idea: any) {
-  try {
-    const headers = await authed()
-    const action = idea.supported_by_me ? 'unsupport' : 'support'
-    const updated: any = await $fetch(`/api/v1/governance/civic/ideas/${idea.id}/${action}/`, {
-      method: 'POST', credentials: 'include', headers,
-    })
-    const index = ideas.value.findIndex(i => i.id === idea.id)
-    if (index >= 0) ideas.value[index] = updated
-  } catch { /* consent/scope errors: keep state */ }
-}
-
-// Two-tap destructive confirmation (design-system pattern)
-async function rejectIdea(idea: any) {
-  if (pendingReject.value !== idea.id) {
-    pendingReject.value = idea.id
-    if (rejectTimer) clearTimeout(rejectTimer)
-    rejectTimer = setTimeout(() => { pendingReject.value = null }, 3000)
-    return
-  }
-  pendingReject.value = null
-  try {
-    const headers = await authed()
-    await $fetch(`/api/v1/governance/civic/ideas/${idea.id}/reject/`, {
-      method: 'POST', credentials: 'include', headers, body: { note: '' },
-    })
-    await load()
-  } catch { /* staff only */ }
-}
-
 onMounted(async () => {
   load()
+  // ?new=1 — the feed's "propose" call to action lands straight on the form
+  if (route.query.new) showForm.value = true
   try { topics.value = await $fetch('/api/v1/governance/civic/topics/') } catch { /* empty */ }
   if (authStore.isAuthenticated) {
     try {

@@ -31,6 +31,8 @@ def sync_device_to_traccar(sender, instance, created, **kwargs):
     device_pk = instance.pk
     device_name = instance.name
     unique_id = instance.device_id or str(instance.id)
+    owner_profile_id = instance.owner_id
+    owner_email = (instance.owner.account.email or '').strip()
 
     def do_sync():
         conn = None
@@ -46,6 +48,17 @@ def sync_device_to_traccar(sender, instance, created, **kwargs):
 
             if existing:
                 traccar_id = existing['id']
+                # An existing Traccar device that another profile already holds
+                # here stays theirs: linking would hand its live positions to
+                # whoever guessed the uniqueId (IMEI is printed on the box).
+                if IoTDevice.objects.filter(
+                    traccar_device_id=traccar_id,
+                ).exclude(owner_id=owner_profile_id).exists():
+                    logger.warning(
+                        f"Device {unique_id} is already registered to another "
+                        f"profile — leaving {device_name} unlinked"
+                    )
+                    return
                 logger.info(f"Device {device_name} found in Traccar with ID {traccar_id}")
             else:
                 cur.execute(
@@ -56,13 +69,18 @@ def sync_device_to_traccar(sender, instance, created, **kwargs):
                 new_device = cur.fetchone()
                 traccar_id = new_device['id']
 
-                cur.execute(
-                    """INSERT INTO tc_user_device (userid, deviceid)
-                       SELECT id, %s FROM tc_users
-                       WHERE administrator = true OR email IN ('andrey.perliev@gmail.com')
-                       ON CONFLICT DO NOTHING""",
-                    (traccar_id,)
-                )
+                # Permission goes to the owner's own Traccar user, matched by
+                # account email — the same key sync_devices_from_traccar reads.
+                # Permitting every administrator instead put each new tracker
+                # into every admin's Traccar account, and their next device
+                # list adopted it as a device of their own.
+                if owner_email:
+                    cur.execute(
+                        """INSERT INTO tc_user_device (userid, deviceid)
+                           SELECT id, %s FROM tc_users WHERE email = %s
+                           ON CONFLICT DO NOTHING""",
+                        (traccar_id, owner_email)
+                    )
                 conn.commit()
                 logger.info(f"Device {device_name} created in Traccar with ID {traccar_id}")
 

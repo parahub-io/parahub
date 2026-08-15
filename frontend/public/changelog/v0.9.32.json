@@ -1,0 +1,96 @@
+{
+  "version": "v0.9.32",
+  "date": "2026-07-21",
+  "locales": {
+    "en": {
+      "title": "The app learns your streets",
+      "summary": "Arrival predictions now learn from every trip, the phone menu got a tactile redesign, and the community network's edges were hardened.",
+      "highlights": [
+        { "icon": "clock", "title": "Predictions that learn", "body": "The system remembers how long each street segment really takes and models terminus layovers — benchmarked in Helsinki against public ground-truth data." },
+        { "icon": "smartphone", "title": "A tactile mobile menu", "body": "The site menu fuses with the top bar, answers your finger with subtle haptic ticks, and the Android app shows a proper brand splash while starting." },
+        { "icon": "home", "title": "Map-first property hub", "body": "Your properties and devices open with a real map of where things are, organized into devices, objects and infrastructure tabs." },
+        { "icon": "shield", "title": "Network edge hardening", "body": "Client-supplied headers are no longer trusted for identity, and rate limiting now covers the community network path." }
+      ],
+      "notes": [
+        "Sun study on the map draws phase-accurate moon icons.",
+        "Scroll position is restored when you navigate back.",
+        "Speed passes now apply per account with per-device binding."
+      ]
+    },
+    "ru": {
+      "title": "Приложение учит ваши улицы",
+      "summary": "Прогнозы прибытия теперь учатся на каждой поездке, меню на телефоне стало тактильным, а границы сети сообщества укреплены.",
+      "highlights": [
+        { "icon": "clock", "title": "Прогнозы, которые учатся", "body": "Система запоминает, сколько на самом деле занимает каждый участок улицы, и моделирует отстой на конечных — точность проверена в Хельсинки на открытых эталонных данных." },
+        { "icon": "smartphone", "title": "Тактильное мобильное меню", "body": "Меню сайта сливается с верхней панелью, отвечает пальцу лёгкими тактильными щелчками, а Android-приложение показывает фирменную заставку при запуске." },
+        { "icon": "home", "title": "Хаб недвижимости от карты", "body": "Ваши объекты и устройства открываются с настоящей картой их расположения и разложены по вкладкам: устройства, объекты, инфраструктура." },
+        { "icon": "shield", "title": "Укрепление границ сети", "body": "Заголовки, присланные клиентом, больше не считаются доверенными для определения личности, а ограничение частоты запросов теперь покрывает путь сети сообщества." }
+      ],
+      "notes": [
+        "Солнечный анализ на карте рисует луну с точной фазой.",
+        "Позиция прокрутки восстанавливается при возврате назад.",
+        "Скоростные абонементы действуют на аккаунт с привязкой к устройствам."
+      ]
+    },
+    "pt": {
+      "title": "A aplicação aprende as suas ruas",
+      "summary": "As previsões de chegada aprendem agora com cada viagem, o menu no telemóvel ganhou um redesenho tátil e as fronteiras da rede comunitária foram reforçadas.",
+      "highlights": [
+        { "icon": "clock", "title": "Previsões que aprendem", "body": "O sistema memoriza quanto tempo cada troço de rua realmente demora e modela as paragens de terminal — aferido em Helsínquia contra dados públicos de referência." },
+        { "icon": "smartphone", "title": "Um menu móvel tátil", "body": "O menu do site funde-se com a barra superior, responde ao dedo com toques hápticos subtis, e a aplicação Android mostra um ecrã de arranque com a marca." },
+        { "icon": "home", "title": "Painel de propriedades centrado no mapa", "body": "As suas propriedades e dispositivos abrem com um mapa real da sua localização, organizados em separadores de dispositivos, objetos e infraestrutura." },
+        { "icon": "shield", "title": "Reforço das fronteiras da rede", "body": "Os cabeçalhos enviados pelo cliente deixam de ser confiáveis para identidade, e a limitação de pedidos cobre agora o caminho da rede comunitária." }
+      ],
+      "notes": [
+        "O estudo solar no mapa desenha a lua com a fase exata.",
+        "A posição de deslocamento é restaurada ao voltar atrás.",
+        "Os passes de velocidade aplicam-se agora por conta, com vínculo por dispositivo."
+      ]
+    },
+    "es": {
+      "title": "La aplicación aprende tus calles",
+      "summary": "Las predicciones de llegada ahora aprenden de cada viaje, el menú del móvil recibió un rediseño táctil y los bordes de la red comunitaria se reforzaron.",
+      "highlights": [
+        { "icon": "clock", "title": "Predicciones que aprenden", "body": "El sistema recuerda cuánto tarda realmente cada tramo de calle y modela las esperas en cabecera — contrastado en Helsinki con datos públicos de referencia." },
+        { "icon": "smartphone", "title": "Un menú móvil táctil", "body": "El menú del sitio se funde con la barra superior, responde a tu dedo con leves toques hápticos, y la aplicación Android muestra una pantalla de arranque con la marca." },
+        { "icon": "home", "title": "Panel de propiedades centrado en el mapa", "body": "Tus propiedades y dispositivos abren con un mapa real de dónde está cada cosa, organizados en pestañas de dispositivos, objetos e infraestructura." },
+        { "icon": "shield", "title": "Refuerzo de los bordes de la red", "body": "Las cabeceras enviadas por el cliente ya no se consideran de confianza para la identidad, y la limitación de peticiones cubre ahora la ruta de la red comunitaria." }
+      ],
+      "notes": [
+        "El estudio solar del mapa dibuja la luna con su fase exacta.",
+        "La posición de desplazamiento se restaura al volver atrás.",
+        "Los pases de velocidad se aplican ahora por cuenta, vinculados a cada dispositivo."
+      ]
+    },
+    "fr": {
+      "title": "L'application apprend vos rues",
+      "summary": "Les prévisions d'arrivée apprennent désormais de chaque trajet, le menu du téléphone a reçu une refonte tactile, et les bordures du réseau communautaire ont été durcies.",
+      "highlights": [
+        { "icon": "clock", "title": "Des prévisions qui apprennent", "body": "Le système retient le temps réel de chaque tronçon de rue et modélise les pauses de terminus — étalonné à Helsinki sur des données publiques de référence." },
+        { "icon": "smartphone", "title": "Un menu mobile tactile", "body": "Le menu du site fusionne avec la barre supérieure, répond au doigt par de légers retours haptiques, et l'application Android affiche un écran de démarrage à la marque." },
+        { "icon": "home", "title": "Un espace propriétés centré sur la carte", "body": "Vos propriétés et appareils s'ouvrent sur une vraie carte de leur emplacement, organisés en onglets appareils, objets et infrastructure." },
+        { "icon": "shield", "title": "Durcissement des bordures du réseau", "body": "Les en-têtes fournis par le client ne sont plus considérés comme fiables pour l'identité, et la limitation de débit couvre désormais le chemin du réseau communautaire." }
+      ],
+      "notes": [
+        "L'étude d'ensoleillement dessine la lune avec sa phase exacte.",
+        "La position de défilement est restaurée au retour en arrière.",
+        "Les forfaits de vitesse s'appliquent désormais par compte, liés à chaque appareil."
+      ]
+    },
+    "de": {
+      "title": "Die App lernt Ihre Straßen",
+      "summary": "Ankunftsprognosen lernen jetzt aus jeder Fahrt, das Menü am Telefon wurde fühlbar überarbeitet, und die Ränder des Gemeinschaftsnetzes wurden gehärtet.",
+      "highlights": [
+        { "icon": "clock", "title": "Prognosen, die lernen", "body": "Das System merkt sich, wie lange jeder Straßenabschnitt wirklich dauert, und modelliert Wendezeiten an Endhaltestellen — geeicht in Helsinki an öffentlichen Referenzdaten." },
+        { "icon": "smartphone", "title": "Ein fühlbares mobiles Menü", "body": "Das Seitenmenü verschmilzt mit der oberen Leiste, antwortet dem Finger mit feinen haptischen Impulsen, und die Android-App zeigt beim Start einen Markenbildschirm." },
+        { "icon": "home", "title": "Immobilien-Hub mit Karte zuerst", "body": "Ihre Objekte und Geräte öffnen mit einer echten Karte ihrer Standorte, gegliedert in Tabs für Geräte, Objekte und Infrastruktur." },
+        { "icon": "shield", "title": "Härtung der Netzränder", "body": "Vom Client gesendete Header gelten für die Identität nicht mehr als vertrauenswürdig, und die Ratenbegrenzung deckt jetzt den Pfad des Gemeinschaftsnetzes ab." }
+      ],
+      "notes": [
+        "Die Sonnenstudie auf der Karte zeichnet den Mond mit exakter Phase.",
+        "Die Scrollposition wird beim Zurückgehen wiederhergestellt.",
+        "Geschwindigkeitspässe gelten jetzt pro Konto, gebunden an einzelne Geräte."
+      ]
+    }
+  }
+}

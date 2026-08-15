@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import math
 import statistics
+from datetime import datetime, timezone as dt_timezone
+from zoneinfo import ZoneInfo
 
 import orjson
 
@@ -37,6 +39,21 @@ ETA_DEFAULT_SEGMENT_S = 90.0
 # extra observations. With 10 samples the schedule barely moves the estimate;
 # with 1 noisy sample it pulls it back toward a sane prior.
 ETA_PRIOR_STRENGTH = 3.0
+
+# Historical segment priors (written by the STT daemon per traversal into
+# `transit:prior:{ds}:{from}:{to}` hashes; see prior_bucket): a bucket needs at
+# least this many recorded traversals before its geometric mean is trusted as
+# an estimate — below that, thin buckets (fresh feeds, night hours, weekends
+# right after a Redis wipe) fall through to the scheduled path unchanged.
+ETA_PRIOR_BUCKET_MIN_N = 5
+# A bucket's evidence weight in the blend is capped as if it were one full
+# FIFO of live observations — months of accumulation must not make the prior
+# immune to the schedule (route detours, seasonal timetable changes).
+ETA_PRIOR_MAX_WEIGHT = 10.0
+
+# Redis TTL for the per-segment prior hashes (refreshed on every write, and on
+# snapshot restore — see the sync_transit_priors command).
+STT_PRIOR_TTL = 120 * 86400
 
 # The route-wide observed/scheduled delay factor (applied to *unobserved*
 # segments) is clamped so a single weird segment can't blow up the whole tail.
@@ -60,6 +77,17 @@ ZOMBIE_SID_IDX_TOL = 1
 # combined with the accumulated-dwell check in parked_beyond_grace it separates
 # "driving between stops" from "parked mid-route with GPS micro-moves".
 PARKED_MOVE_RECENT_S = 60.0
+
+# A vprev state is only evidence of a live vehicle for as long as the poller
+# keeps refreshing it. The RT poller hands STT only the vehicles whose feed
+# timestamp is within 180s (the cutoff every display path uses) and evicts the
+# rest from `transit:vdata`, while their vprev key lingers for the remainder of
+# its TTL. Such a frozen state must not seed an ETA chain: the icon is already
+# gone, and every guard that would have caught it (the zombie flag `z`, the
+# snapped `sid`) lives in the vdata record that was just evicted — so without
+# this the vehicle becomes MORE trusted the staler it gets, painting live ETAs
+# for a bus that is nowhere on the page.
+STT_STATE_MAX_AGE_S = 180.0
 
 
 def parse_rstops(raw):
@@ -91,6 +119,68 @@ def parse_rstops(raw):
     return source_ids, coords, sched_offsets
 
 
+def prior_bucket(now: float, tz=None) -> str:
+    """Hour-of-day × day-class bucket id for segment-prior aggregates.
+
+    ``'{HH}{w|s|u}'`` in feed-local time (w=Mon-Fri, s=Sat, u=Sun) — transit
+    traffic regimes follow service-local clock, not server UTC.
+    """
+    ldt = datetime.fromtimestamp(now, tz or dt_timezone.utc)
+    wd = ldt.weekday()
+    dc = 'w' if wd < 5 else ('s' if wd == 5 else 'u')
+    return f'{ldt.hour:02d}{dc}'
+
+
+_zoneinfo_cache: dict[str, ZoneInfo | None] = {}
+
+
+def bucket_for(tz_name, now: float) -> str:
+    """:func:`prior_bucket` for a timezone *name* (the readers' entry point).
+
+    The daemon publishes each feed's GTFS ``agency_timezone`` as
+    ``transit:tz:{ds_id}``; readers pass that value (str/bytes/None) here.
+    Missing or unresolvable names fall back to UTC — wrong-bucket priors for a
+    non-UTC feed only until the daemon's next cache refresh republishes the key.
+    """
+    if isinstance(tz_name, bytes):
+        tz_name = tz_name.decode('utf-8', 'replace')
+    tz = None
+    if tz_name:
+        if tz_name not in _zoneinfo_cache:
+            try:
+                _zoneinfo_cache[tz_name] = ZoneInfo(tz_name)
+            except Exception:
+                _zoneinfo_cache[tz_name] = None
+        tz = _zoneinfo_cache[tz_name]
+    return prior_bucket(now, tz)
+
+
+def queue_prior_reads(pipe, stt_keys, bucket: str):
+    """Queue one HMGET per segment for the historical-prior bucket, mirroring a
+    list of ``transit:stt:*`` FIFO keys already queued on the same pipeline.
+
+    Callers slice the pipeline result with the same ranges they use for the
+    FIFO half and feed the rows to :func:`parse_priors`.
+    """
+    nf, lf = f'{bucket}:n', f'{bucket}:l'
+    for sk in stt_keys:
+        pipe.hmget('transit:prior:' + sk[len('transit:stt:'):], nf, lf)
+
+
+def parse_priors(rows):
+    """HMGET rows → per-segment ``(n, sum_ln)`` tuples (``None`` when the
+    bucket is absent/corrupt). Accepts str or bytes values."""
+    out = []
+    for row in rows:
+        try:
+            n, sum_ln = int(row[0]), float(row[1])
+        except (TypeError, ValueError, IndexError):
+            out.append(None)
+            continue
+        out.append((n, sum_ln) if n > 0 else None)
+    return out
+
+
 def _scheduled_segment_durations(sched_offsets, n_seg):
     """Per-segment scheduled seconds from cumulative offsets (``None`` if either
     endpoint offset is unknown or non-positive)."""
@@ -106,12 +196,23 @@ def _scheduled_segment_durations(sched_offsets, n_seg):
     return sched_seg
 
 
-def segment_infos(seg_observations, sched_offsets):
+def segment_infos(seg_observations, sched_offsets, seg_priors=None):
     """Estimate each segment's travel time with provenance.
 
     ``seg_observations[i]`` is the list of observed traversal times (str/float,
     possibly empty) for the segment from stop ``i`` to ``i+1``. ``sched_offsets``
     is the per-stop cumulative scheduled-seconds list from :func:`parse_rstops`.
+    ``seg_priors[i]`` (optional, from :func:`parse_priors`) is the historical
+    ``(n, sum_ln)`` bucket for the current hour × day-class.
+
+    Live observations always win. The prior only replaces the *scheduled*
+    estimate on segments with no live FIFO — exactly the 10–30 min horizon
+    where chains run through stretches no recent vehicle has traversed. Its
+    geometric mean ``exp(sum_ln/n)`` (≈ the median for lognormal travel times)
+    is blended toward ``schedule × route delay factor`` with the same
+    pseudo-count scheme as the observed branch, so a thin bucket leans on the
+    schedule and a dense one dominates it — but never fully (see
+    ``ETA_PRIOR_MAX_WEIGHT``).
 
     The observed estimate is the FIFO **median**, not the mean: recorded times
     include dwell at the departure stop, so an idiosyncratic layover (driver
@@ -161,6 +262,14 @@ def segment_infos(seg_observations, sched_offsets):
             else:
                 avg = obs_med[i]
             out.append({'avg': avg, 'samples': obs_n[i], 'observed': True, 'source': 'observed'})
+        elif (pri := seg_priors[i] if seg_priors and i < len(seg_priors) else None) and pri[0] >= ETA_PRIOR_BUCKET_MIN_N:
+            gmean = math.exp(pri[1] / pri[0])
+            if sched_seg[i] is not None:
+                w = min(float(pri[0]), ETA_PRIOR_MAX_WEIGHT)
+                avg = (w * gmean + ETA_PRIOR_STRENGTH * sched_seg[i] * factor) / (w + ETA_PRIOR_STRENGTH)
+            else:
+                avg = gmean
+            out.append({'avg': avg, 'samples': pri[0], 'observed': False, 'source': 'prior'})
         elif sched_seg[i] is not None:
             out.append({'avg': sched_seg[i] * factor, 'samples': 0, 'observed': False, 'source': 'scheduled'})
         else:
@@ -168,9 +277,9 @@ def segment_infos(seg_observations, sched_offsets):
     return out
 
 
-def segment_averages(seg_observations, sched_offsets):
+def segment_averages(seg_observations, sched_offsets, seg_priors=None):
     """Convenience: just the ``avg`` per segment (see :func:`segment_infos`)."""
-    return [s['avg'] for s in segment_infos(seg_observations, sched_offsets)]
+    return [s['avg'] for s in segment_infos(seg_observations, sched_offsets, seg_priors)]
 
 
 def build_index_map(source_ids):
@@ -268,6 +377,24 @@ def zombie_keeps_eta(now_ts, move_ts, sid, stt_idx, index_map):
     if i is None or abs(i - stt_idx) > ZOMBIE_SID_IDX_TOL:
         return False
     return i != 0
+
+
+def stt_state_is_live(now_ts, poll_ts):
+    """Whether a vprev state was refreshed by a recent poll — see
+    ``STT_STATE_MAX_AGE_S``.
+
+    ``poll_ts`` is the vprev ``pt`` field, stamped on every STT write path
+    (initialisation included), so it marks the last poll that saw this vehicle
+    *fresh*. A missing or zero value reads as NOT live: a live ETA badge needs
+    positive evidence of a current fix, and a state written before the field
+    existed expires within ``STT_VPREV_TTL`` anyway.
+    """
+    if not poll_ts:
+        return False
+    try:
+        return (now_ts - float(poll_ts)) <= STT_STATE_MAX_AGE_S
+    except (TypeError, ValueError):
+        return False
 
 
 def parked_beyond_grace(now_ts, move_ts, dwell_s):

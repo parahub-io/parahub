@@ -42,7 +42,7 @@
       <!-- Success -->
       <div v-if="accepted" class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
         <p class="text-green-700 dark:text-green-400 font-medium">{{ $t('condo.invite_success') }}</p>
-        <NuxtLink :to="localePath(`/org/${invite.condominium_slug}`)" class="text-sm text-primary hover:underline mt-2 inline-block">
+        <NuxtLink :to="localePath(`/org/${invite.condominium_slug}`)" class="text-sm text-link mt-2 inline-block">
           {{ $t('condo.title') }} →
         </NuxtLink>
       </div>

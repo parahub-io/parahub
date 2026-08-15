@@ -28,7 +28,7 @@
           <div v-if="navigationStack.length > 0" class="flex items-center gap-2 text-sm">
             <button
               @click="goBack"
-              class="flex items-center gap-1 text-primary hover:text-opacity-80 transition-colors"
+              class="flex items-center gap-1 text-secondary dark:text-secondary-400 hover:text-opacity-80 transition-colors"
             >
               <ChevronLeft class="w-4 h-4" />
               <span>{{ $t('market.category_select.back') }}</span>

@@ -21,9 +21,18 @@ Client sends:
 
 Server sends:
     { "type": "transit_update", "vehicles": [...] }
-    { "type": "route_vehicles", "vehicles": [...], "stop_ids": [...], "etas": {0: {...}, 1: {...}} }
-    { "type": "stop_live", "at_stop": [...], "approaching": [...] }
+    { "type": "route_vehicles", "vehicles": [...], "stop_ids": [...], "etas": {0: {...}, 1: {...}},
+      "waiting": {0: {stop: {"n": 2, "active": 1}}, 1: {...}} }
+    { "type": "stop_live", "at_stop": [...], "approaching": [...],
+      "waiting": [{"route": ..., "direction": 0, "n": 2, "active": 1}] }
+    { "type": "waiting_update", "scope": "route"|"stop", "waiting": ... }
+    { "type": "waiting_stops", "stops": [{ds_id, stop_source_id, lat, lon, n, active}] }
+    { "type": "stop_lines", "lines": [{route, direction, short_name, long_name, route_color, route_type}] }
     { "type": "pong", "timestamp": 1234567890 }
+
+Waiting-passenger markers ride the same subscriptions but their own pub/sub
+channels: they change when a human taps, not on the 30s daemon tick, so
+`waiting_update` carries just the counts without recomputing ETAs.
 """
 
 import asyncio
@@ -38,16 +47,45 @@ from channels.db import database_sync_to_async
 from django.conf import settings
 
 from .feed_pubsub import FeedPubSubManager
+from .push_floor import TrailingFloor
+from parahub.services.transit_waiting import (
+    CHANNEL_ANY, KEY_GEO, channel_route, channel_stop, decode_route_hash,
+    decode_stop_hash, decode_stop_people, key_route, key_stop,
+)
 from parahub.services.transit_eta import (
     parse_rstops, segment_averages, segment_infos, build_index_map,
-    resolve_origin, cumulative_min_etas, zombie_keeps_eta,
+    resolve_origin, cumulative_min_etas, zombie_keeps_eta, stt_state_is_live,
     remaining_segment_fraction, origin_with_fraction, parked_beyond_grace,
+    bucket_for, queue_prior_reads, parse_priors,
 )
 
 logger = logging.getLogger(__name__)
 
+# Feed timezone names (daemon-published `transit:tz:{ds_id}`), cached per
+# process so the prior-bucket lookup costs one Redis GET per feed per hour.
+_tz_cache: dict[str, tuple[str | None, float]] = {}
+_TZ_CACHE_TTL = 3600.0
+
+
+async def _feed_bucket(redis_conn, ds_id, now: float) -> str:
+    cached = _tz_cache.get(ds_id)
+    if cached is None or (now - cached[1]) > _TZ_CACHE_TTL:
+        cached = (await redis_conn.get(f'transit:tz:{ds_id}'), now)
+        _tz_cache[ds_id] = cached
+    return bucket_for(cached[0], now)
+
 # Max bbox area in square degrees (~40 x 40 degrees)
 MAX_BBOX_AREA = 1600
+
+# Floors on the tap-driven waiting pushes, one per scope. A marker hopping
+# between poles nudges every subscriber of both the old and the new line, and
+# each nudge costs that subscriber a read — so the rate is capped here, per open
+# page, rather than by forbidding the human to move their own marker. Nothing is
+# dropped: see `TrailingFloor`. The viewport floor is the loosest because its
+# read is the heaviest (a GEOSEARCH) and its pins the coarsest — every marker
+# change in the world reaches every open map, whatever line it belongs to.
+WAITING_MAP_MIN_INTERVAL = 3.0
+WAITING_BOARD_MIN_INTERVAL = 1.5
 
 
 def _bbox_to_geosearch_params(bbox: list) -> tuple[float, float, float, float] | None:
@@ -100,6 +138,27 @@ class TransitConsumer(AsyncWebsocketConsumer):
         # physical pole (Carris + Carris Metropolitana) so the live layer covers
         # every line the page lists, not just the opened feed's.
         self._stop_poles: list | None = None
+        # (route_source_id, direction) → line badge, resolved with the poles.
+        self._stop_line_labels: dict = {}
+        # One floor per scope this socket can be pushing into.
+        self._waiting_floors = {
+            'route': TrailingFloor(
+                WAITING_BOARD_MIN_INTERVAL,
+                lambda: self._push_waiting('route'), 'route waiting push',
+            ),
+            'stop': TrailingFloor(
+                WAITING_BOARD_MIN_INTERVAL,
+                lambda: self._push_waiting('stop'), 'stop waiting push',
+            ),
+            'map': TrailingFloor(
+                WAITING_MAP_MIN_INTERVAL,
+                self._send_waiting_stops, 'map waiting push',
+            ),
+        }
+        # Waiting-passenger markers move on a human tap, not on the daemon tick,
+        # so they carry their own pub/sub channels — riding the tick would make
+        # an appearing passenger up to half a minute late.
+        self._waiting_channels: set = set()
         self._tick_subscribed = False
         self._feed = FeedPubSubManager.get()
         await self._feed.ensure_running()
@@ -118,6 +177,11 @@ class TransitConsumer(AsyncWebsocketConsumer):
             self._tick_subscribed = False
         if self._route_group:
             await self._feed.unsubscribe(self._route_group, self._on_route_update)
+        for channel in self._waiting_channels:
+            await self._feed.unsubscribe(channel, self._on_waiting)
+        self._waiting_channels = set()
+        for floor in self._waiting_floors.values():
+            floor.cancel()
         try:
             await self._redis.close()
         except Exception:
@@ -180,8 +244,11 @@ class TransitConsumer(AsyncWebsocketConsumer):
             await self._feed.subscribe('transit:tick', self._on_tick)
             self._tick_subscribed = True
 
+        await self._sync_waiting_channels()
+
         # Send initial data
         await self._send_geosearch_vehicles()
+        await self._send_waiting_stops()
 
     async def _handle_update_bbox(self, data):
         """Update bbox. Immediate push if center moved significantly."""
@@ -212,6 +279,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
             h = old[3] - old[1]
             if dx > w * 0.5 or dy > h * 0.5:
                 await self._send_geosearch_vehicles()
+                await self._send_waiting_stops()
 
     async def _handle_unsubscribe(self):
         """Unsubscribe from vehicles and route."""
@@ -228,6 +296,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
         self._stop_ds_id = None
         self._stop_source_id = None
         self._stop_poles = None
+        await self._sync_waiting_channels()
         await self.send(text_data=orjson.dumps({'type': 'unsubscribed'}).decode())
 
     async def _handle_subscribe_route(self, data):
@@ -277,12 +346,14 @@ class TransitConsumer(AsyncWebsocketConsumer):
 
         # Compute ETAs for both directions
         etas = await self._compute_route_etas()
+        await self._sync_waiting_channels()
 
         await self.send(text_data=orjson.dumps({
             'type': 'route_vehicles',
             'vehicles': vehicles,
             'stop_ids': list(stop_ids),
             'etas': etas,
+            'waiting': await self._read_route_waiting(),
         }).decode())
 
     async def _compute_route_etas(self) -> dict:
@@ -343,22 +414,28 @@ class TransitConsumer(AsyncWebsocketConsumer):
             if not dir_data:
                 return {}
 
-            # 2. Batch-read ALL segment travel times in one pipeline → seg_avg
+            # 2. Batch-read ALL segment travel times (+ historical prior
+            #    buckets, mirrored after the FIFO half) in one pipeline → seg_avg
+            bucket = await _feed_bucket(self._redis, ds_id, time.time())
             pipe = self._redis.pipeline(transaction=False)
             for sk in all_seg_keys:
                 pipe.lrange(sk, 0, -1)
+            queue_prior_reads(pipe, all_seg_keys, bucket)
             all_seg_results = await pipe.execute()
 
+            n_all = len(all_seg_keys)
             dir_seg_avg = {}
             for direction, (start, count) in dir_seg_ranges.items():
                 seg_obs = all_seg_results[start:start + count]
-                dir_seg_avg[direction] = segment_averages(seg_obs, dir_sched[direction])
+                seg_pri = parse_priors(all_seg_results[n_all + start:n_all + start + count])
+                dir_seg_avg[direction] = segment_averages(seg_obs, dir_sched[direction], seg_pri)
 
             # 3. SCAN confirmed/tentative vehicles on this route (both directions),
             #    collect (vid, direction, stt_idx, move_ts).
             tracked = []  # (vid, direction, stt_idx, move_ts)
             vprev_prefix = f'transit:vprev:{ds_id}:'
             cursor = 0
+            scan_ts = time.time()
             while True:
                 cursor, keys = await self._redis.scan(
                     cursor, match=f'{vprev_prefix}*', count=500
@@ -377,6 +454,11 @@ class TransitConsumer(AsyncWebsocketConsumer):
                             continue
                         d = int(state.get('d', -1))
                         if d not in dir_data:
+                            continue
+                        # Frozen state of a vehicle the feed stopped refreshing:
+                        # its icon is already gone (180s display cutoff), so an
+                        # ETA chain here is a phantom — see stt_state_is_live.
+                        if not stt_state_is_live(scan_ts, state.get('pt')):
                             continue
                         vid = key[len(vprev_prefix):] if isinstance(key, str) else key.decode()[len(vprev_prefix):]
                         tracked.append((vid, d, int(state.get('idx', 0)),
@@ -399,7 +481,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
             if tracked:
                 fields = [f'{ds_id}:{vid}' for vid, *_ in tracked]
                 vals = await self._redis.hmget('transit:vdata', *fields)
-                for (vid, _, _, _), raw in zip(tracked, vals):
+                for (vid, *_), raw in zip(tracked, vals):
                     if not raw:
                         continue
                     try:
@@ -512,7 +594,10 @@ class TransitConsumer(AsyncWebsocketConsumer):
             return result
 
         except Exception as e:
-            logger.debug(f'Route ETA computation failed: {e}')
+            # Warning, not debug: any exception here silently blanks every live
+            # ETA badge on the route page and the driver ladder, and the empty
+            # dict is indistinguishable from "no vehicles running".
+            logger.warning(f'Route ETA computation failed: {e}', exc_info=True)
             return {}
 
     async def _send_geosearch_vehicles(self):
@@ -570,11 +655,73 @@ class TransitConsumer(AsyncWebsocketConsumer):
             'type': 'transit_update', 'vehicles': vehicles,
         }).decode())
 
+    async def _send_waiting_stops(self):
+        """Poles inside the bbox that hold waiting passengers → `waiting_stops`.
+
+        Its own GEO set (`transit:waiting:geo`), not `transit:geo`: vehicles and
+        waiting people are different populations and neither read should filter
+        the other. Sent as a separate message so the map's vehicle layer is
+        untouched by a marker appearing.
+        """
+        if not self._geo_params:
+            return
+        lon, lat, w_km, h_km = self._geo_params
+        try:
+            members = await self._redis.geosearch(
+                KEY_GEO, longitude=lon, latitude=lat,
+                width=w_km, height=h_km, unit='km', withcoord=True,
+            )
+        except Exception as e:
+            logger.debug(f'Waiting GEOSEARCH failed: {e}')
+            return
+
+        if not members:
+            await self.send(text_data=orjson.dumps({
+                'type': 'waiting_stops', 'stops': [],
+            }).decode())
+            return
+
+        pipe = self._redis.pipeline(transaction=False)
+        for member, _coord in members:
+            ds_id, _, stop_src = member.partition(':')
+            pipe.hgetall(key_stop(ds_id, stop_src))
+        hashes = await pipe.execute()
+
+        stops, vacated = [], []
+        for (member, (member_lon, member_lat)), raw in zip(members, hashes):
+            # People, not line-weighted counts: somebody waiting for "the 13 or
+            # the 15" is one human standing at one pole.
+            people, active, _stale = decode_stop_people(raw)
+            if not people:
+                # Everyone left (or the hash expired) while the pole stayed in
+                # the GEO set — lazily evict, same as map presence does.
+                vacated.append(member)
+                continue
+            ds_id, _, stop_src = member.partition(':')
+            stops.append({
+                'ds_id': ds_id,
+                'stop_source_id': stop_src,
+                'lat': member_lat,
+                'lon': member_lon,
+                'n': people,
+                'active': active,
+            })
+        if vacated:
+            await self._redis.zrem(KEY_GEO, *vacated)
+
+        await self.send(text_data=orjson.dumps({
+            'type': 'waiting_stops', 'stops': stops,
+        }).decode())
+
     # Native Redis pub/sub callbacks
     async def _on_tick(self, channel: str, data):
         """Daemon tick — push bbox vehicles and/or live stop arrivals."""
         if self._geo_params:
             await self._send_geosearch_vehicles()
+            # Belt-and-braces for the map: markers normally arrive on their own
+            # channel, but a client that connected between two taps would
+            # otherwise show an empty viewport until somebody moved.
+            await self._send_waiting_stops()
         if self._stop_source_id:
             await self._send_stop_live()
 
@@ -598,6 +745,7 @@ class TransitConsumer(AsyncWebsocketConsumer):
             'vehicles': vehicles,
             'stop_ids': stop_ids,
             'etas': etas,
+            'waiting': await self._read_route_waiting(),
         }).decode())
 
     # ===== Stop subscription =====
@@ -625,6 +773,19 @@ class TransitConsumer(AsyncWebsocketConsumer):
             await self._feed.subscribe('transit:tick', self._on_tick)
             self._tick_subscribed = True
 
+        await self._sync_waiting_channels()
+        # Every (line, direction) the pole cluster serves, resolved once above.
+        # The page unions these into its waiting chips, so the affordance exists
+        # even for a line with nothing left on the departure board — the last
+        # bus that never came has already dropped off it, and its passenger is
+        # exactly who the marker is for.
+        await self.send(text_data=orjson.dumps({
+            'type': 'stop_lines',
+            'lines': [
+                {'route': route, 'direction': direction, **labels}
+                for (route, direction), labels in sorted(self._stop_line_labels.items())
+            ],
+        }).decode())
         await self._send_stop_live()
 
     @database_sync_to_async
@@ -638,25 +799,59 @@ class TransitConsumer(AsyncWebsocketConsumer):
         them into one board, so its live layer must too, else half the listed
         lines show no arrivals though the data exists. Same physical-pole SSOT as
         the page (_grouped_pole_members, ≤5m cross-agency). Returns
-        [(ds_id, source_id, {(route_src, dir)})]."""
+        [(ds_id, source_id, {(route_src, dir)})].
+
+        Also fills `self._stop_line_labels` — the badge of each serving (route,
+        direction). A waiting count has to name its line even when that line has
+        no departure inside the board's window, and resolving it here keeps the
+        per-tick pushes pure-Redis."""
+        from django.db.models import Count, F
         from geo.models import Stop, RouteStop
         from geo.endpoints.transit import _grouped_pole_members
-        stop = Stop.objects.select_related('agency', 'group').filter(
-            source_id=stop_source_id, agency__data_source_id=ds_id
-        ).first()
+        self._stop_line_labels = {}
+        # Same deterministic row choice as the REST write path: several Stop
+        # rows can carry this (ds, source_id), and a bare .first() can land on
+        # an ungrouped, route-less duplicate whose cluster is just itself.
+        stop = (Stop.objects.select_related('agency', 'group')
+                .filter(source_id=stop_source_id, agency__data_source_id=ds_id)
+                .annotate(n_routes=Count('route_stops'))
+                .order_by(F('group').desc(nulls_last=True), '-n_routes', 'id')
+                .first())
         if not stop:
             return []
         colocated, _siblings = _grouped_pole_members(stop)
-        poles = []
+        # Merged by (ds_id, source_id), NOT one entry per Stop row: a feed can
+        # ship two rows carrying the same source_id under one data source, and
+        # both address the SAME Redis key — pooling over them counted the same
+        # waiting people once per row. Vehicle pooling never noticed because it
+        # de-dupes by vehicle id downstream.
+        merged: dict = {}
         for cs in colocated:
             cs_ds = str(cs.agency.data_source_id) if cs.agency and cs.agency.data_source_id else ''
-            if not cs_ds:
+            if not cs_ds or (cs_ds, cs.source_id) in merged:
                 continue
-            rd = RouteStop.objects.filter(stop=cs).values_list(
-                'route__source_id', 'direction_id'
+            # Pooled by (ds, source_id) like the Redis keys, not `stop=cs`: the
+            # route links can hang off a duplicate row outside this cluster.
+            rd = RouteStop.objects.filter(
+                stop__source_id=cs.source_id,
+                stop__agency__data_source_id=cs_ds,
+            ).values_list(
+                'route__source_id', 'direction_id', 'route__short_name',
+                'route__long_name', 'route__route_color', 'route__route_type',
             )
-            poles.append((cs_ds, cs.source_id, {(r, d if d is not None else 0) for r, d in rd}))
-        return poles
+            pairs = merged.setdefault((cs_ds, cs.source_id), set())
+            for route_src, direction, short_name, long_name, color, route_type in rd:
+                direction = direction if direction is not None else 0
+                pairs.add((route_src, direction))
+                self._stop_line_labels.setdefault((route_src, direction), {
+                    'short_name': short_name or long_name or '',
+                    # Disambiguates same-numbered percursos: feeds split one line
+                    # into several route ids, so "728" alone names three of them.
+                    'long_name': long_name or '',
+                    'route_color': color or '',
+                    'route_type': route_type,
+                })
+        return [(ds_id, source_id, pairs) for (ds_id, source_id), pairs in merged.items()]
 
     async def _send_stop_live(self):
         """Push vehicles at + approaching the stop (recomputed each tick), pooled
@@ -708,7 +903,103 @@ class TransitConsumer(AsyncWebsocketConsumer):
             'type': 'stop_live',
             'at_stop': list(at_stop_by_vid.values()),
             'approaching': approaching,
+            'waiting': await self._read_stop_waiting(),
         }).decode())
+
+    # ===== Waiting-passenger markers =====
+
+    async def _sync_waiting_channels(self):
+        """Subscribe to exactly the marker channels this consumer's current
+        subscriptions need — the route's own, plus one per co-located pole of an
+        opened stop (the same pole set the live layer already pools over)."""
+        wanted = set()
+        if self._geo_params:
+            # A viewport can hold any stop of any line, so the map takes the
+            # broad nudge and re-runs its own GEOSEARCH.
+            wanted.add(CHANNEL_ANY)
+        if self._route_ds_id and self._route_source_id:
+            wanted.add(channel_route(self._route_ds_id, self._route_source_id))
+        for ds_id, stop_src, _route_dirs in (self._stop_poles or []):
+            wanted.add(channel_stop(ds_id, stop_src))
+
+        for channel in self._waiting_channels - wanted:
+            await self._feed.unsubscribe(channel, self._on_waiting)
+        for channel in wanted - self._waiting_channels:
+            await self._feed.subscribe(channel, self._on_waiting)
+        self._waiting_channels = wanted
+
+    async def _on_waiting(self, channel: str, data):
+        """A marker appeared, moved or ended — route it to the right board."""
+        if channel == CHANNEL_ANY:
+            # Every marker change anywhere lands here, whatever line it belongs
+            # to — a map client watches a viewport, not a route.
+            await self._waiting_floors['map'].nudge()
+        elif channel.startswith('transit:waiting:route:') and self._route_source_id:
+            await self._waiting_floors['route'].nudge()
+        elif channel.startswith('transit:waiting:stop:') and self._stop_poles:
+            await self._waiting_floors['stop'].nudge()
+
+    async def _push_waiting(self, scope: str):
+        """One `waiting_update` for a scope the socket is still subscribed to.
+
+        Deliberately not a full `route_vehicles`/`stop_live`: a tap must not cost
+        an ETA recomputation, and the client merges this into what it already has.
+        """
+        if scope == 'route':
+            if not self._route_source_id:
+                return
+            waiting = await self._read_route_waiting()
+        else:
+            if not self._stop_poles:
+                return
+            waiting = await self._read_stop_waiting()
+        await self.send(text_data=orjson.dumps({
+            'type': 'waiting_update',
+            'scope': scope,
+            'waiting': waiting,
+        }).decode())
+
+    async def _read_route_waiting(self) -> dict:
+        """{"0": {stop_source_id: {"n": total, "active": beating}}, "1": {...}} —
+        mirrors the `etas` shape so the page consumes both the same way."""
+        if not (self._route_ds_id and self._route_source_id):
+            return {}
+        key = key_route(self._route_ds_id, self._route_source_id)
+        try:
+            counts, stale = decode_route_hash(await self._redis.hgetall(key))
+            if stale:
+                await self._redis.hdel(key, *stale)
+            return counts
+        except Exception as e:
+            logger.debug(f'Route waiting read failed: {e}')
+            return {}
+
+    async def _read_stop_waiting(self) -> list:
+        """[{route, direction, n, active}] pooled across the co-located poles, so
+        a marker filed under the neighbouring operator's row still shows on the
+        merged board."""
+        pooled = {}
+        for ds_id, stop_src, _route_dirs in (self._stop_poles or []):
+            key = key_stop(ds_id, stop_src)
+            try:
+                rows, stale = decode_stop_hash(await self._redis.hgetall(key))
+                if stale:
+                    await self._redis.hdel(key, *stale)
+            except Exception as e:
+                logger.debug(f'Stop waiting read failed: {e}')
+                continue
+            for row in rows:
+                line = (row['route'], row['direction'])
+                cell = pooled.setdefault(line, {
+                    'route': row['route'], 'direction': row['direction'],
+                    'n': 0, 'active': 0,
+                    # Resolved on subscribe: a count for a line with no imminent
+                    # departure still has to say which line it is.
+                    **getattr(self, '_stop_line_labels', {}).get(line, {}),
+                })
+                cell['n'] += row['n']
+                cell['active'] += row['active']
+        return sorted(pooled.values(), key=lambda row: (row['route'], row['direction']))
 
     async def _compute_pole_approaching(self, ds_id, stop_src, route_dirs) -> list:
         """Confirmed vehicles approaching one pole with chained-segment ETAs.
@@ -760,10 +1051,14 @@ class TransitConsumer(AsyncWebsocketConsumer):
                         f'transit:stt:{ds_id}:{ordered[i]}:{ordered[i + 1]}'
                         for i in range(len(ordered) - 1)
                     ]
+                    bucket = await _feed_bucket(self._redis, ds_id, time.time())
                     p = self._redis.pipeline(transaction=False)
                     for sk in keys:
                         p.lrange(sk, 0, -1)
-                    seg_cache[route_key] = segment_infos(await p.execute(), route_sched[route_key])
+                    queue_prior_reads(p, keys, bucket)
+                    res = await p.execute()
+                    seg_cache[route_key] = segment_infos(
+                        res[:len(keys)], route_sched[route_key], parse_priors(res[len(keys):]))
                 return seg_cache[route_key]
 
             # 3. SCAN confirmed vehicles on serving routes → chain origin→stop
@@ -787,6 +1082,10 @@ class TransitConsumer(AsyncWebsocketConsumer):
                             continue
                         route_key = (state.get('r', ''), int(state.get('d', -1)))
                         if route_key not in target_idx:
+                            continue
+                        # Frozen state of a vehicle the feed stopped refreshing
+                        # paints an arrival for a bus that is nowhere — skip.
+                        if not stt_state_is_live(now_ts, state.get('pt')):
                             continue
                         vid = k[len(vprev_prefix):] if isinstance(k, str) else k.decode()[len(vprev_prefix):]
                         cands.append((vid, route_key, int(state.get('idx', 0)),

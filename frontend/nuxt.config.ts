@@ -1,5 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { execSync } from 'child_process'
+import { sitemapExcludes } from './shared/private-paths'
 
 function getGitVersion(): string {
   try {
@@ -76,7 +77,8 @@ export default defineNuxtConfig({
         'transit_manage.json', 'shipments.json', 'income.json', 'subscriptions.json', 'vera.json',
         'voice_chat.json', 'support_voice.json', 'condo.json', 'ha.json', 'property.json', 'parasos.json',
         'cms.json', 'videos.json', 'booking.json', 'notifications.json',
-        'wot.json', 'civic.json', 'tips.json',
+        'wot.json', 'civic.json', 'tips.json', 'moderation.json',
+        'voice_notes.json',
       ]
       return [
         { code: 'en', language: 'en-US', name: 'English', files: files.map(f => `en/${f}`) },
@@ -112,33 +114,11 @@ export default defineNuxtConfig({
     // silently absent from the sitemap. Its entries carry _i18nTransform so the
     // module expands each into all locales with hreflang (see the handler).
     sources: ['/api/__sitemap__/urls'],
-    exclude: (() => {
-      const privatePaths = [
-        '/login', '/register', '/welcome', '/choose-username',
-        '/auth/**', '/invite/**',
-        '/profile/**', '/settings/**',
-        '/chat', '/chat-element', '/chat-fluffy',
-        '/wallet', '/contracts',
-        '/opensky', '/zenith', '/call', '/webmail',
-        '/design', '/design/**',
-        '/barter', '/iot',
-        '/pgp-setup', '/pgp-test', '/seed-setup', '/seed-restore',
-        '/ads/campaigns/**', '/ads/campaigns', '/ads/history', '/ads/settings',
-        '/market/create', '/market/my',
-        '/events/create',
-        '/governance/polls/create',
-        '/tickets/**',
-        '/voice/**',
-        '/blog/create',
-        '/org/*/manage/**', '/org/*/edit',
-        '/u/*/manage/**',
-      ]
-      const locales = ['pt', 'es', 'fr', 'de', 'ru']
-      const withLocales = privatePaths.flatMap(p =>
-        [p, ...locales.map(l => `/${l}${p}`)]
-      )
-      return withLocales
-    })(),
+    // The private-surface list lives in shared/private-paths.ts because
+    // /robots.txt is generated from the very same patterns (server/routes/
+    // robots.txt.ts) — excluding a path here only stops us advertising it,
+    // robots.txt is what keeps crawlers out, and the two must never disagree.
+    exclude: sitemapExcludes(),
   },
 
   // Color mode configuration
@@ -296,6 +276,14 @@ export default defineNuxtConfig({
     output: {
       dir: process.env.NUXT_OUTPUT_DIR || '.output'
     },
+    // Pre-compressed public assets: Nitro writes .br/.gz next to each asset and
+    // picks one per Accept-Encoding. Brotli runs at max quality, which the
+    // 11 MB wallet SDK wasm alone pays ~15s for — so only the production build
+    // (`0restart` sets NUXT_COMPRESS_ASSETS=1) does it; dev slots stay fast and
+    // fall back to nginx's on-the-fly gzip.
+    compressPublicAssets: process.env.NUXT_COMPRESS_ASSETS === '1'
+      ? { gzip: true, brotli: true }
+      : false,
     prerender: {
       routes: []
     }

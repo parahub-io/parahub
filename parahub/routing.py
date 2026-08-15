@@ -9,6 +9,7 @@ from parahub.consumers import (
     MapPresenceConsumer, PublicConsumer, RealtimeConsumer, SupportVoiceConsumer,
     TrackerConsumer, TransitConsumer,
 )
+from voice.consumers import VoiceNoteConsumer
 
 # WebSocket URL patterns
 websocket_urlpatterns = [
@@ -41,4 +42,7 @@ websocket_urlpatterns = [
 
     # Support Voice: public voice support bot (no auth required)
     re_path(r'ws/v1/support/voice/$', SupportVoiceConsumer.as_asgi()),
+
+    # Voice notes: record here, arrives translated in the recipient's language
+    re_path(r'ws/v1/voice/notes/$', VoiceNoteConsumer.as_asgi()),
 ]

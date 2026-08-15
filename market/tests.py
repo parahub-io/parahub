@@ -538,6 +538,32 @@ class ItemDetailTest(TestCase):
         self.assertTrue(response.location.get('fuzzed', False))
         self.assertIsNone(response.exact_location)
 
+    def test_get_item_owner_exact_location(self):
+        """The owner gets the true point — the edit form round-trips what it loads,
+        so the fuzzed one would become the item's real location on save."""
+        from parahub.endpoints.items import get_item
+
+        request = _make_auth_request(self.factory, self.account, self.profile)
+        response = get_item(request, self.item.id)
+
+        self.assertIsNotNone(response.exact_location)
+        self.assertAlmostEqual(response.exact_location['latitude'], 38.7, places=6)
+        self.assertAlmostEqual(response.exact_location['longitude'], -9.1, places=6)
+        # The public field stays fuzzed for everyone, owner included.
+        self.assertTrue(response.location.get('fuzzed', False))
+
+    def test_get_item_other_user_no_exact_location(self):
+        """A signed-in stranger is still held to the privacy grid."""
+        from parahub.endpoints.items import get_item
+
+        bob_account = _create_account(self.instance, 'bob')
+        bob = _create_profile(bob_account, self.instance)
+        request = _make_auth_request(self.factory, bob_account, bob)
+        response = get_item(request, self.item.id)
+
+        self.assertIsNone(response.exact_location)
+        self.assertTrue(response.location.get('fuzzed', False))
+
     def test_get_item_not_found(self):
         """Non-existent item raises 404."""
         from parahub.endpoints.items import get_item

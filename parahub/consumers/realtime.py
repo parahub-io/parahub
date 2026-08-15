@@ -90,7 +90,11 @@ class RealtimeConsumer(AuthenticatedJsonWebsocketConsumer):
         self.joined_rooms: dict[str, set[str]] = {}  # {"poll": {"ID1"}, "treasury": {"ID2"}}
         self._deploy_slot = get_deploy_slot(self.scope)
 
-        await super().connect()
+        if not await super().connect():
+            # Refused and already closed. Subscribing anything now would bind
+            # `user:None` to a socket that no longer exists, and only the
+            # disconnect handler would ever take it back out.
+            return
 
         # Init FeedPubSubManager
         self._feed = FeedPubSubManager.get()

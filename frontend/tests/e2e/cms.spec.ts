@@ -171,7 +171,7 @@ test.describe('CMS — blog post lifecycle', () => {
 
     // ── Step 6: Delete the post from manage panel ─────────────
 
-    await page.goto('/u/alice/manage')
+    await page.goto('/@alice/manage')
     await page.waitForLoadState('domcontentloaded')
 
     // Wait for the manage page posts list to load

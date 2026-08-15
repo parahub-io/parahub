@@ -11,6 +11,37 @@ from django.core.serializers.json import DjangoJSONEncoder
 logger = logging.getLogger(__name__)
 
 
+async def refuse_connection(consumer, code, reason, message):
+    """Turn a socket away with a code the client can actually read.
+
+    Closing a socket that was never accepted answers the HTTP upgrade with a
+    403 instead. The close code is lost that way — the browser reports 1006,
+    indistinguishable from a dropped network — and the Android WebView paints
+    the 403 as a full-page system error over the running app (issue #465, then
+    fixed only in the agent-voice consumer). Accepting first costs one frame
+    and leaves the client something to branch on, which is how a native client
+    knows to retry with the token in the query string.
+
+    Written with `send` rather than `send_json` so the plain
+    `AsyncWebsocketConsumer` subclasses can use it too.
+
+    Note the cost of accepting: the socket now really opens, so Channels
+    delivers `websocket.disconnect` and runs the consumer's `disconnect()` —
+    which an unaccepted socket never did. That handler runs on a `connect()`
+    that returned early, so anything it touches may not exist yet. Consumers
+    whose teardown assumes its own setup ran must start with
+
+        if getattr(self, '_connection_refused', False):
+            return
+    """
+    consumer._connection_refused = True
+    await consumer.accept()
+    await consumer.send(text_data=json.dumps({
+        'type': 'error', 'code': reason, 'message': message,
+    }))
+    await consumer.close(code=code)
+
+
 class AuthenticatedJsonWebsocketConsumer(AsyncJsonWebsocketConsumer):
     """
     Base consumer with JWT authentication and JSON message handling.
@@ -26,21 +57,26 @@ class AuthenticatedJsonWebsocketConsumer(AsyncJsonWebsocketConsumer):
         """
         Handle WebSocket connection.
         Rejects connection if user is not authenticated.
+
+        Returns True when the socket is open and usable. A subclass that
+        overrides `connect` must branch on that: after a refusal the socket is
+        already closed, and anything it does next runs on a dead connection.
         """
         self.user = self.scope.get("user")
         self.profile = self.scope.get("profile")
-        
+
         if not self.user or not self.user.is_authenticated:
             logger.warning(f"Unauthenticated WebSocket connection attempt on {self.scope['path']}")
-            await self.close(code=4001)  # Custom close code for authentication failure
-            return
-        
+            await refuse_connection(
+                self, 4001, 'unauthenticated', "Sign in to open this connection")
+            return False
+
         # Set user-specific channel name
         self.user_channel_name = f"user_{self.user.id}"
-        
+
         # Accept connection
         await self.accept()
-        
+
         # Send connection confirmation
         await self.send_json({
             "type": "connection.established",
@@ -51,8 +87,9 @@ class AuthenticatedJsonWebsocketConsumer(AsyncJsonWebsocketConsumer):
                 "profile_id": self.profile.id if self.profile else None,
             }
         })
-        
+
         logger.info(f"WebSocket connected: {self.user.username} on {self.scope['path']}")
+        return True
     
     async def disconnect(self, close_code):
         """

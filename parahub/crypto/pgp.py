@@ -15,25 +15,19 @@ import subprocess
 import tempfile
 import os
 
+from parahub.tmpdirs import make_scratch_dir
+
 logger = logging.getLogger(__name__)
 
 
-def _cleanup_gpg_home(gpg_home: str, owner_pid: int) -> None:
+def _kill_gpg_agent(gpg_home: str) -> None:
     """
-    Kill the gpg-agent bound to a temporary GPG home and remove the directory.
+    Kill the gpg-agent daemon bound to a temporary GPG home.
 
     GnuPG >= 2.1 daemonizes a gpg-agent per home directory on the first keyring
     operation; it outlives the process that started it. Without an explicit kill
-    every management command / uvicorn worker leaks an orphan agent (~1.8 MB RSS)
-    plus its /tmp directory.
-
-    Idempotent and fork-safe: a forked child must not remove a home owned by its
-    parent, so cleanup is a no-op unless the caller is the process that created it.
+    every management command / uvicorn worker leaks an orphan agent (~1.8 MB RSS).
     """
-    if owner_pid != os.getpid():
-        return
-    if not gpg_home or not os.path.isdir(gpg_home):
-        return
     try:
         subprocess.run(
             ['gpgconf', '--homedir', gpg_home, '--kill', 'gpg-agent'],
@@ -41,6 +35,22 @@ def _cleanup_gpg_home(gpg_home: str, owner_pid: int) -> None:
         )
     except Exception:
         pass
+
+
+def _cleanup_gpg_home(gpg_home: str, owner_pid: int) -> None:
+    """
+    Kill the home's gpg-agent and remove the directory.
+
+    Idempotent and fork-safe: a forked child must not remove a home owned by its
+    parent, so cleanup is a no-op unless the caller is the process that created it.
+    A SIGKILLed process runs neither this nor the atexit hook — those leftovers are
+    swept by the next process, see parahub.tmpdirs.
+    """
+    if owner_pid != os.getpid():
+        return
+    if not gpg_home or not os.path.isdir(gpg_home):
+        return
+    _kill_gpg_agent(gpg_home)
     shutil.rmtree(gpg_home, ignore_errors=True)
 
 
@@ -71,7 +81,7 @@ class PGPCrypto:
 
         # Initialize GPG with temporary home directory
         # This ensures isolation and no interference with system keyring
-        self.gpg_home = tempfile.mkdtemp(prefix='parahub_gpg_')
+        self.gpg_home = make_scratch_dir('gpg', before_remove=_kill_gpg_agent)
         self._owner_pid = os.getpid()
         atexit.register(_cleanup_gpg_home, self.gpg_home, self._owner_pid)
         self.gpg = gnupg.GPG(gnupghome=self.gpg_home)

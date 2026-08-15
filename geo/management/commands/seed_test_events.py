@@ -1,8 +1,9 @@
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 from datetime import timedelta
-from geo.models import Event, EventParticipant, WorldObject
+from geo.models import Establishment, Event, EventParticipant, WorldObject
 from identity.models import Profile
 from taxonomy.models import Category
 
@@ -41,31 +42,10 @@ class Command(BaseCommand):
             count = Event.objects.all().delete()[0]
             self.stdout.write(self.style.WARNING(f'Deleted {count} events'))
 
-        # Get or create categories for events
-        cat_defs = [
-            ('sports-fitness', 'Sports & Fitness', '🏃'),
-            ('education-workshop', 'Education & Workshop', '📚'),
-            ('social-meetup', 'Social & Meetup', '🤝'),
-            ('tech-it', 'Tech & IT', '💻'),
-            ('music-culture', 'Music & Culture', '🎵'),
-            ('food-dining', 'Food & Dining', '🍽️'),
-            ('art-creative', 'Art & Creative', '🎨'),
-            ('health-wellness', 'Health & Wellness', '💆'),
-            ('nature-outdoors', 'Nature & Outdoors', '🌿'),
-            ('gaming', 'Gaming', '🎮'),
-            ('volunteering', 'Volunteering', '🤲'),
-        ]
-        cats = {}
-        for slug, name, icon in cat_defs:
-            cat, _ = Category.objects.get_or_create(
-                slug=slug,
-                defaults={'name': name, 'icon': icon, 'applicable_to': ['events']}
-            )
-            # Ensure applicable_to includes events
-            if 'events' not in (cat.applicable_to or []):
-                cat.applicable_to = list(set((cat.applicable_to or []) + ['events']))
-                cat.save(update_fields=['applicable_to'])
-            cats[slug] = cat
+        # Event categories are reference data, not test data — seed_event_categories
+        # owns them (names in six languages, applicable_to=["events"]).
+        call_command('seed_event_categories')
+        cats = {c.slug: c for c in Category.objects.filter(applicable_to__contains=['events'])}
 
         sports_cat = cats['sports-fitness']
         education_cat = cats['education-workshop']
@@ -198,6 +178,16 @@ class Command(BaseCommand):
                 self.stdout.write(f'  Created: {event.title}')
             else:
                 self.stdout.write(f'  Exists: {event.title}')
+
+        # One event posted on behalf of an establishment, so the act-as attribution
+        # has coverage in test data. Only if seed_test_establishments ran first and
+        # the organizer really owns the org — the API enforces the same rule.
+        workshop = Event.objects.filter(title='Python Programming Workshop', establishment__isnull=True).first()
+        techhub = Establishment.objects.filter(slug='techhub-lisboa', owner=alice, is_active=True).first()
+        if workshop and techhub:
+            workshop.establishment = techhub
+            workshop.save(update_fields=['establishment'])
+            self.stdout.write(f'  Attributed "{workshop.title}" to {techhub.name}')
 
         # Add some participants
         if bob:

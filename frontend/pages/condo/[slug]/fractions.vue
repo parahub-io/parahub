@@ -52,7 +52,7 @@
                 <td class="px-4 py-3 text-right font-mono text-neutral-700 dark:text-neutral-300">{{ Number(f.permilagem).toFixed(3) }}</td>
                 <td class="px-4 py-3">
                   <div v-if="f.resident_hna" class="flex items-center gap-2">
-                    <NuxtLink :to="localePath(`/u/${f.resident_hna.split('@')[0]}`)" class="text-link text-sm">
+                    <NuxtLink :to="localePath(`/@${f.resident_hna.split('@')[0]}`)" class="text-link text-sm">
                       {{ f.resident_display_name || f.resident_hna.split('@')[0] }}
                     </NuxtLink>
                     <UiBadge :variant="f.is_owner ? 'success' : 'secondary'" size="sm">
@@ -94,7 +94,7 @@
           <div v-if="f.floor" class="text-xs text-neutral-400 mb-2">{{ $t('condo.floor') }}: {{ f.floor }}</div>
           <div class="flex items-center justify-between">
             <div v-if="f.resident_hna" class="flex items-center gap-2">
-              <NuxtLink :to="localePath(`/u/${f.resident_hna.split('@')[0]}`)" class="text-link text-sm">{{ f.resident_display_name || f.resident_hna.split('@')[0] }}</NuxtLink>
+              <NuxtLink :to="localePath(`/@${f.resident_hna.split('@')[0]}`)" class="text-link text-sm">{{ f.resident_display_name || f.resident_hna.split('@')[0] }}</NuxtLink>
               <UiBadge :variant="f.is_owner ? 'success' : 'secondary'" size="sm">
                 {{ f.is_owner ? $t('condo.owner') : $t('condo.tenant') }}
               </UiBadge>

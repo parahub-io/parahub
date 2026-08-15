@@ -22,7 +22,7 @@ from core.models import Instance, ProfileMigration
 from parahub.endpoints.federation import (
     initiate_migration, sign_migration, export_migration_data,
     complete_migration, cancel_migration, get_migration, list_migrations,
-    confirm_migration_from_peer,
+    confirm_migration_from_peer, migration_confirm_canonical,
 )
 
 
@@ -228,15 +228,101 @@ class FederationMigrationTests(TestCase):
                 'to_node_signature': 'X'}))
         self.assertEqual(cm.exception.status_code, 403)
 
-    def test_confirm_stores_signatures_on_domain_match(self):
-        # Documents the CURRENT contract: the endpoint checks only that the
-        # claimed domain equals migration.to_node — it does NOT verify the
-        # signatures against the peer node's PGP key (tracked in PK/issues.md).
+    def test_confirm_requires_node_signature(self):
         m = self._initiate(to_node='dest.example.org')
-        resp = confirm_migration_from_peer(self._req(body={
-            'migration_id': m['id'], 'domain': 'dest.example.org',
-            'to_node_signature': 'PEER-NODE-SIG', 'to_user_signature': 'PEER-USER-SIG'}))
-        self.assertEqual(resp['status'], 'ok')
+        with self.assertRaises(HttpError) as cm:
+            confirm_migration_from_peer(self._req(body={
+                'migration_id': m['id'], 'domain': 'dest.example.org',
+                'to_user_signature': 'USER-SIG'}))
+        self.assertEqual(cm.exception.status_code, 400)
+
+    def test_confirm_unknown_peer_forbidden(self):
+        m = self._initiate(to_node='dest.example.org')
+        with patch('parahub.endpoints.federation._get_peer_node_key', return_value=''):
+            with self.assertRaises(HttpError) as cm:
+                confirm_migration_from_peer(self._req(body={
+                    'migration_id': m['id'], 'domain': 'dest.example.org',
+                    'to_node_signature': 'X'}))
+        self.assertEqual(cm.exception.status_code, 403)
         mig = ProfileMigration.objects.get(id=m['id'])
-        self.assertEqual(mig.to_node_signature, 'PEER-NODE-SIG')
-        self.assertEqual(mig.to_user_signature, 'PEER-USER-SIG')
+        self.assertEqual(mig.to_node_signature, '')
+
+    # ── inter-node confirm: real PGP roundtrip ───────────────────────
+
+    _peer_keys = None
+
+    @classmethod
+    def _peer_keypair(cls):
+        """One RSA test keypair per class run (keygen is the slow part)."""
+        if cls._peer_keys is None:
+            from parahub.crypto.pgp import generate_test_keypair
+            cls._peer_keys = generate_test_keypair()
+        return cls._peer_keys
+
+    @staticmethod
+    def _sign_detached(private_key: str, message: str) -> str:
+        import gnupg
+        import os
+        import shutil
+        import subprocess
+        import tempfile
+
+        home = tempfile.mkdtemp(prefix='parahub_test_sign_')
+        try:
+            with open(os.path.join(home, 'gpg.conf'), 'w') as f:
+                f.write('pinentry-mode loopback\n')
+            with open(os.path.join(home, 'gpg-agent.conf'), 'w') as f:
+                f.write('allow-loopback-pinentry\n')
+            gpg = gnupg.GPG(gnupghome=home)
+            gpg.import_keys(private_key)
+            signed = gpg.sign(message, detach=True, passphrase='testpass')
+            return str(signed)
+        finally:
+            subprocess.run(['gpgconf', '--homedir', home, '--kill', 'gpg-agent'],
+                           capture_output=True, timeout=5)
+            shutil.rmtree(home, ignore_errors=True)
+
+    def test_confirm_stores_signatures_on_valid_peer_signature(self):
+        private_key, public_key = self._peer_keypair()
+        m = self._initiate(to_node='dest.example.org')
+        migration = ProfileMigration.objects.get(id=m['id'])
+        canonical = migration_confirm_canonical(migration, 'dest.example.org', 'PEER-USER-SIG')
+        node_sig = self._sign_detached(private_key, canonical)
+        self.assertTrue(node_sig)
+        with patch('parahub.endpoints.federation._get_peer_node_key', return_value=public_key):
+            resp = confirm_migration_from_peer(self._req(body={
+                'migration_id': m['id'], 'domain': 'dest.example.org',
+                'to_node_signature': node_sig, 'to_user_signature': 'PEER-USER-SIG'}))
+        self.assertEqual(resp['status'], 'ok')
+        migration.refresh_from_db()
+        self.assertEqual(migration.to_node_signature, node_sig)
+        self.assertEqual(migration.to_user_signature, 'PEER-USER-SIG')
+
+    def test_confirm_rejects_invalid_signature(self):
+        _, public_key = self._peer_keypair()
+        m = self._initiate(to_node='dest.example.org')
+        with patch('parahub.endpoints.federation._get_peer_node_key', return_value=public_key):
+            with self.assertRaises(HttpError) as cm:
+                confirm_migration_from_peer(self._req(body={
+                    'migration_id': m['id'], 'domain': 'dest.example.org',
+                    'to_node_signature': 'NOT-A-SIGNATURE'}))
+        self.assertEqual(cm.exception.status_code, 403)
+        mig = ProfileMigration.objects.get(id=m['id'])
+        self.assertEqual(mig.to_node_signature, '')
+
+    def test_confirm_rejects_substituted_user_signature(self):
+        # The node signature binds to_user_signature: replaying a captured
+        # confirmation with a different user signature must fail.
+        private_key, public_key = self._peer_keypair()
+        m = self._initiate(to_node='dest.example.org')
+        migration = ProfileMigration.objects.get(id=m['id'])
+        canonical = migration_confirm_canonical(migration, 'dest.example.org', 'ORIGINAL-USER-SIG')
+        node_sig = self._sign_detached(private_key, canonical)
+        with patch('parahub.endpoints.federation._get_peer_node_key', return_value=public_key):
+            with self.assertRaises(HttpError) as cm:
+                confirm_migration_from_peer(self._req(body={
+                    'migration_id': m['id'], 'domain': 'dest.example.org',
+                    'to_node_signature': node_sig, 'to_user_signature': 'FORGED-USER-SIG'}))
+        self.assertEqual(cm.exception.status_code, 403)
+        mig = ProfileMigration.objects.get(id=m['id'])
+        self.assertEqual(mig.to_user_signature, '')

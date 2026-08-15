@@ -1,9 +1,13 @@
 <template>
   <Teleport to="body">
+    <!-- Full-bleed band: the gradient still reaches the physical top edge, but
+         its content pads past the status bar / camera cutout on the Capacitor
+         edge-to-edge WebView (same trick as .nav-bar-safe in main.css). -->
     <div
       v-show="incomingCall"
       class="fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-primary-600 to-primary-500 text-black shadow-2xl transition-all duration-300"
       :class="incomingCall ? 'translate-y-0 opacity-100' : 'translate-y-[-100%] opacity-0'"
+      :style="{ paddingTop: 'var(--safe-area-inset-top, env(safe-area-inset-top, 0px))' }"
     >
         <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <!-- Caller info -->

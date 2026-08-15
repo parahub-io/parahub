@@ -112,7 +112,7 @@ const copyToClipboard = async (text, label) => {
 }
 
 const continueToApp = () => {
-  navigateTo(localePath('/'))
+  navigateTo(localePath('/map'))
 }
 
 definePageMeta({

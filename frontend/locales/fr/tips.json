@@ -51,6 +51,8 @@
       "submit": "Créer et approvisionner",
       "funding": "Approvisionnement du coupon {n} sur {total}",
       "fundingHint": "Ne fermez pas cet onglet — chaque coupon est approvisionné séparément.",
+      "elapsed": "{time} écoulé",
+      "remaining": "reste ≈ {time}",
       "walletNeeded": "Ouvrez d'abord votre portefeuille : le lot est approvisionné depuis celui-ci.",
       "insufficient": "Solde insuffisant pour {sats} sats."
     },
@@ -97,6 +99,11 @@
       "remembered": "Pré-rempli avec l’adresse de votre dernier encaissement.",
       "forget": "Effacer",
       "tooSmall": "Ce billet est trop petit pour un envoi par Lightning : les frais dépassent ce qu’il contient. Essayez plutôt une adresse Spark."
+    },
+    "sync": {
+      "offHint": "Un lot émis sur un autre appareil ? Les lots restent là où ils ont été créés tant que la synchronisation du portefeuille est désactivée.",
+      "settingsLink": "Activer dans les paramètres du profil",
+      "keyMismatch": "La synchronisation est activée, mais le portefeuille de cet appareil diffère de celui qui a synchronisé. Restaurez la même seed de 12 mots pour voir les lots de vos autres appareils."
     }
   }
 }

@@ -1,5 +1,7 @@
 <template>
-  <div ref="pageRef" class="bg-neutral-900" style="margin-bottom: calc(-0.5rem - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))">
+  <!-- Cancels .main-content's bottom padding so the dark page bleeds into the
+       chrome band; the safe area now belongs to the nav dock, not to <main>. -->
+  <div ref="pageRef" class="bg-neutral-900" style="margin-bottom: -0.5rem">
     <!-- ═══════════════ HERO (V1 centered) ═══════════════ -->
     <div ref="heroRef" class="relative py-24 overflow-hidden bg-primary">
       <!-- Background pattern: WebGPU spiral or static SVG tiling -->
@@ -155,6 +157,9 @@
       <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-[0.05]"
         style="background: radial-gradient(circle, var(--color-primary), transparent 70%);"></div>
 
+      <!-- Rising embers behind the closing call to action -->
+      <VfxParticles />
+
       <div class="max-w-4xl mx-auto px-6 sm:px-8 text-center relative z-10">
         <span class="landing-reveal inline-block px-3 py-1 mb-6 text-xs font-semibold uppercase tracking-widest text-primary border border-primary/30 rounded-full">Beta</span>
         <h2 class="landing-reveal text-3xl sm:text-5xl font-extrabold text-white mb-4 leading-tight">
@@ -193,10 +198,12 @@
             <img src="/logo.svg" alt="Parahub" class="h-5 w-5 opacity-40" />
             <span>&copy; {{ new Date().getFullYear() }} Parahub</span>
           </div>
-          <nav class="flex items-center gap-6 text-sm" aria-label="Footer navigation">
+          <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm" aria-label="Footer navigation">
             <NuxtLink :to="localePath('/about')" class="text-neutral-300 hover:text-white transition-colors">{{ $t('footer.about') }}</NuxtLink>
             <NuxtLink :to="localePath('/about/terms')" class="text-neutral-300 hover:text-white transition-colors">{{ $t('footer.terms') }}</NuxtLink>
             <NuxtLink :to="localePath('/about/privacy')" class="text-neutral-300 hover:text-white transition-colors">{{ $t('footer.privacy') }}</NuxtLink>
+            <!-- footer.sources, not sources.title: legal.json is merged only on /about and /docs -->
+            <NuxtLink :to="localePath('/about/sources')" class="text-neutral-300 hover:text-white transition-colors">{{ $t('footer.sources') }}</NuxtLink>
             <a href="https://github.com/parahub-io" target="_blank" rel="noopener noreferrer" class="text-neutral-300 hover:text-white transition-colors">GitHub</a>
           </nav>
           <LanguageSwitcher variant="dark" class="mt-3 sm:mt-0" />

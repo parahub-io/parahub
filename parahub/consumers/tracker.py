@@ -27,6 +27,7 @@ import redis.asyncio as aioredis
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings
 
+from .base import refuse_connection
 from .feed_pubsub import FeedPubSubManager
 from .transit import _bbox_to_geosearch_params
 
@@ -44,7 +45,8 @@ class TrackerConsumer(AsyncWebsocketConsumer):
         self.profile = self.scope.get('profile')
 
         if not self.user or not self.user.is_authenticated:
-            await self.close(code=4001)
+            await refuse_connection(
+                self, 4001, 'unauthenticated', "Sign in to follow devices")
             return
 
         self._bbox = None
@@ -64,6 +66,9 @@ class TrackerConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
+        # Refused in `connect`: none of the subscriptions below exist.
+        if getattr(self, '_connection_refused', False):
+            return
         if self._tick_subscribed:
             await self._feed.unsubscribe('tracker:tick', self._on_tick)
             self._tick_subscribed = False

@@ -1,29 +1,31 @@
 <template>
-  <div class="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+  <div>
     <!-- Loading state -->
-    <div v-if="loading" class="flex justify-center py-24" role="status" aria-live="polite">
-      <div class="animate-spin rounded-full h-10 w-10 border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-white" aria-hidden="true" />
+    <div v-if="loading" class="py-12 text-center" role="status" aria-live="polite">
+      <div class="animate-spin rounded-full h-12 w-12 mx-auto border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-white" aria-hidden="true" />
       <span class="sr-only">{{ $t('common.loading') }}</span>
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="max-w-2xl mx-auto px-4 py-24 text-center">
-      <AlertCircle class="w-16 h-16 mx-auto text-red-500 mb-4" />
-      <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
+    <div v-else-if="error" class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
+      <div class="w-16 h-16 mx-auto rounded-full bg-error-100 dark:bg-error-900/30 flex items-center justify-center mb-4">
+        <AlertCircle class="w-8 h-8 text-error" aria-hidden="true" />
+      </div>
+      <h1 class="text-xl font-semibold text-neutral-800 dark:text-neutral-200 mb-2">
         {{ $t('events.error_loading') }}
       </h1>
       <p class="text-neutral-600 dark:text-neutral-400 mb-6">{{ error }}</p>
-      <NuxtLink :to="localePath('/events')" class="text-link">
+      <UiButton variant="primary" :to="localePath('/events')">
         {{ $t('events.back_to_events') }}
-      </NuxtLink>
+      </UiButton>
     </div>
 
     <!-- Event content -->
-    <div v-else-if="event" class="max-w-4xl mx-auto px-4 py-6">
+    <div v-else-if="event" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <!-- Back link -->
       <NuxtLink
         :to="localePath('/events')"
-        class="text-link text-sm flex items-center gap-1 mb-4"
+        class="inline-flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400 hover:text-secondary dark:hover:text-secondary-400 transition-colors mb-4"
       >
         <ArrowLeft :size="16" />
         {{ $t('events.back_to_events') }}
@@ -49,26 +51,26 @@
 
       <!-- Header -->
       <div class="mb-6">
-        <div class="flex items-start justify-between gap-4 mb-3">
-          <h1 class="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+        <!-- One wrapping row, not justify-between: a long title must push the
+             badges to their own line instead of shoving them past the edge -->
+        <div class="flex flex-wrap items-start gap-x-4 gap-y-2 mb-3">
+          <h1 class="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-neutral-100 min-w-0">
             {{ event.title }}
           </h1>
           <!-- Event type badge -->
-          <div class="flex items-center gap-2 flex-shrink-0">
+          <div class="flex items-center gap-2 flex-shrink-0 ml-auto mt-1">
             <DemoBadge :is-demo="event.is_demo" />
-            <span
-              :class="eventTypeBadgeClass"
-              class="px-3 py-1 rounded-full text-sm font-medium"
-            >
+            <UiBadge :variant="eventTypeBadgeVariant" type="soft" size="lg" class="gap-1.5">
+              <component :is="eventTypeIcon" :size="14" aria-hidden="true" />
               {{ eventTypeLabel }}
-            </span>
+            </UiBadge>
           </div>
         </div>
 
         <!-- Category -->
         <div v-if="event.category_name" class="flex items-center gap-2 text-neutral-600 dark:text-neutral-400">
           <span v-if="event.category_icon" class="text-xl">{{ event.category_icon }}</span>
-          <span>{{ event.category_name }}</span>
+          <span>{{ categoryLabel }}</span>
         </div>
       </div>
 
@@ -77,7 +79,7 @@
         <!-- Key info: When, Where, Online link -->
         <div class="lg:col-span-2 space-y-6">
           <!-- Date & Time -->
-          <div class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700">
+          <div class="card p-5">
             <h2 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
               <CalendarDays :size="20" />
               {{ $t('events.when') }}
@@ -96,7 +98,7 @@
           <!-- Location (offline/hybrid) -->
           <div
             v-if="event.event_type !== 'ONLINE'"
-            class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700"
+            class="card p-5"
           >
             <h2 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
               <MapPin :size="20" />
@@ -112,30 +114,40 @@
               {{ event.location.lat.toFixed(6) }}, {{ event.location.lon.toFixed(6) }}
             </p>
 
-            <!-- Map preview -->
-            <StaticMapPreview
-              v-if="eventCoords"
-              :latitude="eventCoords.lat"
-              :longitude="eventCoords.lon"
-              :height="180"
-              class="mt-3"
-            />
+            <!-- Map preview — the venue wears the same static-place square it
+                 gets on /map and in the create picker (§ Map Markers) -->
+            <div v-if="eventCoords" class="relative mt-3">
+              <StaticMapPreview
+                :latitude="eventCoords.lat"
+                :longitude="eventCoords.lon"
+                :height="180"
+                hide-marker
+              />
+              <IoTSnapshotMarker
+                shape="square"
+                :size="PLACE_SQUARE_SIZE"
+                fill="#4E4EC8"
+                :glyph="CALENDAR_GLYPH"
+              />
+            </div>
 
             <!-- Show on map link -->
-            <button
+            <UiButton
               v-if="event.location || event.world_object"
+              variant="ghost"
+              size="sm"
+              :icon="Map"
+              class="mt-3 -ml-2"
               @click="showOnMap"
-              class="mt-3 text-link text-sm flex items-center gap-1"
             >
-              <Map :size="14" />
               {{ $t('events.show_on_map') }}
-            </button>
+            </UiButton>
           </div>
 
           <!-- Online link (online/hybrid) -->
           <div
             v-if="event.event_type !== 'OFFLINE' && event.online_url"
-            class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700"
+            class="card p-5"
           >
             <h2 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
               <Video :size="20" />
@@ -155,53 +167,69 @@
         <!-- Sidebar: Organizer, Actions, Chat, Views — appears after key info on mobile -->
         <div class="space-y-4 lg:row-span-2">
           <!-- Organizer card -->
-          <div class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700">
+          <div class="card p-5">
             <h3 class="text-sm text-neutral-500 mb-3">{{ $t('events.organizer') }}</h3>
-            <NuxtLink
-              :to="localePath(`/u/${event.organizer.hna?.split('@')[0] || event.organizer.id}`)"
-              class="flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-700 -m-2 p-2 rounded-lg"
-            >
-              <img
-                v-if="event.organizer.avatar_url"
-                :src="event.organizer.avatar_url"
-                :alt="event.organizer.hna"
-                class="w-12 h-12 rounded-full"
-              />
-              <div v-else class="w-12 h-12 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                <User :size="24" class="text-neutral-500" />
-              </div>
-              <div>
-                <p class="font-medium text-neutral-900 dark:text-neutral-100">
+            <div class="flex items-center gap-3">
+              <NuxtLink :to="organizerPath" class="flex-shrink-0">
+                <img
+                  v-if="event.organizer.avatar_url"
+                  :src="event.organizer.avatar_url"
+                  :alt="event.organizer.hna"
+                  class="w-12 h-12 rounded-full"
+                />
+                <div v-else class="w-12 h-12 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
+                  <User :size="24" class="text-neutral-500" />
+                </div>
+              </NuxtLink>
+              <div class="min-w-0">
+                <!-- Act-as: the establishment is credited on top, the person who
+                     organizes it stays underneath — same order as market listings -->
+                <NuxtLink
+                  v-if="event.establishment_id"
+                  :to="localePath(`/org/${event.establishment_slug || event.establishment_id}`)"
+                  class="block font-medium text-neutral-900 dark:text-neutral-100 truncate hover:text-secondary dark:hover:text-secondary-400 transition-colors"
+                >
+                  {{ event.establishment_name }}
+                </NuxtLink>
+                <NuxtLink
+                  :to="organizerPath"
+                  class="block truncate hover:text-secondary dark:hover:text-secondary-400 transition-colors"
+                  :class="event.establishment_id
+                    ? 'text-sm text-neutral-500 dark:text-neutral-400'
+                    : 'font-medium text-neutral-900 dark:text-neutral-100'"
+                >
                   {{ event.organizer.display_name || event.organizer.hna }}
-                </p>
+                </NuxtLink>
               </div>
-            </NuxtLink>
+            </div>
           </div>
 
           <!-- Join/Leave actions -->
           <div
             v-if="authStore.isAuthenticated && event.status === 'PUBLISHED'"
-            class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700"
+            class="card p-5"
           >
             <!-- User is organizer -->
             <template v-if="event.is_organizer">
               <p class="text-sm text-neutral-500 mb-3">{{ $t('events.you_are_organizer') }}</p>
               <div class="space-y-2">
-                <NuxtLink
+                <UiButton
+                  variant="outline"
+                  :icon="Pencil"
                   :to="localePath(`/events/${event.id}/edit`)"
-                  class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 rounded-lg font-medium hover:bg-neutral-200 dark:hover:bg-neutral-600"
+                  class="w-full !whitespace-normal min-w-0 text-center"
                 >
-                  <Pencil :size="16" />
                   {{ $t('events.edit_event') }}
-                </NuxtLink>
-                <button
+                </UiButton>
+                <UiButton
+                  variant="outline-error"
+                  :icon="XCircle"
+                  :loading="cancelling"
+                  class="w-full !whitespace-normal min-w-0 text-center"
                   @click="showCancelEventConfirm = true"
-                  :disabled="cancelling"
-                  class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg font-medium hover:bg-red-200 dark:hover:bg-red-800"
                 >
-                  <XCircle :size="16" />
                   {{ $t('events.cancel_event') }}
-                </button>
+                </UiButton>
               </div>
             </template>
 
@@ -210,36 +238,40 @@
               <p class="text-sm text-neutral-500 mb-3">
                 {{ event.my_participation_status === 'GOING' ? $t('events.you_are_going') : $t('events.you_are_maybe') }}
               </p>
-              <button
+              <UiButton
+                variant="outline-error"
+                :icon="UserMinus"
+                :loading="actionLoading"
+                class="w-full !whitespace-normal min-w-0 text-center"
                 @click="leaveEvent"
-                :disabled="actionLoading"
-                class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg font-medium hover:bg-red-200 dark:hover:bg-red-800"
               >
-                <UserMinus :size="16" />
                 {{ $t('events.leave_event') }}
-              </button>
+              </UiButton>
             </template>
 
             <!-- User can join -->
             <template v-else>
               <div class="space-y-2">
-                <button
+                <UiButton
+                  variant="secondary"
+                  :icon="UserPlus"
+                  :disabled="event.is_full || actionLoading"
+                  :loading="pendingJoinStatus === 'GOING'"
+                  class="w-full !whitespace-normal min-w-0 text-center"
                   @click="joinEvent('GOING')"
-                  :disabled="actionLoading || event.is_full"
-                  :class="event.is_full ? 'opacity-50 cursor-not-allowed' : 'hover:bg-secondary-600'"
-                  class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg font-medium"
                 >
-                  <UserPlus :size="16" />
                   {{ event.is_full ? $t('events.full') : $t('events.join_going') }}
-                </button>
-                <button
-                  @click="joinEvent('MAYBE')"
+                </UiButton>
+                <UiButton
+                  variant="outline"
+                  :icon="HelpCircle"
                   :disabled="actionLoading"
-                  class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-900 dark:text-neutral-100 rounded-lg font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                  :loading="pendingJoinStatus === 'MAYBE'"
+                  class="w-full !whitespace-normal min-w-0 text-center"
+                  @click="joinEvent('MAYBE')"
                 >
-                  <HelpCircle :size="16" />
                   {{ $t('events.join_maybe') }}
-                </button>
+                </UiButton>
               </div>
             </template>
           </div>
@@ -247,15 +279,16 @@
           <!-- Matrix chat link -->
           <div
             v-if="event.matrix_room_id && (event.is_organizer || event.my_participation_status === 'GOING')"
-            class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700"
+            class="card p-5"
           >
-            <NuxtLink
-              :to="{ path: localePath('/chat'), query: { room_id: event.matrix_room_id } }"
-              class="btn-secondary w-full flex items-center justify-center gap-2"
+            <UiButton
+              variant="secondary"
+              :icon="MessageCircle"
+              :to="localePath(`/chat?room_id=${event.matrix_room_id}`)"
+              class="w-full !whitespace-normal min-w-0 text-center"
             >
-              <MessageCircle :size="16" />
               {{ $t('events.open_chat') }}
-            </NuxtLink>
+            </UiButton>
           </div>
 
           <!-- Views counter -->
@@ -267,7 +300,7 @@
         <!-- Content: Description, Participants — below sidebar on mobile -->
         <div class="lg:col-span-2 space-y-6">
           <!-- Description -->
-          <div class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700">
+          <div class="card p-5">
             <h2 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
               <FileText :size="20" />
               {{ $t('events.description') }}
@@ -278,7 +311,7 @@
           </div>
 
           <!-- Tickets -->
-          <div v-if="eventTicketTypes.length" class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700">
+          <div v-if="eventTicketTypes.length" class="card p-5">
             <h2 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
               <Ticket :size="20" />
               {{ $t('tickets.title') }}
@@ -295,7 +328,7 @@
           <TicketsTicketQRModal :ticket="qrTicket" @close="qrTicket = null" />
 
           <!-- Participants list -->
-          <div class="bg-white dark:bg-neutral-800 rounded-lg p-5 border border-neutral-200 dark:border-neutral-700">
+          <div class="card p-5">
             <h2 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
               <Users :size="20" />
               {{ $t('events.participants') }}
@@ -321,18 +354,15 @@
                 </div>
                 <div class="flex-1">
                   <NuxtLink
-                    :to="localePath(`/u/${p.profile_hna?.split('@')[0] || p.profile_id}`)"
+                    :to="localePath(`/@${p.profile_hna?.split('@')[0] || p.profile_id}`)"
                     class="text-neutral-900 dark:text-neutral-100 hover:underline"
                   >
                     {{ p.profile_display_name || p.profile_hna || p.profile_id }}
                   </NuxtLink>
                 </div>
-                <span
-                  v-if="p.status === 'MAYBE'"
-                  class="text-xs px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 rounded"
-                >
+                <UiBadge v-if="p.status === 'MAYBE'" variant="warning" type="soft" size="sm">
                   {{ $t('events.maybe') }}
-                </span>
+                </UiBadge>
               </div>
             </div>
             <p v-else class="text-neutral-500">
@@ -359,12 +389,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Calendar, CalendarDays, MapPin, Map, Video, Users, User, FileText, ArrowLeft,
+  Calendar, CalendarDays, MapPin, Map, Video, Layers, Users, User, FileText, ArrowLeft,
   MessageCircle, AlertCircle, XCircle, Pencil, UserPlus, UserMinus, HelpCircle, Ticket
 } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import { useToastStore } from '~/stores/toast'
 import StaticMapPreview from '~/components/IoT/StaticMapPreview.vue'
+import { PLACE_SQUARE_SIZE, CALENDAR_GLYPH } from '~/composables/useMapToggleableLayer'
 
 definePageMeta({
   keepalive: true
@@ -389,6 +420,8 @@ const error = computed(() => {
   return err.data?.detail || err.message || 'Failed to load event'
 })
 const actionLoading = ref(false)
+// Which join button is in flight — so only the pressed one spins
+const pendingJoinStatus = ref(null)
 const cancelling = ref(false)
 const showCancelEventConfirm = ref(false)
 
@@ -475,6 +508,23 @@ useHead({
   })
 })
 
+// The API returns reference data in English (category_name); translate by slug
+// via the localized category tree, falling back to the English name.
+const { fetchCategory } = useCategories()
+const categoryLabel = ref('')
+watch([event, locale], async () => {
+  const e = event.value
+  const fallback = e?.category_name || ''
+  if (!e?.category_slug) { categoryLabel.value = fallback; return }
+  try { categoryLabel.value = (await fetchCategory(e.category_slug))?.name || fallback }
+  catch { categoryLabel.value = fallback }
+}, { immediate: true })
+
+const organizerPath = computed(() => {
+  const org = event.value?.organizer
+  return org ? localePath(`/@${org.hna?.split('@')[0] || org.id}`) : ''
+})
+
 const eventTypeLabel = computed(() => {
   if (!event.value) return ''
   const labels = {
@@ -485,14 +535,17 @@ const eventTypeLabel = computed(() => {
   return labels[event.value.event_type] || event.value.event_type
 })
 
-const eventTypeBadgeClass = computed(() => {
-  if (!event.value) return ''
-  const classes = {
-    OFFLINE: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400',
-    ONLINE: 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-700 dark:text-secondary-400',
-    HYBRID: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-400'
-  }
-  return classes[event.value.event_type] || 'bg-neutral-100 text-neutral-700'
+// Event type reads by glyph first, colour second — the <UiBadge> tokens are
+// categorical, not semantic. Violet stays reserved for the market axis and
+// yellow soft is sub-AA as label text, so HYBRID (= both) takes neutral.
+const eventTypeBadgeVariant = computed(() => {
+  const variants = { OFFLINE: 'success', ONLINE: 'info', HYBRID: 'neutral' }
+  return variants[event.value?.event_type] || 'neutral'
+})
+
+const eventTypeIcon = computed(() => {
+  const icons = { OFFLINE: MapPin, ONLINE: Video, HYBRID: Layers }
+  return icons[event.value?.event_type] || Calendar
 })
 
 const showTimezone = computed(() => {
@@ -564,6 +617,7 @@ const joinEvent = async (status) => {
   }
 
   actionLoading.value = true
+  pendingJoinStatus.value = status
   try {
     await authStore.ensureToken()
     await $fetch(`/api/v1/geo/events/${event.value.id}/join/`, {
@@ -580,6 +634,7 @@ const joinEvent = async (status) => {
     toastStore.error(e.data?.detail || t('events.join_failed'))
   } finally {
     actionLoading.value = false
+    pendingJoinStatus.value = null
   }
 }
 

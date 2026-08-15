@@ -41,7 +41,10 @@ export function useMapClickDispatcher(opts: {
     closeFeaturePanel: () => void
   }
   iot: {
-    showIoTLockOn: (lat: number, lon: number, offsetPx?: [number, number] | null) => void
+    showIoTLockOn: (
+      lat: number, lon: number, offsetPx?: [number, number] | null,
+      ref?: { segment: string, id: string } | null,
+    ) => void
     trackerPositionsList: Ref<any[]>
     getPanelPadding: () => any
   }
@@ -135,6 +138,9 @@ export function useMapClickDispatcher(opts: {
           open: (f, anchor, lockOnOffset) => {
             const layerId = f.layer?.id || ''
             const deviceType = layerId.startsWith('trackers') ? 'tracker' : layerId.startsWith('mesh-') ? 'mesh_router' : 'energy_cell'
+            // Ensemble segment (useMapDeviceEnsembles) — lets the lock-on
+            // bracket follow the device when the lattice regroups on zoom
+            const segment = layerId.startsWith('trackers') ? 'tracker' : layerId.startsWith('mesh-') ? 'mesh' : 'energy'
             const trackerEntry = deviceType === 'tracker'
               ? trackerPositionsList.value.find((tp: any) => tp.device_id === f.properties?.device_id)
               : null
@@ -154,7 +160,8 @@ export function useMapClickDispatcher(opts: {
               lockOnOffset,
               last_update: trackerEntry?.last_update || null,
             }
-            if (anchor) iot.showIoTLockOn(anchor[1], anchor[0], lockOnOffset)
+            const deviceId = f.properties?.device_id || f.properties?.id || ''
+            if (anchor) iot.showIoTLockOn(anchor[1], anchor[0], lockOnOffset, { segment, id: deviceId })
           },
         },
         {
@@ -176,7 +183,7 @@ export function useMapClickDispatcher(opts: {
               lngLat: lngLatOf(anchor),
               lockOnOffset,
             }
-            if (anchor) iot.showIoTLockOn(anchor[1], anchor[0], lockOnOffset)
+            if (anchor) iot.showIoTLockOn(anchor[1], anchor[0], lockOnOffset, { segment: 'env', id: f.properties?.id || '' })
           },
         },
         {

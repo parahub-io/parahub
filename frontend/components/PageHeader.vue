@@ -24,25 +24,28 @@ const emit = defineEmits<{
         {{ subtitle }}
       </p>
     </div>
-    <UiButton
-      v-if="createTo && createLabel"
-      variant="primary"
-      size="sm"
-      :icon="Plus"
-      :to="createTo"
-      class="min-h-[44px] shrink-0"
-    >
-      {{ createLabel }}
-    </UiButton>
-    <UiButton
-      v-else-if="createLabel"
-      variant="primary"
-      size="sm"
-      :icon="Plus"
-      class="min-h-[44px] shrink-0"
-      @click="emit('create')"
-    >
-      {{ createLabel }}
-    </UiButton>
+    <div v-if="$slots.actions || createLabel" class="flex items-center gap-2 shrink-0">
+      <slot name="actions" />
+      <UiButton
+        v-if="createTo && createLabel"
+        variant="primary"
+        size="sm"
+        :icon="Plus"
+        :to="createTo"
+        class="min-h-[44px]"
+      >
+        {{ createLabel }}
+      </UiButton>
+      <UiButton
+        v-else-if="createLabel"
+        variant="primary"
+        size="sm"
+        :icon="Plus"
+        class="min-h-[44px]"
+        @click="emit('create')"
+      >
+        {{ createLabel }}
+      </UiButton>
+    </div>
   </div>
 </template>

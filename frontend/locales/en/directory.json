@@ -44,7 +44,8 @@
       "no_results": "No results found",
       "no_results_desc": "Try adjusting your search or filters.",
       "type_all": "All",
-      "refine_label": "Filters"
+      "refine_label": "Filters",
+      "test_profiles": "Test Profiles"
     },
     "people": {
       "type_filter_all": "All",
@@ -106,7 +107,12 @@
       },
       "hours_open": "Open",
       "hours_closed": "Closed",
-      "hours_advanced_note": "Some entries use an advanced format and were kept as-is."
+      "hours_advanced_note": "Some entries use an advanced format and were kept as-is.",
+      "membership_policy": "Joining",
+      "membership_policy_open": "Anyone can join",
+      "membership_policy_invite": "By invitation only",
+      "membership_policy_hint": "Invitation-only organizations grant membership themselves. By request, anyone may apply and an admin decides.",
+      "membership_policy_request": "By request"
     },
     "users": {
       "search_placeholder": "Search by name or HNA...",
@@ -150,7 +156,13 @@
         "copied": "Copied!",
         "regenerate_confirm": "Create a new invite link? The old one will stop working.",
         "invited_count_label": "Registered via your link",
-        "qr_aria_label": "QR code for invite link"
+        "qr_aria_label": "QR code for invite link",
+        "explainer_them_title": "For them",
+        "explainer_them_text": "an account in one tap, no email needed — and you two become partners right away, with a direct chat.",
+        "explainer_you_title": "For you",
+        "explainer_you_text": "they appear among your partners and in your invite count. Once they earn 3 web-of-trust verifications, they count as rooted.",
+        "wot_note": "The link opens the door, not the trust: full access still takes 3 verifications from members.",
+        "rooted_count_label": "Took root (3+ verifications)"
       },
       "notifications": {
         "auth_required": "Authentication required",
@@ -326,7 +338,67 @@
       "wot_required_title": "Verification required",
       "wot_required": "Creating organizations requires Web-of-Trust level 3+ (3 verifications) or foundation membership."
     },
-    "anon_hint": "Sign in to search people and add partners."
+    "anon_hint": "Sign in to search people and add partners.",
+    "members": {
+      "title": "Members",
+      "list_title": "Members",
+      "empty": "No members yet",
+      "no_access": "You cannot manage members here",
+      "no_access_hint": "Only the organization owner and its admins can.",
+      "load_error": "Failed to load members",
+      "action_error": "Action failed",
+      "done": "Done",
+      "joined": "joined",
+      "role": "Role",
+      "position": "Position",
+      "position_placeholder": "e.g. Dispatcher",
+      "role_owner": "Owner",
+      "role_admin": "Admin",
+      "role_member": "Member",
+      "role_employee": "Employee",
+      "role_contractor": "Contractor",
+      "role_changed": "Role updated",
+      "remove": "Remove",
+      "remove_confirm": "Sure?",
+      "removed": "Member removed",
+      "invite_title": "Invite someone",
+      "invite_by_name": "By name",
+      "invite_by_link": "By link",
+      "invite_button": "Send invitation",
+      "invite_sent": "Invitation sent",
+      "create_link": "Create link",
+      "link_hint": "Creates a one-time link. Whoever opens it joins with the role you pick, so send it to one person only.",
+      "link_created": "Invitation link",
+      "link_invite": "Invitation link",
+      "copy_link": "Copy link",
+      "copied": "Copied",
+      "search_placeholder": "Search by name or handle",
+      "expires_in": "The invitation expires in 14 days.",
+      "expires": "expires",
+      "expired": "Expired",
+      "pending_title": "Invitations sent",
+      "applications_title": "Requests to join",
+      "approve": "Approve",
+      "decline": "Decline",
+      "revoke": "Revoke",
+      "request_join": "Request to join",
+      "request_pending": "Request pending"
+    },
+    "invite": {
+      "title": "Invitation",
+      "invited_you": "You have been invited to",
+      "from": "from",
+      "accept": "Accept",
+      "decline": "Decline",
+      "accepted": "You are in",
+      "declined": "Invitation declined",
+      "expired": "This invitation has expired",
+      "already_resolved": "This invitation has already been answered",
+      "not_found": "Invitation not found",
+      "browse": "Browse organizations",
+      "sign_in": "Sign in to accept",
+      "sign_in_hint": "Accepting needs a profile — sign in or create one and you will land back here."
+    }
   },
   "wot": {
     "status_title": "Your Verification Status",
@@ -423,7 +495,6 @@
       "self_verification": "You can't verify yourself.",
       "no_verification_photo": "This user must upload a verification photo (with biometric consent) before they can be verified.",
       "no_face_embedding": "This user's verification photo has no detected face. Ask them to re-upload it.",
-      "reconfirmation_pending": "This user's photo was changed recently and is awaiting re-confirmation (3 needed).",
       "face_duplicate": "Verification blocked: this face matches an already-verified profile.",
       "already_verified": "You have already verified this user.",
       "invalid_method": "Invalid verification method.",
@@ -435,6 +506,7 @@
       "invalid_signature": "Invalid PGP signature. Make sure you signed with your registered PGP key.",
       "signature_error": "Couldn't verify your PGP signature. Please try again.",
       "internal_error": "Something went wrong on our side. Please try again later."
-    }
+    },
+    "photo_reconfirmation_title": "Photo changed"
   }
 }

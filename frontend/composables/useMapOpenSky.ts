@@ -9,6 +9,7 @@
 
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
+import { saveFile } from '~/utils/download'
 
 const TILE_ZOOM = 17         // square ground tiles: ~305m at equator × cos(lat) → ~240m in Portugal
 const GRID_MIN_ZOOM = 12     // Don't render grid below this zoom
@@ -505,15 +506,7 @@ export function useMapOpenSky(currentMissionFilter: Ref<string | undefined>) {
       const filenameMatch = disposition?.match(/filename="(.+)"/)
       const filename = filenameMatch ? filenameMatch[1] : fallbackFilename
 
-      const blob = await response.blob()
-      const a = document.createElement('a')
-      const blobUrl = URL.createObjectURL(blob)
-      a.href = blobUrl
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(blobUrl)
+      await saveFile(await response.blob(), filename)
 
       useToastStore().success('Mission downloaded! ZIP contains 5 flight plans (1/3/5 battery budget — see README). Import the KMZ files into DJI Fly.')
     } catch (error: any) {

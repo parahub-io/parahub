@@ -7,6 +7,8 @@ Invariants:
 - bind resolves request source port → conntrack ULA → neighbor MAC and
   refuses off-mesh, private-network and foreign-bound devices
 - the ygg gate token is the only thing that makes X-Ygg-* headers trusted
+- a heartbeat from an owned node keeps its owner's pass covered, once per
+  renewal cycle, and never shortens a longer one
 """
 
 from datetime import timedelta
@@ -18,13 +20,15 @@ from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from ninja.errors import HttpError
 
-from core.models import Instance
+from core.access import ROLE_MANAGER
+from core.models import Instance, ObjectAccess
 from identity.models import Account, Profile
+from iot.api.devices import list_devices
 from iot.api.mesh import (
     GuestLease, MeshHeartbeatIn, _parse_conntrack_client, _parse_neigh_mac,
     mesh_bind, mesh_heartbeat, mesh_network,
 )
-from iot.mesh_pass import grant_mesh_pass
+from iot.mesh_pass import ensure_mesh_pass_floor, grant_mesh_pass
 from iot.models import IoTDevice, MeshDevice, MeshPass
 
 LOCMEM_CACHE = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
@@ -164,6 +168,18 @@ class HeartbeatPaidClientsTests(TestCase):
         out = self._heartbeat(None)
         self.assertEqual(out.paid_clients, [])
 
+    def test_reply_carries_owner_set_coordinates(self):
+        # ph51: the node persists these for the status page's map deep link
+        out = self._heartbeat(None)
+        self.assertIsNone(out.latitude)
+        self.assertIsNone(out.longitude)
+
+        IoTDevice.objects.filter(device_id='94:83:c4:76:ab:47').update(
+            latitude=41.87, longitude=-8.83)
+        out = self._heartbeat(None)
+        self.assertEqual(out.latitude, 41.87)
+        self.assertEqual(out.longitude, -8.83)
+
 
 @override_settings(
     CACHES=LOCMEM_CACHE, MESH_YGG_GATE_TOKEN=GATE, MESH_SSH_TIMEOUT=5)
@@ -260,6 +276,14 @@ class BindTests(TestCase):
         self.assertTrue(out.on_mesh)
         self.assertEqual(out.network, 'guest')
         self.assertEqual(out.node_hostname, 'Parahub-AB47')
+        # No coordinates → no map deep-link target
+        self.assertIsNone(out.node_id)
+
+        self.node.latitude = 41.87
+        self.node.longitude = -8.83
+        self.node.save()
+        out = mesh_network(req)
+        self.assertEqual(out.node_id, self.node.id)
 
         req = self.rf.get('/api/v1/iot/mesh/network',
                           HTTP_X_YGG_GATE=GATE,
@@ -272,3 +296,176 @@ class BindTests(TestCase):
         req = self.rf.get('/api/v1/iot/mesh/network')
         out = mesh_network(req)
         self.assertFalse(out.on_mesh)
+
+
+@override_settings(
+    CACHES=LOCMEM_CACHE, MESH_HEARTBEAT_KEY='hb-key',
+    MESH_HOST_PASS_DAYS=30, MESH_HOST_PASS_RENEW_BELOW_DAYS=7)
+class HostPassTests(TestCase):
+    """Hosting reciprocity: a live node keeps its owner's pass covered."""
+
+    NODE_MAC = '94:83:c4:76:ab:47'
+
+    def setUp(self):
+        cache.clear()
+        self.rf = RequestFactory()
+        self.instance = Instance.objects.create(
+            domain='test.parahub.io', name='Test', public_key='k')
+        self.pool = _profile(self.instance, 'fleet')
+        self.alice = _profile(self.instance, 'alice')
+
+    def _node(self, owner):
+        return IoTDevice.objects.create(
+            device_id=self.NODE_MAC, device_type='MESH_ROUTER',
+            name='Parahub-AB47', owner=owner, last_seen=timezone.now(),
+            connection_info={})
+
+    def _heartbeat(self):
+        payload = MeshHeartbeatIn(
+            mac=self.NODE_MAC, hostname='Parahub-AB47',
+            yggdrasil_address=NODE_YGG, firmware_version='25.12.5-ph44',
+            firmware_role='bumblebee', vpn_mode='vps')
+        request = self.rf.post(
+            '/api/v1/iot/mesh/heartbeat', HTTP_AUTHORIZATION='Bearer hb-key')
+        with override_settings(MESH_DEFAULT_OWNER_PROFILE_ID=self.pool.id):
+            return mesh_heartbeat(request, payload)
+
+    def test_heartbeat_grants_the_owner_a_pass(self):
+        self._node(self.alice)
+        self._heartbeat()
+        mp = MeshPass.objects.get(profile=self.alice)
+        self.assertTrue(mp.is_active)
+        self.assertAlmostEqual(
+            (mp.expires_at - timezone.now()).total_seconds(),
+            timedelta(days=30).total_seconds(), delta=5)
+        credit = mp.credits.get()
+        self.assertEqual(credit.source, 'ACHIEVEMENT')
+        self.assertEqual(credit.days, 30)
+        self.assertIsNone(credit.amount_sats)
+
+    def test_repeat_heartbeats_do_not_stack_credits(self):
+        self._node(self.alice)
+        self._heartbeat()
+        expiry = MeshPass.objects.get(profile=self.alice).expires_at
+        for _ in range(3):
+            self._heartbeat()
+        mp = MeshPass.objects.get(profile=self.alice)
+        self.assertEqual(mp.credits.count(), 1)
+        self.assertEqual(mp.expires_at, expiry)
+
+    def test_renews_once_coverage_runs_low(self):
+        self._node(self.alice)
+        self._heartbeat()
+        mp = MeshPass.objects.get(profile=self.alice)
+        MeshPass.objects.filter(id=mp.id).update(
+            expires_at=timezone.now() + timedelta(days=3))
+        self._heartbeat()
+        mp.refresh_from_db()
+        self.assertEqual(mp.credits.count(), 2)
+        self.assertAlmostEqual(
+            (mp.expires_at - timezone.now()).total_seconds(),
+            timedelta(days=30).total_seconds(), delta=5)
+        # Credited the delta it actually added, not a flat 30
+        self.assertEqual(mp.credits.order_by('-created_at').first().days, 27)
+
+    def test_unclaimed_pool_device_grants_nothing(self):
+        self._node(self.pool)
+        self._heartbeat()
+        self.assertFalse(MeshPass.objects.filter(profile=self.pool).exists())
+
+    def test_never_shortens_a_longer_pass(self):
+        self._node(self.alice)
+        paid = grant_mesh_pass(self.alice, 365, source='LIGHTNING',
+                               amount_sats=50000)
+        self._heartbeat()
+        paid.refresh_from_db()
+        self.assertAlmostEqual(
+            (paid.expires_at - timezone.now()).total_seconds(),
+            timedelta(days=365).total_seconds(), delta=5)
+        self.assertEqual(paid.credits.count(), 1)
+
+    @override_settings(MESH_HOST_PASS_DAYS=0)
+    def test_disabled_by_setting(self):
+        self._node(self.alice)
+        self._heartbeat()
+        self.assertFalse(MeshPass.objects.filter(profile=self.alice).exists())
+
+    def test_floor_helper_is_idempotent_under_the_threshold(self):
+        self.assertIsNotNone(ensure_mesh_pass_floor(self.alice, 30, 7))
+        self.assertIsNone(ensure_mesh_pass_floor(self.alice, 30, 7))
+
+    def test_notifies_once_when_the_pass_first_appears(self):
+        self._node(self.alice)
+        with patch('notifications.services.notify_mesh_host_pass') as notify:
+            self._heartbeat()
+            self.assertEqual(notify.call_count, 1)
+            self.assertEqual(notify.call_args.args[1].device_id, self.NODE_MAC)
+            # A later renewal is routine — it must stay silent
+            MeshPass.objects.filter(profile=self.alice).update(
+                expires_at=timezone.now() + timedelta(days=3))
+            self._heartbeat()
+            self.assertEqual(notify.call_count, 1)
+
+    def test_notification_body_names_the_node(self):
+        from notifications.models import Notification
+        from notifications.services import notify_mesh_host_pass
+        device = self._node(self.alice)
+        notify_mesh_host_pass(self.alice.account, device)
+        n = Notification.objects.get(recipient=self.alice.account)
+        self.assertEqual(n.type, 'mesh_host_pass')
+        self.assertIn(device.name, n.body)
+        self.assertEqual(n.url, '/free')
+
+    def test_no_notification_for_a_host_who_already_paid(self):
+        self._node(self.alice)
+        grant_mesh_pass(self.alice, 1, source='LIGHTNING', amount_sats=50000)
+        MeshPass.objects.filter(profile=self.alice).update(
+            expires_at=timezone.now() + timedelta(days=1))
+        with patch('notifications.services.notify_mesh_host_pass') as notify:
+            self._heartbeat()
+            self.assertEqual(notify.call_count, 0)
+        self.assertEqual(MeshPass.objects.get(profile=self.alice).credits.count(), 2)
+
+
+@override_settings(CACHES=LOCMEM_CACHE, MESH_HOST_PASS_DAYS=30)
+class HostPassDeviceFlagTests(TestCase):
+    """`keeps_host_pass` marks the node that earns the viewer their pass."""
+
+    def setUp(self):
+        cache.clear()
+        self.rf = RequestFactory()
+        self.instance = Instance.objects.create(
+            domain='test.parahub.io', name='Test', public_key='k')
+        self.alice = _profile(self.instance, 'alice')
+        self.bob = _profile(self.instance, 'bob')
+
+    def _rows(self, profile):
+        request = self.rf.get('/api/v1/iot/devices')
+        request.auth_profile = profile
+        return {d.name: d for d in list_devices(request)}
+
+    def _router(self, owner, name, device_id):
+        return IoTDevice.objects.create(
+            device_id=device_id, device_type='MESH_ROUTER', name=name,
+            owner=owner, last_seen=timezone.now(), connection_info={})
+
+    def test_own_router_is_flagged(self):
+        self._router(self.alice, 'Parahub-AB47', '94:83:c4:76:ab:47')
+        self.assertTrue(self._rows(self.alice)['Parahub-AB47'].keeps_host_pass)
+
+    def test_shared_router_is_not_flagged_for_the_grantee(self):
+        device = self._router(self.bob, 'Parahub-5F6D', '94:83:c4:76:5f:6d')
+        ObjectAccess.objects.create(
+            object_id=device.id, profile=self.alice, role=ROLE_MANAGER)
+        self.assertFalse(self._rows(self.alice)['Parahub-5F6D'].keeps_host_pass)
+
+    def test_pool_device_is_not_flagged(self):
+        self._router(self.alice, 'Parahub-00EB', '94:83:c4:76:00:eb')
+        with override_settings(MESH_DEFAULT_OWNER_PROFILE_ID=self.alice.id):
+            self.assertFalse(self._rows(self.alice)['Parahub-00EB'].keeps_host_pass)
+
+    def test_tracker_is_never_flagged(self):
+        IoTDevice.objects.create(
+            device_id='tracker-1', device_type='TRACKER', name='Car',
+            owner=self.alice, last_seen=timezone.now())
+        self.assertFalse(self._rows(self.alice)['Car'].keeps_host_pass)

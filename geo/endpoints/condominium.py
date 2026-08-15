@@ -16,6 +16,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from parahub.auth import ProfileAuth
+from identity.visibility import exclude_test_authors
 from parahub.ratelimit import ratelimit, user_or_ip
 
 logger = logging.getLogger(__name__)
@@ -341,10 +342,9 @@ def condominiums_map(request):
     from django.db.models import Count
 
     qs = (
-        Establishment.objects
-        .filter(organization_type='CONDOMINIUM', is_active=True)
-        .exclude(owner__account__is_test=True)
-        .exclude(owner__account__is_bot=True)
+        exclude_test_authors(
+            Establishment.objects.filter(organization_type='CONDOMINIUM', is_active=True),
+            request, field='owner')
         .select_related('world_object')
         .annotate(
             fraction_count_ann=Count('fractions', distinct=True),

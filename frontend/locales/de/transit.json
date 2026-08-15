@@ -45,8 +45,6 @@
     "data_source": "Datenquelle",
     "schedule_date": "Fahrplandatum",
     "view_route": "Linie anzeigen",
-    "rideshare": "Mitfahrgelegenheit",
-    "rideshare_desc": "Mitfahrten an Haltestellen finden oder anbieten",
     "cities": {
       "all_countries": "Alle",
       "stops": "{n} Haltestellen",
@@ -77,7 +75,11 @@
       "stops": "Haltestellen",
       "trips": "Fahrten",
       "imported": "Importiert",
-      "show_error": "Fehler anzeigen"
+      "show_error": "Fehler anzeigen",
+      "license": "Lizenz",
+      "license_missing": "Herausgeber nennt keine Lizenz",
+      "realtime": "Live",
+      "summary": "Feeds: {feeds} · Betreiber: {agencies}"
     },
     "route_types": {
       "0": "Straßenbahn",
@@ -133,8 +135,27 @@
       "positions_sent": "gesendet",
       "confirm_end": "Aktuelle Schicht beenden?",
       "shift_ended": "Schicht beendet",
-      "tts_label": "Haltestellenansagen"
+      "tts_label": "Haltestellenansagen",
+      "scan_tickets": "Tickets prüfen",
+      "route_ladder": "Linienübersicht",
+      "your_vehicle": "Ihr Fahrzeug",
+      "vehicles_on_route": "Fahrzeuge in dieser Richtung",
+      "waiting_ahead": "{n} warten an dieser Haltestelle auf Ihre Linie"
     },
-    "timetable_no_service": "Kein Betrieb an diesem Tag"
+    "timetable_no_service": "Kein Betrieb an diesem Tag",
+    "waiting": {
+      "title": "Wartende hier",
+      "hint": "Tippen Sie auf die Linie, auf die Sie warten — andere Fahrgäste und die Fahrerin oder der Fahrer sehen es. Es verschwindet von selbst, sobald Ihr Bus eintrifft.",
+      "im_here": "Ich warte hier auf diese Linie",
+      "im_here_cancel": "Ich warte hier nicht mehr",
+      "count": "{n} warten hier auf diese Linie",
+      "dimmed_hint": "Früher markiert, Bildschirm seitdem dunkel",
+      "error_throttled": "Zu schnell — warten Sie einen Moment, bevor Sie die Markierung verschieben",
+      "error_ip_cap": "Zu viele anonyme Markierungen von dieser Verbindung",
+      "error_failed": "Wartemarkierung konnte nicht aktualisiert werden",
+      "stranded_title": "Es kommt kein Bus",
+      "stranded_desc": "Sie warten seit {min} Min und auf Ihrer Linie ist nichts unterwegs.",
+      "stranded_company": "Weitere hier festsitzend: {n}."
+    }
   }
 }

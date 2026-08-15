@@ -3,6 +3,8 @@ governance_tick — периодическая задача для governance:
   1. DRAFT → ACTIVE  (start_time <= now)
   2. ACTIVE → ENDED  (end_time <= now) + finalize Merkle
   3. Предупреждения неголосовавшим за warning_hours до конца
+  4. Opinion polls: aggregate-and-purge raw votes 30 дней спустя
+  5. Citizen-authored polls: добивка i18n машинным переводом
 
 Запускать каждые 15-60 минут через systemd timer.
 """
@@ -117,6 +119,16 @@ class Command(BaseCommand):
             except Exception as e:
                 logger.error(f"governance_tick: freeze_and_purge failed for {poll.id[:8]}: {e}")
 
+        # 5. Citizen-authored polls: machine-translate the proposal text into the
+        # remaining locales. Off the request path on purpose — promotion happens
+        # on a supporter's click and must not wait on a translation provider.
+        translated = 0
+        try:
+            translated = civic.backfill_citizen_poll_i18n()
+        except Exception as e:
+            logger.error(f"governance_tick: citizen poll i18n backfill failed: {e}")
+
         self.stdout.write(
-            f"governance_tick: activated={activated}, ended={len(to_end)}, warned={warned}, purged={purged}"
+            f"governance_tick: activated={activated}, ended={len(to_end)}, warned={warned}, "
+            f"purged={purged}, translated={translated}"
         )

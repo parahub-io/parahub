@@ -13,6 +13,7 @@ from django.apps import apps as django_apps
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 from identity.models import Profile, Verification, Partner
+from identity.visibility import exclude_test_authors
 from contracts.models import Contract
 from geo.models import Establishment, EstablishmentMembership, Event
 from governance.models import Poll
@@ -90,10 +91,15 @@ def get_platform_stats(request):
                 establishment=parahub_est
             ).count()
 
-        # Count verified users (is_verified_wot=True)
-        verified_users = Profile.objects.filter(
-            is_verified_wot=True
-        ).count()
+        # Public counters must state the real community, so synthetic (test/bot)
+        # profiles are excluded unconditionally — no viewer, no exemption (see
+        # identity/visibility.py). Non-public profiles are excluded too: the
+        # label this feeds reads "users", and a hidden pseudonymous profile is
+        # not a second user.
+        real_profiles = exclude_test_authors(
+            Profile.objects.filter(is_publicly_linked=True), None, field='')
+
+        verified_users = real_profiles.filter(is_verified_wot=True).count()
 
         # Count active items
         active_items = Item.objects.filter(
@@ -101,7 +107,7 @@ def get_platform_stats(request):
         ).count()
 
         # Count total profiles
-        total_profiles = Profile.objects.count()
+        total_profiles = real_profiles.count()
 
         # Directory
         establishments = Establishment.objects.count()
@@ -290,6 +296,19 @@ class OnboardingStepsResponse(BaseModel):
     has_partners: bool  # at least 1 partner added
 
 
+class QuestStepsResponse(BaseModel):
+    """What a newcomer needs before the platform actually works for them."""
+    has_profile: bool  # display_name + (avatar or bio)
+    has_keys: bool  # PGP key registered — without it no contract can be signed
+    verifications_count: int  # active WoT verifications received
+    verifications_required: int  # threshold mirrors Profile.update_wot_status()
+
+
+class OnboardingResponse(BaseModel):
+    steps: QuestStepsResponse
+    complete: bool
+
+
 class GameDashboardResponse(BaseModel):
     top_partners: List[PartnerCardResponse]
     achievements: List[AchievementResponse]
@@ -302,6 +321,33 @@ class GameDashboardResponse(BaseModel):
     onboarding_steps: OnboardingStepsResponse
 
 
+@router.get("/onboarding", response=OnboardingResponse, auth=ProfileAuth())
+@ratelimit(group='dashboard:onboarding', key=user_or_ip, rate='60/m')
+def get_onboarding(request):
+    """Lightweight quest-log progress for the map HUD.
+
+    Three setup steps, in the order they unblock each other: an identity people
+    can recognise, keys to sign with (one seed derives both PGP and the wallet),
+    and the WoT verifications that open the rest of the platform.
+    """
+    profile = request.auth_profile
+    verifications_required = 3  # keep in sync with Profile.update_wot_status()
+    has_profile = bool(profile.display_name) and bool(profile.avatar or profile.bio)
+    has_keys = bool(profile.pgp_public_key and profile.pgp_fingerprint)
+    verifications_count = Verification.objects.filter(
+        verified_profile=profile, is_active=True
+    ).count()
+    return OnboardingResponse(
+        steps=QuestStepsResponse(
+            has_profile=has_profile,
+            has_keys=has_keys,
+            verifications_count=verifications_count,
+            verifications_required=verifications_required,
+        ),
+        complete=has_profile and has_keys and verifications_count >= verifications_required,
+    )
+
+
 @router.get("/game", response=GameDashboardResponse, auth=ProfileAuth())
 @ratelimit(group='dashboard:game', key=user_or_ip, rate='60/m')
 def get_game_dashboard(request):
@@ -310,7 +356,7 @@ def get_game_dashboard(request):
 
     Returns:
     - top_partners: Top 5 partners by reputation
-    - achievements: 5 categories (cryptography, goods_services, profile, ads, verifications)
+    - achievements: 6 categories (cryptography, goods_services, profile, ads, verifications, ambassador)
     - stats: User statistics (verifications, reputation, deals, partners)
     """
     profile = request.auth_profile
@@ -338,7 +384,11 @@ def get_game_dashboard(request):
             object_type="profile",
             local_name=partner.local_name,
             hna=partner.hna,
-            display_name=partner.display_name or partner.local_name,
+            # Same gate as every other surface: a one-way partner add must not
+            # hand out a name the profile keeps behind name_visible_to
+            display_name=(
+                partner.display_name if partner.name_visible_to(profile) else ''
+            ) or partner.local_name,
             reputation_score=float(partner.reputation_score),
             is_verified_wot=partner.is_verified_wot,
             verifications_count=partnership.verifications_count,
@@ -495,6 +545,35 @@ def get_game_dashboard(request):
         next_threshold=verif_next
     ))
 
+    # 6. Ambassador (invitees who took root)
+    # Counts invited people who reached WoT verification, not raw signups —
+    # a rooted invite costs three real verifiers, so the metric can't be
+    # farmed with throwaway accounts.
+    # Level 0: 0 rooted invites
+    # Level 1: 1-9 rooted invites
+    # Level 2: 10+ rooted invites
+    rooted_invites = Profile.objects.filter(
+        invited_by=profile,
+        is_verified_wot=True
+    ).count()
+
+    if rooted_invites == 0:
+        ambassador_level = 0
+        ambassador_next = 1
+    elif rooted_invites < 10:
+        ambassador_level = 1
+        ambassador_next = 10
+    else:
+        ambassador_level = 2
+        ambassador_next = None
+
+    achievements.append(AchievementResponse(
+        category="ambassador",
+        level=ambassador_level,
+        progress=rooted_invites,
+        next_threshold=ambassador_next
+    ))
+
     # === Statistics ===
     partners_count = Partner.objects.filter(profile=profile).count()
     partnered_by_count = Partner.objects.filter(partner_profile=profile).count()
@@ -512,10 +591,8 @@ def get_game_dashboard(request):
     )
 
     # === Activity Feed: Recent Items ===
-    is_staff = getattr(getattr(profile, 'account', None), 'is_staff', False)
     items_qs = Item.objects.filter(is_active=True).select_related('owner').order_by('-created_at')
-    if not is_staff:
-        items_qs = items_qs.exclude(owner__account__is_test=True).exclude(owner__account__is_bot=True)
+    items_qs = exclude_test_authors(items_qs, request, field='owner')
     recent_items_data = []
     for item in items_qs[:5]:
         pricing_display = "Free"
@@ -549,8 +626,7 @@ def get_game_dashboard(request):
         status=Event.Status.PUBLISHED,
         starts_at__gte=now,
     ).select_related('organizer').order_by('starts_at')
-    if not is_staff:
-        events_qs = events_qs.exclude(organizer__account__is_test=True).exclude(organizer__account__is_bot=True)
+    events_qs = exclude_test_authors(events_qs, request, field='organizer')
     upcoming_events_data = []
     for ev in events_qs[:4]:
         cover = None
@@ -585,9 +661,11 @@ def get_game_dashboard(request):
         ))
 
     # === Community Pulse ===
+    # Pulse counters stay viewer-independent: they report the real community
+    # size, so synthetic accounts are excluded even for exempt viewers.
     pulse = CommunityPulseResponse(
-        total_members=Profile.objects.exclude(account__is_test=True).exclude(account__is_bot=True).count(),
-        active_listings=Item.objects.filter(is_active=True).exclude(owner__account__is_test=True).exclude(owner__account__is_bot=True).count(),
+        total_members=exclude_test_authors(Profile.objects.all(), field='').count(),
+        active_listings=exclude_test_authors(Item.objects.filter(is_active=True), field='owner').count(),
         upcoming_events=Event.objects.filter(status=Event.Status.PUBLISHED, starts_at__gte=now).count(),
         active_polls=Poll.objects.filter(status=Poll.Status.ACTIVE).count(),
     )

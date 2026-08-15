@@ -34,6 +34,8 @@
     "error_internal": "Erreur interne du serveur. Veuillez réessayer plus tard.",
     "error_unknown": "Une erreur inconnue s'est produite",
     "error_already_partner": "Déjà dans votre liste de partenaires",
-    "error_accept_failed": "Impossible d'accepter l'invitation"
+    "error_accept_failed": "Impossible d'accepter l'invitation",
+    "have_account": "Vous avez déjà un compte ?",
+    "log_in_instead": "Se connecter"
   }
 }

@@ -38,10 +38,14 @@ def transit_vehicles_geojson(request, bbox: str = None, agency_id: str = None):
     cache_keys = [f'transit:rt:{ds_id}' for ds_id in ds_ids]
     cached = cache.get_many(cache_keys)
     all_vehicles = []
-    for key in cache_keys:
+    for ds_id, key in zip(ds_ids, cache_keys):
         raw = cached.get(key)
         if raw:
-            all_vehicles.extend(json.loads(raw))
+            for v in json.loads(raw):
+                # Which feed a vehicle came from — its snapped stop id only
+                # means anything within that feed (see stop lookup below).
+                v['ds'] = ds_id
+                all_vehicles.append(v)
 
     # Parse bbox early to filter vehicles before building features
     bbox_filter = None
@@ -70,22 +74,34 @@ def transit_vehicles_geojson(request, bbox: str = None, agency_id: str = None):
                 continue
         filtered.append(v)
 
-    # Resolve stop source_id → {id, name} from DB (cached 30s)
-    stop_src_ids = frozenset(v['sid'] for v in filtered if v.get('sid'))
+    # Resolve stop source_id → {id, name} from DB (cached 30s), keyed by
+    # (data source, source_id): a GTFS stop_id is unique only WITHIN its feed,
+    # and 4.2K ids are shared across our feeds (Cascais Próxima's numeric ids
+    # collide with SEPTA's), so a global lookup labels a Lisbon bus with a
+    # Philadelphia stop. Missing keys are fetched and merged back rather than
+    # rebuilding wholesale, so a bbox whose stops the cached dict never saw
+    # still resolves instead of silently rendering no stop name.
+    wanted = {(v['ds'], v['sid']) for v in filtered if v.get('sid')}
     stop_lookup = {}
-    if stop_src_ids:
+    if wanted:
         cache_key = 'transit:vehicle_stops'
-        stop_lookup = cache.get(cache_key)
-        if stop_lookup is None:
-            stop_lookup = {}
-            for s in Stop.objects.filter(source_id__in=stop_src_ids).only('id', 'source_id', 'name'):
-                stop_lookup[s.source_id] = {'id': s.id, 'name': s.name}
-            cache.set(cache_key, stop_lookup, 30)
+        cached_stops = cache.get(cache_key) or {}
+        stop_lookup = {k: cached_stops[k] for k in wanted if k in cached_stops}
+        missing = wanted - set(stop_lookup)
+        if missing:
+            rows = Stop.objects.filter(
+                source_id__in={sid for _, sid in missing}
+            ).values_list('agency__data_source_id', 'source_id', 'id', 'name')
+            for ds_id, source_id, stop_id, name in rows:
+                key = (ds_id, source_id)
+                if key in missing:
+                    stop_lookup[key] = {'id': stop_id, 'name': name}
+            cache.set(cache_key, {**cached_stops, **stop_lookup}, 30)
 
     features = []
     for v in filtered:
         lat, lon = v.get('lat'), v.get('lon')
-        stop_info = stop_lookup.get(v.get('sid', ''))
+        stop_info = stop_lookup.get((v['ds'], v.get('sid', '')))
 
         features.append({
             'type': 'Feature',

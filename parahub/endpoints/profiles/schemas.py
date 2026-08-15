@@ -3,10 +3,12 @@ Response/request schemas shared by the profile endpoint modules.
 """
 
 
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from decimal import Decimal
 import logging
+
+from parahub.capabilities import platform_capabilities
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,8 @@ class ProfilePublicResponse(BaseModel):
     verifications_given_count: int = 0     # How many people this profile verified
     i_verified_them: bool = False  # Whether current user already verified this profile
     has_verification_photo: bool = False  # Target uploaded a WoT verification photo (consent + face embedding) — required before anyone can verify them
+    photo_reconfirmation_needed: bool = False  # Face on file changed — awaiting 3 verifiers to confirm the new one
+    photo_reconfirmation_count: int = 0  # Verifiers who already confirmed the current face
     pgp_fingerprint: Optional[str] = None  # PGP key fingerprint (public)
     ln_address: Optional[str] = None  # Lightning address (e.g., user@breez.tips)
     spark_address: Optional[str] = None  # Spark address for direct P2P payments
@@ -49,11 +53,18 @@ class ProfilePublicResponse(BaseModel):
     is_arbiter: bool = False  # Has active arbiter profile
     country_code: str = ''  # ISO 3166-1 alpha-2
     rentable_count: int = 0  # Active P2P bookable items (owner's own, not org-posted) → drives the "Rental" storefront button
+    is_blocked_by_viewer: bool = False  # Any of the viewer's profiles blocked this profile
+    # Set only on the stripped stub the public page returns for a handle the
+    # platform holds ('bot' | 'test' | 'reserved'). None = an ordinary member
+    # profile, every other field carries its real value. The stub deliberately
+    # zeroes reputation/WoT/counters — a platform-owned handle must never read
+    # as a trusted member.
+    account_kind: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
     @classmethod
-    def model_validate(cls, obj, items_credit_count=0, items_debit_count=0, verifications_received_count=0, verifications_given_count=0, i_verified_them=False, has_verification_photo=False, contracts_active_count=0, contracts_completed_count=0, debts_active_count=0, debts_settled_count=0, invited_count=0, invited_verified_count=0, rentable_count=0, current_user=None, current_profile=None):
+    def model_validate(cls, obj, items_credit_count=0, items_debit_count=0, verifications_received_count=0, verifications_given_count=0, i_verified_them=False, has_verification_photo=False, photo_reconfirmation_needed=False, photo_reconfirmation_count=0, contracts_active_count=0, contracts_completed_count=0, debts_active_count=0, debts_settled_count=0, invited_count=0, invited_verified_count=0, rentable_count=0, current_user=None, current_profile=None, is_blocked_by_viewer=False):
         # id_photo is private (media/private/) — never expose the raw file URL.
         # Reveal it only to the owner or WoT-verified viewers, and only as the
         # gated /id-photo/ endpoint (which re-checks auth + serves via X-Accel).
@@ -85,6 +96,8 @@ class ProfilePublicResponse(BaseModel):
             'verifications_given_count': verifications_given_count,
             'i_verified_them': i_verified_them,
             'has_verification_photo': has_verification_photo,
+            'photo_reconfirmation_needed': photo_reconfirmation_needed,
+            'photo_reconfirmation_count': photo_reconfirmation_count,
             'pgp_fingerprint': obj.pgp_fingerprint or None,
             'ln_address': obj.ln_address or None,
             'spark_address': obj.spark_address or None,
@@ -100,6 +113,7 @@ class ProfilePublicResponse(BaseModel):
             'invited_verified_count': invited_verified_count,
             'country_code': obj.country_code or '',
             'rentable_count': rentable_count,
+            'is_blocked_by_viewer': is_blocked_by_viewer,
         }
 
         # Arbiter status
@@ -129,6 +143,11 @@ class ProfilePrivateResponse(ProfilePublicResponse):
     map_style: str = 'osm-liberty'
     animation_enabled: bool = True
     is_staff: bool = False  # Admin flag for UI (dev mode toggle, etc.)
+    #: Node owner — the only login that may hand a platform capability out.
+    is_superuser: bool = False
+    #: Node-level authority of this login (parahub/capabilities.py). The UI gates
+    #: on these instead of is_staff, so one surface can be delegated on its own.
+    capabilities: List[str] = []
     is_primary: bool = True  # Whether this is the primary profile
     profile_type: str = 'PERSONAL'  # Profile type for UI logic
     is_foundation_member: bool = False  # Foundation member of Parahub Associação
@@ -159,6 +178,8 @@ class ProfilePrivateResponse(ProfilePublicResponse):
             'map_style': obj.map_style or 'osm-liberty',
             'animation_enabled': obj.animation_enabled if hasattr(obj, 'animation_enabled') else True,
             'is_staff': obj.account.is_staff if hasattr(obj, 'account') else False,
+            'is_superuser': obj.account.is_superuser if hasattr(obj, 'account') else False,
+            'capabilities': sorted(platform_capabilities(getattr(obj, 'account', None))),
             'avatar_url': obj.avatar_url,
             # Owner viewing their own profile — always allowed; served via the gated endpoint
             'id_photo_url': (f"/api/v1/profiles/{obj.id}/id-photo/" if obj.id_photo else None),

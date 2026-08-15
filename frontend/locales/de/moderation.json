@@ -1,0 +1,39 @@
+{
+  "moderation": {
+    "report": "Melden",
+    "report_title": "Inhalt melden",
+    "report_intro": "Sag uns, was mit diesem Inhalt nicht stimmt. Meldungen werden vom Moderationsteam geprüft.",
+    "report_reason_label": "Grund",
+    "reasons": {
+      "spam": "Spam oder irreführend",
+      "fraud": "Betrug",
+      "harassment": "Belästigung oder Hass",
+      "sexual": "Sexueller oder expliziter Inhalt",
+      "violence": "Gewalt oder gefährliche Handlungen",
+      "illegal": "Illegale Waren oder Aktivitäten",
+      "other": "Sonstiges"
+    },
+    "report_details_label": "Details (optional)",
+    "report_details_placeholder": "Alles, was uns hilft, das Problem zu verstehen",
+    "report_submit": "Meldung senden",
+    "report_sent": "Meldung gesendet. Danke — wir prüfen sie.",
+    "report_error": "Meldung konnte nicht gesendet werden",
+    "error_codes": {
+      "report_already_pending": "Du hast das bereits gemeldet — die Meldung wird geprüft",
+      "report_own_content": "Eigene Inhalte kannst du nicht melden",
+      "report_target_not_found": "Der gemeldete Inhalt existiert nicht mehr",
+      "dm_blocked": "Chat mit diesem Nutzer nicht möglich"
+    },
+    "block": "Blockieren",
+    "unblock": "Entblocken",
+    "block_title": "Diesen Nutzer blockieren?",
+    "block_message": "Du siehst seine Anzeigen, Kommentare und seinen Karten-Avatar nicht mehr, und neue Chats zwischen euch werden abgelehnt. Er wird nicht benachrichtigt.",
+    "blocked_toast": "Nutzer blockiert",
+    "unblocked_toast": "Nutzer entblockt",
+    "block_error": "Blockierung konnte nicht geändert werden",
+    "blocked_badge": "Blockiert",
+    "blocked_users": "Blockierte Nutzer",
+    "blocked_users_desc": "Personen, die du blockiert hast. Ihre Inhalte sind für dich ausgeblendet, neue Chats werden abgelehnt.",
+    "blocked_empty": "Du hast niemanden blockiert"
+  }
+}

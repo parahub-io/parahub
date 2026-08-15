@@ -11,7 +11,7 @@
           {{ $t('ha.name') }}
         </label>
         <input v-model="form.name" type="text" required maxlength="100"
-               class="input-base w-full"
+               class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                :placeholder="$t('ha.name_placeholder')" />
       </div>
 
@@ -21,7 +21,7 @@
           {{ $t('ha.url') }}
         </label>
         <input v-model="form.url" type="url" required
-               class="input-base w-full"
+               class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                placeholder="http://[200:xxxx::]:8123" />
         <p class="text-xs text-neutral-500 mt-1">{{ $t('ha.url_hint') }}</p>
       </div>
@@ -33,7 +33,7 @@
         </label>
         <div class="relative">
           <input v-model="form.accessToken" :type="showToken ? 'text' : 'password'" :required="!editing"
-                 class="input-base w-full pr-10"
+                 class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent pr-10"
                  :placeholder="editing ? $t('ha.token_unchanged') : $t('ha.token_placeholder')" />
           <button type="button" @click="showToken = !showToken"
                   class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300">

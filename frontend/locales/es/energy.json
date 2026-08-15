@@ -60,6 +60,10 @@
       "step4": "Parahub registra el grupo ACC (Autoconsumo Coletivo — autoconsumo colectivo) ante la DGEG (regulador energético portugués) y gestiona la facturación"
     },
     "detail": {
+      "delete_cell": "Eliminar celda",
+      "delete_confirm": "La celda se eliminará permanentemente. Esta acción no se puede deshacer.",
+      "delete_blocked": "Los miembros deben abandonar la celda primero",
+      "deleted": "Celda eliminada",
       "created_by": "por {name}",
       "members": "Miembros",
       "technical": "Detalles técnicos",
@@ -88,7 +92,10 @@
       "location_hint": "Ubicación (transformador)",
       "use_location": "Usar mi ubicación actual",
       "location_error": "No se pudo obtener la ubicación",
-      "created": "¡Célula de energía creada!"
+      "created": "¡Célula de energía creada!",
+      "step_basics": "Datos básicos",
+      "step_location": "Ubicación",
+      "click_map": "Haz clic en el mapa para indicar la ubicación del transformador"
     },
 
     "relay": {
@@ -151,7 +158,9 @@
       "none": "Sin cooperativa",
       "create_new": "Crear nueva cooperativa",
       "name_placeholder": "Nombre de la cooperativa",
-      "created": "¡Cooperativa creada!"
+      "created": "¡Cooperativa creada!",
+      "step_label": "Cooperativa",
+      "hint": "Una cooperativa permite a los vecinos invertir en la celda y compartir los ingresos. Puedes omitir este paso."
     },
 
     "landing_title": "Energía solar P2P gratuita",

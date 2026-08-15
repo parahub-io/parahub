@@ -44,7 +44,8 @@
       "no_results": "Sin resultados",
       "no_results_desc": "Intenta ajustar la búsqueda o los filtros.",
       "type_all": "Todos",
-      "refine_label": "Filtros"
+      "refine_label": "Filtros",
+      "test_profiles": "Perfiles de Prueba"
     },
     "people": {
       "type_filter_all": "Todos",
@@ -93,7 +94,13 @@
         "copied": "¡Copiado!",
         "regenerate_confirm": "¿Crear un nuevo enlace de invitación? El antiguo dejará de funcionar.",
         "invited_count_label": "Registrados por tu enlace",
-        "qr_aria_label": "Código QR del enlace de invitación"
+        "qr_aria_label": "Código QR del enlace de invitación",
+        "explainer_them_title": "Para la otra persona",
+        "explainer_them_text": "una cuenta en un toque, sin email — y pasáis a ser socios de inmediato, con chat directo.",
+        "explainer_you_title": "Para ti",
+        "explainer_you_text": "la persona aparece entre tus socios y en tu contador de invitaciones. Cuando obtenga 3 verificaciones en la red de confianza, cuenta como arraigada.",
+        "wot_note": "El enlace abre la puerta, no la confianza: el acceso completo sigue requiriendo 3 verificaciones de miembros.",
+        "rooted_count_label": "Arraigados (3+ verificaciones)"
       },
       "notifications": {
         "auth_required": "Se requiere autenticación",
@@ -240,7 +247,12 @@
       },
       "hours_open": "Abierto",
       "hours_closed": "Cerrado",
-      "hours_advanced_note": "Algunas entradas usan un formato avanzado y se mantuvieron tal cual."
+      "hours_advanced_note": "Algunas entradas usan un formato avanzado y se mantuvieron tal cual.",
+      "membership_policy": "Incorporación",
+      "membership_policy_open": "Cualquiera puede unirse",
+      "membership_policy_invite": "Solo por invitación",
+      "membership_policy_hint": "Las organizaciones solo por invitación otorgan la membresía ellas mismas. Por solicitud, cualquiera puede pedirla y un administrador decide.",
+      "membership_policy_request": "Por solicitud"
     },
     "photos": {
       "title": "Fotos",
@@ -326,7 +338,67 @@
       "wot_required_title": "Verificación requerida",
       "wot_required": "Crear organizaciones requiere nivel Web-of-Trust 3+ (3 verificaciones) o ser miembro de la fundación."
     },
-    "anon_hint": "Inicia sesión para buscar personas y añadir socios."
+    "anon_hint": "Inicia sesión para buscar personas y añadir socios.",
+    "members": {
+      "title": "Miembros",
+      "list_title": "Miembros",
+      "empty": "Aún no hay miembros",
+      "no_access": "No puedes gestionar miembros aquí",
+      "no_access_hint": "Solo el propietario de la organización y sus administradores.",
+      "load_error": "No se pudieron cargar los miembros",
+      "action_error": "La acción falló",
+      "done": "Hecho",
+      "joined": "se unió",
+      "role": "Rol",
+      "position": "Cargo",
+      "position_placeholder": "p. ej. Despachador",
+      "role_owner": "Propietario",
+      "role_admin": "Administrador",
+      "role_member": "Miembro",
+      "role_employee": "Empleado",
+      "role_contractor": "Contratista",
+      "role_changed": "Rol actualizado",
+      "remove": "Eliminar",
+      "remove_confirm": "¿Seguro?",
+      "removed": "Miembro eliminado",
+      "invite_title": "Invitar a alguien",
+      "invite_by_name": "Por nombre",
+      "invite_by_link": "Por enlace",
+      "invite_button": "Enviar invitación",
+      "invite_sent": "Invitación enviada",
+      "create_link": "Crear enlace",
+      "link_hint": "Crea un enlace de un solo uso. Quien lo abra entra con el rol elegido: envíalo a una sola persona.",
+      "link_created": "Enlace de invitación",
+      "link_invite": "Enlace de invitación",
+      "copy_link": "Copiar enlace",
+      "copied": "Copiado",
+      "search_placeholder": "Buscar por nombre o dirección",
+      "expires_in": "La invitación caduca en 14 días.",
+      "expires": "caduca",
+      "expired": "Caducada",
+      "pending_title": "Invitaciones enviadas",
+      "applications_title": "Solicitudes de ingreso",
+      "approve": "Aprobar",
+      "decline": "Rechazar",
+      "revoke": "Revocar",
+      "request_join": "Solicitar ingreso",
+      "request_pending": "Solicitud pendiente"
+    },
+    "invite": {
+      "title": "Invitación",
+      "invited_you": "Te han invitado a",
+      "from": "de",
+      "accept": "Aceptar",
+      "decline": "Rechazar",
+      "accepted": "Ya formas parte",
+      "declined": "Invitación rechazada",
+      "expired": "Esta invitación ha caducado",
+      "already_resolved": "Esta invitación ya fue respondida",
+      "not_found": "Invitación no encontrada",
+      "browse": "Ver organizaciones",
+      "sign_in": "Inicia sesión para aceptar",
+      "sign_in_hint": "Aceptar requiere un perfil: inicia sesión o crea uno y volverás aquí."
+    }
   },
   "wot": {
     "status_title": "Tu Estado de Verificación",
@@ -423,7 +495,6 @@
       "self_verification": "No puedes verificarte a ti mismo.",
       "no_verification_photo": "Este usuario debe subir una foto de verificación (con consentimiento biométrico) antes de poder ser verificado.",
       "no_face_embedding": "La foto de verificación de este usuario no tiene un rostro detectado. Pídele que la suba de nuevo.",
-      "reconfirmation_pending": "La foto de este usuario se cambió recientemente y está pendiente de reconfirmación (se necesitan 3).",
       "face_duplicate": "Verificación bloqueada: este rostro coincide con un perfil ya verificado.",
       "already_verified": "Ya has verificado a este usuario.",
       "invalid_method": "Método de verificación no válido.",
@@ -435,6 +506,7 @@
       "invalid_signature": "Firma PGP no válida. Asegúrate de haber firmado con tu clave PGP registrada.",
       "signature_error": "No se pudo verificar tu firma PGP. Inténtalo de nuevo.",
       "internal_error": "Algo salió mal por nuestra parte. Inténtalo más tarde."
-    }
+    },
+    "photo_reconfirmation_title": "Foto cambiada"
   }
 }

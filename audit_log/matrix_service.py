@@ -210,53 +210,40 @@ class MatrixService:
 
     async def ensure_user_exists(self, user_mxid: str, display_name: str = "", ulid: str = "") -> bool:
         """
-        Ensure Matrix user exists, create if not with deterministic password.
+        Ensure Matrix user exists, creating it through MAS if needed.
+
+        Synapse delegates auth to MAS: users must be created via the MAS admin
+        API (which provisions them into Synapse and links the Parahub account
+        so SSO logs into the same user).
 
         Args:
             user_mxid: Full Matrix user ID (@user:server)
-            display_name: Display name for the user
-            ulid: User's ULID for generating password
+            display_name: Unused — display names are applied on SSO login
+            ulid: Parahub Account ULID (upstream-link subject)
 
         Returns:
             True if user exists or was created
         """
         try:
             async with httpx.AsyncClient() as client:
-                # Try to get user
+                # Fast path: user already provisioned in Synapse
                 get_response = await client.get(
                     f"{self.homeserver_url}/_synapse/admin/v2/users/{user_mxid}",
                     headers={"Authorization": f"Bearer {self.admin_token}"},
                     timeout=5.0
                 )
-
                 if get_response.status_code == 200:
-                    return True  # User exists
-
-                # User doesn't exist, create it with deterministic password
-                # This ensures SSO login will work with same user
-                import hashlib
-                SYNAPSE_SHARED_SECRET = settings.SYNAPSE_REGISTRATION_SHARED_SECRET
-                password = hashlib.sha256(f"{ulid}:{SYNAPSE_SHARED_SECRET}".encode()).hexdigest()
-
-                create_response = await client.put(
-                    f"{self.homeserver_url}/_synapse/admin/v2/users/{user_mxid}",
-                    headers={
-                        "Authorization": f"Bearer {self.admin_token}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "displayname": display_name or user_mxid.split('@')[1].split(':')[0],
-                        "password": password,  # Set deterministic password
-                    },
-                    timeout=10.0
-                )
-
-                if create_response.status_code in [200, 201]:
-                    logger.info(f"Created Matrix user {user_mxid} with password")
                     return True
-                else:
-                    logger.error(f"Failed to create Matrix user {user_mxid}: {create_response.text}")
-                    return False
+
+            from asgiref.sync import sync_to_async
+
+            def _ensure() -> bool:
+                import httpx as _httpx
+                from parahub.endpoints.matrix_auth import _mas_ensure_user, SYNAPSE_HTTP_TIMEOUT
+                with _httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as sync_client:
+                    return _mas_ensure_user(sync_client, ulid, user_mxid) is not None
+
+            return await sync_to_async(_ensure, thread_sensitive=False)()
 
         except Exception as e:
             logger.error(f"Error ensuring Matrix user exists: {e}")

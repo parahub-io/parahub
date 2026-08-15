@@ -1,0 +1,39 @@
+{
+  "moderation": {
+    "report": "Signaler",
+    "report_title": "Signaler un contenu",
+    "report_intro": "Dites-nous ce qui ne va pas avec ce contenu. Les signalements sont examinés par l'équipe de modération.",
+    "report_reason_label": "Motif",
+    "reasons": {
+      "spam": "Spam ou trompeur",
+      "fraud": "Arnaque ou fraude",
+      "harassment": "Harcèlement ou haine",
+      "sexual": "Contenu sexuel ou explicite",
+      "violence": "Violence ou actes dangereux",
+      "illegal": "Biens ou activités illégales",
+      "other": "Autre"
+    },
+    "report_details_label": "Détails (facultatif)",
+    "report_details_placeholder": "Tout ce qui peut nous aider à comprendre le problème",
+    "report_submit": "Envoyer le signalement",
+    "report_sent": "Signalement envoyé. Merci — nous allons l'examiner.",
+    "report_error": "Échec de l'envoi du signalement",
+    "error_codes": {
+      "report_already_pending": "Vous avez déjà signalé ce contenu — il est en attente d'examen",
+      "report_own_content": "Vous ne pouvez pas signaler votre propre contenu",
+      "report_target_not_found": "Le contenu signalé n'existe plus",
+      "dm_blocked": "Impossible de discuter avec cet utilisateur"
+    },
+    "block": "Bloquer",
+    "unblock": "Débloquer",
+    "block_title": "Bloquer cet utilisateur ?",
+    "block_message": "Vous ne verrez plus ses annonces, ses commentaires ni son avatar sur la carte, et les nouvelles discussions entre vous seront refusées. Il n'est pas notifié.",
+    "blocked_toast": "Utilisateur bloqué",
+    "unblocked_toast": "Utilisateur débloqué",
+    "block_error": "Échec de la mise à jour du blocage",
+    "blocked_badge": "Bloqué",
+    "blocked_users": "Utilisateurs bloqués",
+    "blocked_users_desc": "Personnes que vous avez bloquées. Leur contenu vous est masqué et les nouvelles discussions sont refusées.",
+    "blocked_empty": "Vous n'avez bloqué personne"
+  }
+}

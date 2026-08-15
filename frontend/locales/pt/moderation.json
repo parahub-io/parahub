@@ -1,0 +1,39 @@
+{
+  "moderation": {
+    "report": "Denunciar",
+    "report_title": "Denunciar conteúdo",
+    "report_intro": "Diga-nos o que está errado com este conteúdo. As denúncias são analisadas pela equipa de moderação.",
+    "report_reason_label": "Motivo",
+    "reasons": {
+      "spam": "Spam ou enganoso",
+      "fraud": "Burla ou fraude",
+      "harassment": "Assédio ou ódio",
+      "sexual": "Conteúdo sexual ou explícito",
+      "violence": "Violência ou atos perigosos",
+      "illegal": "Bens ou atividades ilegais",
+      "other": "Outro"
+    },
+    "report_details_label": "Detalhes (opcional)",
+    "report_details_placeholder": "Tudo o que nos ajude a perceber o problema",
+    "report_submit": "Enviar denúncia",
+    "report_sent": "Denúncia enviada. Obrigado — vamos analisá-la.",
+    "report_error": "Não foi possível enviar a denúncia",
+    "error_codes": {
+      "report_already_pending": "Já denunciou este conteúdo — está a aguardar análise",
+      "report_own_content": "Não pode denunciar o seu próprio conteúdo",
+      "report_target_not_found": "O conteúdo denunciado já não existe",
+      "dm_blocked": "Não é possível conversar com este utilizador"
+    },
+    "block": "Bloquear",
+    "unblock": "Desbloquear",
+    "block_title": "Bloquear este utilizador?",
+    "block_message": "Deixará de ver os anúncios, comentários e o avatar no mapa desta pessoa, e novas conversas entre vocês serão recusadas. Ela não é notificada.",
+    "blocked_toast": "Utilizador bloqueado",
+    "unblocked_toast": "Utilizador desbloqueado",
+    "block_error": "Não foi possível atualizar o bloqueio",
+    "blocked_badge": "Bloqueado",
+    "blocked_users": "Utilizadores bloqueados",
+    "blocked_users_desc": "Pessoas que bloqueou. O conteúdo delas fica oculto e novas conversas são recusadas.",
+    "blocked_empty": "Não bloqueou ninguém"
+  }
+}

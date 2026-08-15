@@ -4,42 +4,35 @@
       <Title>{{ $t('transit_manage.routes_title') }}</Title>
     </Head>
 
-    <!-- Staff check -->
-    <div v-if="!isStaff" class="text-center py-20">
+    <!-- Access check: managing routes belongs to the operator that runs them -->
+    <div v-if="checked && !canManage" class="text-center py-20">
       <ShieldAlert class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-      <p class="text-neutral-500">{{ $t('dispatch.staff_only') }}</p>
+      <p class="text-neutral-500">{{ $t('dispatch.no_operator') }}</p>
+      <p class="mt-1 text-sm text-neutral-400 max-w-md mx-auto">{{ $t('dispatch.no_operator_hint') }}</p>
     </div>
 
-    <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-      <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <div class="dispatch-icon" style="background: rgba(59,130,246,0.15); color: #3b82f6;">
-            <RouteIcon class="w-5 h-5" />
-          </div>
-          <div>
-            <h1 class="text-xl font-bold text-neutral-900 dark:text-neutral-100">{{ $t('transit_manage.routes_heading') }}</h1>
-            <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('transit_manage.routes_subtitle') }}</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
+    <div v-else class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+      <PageHeader
+        :title="$t('dispatch.title')"
+        :subtitle="$t('transit_manage.routes_subtitle')"
+        :create-label="store.agencies.length ? $t('transit_manage.new_route') : undefined"
+        class="!mb-0"
+        @create="showCreateRoute = true"
+      >
+        <template #actions>
           <!-- Agency selector -->
           <select
             v-if="store.agencies.length > 1"
             v-model="selectedAgencyId"
-            class="form-input text-sm"
+            class="form-input"
             @change="onAgencyChange"
           >
             <option v-for="a in store.agencies" :key="a.id" :value="a.id">{{ a.name }}</option>
           </select>
-          <NuxtLink :to="localePath('/dispatch/assignments')" class="btn-sm btn-outline">
-            <Radio class="w-3.5 h-3.5" /> {{ $t('dispatch.title') }}
-          </NuxtLink>
-          <UiButton variant="primary" size="sm" :icon="Plus" @click="showCreateRoute = true">
-            {{ $t('transit_manage.new_route') }}
-          </UiButton>
-        </div>
-      </div>
+        </template>
+      </PageHeader>
+
+      <UiRouteTabs :tabs="dispatchTabs" />
 
       <!-- No agency -->
       <div v-if="!store.agencies.length && !store.loading" class="text-center py-12">
@@ -51,58 +44,47 @@
       </div>
 
       <!-- Loading -->
-      <div v-else-if="store.loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" />
+      <div v-else-if="store.loading" class="flex justify-center py-12" role="status">
+        <div class="animate-spin rounded-full h-12 w-12 border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-white" />
+        <span class="sr-only">{{ $t('common.loading') }}</span>
       </div>
 
       <!-- Route list -->
-      <template v-else-if="store.routes.length">
-        <!-- Sub-nav: Routes | Stops -->
-        <div class="flex gap-2 border-b border-neutral-200 dark:border-neutral-700 pb-2">
-          <NuxtLink :to="localePath('/dispatch/routes')" class="tab-active text-sm font-medium px-3 py-1.5">
-            <RouteIcon class="w-3.5 h-3.5 inline mr-1" /> {{ $t('transit_manage.routes') }} ({{ store.routes.length }})
-          </NuxtLink>
-          <NuxtLink :to="localePath('/dispatch/stops')" class="tab-inactive text-sm px-3 py-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">
-            <MapPin class="w-3.5 h-3.5 inline mr-1" /> {{ $t('transit_manage.stops') }} ({{ store.stops.length }})
-          </NuxtLink>
-        </div>
-
-        <div class="space-y-2">
-          <div
-            v-for="r in store.routes"
-            :key="r.id"
-            class="card p-0 flex items-stretch cursor-pointer hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
-            @click="editRoute = r"
-          >
-            <!-- Color stripe -->
-            <div class="w-1 rounded-l shrink-0" :style="{ backgroundColor: `#${r.route_color || '6b7280'}` }" />
-            <div class="flex-1 p-3 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span
-                  class="route-badge text-xs"
-                  :style="{ backgroundColor: `#${r.route_color}`, color: getContrastColor(r.route_color) }"
-                >
-                  {{ r.short_name }}
-                </span>
-                <span class="text-sm text-neutral-700 dark:text-neutral-300 truncate">{{ r.long_name }}</span>
-                <UiBadge v-if="r.has_shape" variant="success" type="dot" size="sm">shape</UiBadge>
-              </div>
-              <div class="flex gap-4 text-xs text-neutral-500 dark:text-neutral-400">
-                <span><ArrowRight class="w-3 h-3 inline" /> {{ r.stops_outbound.length }} {{ $t('transit_manage.stops_out') }}</span>
-                <span v-if="r.stops_inbound.length"><ArrowLeft class="w-3 h-3 inline" /> {{ r.stops_inbound.length }} {{ $t('transit_manage.stops_in') }}</span>
-                <span class="capitalize">{{ routeTypeLabel(r.route_type) }}</span>
-              </div>
+      <div v-else-if="store.routes.length" class="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700">
+        <div
+          v-for="r in store.routes"
+          :key="r.id"
+          class="flex items-stretch cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+          @click="editRoute = r"
+        >
+          <!-- Color stripe -->
+          <div class="w-1 shrink-0" :style="{ backgroundColor: `#${r.route_color || '6b7280'}` }" />
+          <div class="flex-1 p-3 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span
+                class="route-badge text-xs"
+                :style="{ backgroundColor: `#${r.route_color}`, color: getContrastColor(r.route_color) }"
+              >
+                {{ r.short_name }}
+              </span>
+              <span class="text-sm text-neutral-700 dark:text-neutral-300 truncate">{{ r.long_name }}</span>
+              <UiBadge v-if="r.has_shape" variant="success" type="dot" size="sm">shape</UiBadge>
             </div>
-            <div class="flex items-center pr-3">
-              <ChevronRight class="w-4 h-4 text-neutral-400" />
+            <div class="flex gap-4 text-xs text-neutral-500 dark:text-neutral-400">
+              <span><ArrowRight class="w-3 h-3 inline" /> {{ r.stops_outbound.length }} {{ $t('transit_manage.stops_out') }}</span>
+              <span v-if="r.stops_inbound.length"><ArrowLeft class="w-3 h-3 inline" /> {{ r.stops_inbound.length }} {{ $t('transit_manage.stops_in') }}</span>
+              <span class="capitalize">{{ routeTypeLabel(r.route_type) }}</span>
             </div>
           </div>
+          <div class="flex items-center pr-3">
+            <ChevronRight class="w-4 h-4 text-neutral-400" />
+          </div>
         </div>
-      </template>
+      </div>
 
       <!-- Empty routes -->
       <div v-else class="text-center py-12">
-        <RouteIcon class="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+        <img src="/images/para/searching.webp" alt="Para" class="mx-auto h-32 w-auto mb-3">
         <p class="text-neutral-500 dark:text-neutral-400 text-sm">{{ $t('transit_manage.no_routes') }}</p>
         <UiButton variant="outline" size="sm" :icon="Plus" class="mt-4" @click="showCreateRoute = true">
           {{ $t('transit_manage.new_route') }}
@@ -116,7 +98,7 @@
           <span class="text-neutral-700 dark:text-neutral-300">GTFS</span>
           <a
             :href="`/api/v1/geo/transit/manage/gtfs/export/${store.selectedAgency.id}/`"
-            class="text-secondary hover:underline ml-2"
+            class="text-link ml-2"
             target="_blank"
           >{{ $t('transit_manage.download_gtfs') }}</a>
           <span class="text-neutral-400 mx-2 hidden sm:inline">|</span>
@@ -243,7 +225,7 @@
               ><ArrowDown class="w-4 h-4" /></button>
               <button
                 :aria-label="$t('transit_manage.remove_stop')"
-                class="p-2 text-red-400 hover:text-red-600 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                class="p-2 text-error hover:text-error-600 min-w-[44px] min-h-[44px] flex items-center justify-center"
                 @click="removeStop(idx)"
               ><X class="w-4 h-4" /></button>
             </div>
@@ -280,14 +262,14 @@
             :class="currentStopIds.has(s.id) ? 'opacity-50 cursor-default' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'"
             @click="!currentStopIds.has(s.id) && addStopToRoute(s)"
           >
-            <MapPin class="w-3.5 h-3.5 shrink-0" :class="currentStopIds.has(s.id) ? 'text-green-500' : 'text-neutral-400'" />
+            <MapPin class="w-3.5 h-3.5 shrink-0" :class="currentStopIds.has(s.id) ? 'text-success' : 'text-neutral-400'" />
             <span class="text-sm flex-1 truncate" :class="currentStopIds.has(s.id) ? 'text-neutral-400 dark:text-neutral-500' : 'text-neutral-700 dark:text-neutral-300'">{{ s.name }}</span>
-            <Check v-if="currentStopIds.has(s.id)" class="w-3.5 h-3.5 text-green-500 shrink-0" />
+            <Check v-if="currentStopIds.has(s.id)" class="w-3.5 h-3.5 text-success shrink-0" />
             <span v-else class="text-xs font-mono text-neutral-400">{{ s.lat.toFixed(4) }}, {{ s.lon.toFixed(4) }}</span>
           </button>
         </div>
         <div class="border-t border-neutral-200 dark:border-neutral-700 pt-3">
-          <NuxtLink :to="localePath('/dispatch/stops')" class="text-sm text-secondary hover:underline">
+          <NuxtLink :to="localePath('/dispatch/stops')" class="text-sm text-link">
             {{ $t('transit_manage.manage_stops') }}
           </NuxtLink>
         </div>
@@ -308,17 +290,26 @@
 
 <script setup lang="ts">
 import {
-  ShieldAlert, Plus, RouteIcon, Radio, MapPin, ChevronRight,
+  ShieldAlert, Plus, MapPin, ChevronRight,
   ArrowRight, ArrowLeft, ArrowUp, ArrowDown, X, Download,
   Building2, Trash2, Check,
 } from 'lucide-vue-next'
-import { useTransitManageStore, type ManagedRoute, type ManagedStop, type RouteStopItem } from '~/stores/transitManage'
+import { useTransitManageStore, type ManagedRoute, type ManagedStop } from '~/stores/transitManage'
+
+definePageMeta({
+  middleware: 'auth',
+})
 
 const { t } = useI18n()
 const localePath = useLocalePath()
 const store = useTransitManageStore()
 const authStore = useAuthStore()
 const isStaff = computed(() => authStore.user?.is_staff)
+// The agency list is the access answer: it holds exactly what this profile may
+// manage (own agencies + the ones their organization runs).
+const checked = ref(false)
+const canManage = computed(() => isStaff.value || store.agencies.length > 0)
+const dispatchTabs = useDispatchTabs()
 
 // --- State ---
 const selectedAgencyId = ref('')
@@ -340,8 +331,8 @@ const routeColorHex = computed({
 })
 
 const dirTabs = computed(() => [
-  { value: 'outbound', label: t('transit_manage.outbound') },
-  { value: 'inbound', label: t('transit_manage.inbound') },
+  { id: 'outbound', label: t('transit_manage.outbound') },
+  { id: 'inbound', label: t('transit_manage.inbound') },
 ])
 
 // Edit route
@@ -506,23 +497,14 @@ function routeTypeLabel(t: number) {
 // --- Init ---
 onMounted(async () => {
   await store.fetchAgencies()
+  checked.value = true
   if (store.selectedAgency) await loadData()
 })
 </script>
 
 <style scoped>
-.dispatch-icon {
-  @apply w-10 h-10 rounded-lg flex items-center justify-center;
-  background: rgba(250, 204, 21, 0.15);
-  color: rgb(234, 179, 8);
-}
-
 .route-badge {
   @apply px-2 py-0.5 rounded font-bold text-xs tabular-nums whitespace-nowrap;
-}
-
-.tab-active {
-  @apply border-b-2 border-primary text-neutral-900 dark:text-neutral-100;
 }
 
 .card-list-enter-active,

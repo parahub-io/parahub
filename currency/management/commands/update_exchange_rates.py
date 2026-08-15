@@ -1,127 +1,108 @@
 """
-Management command to update exchange rates from Frankfurter API
+Management command to update exchange rates.
+
+Two independent upstreams:
+  - Frankfurter (fiat: USD, GBP)
+  - CoinGecko (BTC, RUB)
+
 Usage: python manage.py update_exchange_rates
 """
 
-from django.core.management.base import BaseCommand
-from django.core.cache import cache
+from django.core.management.base import BaseCommand, CommandError
 from currency.models import ExchangeRate
 from decimal import Decimal
+import time
 import requests
 import logging
 
 logger = logging.getLogger(__name__)
 
+FRANKFURTER_URL = 'https://api.frankfurter.app/latest'
+COINGECKO_URL = 'https://api.coingecko.com/api/v3/simple/price'
+
+# A single transient ReadTimeout used to leave the BTC rate stale for a whole
+# day; EUR-priced tickets refuse to charge past 48h (tickets/pricing.py), so a
+# two-run outage takes ticket sales down. Retry before giving up.
+HTTP_TIMEOUT = 20
+RETRY_DELAYS = (5, 15)
+
 
 class Command(BaseCommand):
-    help = 'Update exchange rates from Frankfurter API (https://www.frankfurter.app)'
+    help = 'Update exchange rates from Frankfurter (fiat) and CoinGecko (BTC/RUB)'
 
     def handle(self, *args, **options):
-        """
-        Fetch latest exchange rates from Frankfurter API.
-        Rates are relative to EUR (base currency).
-        """
-        self.stdout.write('Fetching exchange rates from Frankfurter API...')
+        fiat_count = self._run_step('fiat', self._update_fiat)
+        crypto_count = self._run_step('BTC/RUB', self._update_crypto)
 
-        # Currencies to fetch
-        currencies = ['USD', 'RUB', 'GBP', 'BTC']
+        updated = fiat_count + crypto_count
+        if updated:
+            self.stdout.write(self.style.SUCCESS(f'\n✓ Successfully updated {updated} exchange rates'))
+            logger.info(f'Exchange rates updated successfully: {updated} currencies')
 
+        # Only a total blackout is a failure — one upstream down must not hide
+        # the other's fresh rates behind a non-zero exit.
+        if not updated:
+            raise CommandError('All exchange rate upstreams failed — no rates updated')
+
+        return None
+
+    def _run_step(self, label, step):
+        """Run one upstream update; log and swallow its failure, return rows written."""
         try:
-            # Frankfurter API: get latest rates with EUR as base
-            # Note: Frankfurter doesn't support BTC, so we'll handle it separately
-            url = 'https://api.frankfurter.app/latest'
-            params = {
-                'from': 'EUR',
-                'to': ','.join([c for c in currencies if c != 'BTC'])
-            }
-
-            response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-
-            # Update rates in database
-            updated_count = 0
-            for currency_code, rate in data['rates'].items():
-                rate_decimal = Decimal(str(rate))
-
-                ExchangeRate.objects.update_or_create(
-                    currency=currency_code,
-                    defaults={'rate_to_eur': rate_decimal}
-                )
-
-                self.stdout.write(
-                    self.style.SUCCESS(f'✓ Updated {currency_code}: 1 EUR = {rate_decimal} {currency_code}')
-                )
-                updated_count += 1
-
-                # Clear cache for this currency
-                # Note: Django Redis cache doesn't have delete_pattern, we'll rely on TTL expiry
-
-            # Handle RUB and BTC separately (using CoinGecko API)
-            # Frankfurter doesn't support RUB or BTC
-            try:
-                crypto_url = 'https://api.coingecko.com/api/v3/simple/price'
-                crypto_params = {
-                    'ids': 'bitcoin',
-                    'vs_currencies': 'eur,rub'
-                }
-                crypto_response = requests.get(crypto_url, params=crypto_params, timeout=10)
-                crypto_response.raise_for_status()
-                crypto_data = crypto_response.json()
-
-                # BTC: Convert 1 EUR = X BTC
-                eur_per_btc = Decimal(str(crypto_data['bitcoin']['eur']))
-                btc_per_eur = Decimal('1.0') / eur_per_btc
-
-                ExchangeRate.objects.update_or_create(
-                    currency='BTC',
-                    defaults={'rate_to_eur': btc_per_eur}
-                )
-
-                self.stdout.write(
-                    self.style.SUCCESS(f'✓ Updated BTC: 1 EUR = {btc_per_eur:.8f} BTC')
-                )
-                updated_count += 1
-
-                # RUB: Convert 1 EUR = X RUB
-                # CoinGecko gives us BTC price in RUB, so we need to calculate
-                # 1 BTC = Y RUB, 1 BTC = Z EUR, therefore 1 EUR = (Y/Z) RUB
-                rub_per_btc = Decimal(str(crypto_data['bitcoin']['rub']))
-                rub_per_eur = rub_per_btc / eur_per_btc
-
-                ExchangeRate.objects.update_or_create(
-                    currency='RUB',
-                    defaults={'rate_to_eur': rub_per_eur}
-                )
-
-                self.stdout.write(
-                    self.style.SUCCESS(f'✓ Updated RUB: 1 EUR = {rub_per_eur:.2f} RUB')
-                )
-                updated_count += 1
-
-            except Exception as crypto_error:
-                self.stdout.write(
-                    self.style.WARNING(f'⚠ Failed to update BTC/RUB rates: {crypto_error}')
-                )
-                logger.warning(f'Crypto/RUB rate update failed: {crypto_error}')
-
-            self.stdout.write(
-                self.style.SUCCESS(f'\n✓ Successfully updated {updated_count} exchange rates')
-            )
-
-            # Log update
-            logger.info(f'Exchange rates updated successfully: {updated_count} currencies')
-
-        except requests.RequestException as e:
-            self.stdout.write(
-                self.style.ERROR(f'✗ Failed to fetch exchange rates: {e}')
-            )
-            logger.error(f'Exchange rate update failed: {e}', exc_info=True)
-            raise
-
+            return step()
         except Exception as e:
-            self.stdout.write(
-                self.style.ERROR(f'✗ Unexpected error: {e}')
-            )
-            logger.error(f'Unexpected error during exchange rate update: {e}', exc_info=True)
-            raise
+            self.stdout.write(self.style.ERROR(f'✗ Failed to update {label} rates: {e}'))
+            logger.error(f'Exchange rate update failed ({label}): {e}', exc_info=True)
+            return 0
+
+    def _fetch_json(self, url, params, label):
+        """GET with retries — transient timeouts are the common failure here."""
+        last_error = None
+        for attempt in range(len(RETRY_DELAYS) + 1):
+            try:
+                response = requests.get(url, params=params, timeout=HTTP_TIMEOUT)
+                response.raise_for_status()
+                return response.json()
+            except requests.RequestException as e:
+                last_error = e
+                if attempt < len(RETRY_DELAYS):
+                    delay = RETRY_DELAYS[attempt]
+                    self.stdout.write(self.style.WARNING(
+                        f'⚠ {label} attempt {attempt + 1} failed ({e}); retrying in {delay}s'
+                    ))
+                    time.sleep(delay)
+        raise last_error
+
+    def _store(self, currency, rate, display):
+        ExchangeRate.objects.update_or_create(currency=currency, defaults={'rate_to_eur': rate})
+        self.stdout.write(self.style.SUCCESS(f'✓ Updated {currency}: 1 EUR = {display} {currency}'))
+
+    def _update_fiat(self):
+        """Frankfurter: EUR-based fiat rates."""
+        self.stdout.write('Fetching fiat rates from Frankfurter API...')
+        data = self._fetch_json(FRANKFURTER_URL, {'from': 'EUR', 'to': 'USD,GBP'}, 'Frankfurter')
+
+        count = 0
+        for currency_code, rate in data['rates'].items():
+            self._store(currency_code, Decimal(str(rate)), rate)
+            count += 1
+        return count
+
+    def _update_crypto(self):
+        """CoinGecko: BTC and RUB (Frankfurter carries neither)."""
+        self.stdout.write('Fetching BTC/RUB rates from CoinGecko API...')
+        data = self._fetch_json(
+            COINGECKO_URL, {'ids': 'bitcoin', 'vs_currencies': 'eur,rub'}, 'CoinGecko'
+        )
+
+        eur_per_btc = Decimal(str(data['bitcoin']['eur']))
+        rub_per_btc = Decimal(str(data['bitcoin']['rub']))
+
+        btc_per_eur = Decimal('1.0') / eur_per_btc
+        self._store('BTC', btc_per_eur, f'{btc_per_eur:.8f}')
+
+        # CoinGecko prices BTC in both currencies, so RUB/EUR falls out of the ratio.
+        rub_per_eur = rub_per_btc / eur_per_btc
+        self._store('RUB', rub_per_eur, f'{rub_per_eur:.2f}')
+
+        return 2

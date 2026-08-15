@@ -4,66 +4,6 @@
     "eu": [
       {
         "title": {
-          "pt": "Deve o BCE adotar uma regra estrita de limite à criação de moeda?",
-          "en": "Should the ECB adopt a strict rule limiting money creation?",
-          "ru": "Должен ли ЕЦБ принять строгое правило, ограничивающее эмиссию денег?",
-          "es": "¿Debería el BCE adoptar una regla estricta que limite la creación de dinero?",
-          "de": "Sollte die EZB eine strenge Regel zur Begrenzung der Geldschöpfung einführen?",
-          "fr": "La BCE devrait-elle adopter une règle stricte limitant la création monétaire ?"
-        },
-        "description": {
-          "pt": "O Banco Central Europeu decide a emissão de euros. Uma regra fixa limitaria a criação de moeda nova para conter a inflação a longo prazo, mas reduziria a margem de resposta a crises. Qual a sua posição?",
-          "en": "The European Central Bank decides how many euros are issued. A fixed rule would limit the creation of new money to contain inflation over the long term, but would reduce the room to respond to crises. What is your position?",
-          "ru": "Европейский центральный банк решает, сколько евро выпускать. Жёсткое правило ограничило бы создание новых денег ради сдерживания инфляции в долгосрочной перспективе, но сузило бы возможности реагировать на кризисы. Какова ваша позиция?",
-          "es": "El Banco Central Europeo decide la emisión de euros. Una regla fija limitaría la creación de dinero nuevo para contener la inflación a largo plazo, pero reduciría el margen para responder a las crisis. ¿Cuál es su posición?",
-          "de": "Die Europäische Zentralbank entscheidet über die Ausgabe von Euro. Eine feste Regel würde die Schaffung neuen Geldes begrenzen, um die Inflation langfristig einzudämmen, aber den Spielraum für Krisenreaktionen verringern. Wie ist Ihre Position?",
-          "fr": "La Banque centrale européenne décide de l'émission d'euros. Une règle fixe limiterait la création de monnaie nouvelle afin de contenir l'inflation à long terme, mais réduirait la marge de réaction aux crises. Quelle est votre position ?"
-        },
-        "options": [
-          {
-            "pt": "A favor de uma regra estrita",
-            "en": "In favour of a strict rule",
-            "ru": "За строгое правило",
-            "es": "A favor de una regla estricta",
-            "de": "Für eine strenge Regel",
-            "fr": "Pour une règle stricte"
-          },
-          {
-            "pt": "Manter a política atual (discricionária)",
-            "en": "Keep the current (discretionary) policy",
-            "ru": "Сохранить нынешнюю (дискреционную) политику",
-            "es": "Mantener la política actual (discrecional)",
-            "de": "Die aktuelle (diskretionäre) Politik beibehalten",
-            "fr": "Maintenir la politique actuelle (discrétionnaire)"
-          },
-          {
-            "pt": "Mais flexibilidade, não menos",
-            "en": "More flexibility, not less",
-            "ru": "Больше гибкости, а не меньше",
-            "es": "Más flexibilidad, no menos",
-            "de": "Mehr Flexibilität, nicht weniger",
-            "fr": "Plus de flexibilité, pas moins"
-          },
-          {
-            "pt": "Sem opinião",
-            "en": "No opinion",
-            "ru": "Нет мнения",
-            "es": "Sin opinión",
-            "de": "Keine Meinung",
-            "fr": "Sans opinion"
-          }
-        ],
-        "destination": {
-          "pt": "Barómetro de opinião — sinal para o debate europeu (escala Iniciativa de Cidadania Europeia)",
-          "en": "Opinion barometer — a signal for the European debate (European Citizens' Initiative scale)",
-          "ru": "Барометр мнений — сигнал для европейской дискуссии (масштаб Европейской гражданской инициативы)",
-          "es": "Barómetro de opinión — una señal para el debate europeo (escala de la Iniciativa Ciudadana Europea)",
-          "de": "Meinungsbarometer — ein Signal für die europäische Debatte (Maßstab der Europäischen Bürgerinitiative)",
-          "fr": "Baromètre d'opinion — un signal pour le débat européen (échelle de l'Initiative citoyenne européenne)"
-        }
-      },
-      {
-        "title": {
           "pt": "Garantir por lei o direito a pagar sempre em dinheiro físico?",
           "en": "Guarantee by law the right to always pay in physical cash?",
           "ru": "Закрепить законом право всегда платить наличными?",
@@ -124,34 +64,62 @@
       },
       {
         "title": {
-          "pt": "Reserva de valor a 20 anos: em que confia mais?",
-          "en": "Store of value over 20 years: which do you trust most?",
-          "ru": "Сбережение стоимости на 20 лет: чему вы доверяете больше?",
-          "es": "Reserva de valor a 20 años: ¿en qué confía más?",
-          "de": "Wertaufbewahrung über 20 Jahre: worauf vertrauen Sie am meisten?",
-          "fr": "Réserve de valeur sur 20 ans : à quoi faites-vous le plus confiance ?"
+          "pt": "Analisar as mensagens privadas de todos para detetar abuso infantil («Chat Control»)?",
+          "en": "Scan everyone's private messages to detect child abuse ('Chat Control')?",
+          "ru": "Сканировать личные сообщения всех для выявления насилия над детьми («Chat Control»)?",
+          "es": "¿Analizar los mensajes privados de todos para detectar abuso infantil («Chat Control»)?",
+          "de": "Alle privaten Nachrichten auf Kindesmissbrauch durchsuchen („Chat Control“)?",
+          "fr": "Analyser les messages privés de tous pour détecter les abus sur mineurs (« Chat Control ») ?"
         },
         "description": {
-          "pt": "Para preservar as suas poupanças ao longo de duas décadas, onde depositaria mais confiança?",
-          "en": "To preserve your savings over two decades, where would you place the most trust?",
-          "ru": "Чтобы сохранить сбережения на протяжении двух десятилетий, чему бы вы доверились больше всего?",
-          "es": "Para preservar sus ahorros a lo largo de dos décadas, ¿en qué depositaría más confianza?",
-          "de": "Um Ihre Ersparnisse über zwei Jahrzehnte zu bewahren, worauf würden Sie am meisten vertrauen?",
-          "fr": "Pour préserver votre épargne sur deux décennies, à quoi accorderiez-vous le plus de confiance ?"
+          "pt": "A UE permite hoje que as plataformas analisem voluntariamente mensagens não cifradas em busca de material de abuso sexual de menores. Está em negociação um regulamento permanente que tornaria a análise obrigatória e poderia abranger as mensagens cifradas de ponta a ponta. Proteção das crianças e sigilo da correspondência estão em tensão. Qual a sua posição?",
+          "en": "The EU currently lets platforms voluntarily scan unencrypted messages for child sexual abuse material. A permanent regulation under negotiation would make scanning mandatory and could reach end-to-end encrypted messages. Child protection and the privacy of correspondence are in tension. What is your position?",
+          "ru": "Сегодня ЕС разрешает платформам добровольно сканировать незашифрованные сообщения в поисках материалов сексуального насилия над детьми. Обсуждаемый постоянный регламент сделал бы сканирование обязательным и мог бы охватить и сквозное шифрование. Защита детей и тайна переписки здесь в противоречии. Какова ваша позиция?",
+          "es": "La UE permite hoy que las plataformas analicen voluntariamente mensajes no cifrados en busca de material de abuso sexual infantil. Un reglamento permanente en negociación haría el análisis obligatorio y podría alcanzar los mensajes cifrados de extremo a extremo. La protección de la infancia y el secreto de las comunicaciones están en tensión. ¿Cuál es su posición?",
+          "de": "Die EU erlaubt Plattformen derzeit, unverschlüsselte Nachrichten freiwillig auf Darstellungen sexuellen Kindesmissbrauchs zu durchsuchen. Eine in Verhandlung befindliche dauerhafte Verordnung würde das Scannen verpflichtend machen und könnte auch Ende-zu-Ende-verschlüsselte Nachrichten erfassen. Kinderschutz und Briefgeheimnis stehen hier in Spannung. Wie ist Ihre Position?",
+          "fr": "L'UE permet aujourd'hui aux plateformes d'analyser volontairement les messages non chiffrés à la recherche de contenus d'abus sexuels sur mineurs. Un règlement permanent en négociation rendrait l'analyse obligatoire et pourrait s'étendre aux messages chiffrés de bout en bout. Protection de l'enfance et secret de la correspondance sont ici en tension. Quelle est votre position ?"
         },
         "options": [
-          {"pt": "Euro", "en": "Euro", "ru": "Евро", "es": "Euro", "de": "Euro", "fr": "Euro"},
-          {"pt": "Ouro", "en": "Gold", "ru": "Золото", "es": "Oro", "de": "Gold", "fr": "Or"},
-          {"pt": "Imobiliário", "en": "Real estate", "ru": "Недвижимость", "es": "Inmobiliario", "de": "Immobilien", "fr": "Immobilier"},
-          {"pt": "Bitcoin", "en": "Bitcoin", "ru": "Биткойн", "es": "Bitcoin", "de": "Bitcoin", "fr": "Bitcoin"}
+          {
+            "pt": "Contra qualquer análise das mensagens privadas",
+            "en": "Against any scanning of private messages",
+            "ru": "Против любого сканирования переписки",
+            "es": "En contra de cualquier análisis de los mensajes privados",
+            "de": "Gegen jedes Durchsuchen privater Nachrichten",
+            "fr": "Contre toute analyse des messages privés"
+          },
+          {
+            "pt": "Só voluntária e só em plataformas não cifradas",
+            "en": "Voluntary only, and only on unencrypted platforms",
+            "ru": "Только добровольное и только на незашифрованных платформах",
+            "es": "Solo voluntario y solo en plataformas no cifradas",
+            "de": "Nur freiwillig und nur auf unverschlüsselten Plattformen",
+            "fr": "Seulement volontaire et seulement sur les plateformes non chiffrées"
+          },
+          {
+            "pt": "Análise obrigatória, incluindo mensagens cifradas",
+            "en": "Mandatory scanning, including encrypted messages",
+            "ru": "Обязательное сканирование, включая зашифрованные мессенджеры",
+            "es": "Análisis obligatorio, incluidos los mensajes cifrados",
+            "de": "Verpflichtendes Scannen, auch verschlüsselter Nachrichten",
+            "fr": "Analyse obligatoire, y compris des messages chiffrés"
+          },
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
         ],
         "destination": {
-          "pt": "Barómetro de sentimento europeu",
-          "en": "European sentiment barometer",
-          "ru": "Барометр европейских настроений",
-          "es": "Barómetro del sentimiento europeo",
-          "de": "Barometer der europäischen Stimmung",
-          "fr": "Baromètre du sentiment européen"
+          "pt": "Barómetro de opinião — sinal para o debate europeu (escala Iniciativa de Cidadania Europeia)",
+          "en": "Opinion barometer — a signal for the European debate (European Citizens' Initiative scale)",
+          "ru": "Барометр мнений — сигнал для европейской дискуссии (масштаб Европейской гражданской инициативы)",
+          "es": "Barómetro de opinión — una señal para el debate europeo (escala de la Iniciativa Ciudadana Europea)",
+          "de": "Meinungsbarometer — ein Signal für die europäische Debatte (Maßstab der Europäischen Bürgerinitiative)",
+          "fr": "Baromètre d'opinion — un signal pour le débat européen (échelle de l'Initiative citoyenne européenne)"
         }
       }
     ],
@@ -458,6 +426,120 @@
             "fr": "Le tester d'abord dans un projet pilote"
           },
           {"pt": "Contra", "en": "Against", "ru": "Против", "es": "En contra", "de": "Dagegen", "fr": "Contre"},
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {}
+      },
+      {
+        "title": {
+          "pt": "Acabar com a mudança de hora sazonal?",
+          "en": "End the seasonal clock change?",
+          "ru": "Отменить сезонный перевод часов?",
+          "es": "¿Acabar con el cambio de hora estacional?",
+          "de": "Die saisonale Zeitumstellung abschaffen?",
+          "fr": "Mettre fin au changement d'heure saisonnier ?"
+        },
+        "description": {
+          "pt": "Portugal adianta e atrasa os relógios duas vezes por ano. A Comissão Europeia propôs em 2018 acabar com a mudança sazonal, mas a decisão está bloqueada por falta de acordo entre os Estados-membros, que teriam de escolher a hora permanente a adotar. Qual a sua preferência?",
+          "en": "Portugal moves its clocks forward and back twice a year. In 2018 the European Commission proposed ending the seasonal change, but the decision is stalled by a lack of agreement among member states, which would have to choose their permanent time. What is your preference?",
+          "ru": "Португалия дважды в год переводит часы. В 2018 году Европейская комиссия предложила отменить сезонный перевод, но решение заблокировано отсутствием согласия между странами-членами, которым нужно выбрать постоянное время. Что вы предпочитаете?",
+          "es": "Portugal adelanta y atrasa los relojes dos veces al año. En 2018 la Comisión Europea propuso acabar con el cambio estacional, pero la decisión está bloqueada por la falta de acuerdo entre los Estados miembros, que tendrían que elegir su hora permanente. ¿Cuál es su preferencia?",
+          "de": "Portugal stellt die Uhren zweimal im Jahr um. 2018 schlug die Europäische Kommission vor, die saisonale Zeitumstellung abzuschaffen, doch die Entscheidung ist blockiert, weil sich die Mitgliedstaaten nicht auf eine dauerhafte Zeit einigen können. Was bevorzugen Sie?",
+          "fr": "Le Portugal avance et recule ses horloges deux fois par an. En 2018, la Commission européenne a proposé de mettre fin au changement d'heure saisonnier, mais la décision est bloquée faute d'accord entre les États membres, qui devraient choisir leur heure permanente. Quelle est votre préférence ?"
+        },
+        "options": [
+          {
+            "pt": "Acabar — hora de inverno permanente (hora padrão)",
+            "en": "End it — permanent winter time (standard time)",
+            "ru": "Отменить — постоянное зимнее время (стандартное)",
+            "es": "Acabar — hora de invierno permanente (hora estándar)",
+            "de": "Abschaffen — dauerhafte Winterzeit (Normalzeit)",
+            "fr": "Y mettre fin — heure d'hiver permanente (heure normale)"
+          },
+          {
+            "pt": "Acabar — hora de verão permanente",
+            "en": "End it — permanent summer time",
+            "ru": "Отменить — постоянное летнее время",
+            "es": "Acabar — hora de verano permanente",
+            "de": "Abschaffen — dauerhafte Sommerzeit",
+            "fr": "Y mettre fin — heure d'été permanente"
+          },
+          {
+            "pt": "Manter a mudança sazonal como está",
+            "en": "Keep the seasonal change as is",
+            "ru": "Оставить сезонный перевод как есть",
+            "es": "Mantener el cambio estacional como está",
+            "de": "Die Zeitumstellung beibehalten",
+            "fr": "Garder le changement saisonnier tel quel"
+          },
+          {
+            "pt": "Sem opinião",
+            "en": "No opinion",
+            "ru": "Нет мнения",
+            "es": "Sin opinión",
+            "de": "Keine Meinung",
+            "fr": "Sans opinion"
+          }
+        ],
+        "destination": {}
+      },
+      {
+        "title": {
+          "pt": "Acabar com a Contribuição para o Audiovisual (CAV) na fatura da luz?",
+          "en": "End the audiovisual contribution (CAV) on the electricity bill?",
+          "ru": "Отменить аудиовизуальный сбор (CAV) в счёте за электричество?",
+          "es": "¿Acabar con la contribución audiovisual (CAV) en la factura de la luz?",
+          "de": "Die Rundfunkabgabe (CAV) auf der Stromrechnung abschaffen?",
+          "fr": "Supprimer la contribution audiovisuelle (CAV) sur la facture d'électricité ?"
+        },
+        "description": {
+          "pt": "A CAV — 2,85 € + IVA por mês, cobrada na fatura da eletricidade — financia o serviço público de rádio e televisão (RTP). Há taxa reduzida para a tarifa social e isenção para consumos abaixo de 400 kWh/ano. Deve manter-se, mudar ou acabar?",
+          "en": "The CAV — €2.85 + VAT per month, charged on the electricity bill — funds the public radio and television service (RTP). There is a reduced rate for the social tariff and an exemption below 400 kWh/year. Should it stay, change, or end?",
+          "ru": "CAV — 2,85 € + НДС в месяц — взимается в счёте за электричество и финансирует общественное радио и телевидение (RTP). Для социального тарифа действует льготная ставка, при потреблении ниже 400 кВт·ч в год — освобождение. Сохранить, изменить или отменить?",
+          "es": "La CAV — 2,85 € + IVA al mes, cobrada en la factura de la electricidad — financia la radio y televisión públicas (RTP). Hay tasa reducida para la tarifa social y exención por debajo de 400 kWh/año. ¿Debe mantenerse, cambiar o desaparecer?",
+          "de": "Die CAV — 2,85 € + MwSt. pro Monat, erhoben über die Stromrechnung — finanziert den öffentlichen Rundfunk (RTP). Für den Sozialtarif gilt ein ermäßigter Satz, unter 400 kWh/Jahr eine Befreiung. Soll sie bleiben, sich ändern oder abgeschafft werden?",
+          "fr": "La CAV — 2,85 € + TVA par mois, prélevée sur la facture d'électricité — finance la radio et la télévision publiques (RTP). Un taux réduit s'applique au tarif social et une exonération en dessous de 400 kWh/an. Faut-il la maintenir, la réformer ou la supprimer ?"
+        },
+        "options": [
+          {
+            "pt": "Acabar — financiar a RTP pelo Orçamento do Estado",
+            "en": "End it — fund RTP from the state budget",
+            "ru": "Отменить — финансировать RTP из госбюджета",
+            "es": "Acabar — financiar RTP con los presupuestos del Estado",
+            "de": "Abschaffen — RTP aus dem Staatshaushalt finanzieren",
+            "fr": "Supprimer — financer la RTP par le budget de l'État"
+          },
+          {
+            "pt": "Acabar — reduzir ou eliminar o financiamento público da RTP",
+            "en": "End it — cut or eliminate RTP's public funding",
+            "ru": "Отменить — сократить или прекратить госфинансирование RTP",
+            "es": "Acabar — reducir o eliminar la financiación pública de RTP",
+            "de": "Abschaffen — öffentliche Finanzierung von RTP kürzen oder beenden",
+            "fr": "Supprimer — réduire ou supprimer le financement public de la RTP"
+          },
+          {
+            "pt": "Manter, mas rever o valor e as isenções",
+            "en": "Keep it, but review the amount and exemptions",
+            "ru": "Оставить, но пересмотреть размер и льготы",
+            "es": "Mantener, pero revisar el importe y las exenciones",
+            "de": "Beibehalten, aber Höhe und Befreiungen überprüfen",
+            "fr": "Garder, mais revoir le montant et les exonérations"
+          },
+          {
+            "pt": "Manter como está",
+            "en": "Keep as is",
+            "ru": "Оставить как есть",
+            "es": "Mantener como está",
+            "de": "So belassen",
+            "fr": "Laisser tel quel"
+          },
           {
             "pt": "Sem opinião",
             "en": "No opinion",

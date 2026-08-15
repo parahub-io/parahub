@@ -4,6 +4,10 @@
     <div class="flex flex-wrap items-center gap-2">
       <CivicScopeBadge :level="poll.scope_level" :name="poll.scope_name" />
       <UiBadge variant="secondary" type="soft" :title="$t('civic.badgeHint')">{{ $t('civic.badge') }}</UiBadge>
+      <!-- Promoted from a neighbour's idea rather than authored by the platform -->
+      <UiBadge v-if="poll.citizen_authored" variant="primary" type="soft">
+        <Lightbulb class="w-3.5 h-3.5 mr-1 inline" aria-hidden="true" />{{ $t('civic.citizen.badge') }}
+      </UiBadge>
       <UiBadge v-if="poll.status === 'ended'" variant="neutral" type="soft">{{ $t('civic.results.ended') }}</UiBadge>
     </div>
 
@@ -55,7 +59,7 @@
       </p>
 
       <div v-if="!authStore.isAuthenticated" class="py-4">
-        <UiButton variant="primary" :to="localePath('/auth/login')">{{ $t('civic.vote.loginCta') }}</UiButton>
+        <UiButton variant="primary" :to="localePath('/login')">{{ $t('civic.vote.loginCta') }}</UiButton>
       </div>
 
       <!-- Slider ballot (U3): status-quo-relative axes -->
@@ -88,6 +92,11 @@
       </div>
 
       <div v-else class="space-y-2">
+        <!-- Citizen polls carry the proposal as their text: the question asked of
+             the ballot is the platform's own curated wording, never the author's -->
+        <p v-if="poll.citizen_authored" class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+          {{ $t('civic.citizen.ballotQuestion') }}
+        </p>
         <button
           v-for="option in poll.options"
           :key="option.id"
@@ -245,7 +254,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { Vote, CheckCircle, Lock, BarChart3, MapPin, Send, ShieldCheck, GitBranch } from 'lucide-vue-next'
+import { Vote, CheckCircle, Lock, BarChart3, MapPin, Send, ShieldCheck, GitBranch, Lightbulb } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import { useRealtimeStore } from '~/stores/realtime'
 

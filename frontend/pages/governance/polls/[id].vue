@@ -41,7 +41,7 @@
                 </template>
               </div>
               <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-                {{ pickI18n(poll.title_i18n, poll.title, locale) }}
+                {{ displayTitle }}
               </h1>
             </div>
           </div>
@@ -65,7 +65,17 @@
         <!-- Description -->
         <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 mb-6">
           <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-3">{{ $t('governance.pollDetail.description') }}</h2>
-          <p class="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{{ pickI18n(poll.description_i18n, poll.description, locale) }}</p>
+          <p class="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{{ displayDescription }}</p>
+          <!-- MT indicator + toggle back to the author's own wording -->
+          <div v-if="citizenTranslated" class="mt-3 flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400">
+            <span v-if="!showOriginalText" class="inline-flex items-center gap-1">
+              <Languages class="w-3.5 h-3.5" aria-hidden="true" />
+              {{ $t('civic.translation.auto_translated') }}
+            </span>
+            <button class="underline underline-offset-2 hover:text-secondary" @click="showOriginalText = !showOriginalText">
+              {{ showOriginalText ? $t('civic.translation.show_translation') : $t('civic.translation.show_original') }}
+            </button>
+          </div>
         </div>
 
         <!-- Civic opinion poll (anonymous/territory): pseudonymous voting + live results -->
@@ -405,7 +415,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ArrowLeft, User, Calendar, Clock, CheckCircle, Vote, UserPlus, AlertCircle, Trophy, GitBranch, Shield, KeyRound } from 'lucide-vue-next'
+import { ArrowLeft, User, Calendar, Clock, CheckCircle, Vote, UserPlus, AlertCircle, Trophy, GitBranch, Shield, KeyRound, Languages } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import { usePollWebSocket } from '~/composables/usePollWebSocket'
 import { usePGP } from '~/composables/usePGP'
@@ -433,6 +443,25 @@ const loadError = computed(() => {
 })
 const voteError = ref<string>('')
 const voteNeedsKeys = ref(false)
+
+// Citizen-authored polls carry a resident's own words, machine-translated for
+// the other locales — say so, and keep the original one tap away
+const showOriginalText = ref(false)
+const citizenTranslated = computed(() => {
+  const p: any = poll.value
+  if (!p?.citizen_authored || !p.source_lang || p.source_lang === locale.value) return false
+  return !!(p.title_i18n?.[locale.value] || p.description_i18n?.[locale.value])
+})
+const displayTitle = computed(() => {
+  const p: any = poll.value
+  if (!p) return ''
+  return showOriginalText.value ? p.title : pickI18n(p.title_i18n, p.title, locale.value)
+})
+const displayDescription = computed(() => {
+  const p: any = poll.value
+  if (!p) return ''
+  return showOriginalText.value ? p.description : pickI18n(p.description_i18n, p.description, locale.value)
+})
 
 // SEO meta
 useSeoMeta({

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
 import { computed } from 'vue'
-import { ExternalLink } from 'lucide-vue-next'
+import { ExternalLink, Zap } from 'lucide-vue-next'
 
 /**
  * Unified nav button used by AppNavigation in three shapes:
@@ -21,6 +21,12 @@ const props = withDefaults(
     icon: Component
     label?: string
     badge?: number | null
+    /** Claimable-reward pill (sats): yellow Zap chip pinned to the tile corner,
+     *  same visual language as the FeedCard reward chip. Distinct from `badge`
+     *  (red unread count anchored to the icon). */
+    rewardSats?: number | null
+    /** One-shot ping animation trigger for the reward pill */
+    rewardPing?: boolean
     size?: 'top' | 'grid' | 'footer'
     variant?: 'default' | 'sos'
     active?: boolean
@@ -36,6 +42,8 @@ const props = withDefaults(
     dragHovered: false,
     flush: false,
     badge: null,
+    rewardSats: null,
+    rewardPing: false,
     action: null,
   },
 )
@@ -98,6 +106,12 @@ const labelClass = computed(() => {
 })
 
 const internalHref = computed(() => (props.to ? localePath(props.to) : undefined))
+
+// Compact sats label: totals rarely exceed 4 digits, collapse anything bigger
+const rewardLabel = computed(() => {
+  const v = props.rewardSats || 0
+  return v >= 10000 ? `${Math.floor(v / 1000)}k` : String(v)
+})
 </script>
 
 <template>
@@ -118,6 +132,11 @@ const internalHref = computed(() => (props.to ? localePath(props.to) : undefined
       </div>
     </div>
     <component v-else :is="icon" :class="iconClass" />
+    <span
+      v-if="rewardSats != null && rewardSats > 0"
+      class="absolute top-1 right-1 flex items-center gap-0.5 h-[18px] px-1.5 rounded-full bg-primary text-neutral-900 text-[10px] font-bold tabular-nums ring-2 ring-neutral-100 dark:ring-neutral-800"
+      :class="{ 'reward-ping': rewardPing }"
+    ><Zap class="w-2.5 h-2.5 fill-current" />{{ rewardLabel }}</span>
     <ExternalLink v-if="external && size === 'grid'" class="absolute top-1 right-1 w-2.5 h-2.5 opacity-40" />
     <span v-if="label" :class="labelClass">{{ label }}</span>
   </NuxtLink>
@@ -141,6 +160,11 @@ const internalHref = computed(() => (props.to ? localePath(props.to) : undefined
       </div>
     </div>
     <component v-else :is="icon" :class="iconClass" />
+    <span
+      v-if="rewardSats != null && rewardSats > 0"
+      class="absolute top-1 right-1 flex items-center gap-0.5 h-[18px] px-1.5 rounded-full bg-primary text-neutral-900 text-[10px] font-bold tabular-nums ring-2 ring-neutral-100 dark:ring-neutral-800"
+      :class="{ 'reward-ping': rewardPing }"
+    ><Zap class="w-2.5 h-2.5 fill-current" />{{ rewardLabel }}</span>
     <ExternalLink v-if="external && size === 'grid'" class="absolute top-1 right-1 w-2.5 h-2.5 opacity-40" />
     <span v-if="label" :class="labelClass">{{ label }}</span>
   </a>
@@ -161,3 +185,14 @@ const internalHref = computed(() => (props.to ? localePath(props.to) : undefined
     <slot />
   </button>
 </template>
+
+<style scoped>
+@keyframes reward-ping {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.reward-ping {
+  animation: reward-ping 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+</style>

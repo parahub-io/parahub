@@ -30,7 +30,8 @@
       @click="$emit('clear-type')"
       class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary-50 hover:bg-secondary-100 dark:bg-secondary-900/20 dark:hover:bg-secondary-900/30 border border-secondary-200 dark:border-secondary-800 rounded-full text-sm font-medium text-secondary-900 dark:text-secondary-100 transition-colors"
     >
-      <span>{{ $t(`market.type.${filters.type.toLowerCase()}`) }}</span>
+      <!-- Same wording as the type dropdown; there is no `market.type.*` namespace -->
+      <span>{{ $t(filters.type === 'CREDIT' ? 'market.filters.offers' : 'market.filters.requests') }}</span>
       <X class="w-3.5 h-3.5" />
     </button>
 

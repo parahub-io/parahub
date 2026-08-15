@@ -3,7 +3,6 @@ OIDC Provider settings for Parahub.
 """
 from django.conf import settings
 from identity.models import Profile, Account
-from .models import RSAKeyPair
 from oauth2_provider.scopes import BaseScopes
 import logging
 

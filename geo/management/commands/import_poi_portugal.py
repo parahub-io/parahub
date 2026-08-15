@@ -187,10 +187,15 @@ SELECT ?item ?itemLabel WHERE {{
         qid_values = ' '.join(f'wd:{qid}' for qid, _ in municipalities)
         mun_map = {qid: name for qid, name in municipalities}
 
+        # P31 constraint is the real filter: without it, P131 matches every item
+        # located in the municipality (hotels, stadiums, pubs). Q1131296 =
+        # freguesia de Portugal, Q56046844 = antiga freguesia (pre-2013 reform).
         query = f"""
 SELECT DISTINCT ?item ?itemLabel ?coord ?municipality WHERE {{
   VALUES ?municipality {{ {qid_values} }}
+  VALUES ?parishClass {{ wd:Q1131296 wd:Q56046844 }}
   ?item wdt:P131 ?municipality .
+  ?item wdt:P31 ?parishClass .
   ?item wdt:P625 ?coord .
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "pt,en" . }}
 }}"""

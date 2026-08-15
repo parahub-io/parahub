@@ -14,6 +14,14 @@ Parahub uses a decentralized trust model instead of centralized KYC. Identity ve
 ### Trust Levels
 10 roles with granular permissions: Anonymous -> Authenticated -> Has Profile -> Personal -> Pseudonymous -> Verified -> Apoiante -> Efetivo -> Fundador -> Admin. Each level unlocks additional capabilities (posting items, creating events, acting as arbitrator, etc.).
 
+### Verification Photo Accountability
+The photo used for in-person verification is biometric data. Qualified verifiers can open it during verification, but never invisibly:
+
+- Every view is recorded, and the record outlives the photo -- even after deleting it, you can still see who ever opened it
+- The full "who opened this photo" list is shown to you under your own photo, grouped by viewer and day
+- You are notified when someone opens it, and that notification cannot be muted
+- Each verifier has a quota of *distinct people* per hour and per day. Re-opening the same person costs nothing, so a real verification session at an event is unaffected -- while sweeping the member base is slow, capped, and visible to everyone swept
+
 ## Cryptography
 
 ### PGP (Client-Side)

@@ -60,6 +60,8 @@ A durable feed-health log records each import/refresh outcome so downtime can be
 
 Verified drivers (WoT 3+) broadcast GPS from the browser. Positions injected into the same Redis pipeline (`transit:geo`, `transit:vdata`, `transit:members`). Passengers see driver vehicles on the map alongside official GTFS-RT feeds. See [Features](../features.md#driver-mode). For feeds that ship no `tts_stop_name`, Portuguese stop names are synthesized at serve time so spoken stop announcements read naturally.
 
+The in-shift HUD includes a route overview ladder — both directions side by side with every live vehicle on the line, per-direction arrival badges in the agency's local time, and the driver's own bus highlighted and kept in view — plus an embedded ticket scanner, so validating passengers never interrupts the shift. As the vehicle approaches a stop, the HUD shows how many passengers marked themselves waiting for the driver's line there.
+
 ### Ticket Integration
 
 Unified tickets for transit routes. Lightning payment (no escrow), QR validation. See [Tickets](tickets.md).
@@ -77,13 +79,25 @@ Platform for transit companies to manage operations via Parahub web UI instead o
 
 ## Frontend
 
-- SEO-friendly slug URLs: `/transit/route/lisbon/carris-metropolitana-1523`. Route and stop pages are listed in the sitemap (canonical-only).
+- SEO-friendly slug URLs: `/transit/route/lisbon/carris-metropolitana-1523`. Route and stop pages are listed in the sitemap (canonical-only). The `/transit` page groups the transit network and the rideshare section under tabs.
 - Route visualization: line + stops on map with an explicit "Show on map" button and a draggable route mini-map. Stops reveal in a staggered sweep, gated on the map being idle, and both directions of a route are shown (circular/one-direction routes render correctly). The active route persists in the URL for deep-linking, and an active-route chip on the map dismisses it in one tap. A variant-count badge surfaces alternative percursos.
 - Live vehicles are rendered on a `deck.gl` overlay (leaving MapLibre idle for smooth panning), with an optional animated comet trail behind each vehicle. On-demand vehicle metadata opens in the live map popup.
 - Vehicle icons: busti.me SVG transport type icons (bus, tram, metro, train, ferry).
 - Branded timetable PDF download from the route page (see Timetable PDF Export).
 - WebSocket subscription by zoom-14 map tiles for efficient updates.
 - Feed overview with aggregated statistics (routes/stops/trips per feed).
+
+## Waiting at the Stop
+
+Anyone standing at a stop — signed in or not — can open the stop page and tap the line they are waiting for. A marker is always specific to one line and one direction, so the signal means something: someone waiting for another line is noise to a driver.
+
+- **Who sees it**: other passengers on the stop and route pages see how many people are waiting for the same line; the driver sees the count in the HUD when approaching the stop; the map shows a badge with the number of waiting people at occupied stops (an empty city draws nothing).
+- **Lifecycle**: the marker stays alive while the page is open, dims (rather than vanishing) when the screen goes dark, and clears itself when the awaited vehicle arrives at the stop.
+- **Shared poles**: a pole served by several operators shows its waiting count on every operator's page for that location.
+- **Stranded-to-carpool bridge**: after holding a marker for a while with nothing live on the awaited line, the stop page promotes the rideshare option — including how many others are stuck at the same stop. See [Carpool](carpool.md).
+- **Demand history**: minute-by-minute occupancy snapshots are recorded, so the accumulated shape of demand — how many people actually wait where, and when — exists as data a municipality can act on. Live counts alone are ephemeral and cannot be backfilled.
+
+Anonymous markers are identified by a hashed device id and loosely capped per connection as an anti-abuse backstop — loose deliberately, because mobile carriers put many users behind one shared address.
 
 ## Multimodal Routing
 
@@ -94,6 +108,6 @@ MOTIS v2 (RAPTOR algorithm) for transit routing. Combines walking + transit for 
 - **Models**: `geo/models.py` -- Agency, Stop, Route, Trip, RouteStop, StopTime, CalendarDate, TransitDataSource, VehiclePositionHistory, DriverShift
 - **API**: `geo/endpoints/transit.py` -- cities, discover, search, agencies, routes, stops, schedule, GeoJSON, GTFS relay
 - **WebSocket**: `parahub/consumers/transit.py` (public, tile-based), `parahub/consumers/driver.py` (authenticated, bidirectional)
-- **Services**: `parahub/services/transit_rt.py` -- RouteCache, StopSnapper, ETA
+- **Services**: `parahub/services/transit_rt.py` -- RouteCache, StopSnapper, ETA; `parahub/services/transit_waiting.py` -- waiting markers (Redis-backed, WaitingSnapshot history)
 - **Daemons**: `fetch_transit_rt.py` (asyncio GTFS-RT), `parahub-tracker-flush.service` (TimescaleDB batch writer)
 - **TimescaleDB**: `geo_vehiclepositionhistory` hypertable (1-day chunks, compress after 1d, retain 90d)

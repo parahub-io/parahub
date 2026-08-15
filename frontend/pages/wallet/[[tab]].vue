@@ -2,7 +2,7 @@
   <div class="bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 pb-4">
     <div class="max-w-[42rem] w-full mx-auto">
       <!-- Balance card -->
-      <div v-if="!showNoSeedWarning && !showWalletIntro && sdkState !== 'error'" class="w-full bg-secondary-700 dark:bg-secondary-800 rounded-2xl p-4 mb-2 transition-colors duration-300" :class="{ '!bg-secondary-500 dark:!bg-secondary-600': balanceFlash }">
+      <div v-if="!walletGate && sdkState !== 'error'" class="w-full bg-secondary-700 dark:bg-secondary-800 rounded-2xl p-4 mb-2 transition-colors duration-300" :class="{ '!bg-secondary-500 dark:!bg-secondary-600': balanceFlash }">
         <div class="flex items-center justify-between mb-2">
           <h1 class="text-sm font-medium text-white/70">{{ $t('wallet.title') }}</h1>
           <div class="flex items-center gap-2">
@@ -86,19 +86,19 @@
         />
       </div>
       <!-- Skeleton quick actions -->
-      <div v-else-if="sdkState === 'initializing' && !showNoSeedWarning && !showWalletIntro" class="flex gap-3 mb-2">
+      <div v-else-if="sdkState === 'initializing' && !walletGate" class="flex gap-3 mb-2">
         <div class="flex-1 h-12 bg-neutral-200 dark:bg-neutral-700 rounded-xl animate-pulse"></div>
         <div class="flex-1 h-12 bg-neutral-200 dark:bg-neutral-700 rounded-xl animate-pulse"></div>
         <div class="w-12 h-12 bg-neutral-200 dark:bg-neutral-700 rounded-xl animate-pulse"></div>
       </div>
 
       <!-- Page title when balance card is hidden due to SDK error -->
-      <div v-if="sdkState === 'error' && !showNoSeedWarning && !showWalletIntro" class="pt-4 pb-2">
+      <div v-if="sdkState === 'error' && !walletGate" class="pt-4 pb-2">
         <h1 class="text-xl font-bold text-neutral-900 dark:text-neutral-100">{{ $t('wallet.title') }}</h1>
       </div>
 
       <!-- Content tabs (History / Debts / Tickets) -->
-      <div v-if="!showNoSeedWarning && !showWalletIntro" class="mb-2">
+      <div v-if="!walletGate" class="mb-2">
         <UiTabs v-model="activeTab" :tabs="tabs" full-width />
       </div>
 
@@ -106,7 +106,7 @@
       <WalletHistory v-if="activeTab === 'history' && sdkState === 'ready'" ref="historyRef" />
 
       <!-- History: SDK error -->
-      <div v-if="activeTab === 'history' && sdkState === 'error' && !showNoSeedWarning && !showWalletIntro" class="space-y-6">
+      <div v-if="activeTab === 'history' && sdkState === 'error' && !walletGate" class="space-y-6">
         <UiAlert variant="error" :title="sdkError === 'walletOpenInAnotherTab' ? $t('wallet.walletOpenInAnotherTab') : $t('wallet.initError')">
           <p v-if="sdkError && sdkError !== 'walletOpenInAnotherTab' && sdkError !== 'noSeed'" class="font-mono text-xs">
             {{ sdkError }}
@@ -189,8 +189,18 @@
           <h1 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
             {{ $t('wallet.introTitle') }}
           </h1>
-          <p class="text-neutral-600 dark:text-neutral-400 mb-6">
+          <p class="text-neutral-600 dark:text-neutral-400 mb-4">
             {{ $t('wallet.introDescription') }}
+          </p>
+
+          <!-- "sats" is the unit every amount in the app is quoted in, and it is
+               the one word newcomers stumble on — define it once, here, with a
+               live rate so the number means something. -->
+          <p
+            v-if="satsPerUnit"
+            class="text-sm text-neutral-500 dark:text-neutral-400 mb-6 py-3 border-t border-b border-neutral-200 dark:border-neutral-700"
+          >
+            {{ $t('wallet.introSatsHint', { amount: oneUnitFiat, sats: formatSats(satsPerUnit) }) }}
           </p>
 
           <div class="space-y-3 text-left mb-6">
@@ -269,6 +279,50 @@
           </div>
         </div>
       </div>
+
+      <!-- ===== FOREIGN SEED (wallet belongs to another account) ===== -->
+      <div v-if="showForeignSeed" class="space-y-6">
+        <div class="bg-white dark:bg-neutral-800 rounded-xl p-6 space-y-4">
+          <UiAlert variant="warning" :title="$t('wallet.foreignWalletTitle')">
+            {{ $t('wallet.foreignWalletText') }}
+          </UiAlert>
+
+          <p class="text-sm text-neutral-600 dark:text-neutral-400">
+            {{ $t('wallet.foreignWalletHint') }}
+          </p>
+
+          <div class="space-y-3">
+            <UiButton
+              variant="primary"
+              :icon="Download"
+              :to="localePath('/seed-restore') + '?next=' + encodeURIComponent(localePath('/wallet'))"
+              class="w-full"
+            >
+              {{ $t('seed.restoreFromSeed') }}
+            </UiButton>
+
+            <UiButton
+              variant="secondary"
+              :icon="Plus"
+              :to="localePath('/seed-setup') + '?next=' + encodeURIComponent(localePath('/wallet'))"
+              class="w-full"
+            >
+              {{ $t('wallet.setupWallet') }}
+            </UiButton>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== EXCHANGE BTC↔EUR (recipes for third-party routes) ===== -->
+      <div v-if="!walletGate" class="mt-6 text-center">
+        <NuxtLink
+          :to="localePath('/wallet/exchange')"
+          class="inline-flex items-center gap-1.5 text-sm text-neutral-500 dark:text-neutral-400 hover:text-secondary dark:hover:text-secondary-400 transition-colors"
+        >
+          <ArrowLeftRight class="w-3.5 h-3.5" />
+          {{ $t('wallet.exchangeTitle') }}
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- Modals -->
@@ -279,10 +333,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated, onUnmounted, markRaw, watch } from 'vue'
+import type { SeedOwnership } from '~/composables/useSeedOwner'
 import {
   RefreshCw, Download, ArrowUpFromLine,
   History, Check, Plus, Eye, EyeOff,
-  Ticket, ShieldCheck, HandCoins, Zap, Shield, Send, LogIn, Gift
+  Ticket, ShieldCheck, HandCoins, Zap, Shield, Send, LogIn, Gift,
+  ArrowLeftRight
 } from 'lucide-vue-next'
 import { useLightning } from '~/composables/useLightning'
 import { useBtcPrice } from '~/composables/useBtcPrice'
@@ -326,6 +382,7 @@ const {
   userCurrency,
   fetchBtcPrice,
   satsToFiat,
+  fiatToSats,
   formatFiat
 } = useBtcPrice()
 
@@ -369,6 +426,15 @@ const balanceFiat = computed(() => {
   if (balanceSats.value === 0) return 0
   return satsToFiat(balanceSats.value)
 })
+
+// How many sats one unit of the user's currency buys — the number that makes
+// "satoshi" click for someone meeting the word for the first time.
+const satsPerUnit = computed(() => {
+  if (userCurrency.value === 'BTC') return null
+  return fiatToSats(1)
+})
+// "1,00 €" reads as a price tag mid-sentence; the sentence wants "1 €"
+const oneUnitFiat = computed(() => formatFiat(1).replace(/[.,]00\b/, ''))
 
 const refreshBalance = async () => {
   loadingBalance.value = true
@@ -502,6 +568,11 @@ const autoRegisterLnAddress = async () => {
 // timeout — see useLightning). Gate these tasks on the actual state transition
 // instead of a one-shot snapshot taken right after initSdk() returns.
 const runSdkBoundTasks = async () => {
+  // Never register LN addresses or sync spark/ln onto the profile unless the
+  // seed provably belongs to the current account — these writes are how a
+  // foreign wallet contaminates the profile ('unverified' also skips)
+  if (seedOwnership.value !== 'owned') return
+
   try { await getLnAddress() } catch {}
 
   if (!lightningAddress.value) {
@@ -540,14 +611,25 @@ const copyLnAddress = async () => {
   }
 }
 
-// ===== NO SEED / WALLET INTRO =====
+// ===== NO SEED / WALLET INTRO / FOREIGN SEED =====
 const showNoSeedWarning = ref(false)
 const showWalletIntro = ref(false)
+// Seed in this browser belongs to a different Parahub account — refuse to
+// open it (and never sync its identifiers onto the current profile)
+const showForeignSeed = ref(false)
+const seedOwnership = ref<SeedOwnership | null>(null)
+const walletGate = computed(() =>
+  showNoSeedWarning.value || showWalletIntro.value || showForeignSeed.value
+)
 
 // ===== LIFECYCLE =====
 onMounted(async () => {
   // Tickets tab doesn't require SDK
   if (activeTab.value === 'tickets') loadMyTickets()
+
+  // SDK-independent, and the intro screen (no seed yet) needs it for the
+  // sats-per-euro line — so it runs before every seed gate below, not after.
+  fetchBtcPrice()
 
   // Legacy URL support: open modal for /wallet/send or /wallet/receive
   if (legacySendReceive) {
@@ -566,6 +648,12 @@ onMounted(async () => {
     return
   }
 
+  seedOwnership.value = await checkSeedOwnership()
+  if (seedOwnership.value === 'foreign') {
+    showForeignSeed.value = true
+    return
+  }
+
   await initSdk()
 
   if (sdkError.value === 'noSeed') {
@@ -578,7 +666,6 @@ onMounted(async () => {
   }
 
   scheduleSdkBoundTasks()
-  fetchBtcPrice()
 
   if (activeTab.value === 'tickets') loadMyTickets()
 
@@ -591,9 +678,26 @@ onMounted(async () => {
 
 // KeepAlive: re-check seed when returning from seed-restore/seed-setup
 onActivated(async () => {
+  // Foreign-seed block: the user may have replaced the seed with their own
+  // (restore/setup) or switched to the owning account — re-evaluate
+  if (showForeignSeed.value && hasSeed()) {
+    seedOwnership.value = await checkSeedOwnership()
+    if (seedOwnership.value === 'foreign') return
+    showForeignSeed.value = false
+    fetchBtcPrice()
+    await initSdk()
+    scheduleSdkBoundTasks()
+    return
+  }
+
   if ((showNoSeedWarning.value || showWalletIntro.value) && hasSeed()) {
     showNoSeedWarning.value = false
     showWalletIntro.value = false
+    seedOwnership.value = await checkSeedOwnership()
+    if (seedOwnership.value === 'foreign') {
+      showForeignSeed.value = true
+      return
+    }
     fetchBtcPrice() // SDK-independent — never gate it on SDK state
     await initSdk()
     scheduleSdkBoundTasks()

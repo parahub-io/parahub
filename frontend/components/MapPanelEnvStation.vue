@@ -29,9 +29,13 @@
           class="font-mono text-neutral-400 dark:text-neutral-500"
           font-size="8" font-weight="600"
         >{{ t(`map.weather.compass.${c.key}`) }}</text>
-        <!-- Wind ORIGIN bearing, apex inward — same convention as the map bezel -->
-        <g v-if="dartStyle" class="env-wind-dart" :style="dartStyle">
-          <polygon points="60,26.5 53.5,10.5 60,16 66.5,10.5" fill="#4E4EC8" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round" />
+        <!-- Wind arrow — flies the way the air moves: tail parked on the ORIGIN
+             bearing outside the dial, head pointing inward through the station
+             (meteorological convention: 131° = air comes FROM the SE, blows to
+             the NW). One head, one flat tail, so the two ends never trade
+             places at a glance. Same silhouette as the map bezel. -->
+        <g v-if="dartStyle" class="env-wind-dart" :class="{ 'env-wind-dart-calm': isCalm }" :style="dartStyle">
+          <polygon points="60,26 66,17 61.8,17 61.8,8 58.2,8 58.2,17 54,17" fill="#4E4EC8" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round" />
         </g>
       </svg>
       <div v-if="windSpeed != null" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none font-mono tabular-nums">
@@ -43,9 +47,10 @@
         {{ t('map.env.metric.wind_speed') }}
       </span>
       <span v-if="windDir != null" class="absolute bottom-2 right-3 text-[11px] font-mono tabular-nums text-neutral-500 dark:text-neutral-400">
-        {{ Math.round(windDir) }}° {{ windCardinal }}
+        <template v-if="isCalm">{{ t('map.env.calm') }} · </template>{{ t('map.weather.wind_from', { dir: windCardinal }) }} · {{ Math.round(windDir) }}°
       </span>
       <div class="absolute inset-0 pointer-events-none env-scanlines" />
+      <div class="absolute inset-0 pointer-events-none env-scanline-sweep" />
     </div>
 
     <div class="px-4 pt-3 space-y-4">
@@ -90,7 +95,7 @@
       <div v-if="ownerCri" class="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
         <User :size="14" class="flex-shrink-0" />
         <span>{{ t('map.panel.owner') }}</span>
-        <NuxtLink :to="localePath(`/u/${ownerCri}`)" class="text-link font-medium truncate">{{ ownerName }}</NuxtLink>
+        <NuxtLink :to="localePath(`/@${ownerCri}`)" class="text-link font-medium truncate">{{ ownerName }}</NuxtLink>
       </div>
 
       <!-- Weather metrics -->
@@ -131,13 +136,14 @@
           <h3 class="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
             {{ t('map.env.history') }} · {{ t('map.env.range_24h') }}
           </h3>
-          <a
-            :href="csvHref" :download="csvFilename"
+          <button
+            @click="downloadCsv" :disabled="csvBusy"
             class="p-1 rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             :title="t('map.env.export_csv')" :aria-label="t('map.env.export_csv')"
           >
-            <Download :size="14" />
-          </a>
+            <Loader2 v-if="csvBusy" :size="14" class="animate-spin" />
+            <Download v-else :size="14" />
+          </button>
         </div>
         <div v-for="c in chartDefs" :key="c.metric" class="mb-2 last:mb-0">
           <div class="text-[11px] text-neutral-400 dark:text-neutral-500 mb-0.5">
@@ -169,8 +175,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Clock, Download, ExternalLink, User } from 'lucide-vue-next'
+import { Clock, Download, ExternalLink, Loader2, User } from 'lucide-vue-next'
 import type { TimeChartSeries } from '~/components/ui/TimeChart.vue'
+import { saveFile } from '~/utils/download'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -210,7 +217,11 @@ function buildRows(defs: Array<[string, string, number]>) {
     .filter(([k]) => latest.value[k] != null)
     .map(([k, unit, dec]) => ({
       k,
-      v: `${Number(latest.value[k]).toFixed(dec)}${unit ? ' ' + unit : ''}`,
+      // Bearing alone reads as a raw number — pair it with the cardinal the
+      // wind blows FROM, matching the hero compass label.
+      v: k === 'wind_dir'
+        ? `${Number(latest.value[k]).toFixed(dec)}° ${windCardinal.value}`
+        : `${Number(latest.value[k]).toFixed(dec)}${unit ? ' ' + unit : ''}`,
     }))
 }
 const weatherRows = computed(() => buildRows(WEATHER_METRICS))
@@ -258,9 +269,22 @@ const publicUrlHost = computed(() => {
   try { return new URL(publicUrl.value).hostname } catch { return '' }
 })
 
-const csvHref = computed(() => `/api/v1/iot/env-stations/${stationId.value}/readings.csv?hours=720`)
-const csvFilename = computed(() =>
-  `${(props.envStationData?.name || 'station').replace(/[^\w-]+/g, '_')}-readings-30d.csv`)
+// Fetched rather than linked: an <a download> is inert inside the Capacitor
+// WebView, where the click would navigate the panel to the CSV instead.
+const csvBusy = ref(false)
+async function downloadCsv() {
+  if (csvBusy.value) return
+  csvBusy.value = true
+  try {
+    const res = await fetch(`/api/v1/iot/env-stations/${stationId.value}/readings.csv?hours=720`, {
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error(String(res.status))
+    const name = (props.envStationData?.name || 'station').replace(/[^\w-]+/g, '_')
+    await saveFile(await res.blob(), `${name}-readings-30d.csv`)
+  } catch { /* transient network failure; the button stays available */ }
+  finally { csvBusy.value = false }
+}
 
 // ======== Freshness / timestamps (live-ticking, shared with the card) ========
 const { isStale, absoluteTime, relativeTime } = useEnvFreshness(
@@ -273,6 +297,9 @@ const windSpeed = computed(() => latest.value.wind_speed != null ? Number(latest
 const windGust = computed(() => latest.value.wind_gust != null ? Number(latest.value.wind_gust) : null)
 const windDir = computed(() => latest.value.wind_dir != null ? Number(latest.value.wind_dir) : null)
 const hasWind = computed(() => windSpeed.value != null || windDir.value != null)
+// Beaufort 0: under 1 km/h the vane just drifts, so the arrow fades and the
+// readout says so instead of implying a meaningful bearing.
+const isCalm = computed(() => windSpeed.value != null && windSpeed.value < 1)
 const windCardinal = computed(() =>
   windDir.value != null ? t(`map.weather.compass.${COMPASS[Math.round(windDir.value / 45) % 8]}`) : '')
 
@@ -322,6 +349,7 @@ const compassLetters = ['n', 'e', 's', 'w'].map((key, i) => {
   transform-origin: 60px 60px;
   transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
 }
+.env-wind-dart-calm { opacity: 0.4; }
 /* CRT scanlines matching the blueprint hero blocks */
 .env-scanlines {
   background: repeating-linear-gradient(
@@ -333,10 +361,12 @@ const compassLetters = ['n', 'e', 's', 'w'].map((key, i) => {
   );
   mix-blend-mode: overlay;
 }
-.env-scanlines::after {
-  content: '';
-  position: absolute;
-  inset: 0;
+/* Sweep lives in its own element outside the blended stripes, and steps()
+   instead of linear: a continuous compositor animation makes the browser
+   recomposite the full viewport at display refresh rate — on high-Hz monitors
+   that pins a GPU-process core. Discrete steps produce ~10 frames/s; the jumps
+   are invisible on this soft low-alpha gradient. */
+.env-scanline-sweep {
   background: linear-gradient(
     180deg,
     transparent 0%,
@@ -345,7 +375,8 @@ const compassLetters = ['n', 'e', 's', 'w'].map((key, i) => {
     rgba(255, 193, 7, 0.03) 55%,
     transparent 100%
   );
-  animation: env-scanline-sweep 6s linear infinite;
+  animation: env-scanline-sweep 6s steps(60) infinite;
+  will-change: transform;
 }
 @keyframes env-scanline-sweep {
   0% { transform: translateY(-100%); }
@@ -353,6 +384,6 @@ const compassLetters = ['n', 'e', 's', 'w'].map((key, i) => {
 }
 @media (prefers-reduced-motion: reduce) {
   .env-wind-dart { transition: none; }
-  .env-scanlines::after { animation: none; }
+  .env-scanline-sweep { animation: none; }
 }
 </style>

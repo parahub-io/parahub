@@ -32,7 +32,8 @@
       "hideVoted": "Hide voted",
       "showVoted": "Show voted",
       "showAll": "Show all ({n})",
-      "history": "Completed"
+      "history": "Completed",
+      "allPolls": "All polls"
     },
     "destination": "Where this goes",
     "outcome": "Outcome",
@@ -169,10 +170,10 @@
     },
     "ideas": {
       "title": "Ideas",
-      "hint": "Propose a poll for your area. At {threshold} supporters it goes to neutral formulation review and becomes a live poll.",
+      "hint": "Propose something for your area. Once enough neighbours support it, the idea becomes a live poll by itself — nobody has to approve it.",
       "create": "Propose an idea",
       "formTitle": "Idea title",
-      "formBody": "What and why (the wording will be neutralized at review)",
+      "formBody": "What and why",
       "submit": "Submit idea",
       "support": "Support",
       "supported": "Supported",
@@ -185,7 +186,20 @@
       "reject": "Reject",
       "rejectSure": "Sure?",
       "empty": "No ideas yet — propose the first one",
-      "report": "Report"
+      "report": "Report",
+      "badge": "Idea",
+      "sectionTitle": "Neighbours' ideas",
+      "ctaTitle": "Missing the question you care about?",
+      "ctaHint": "Propose it yourself — with enough neighbours behind it, it becomes a poll."
+    },
+    "translation": {
+      "auto_translated": "Automatically translated",
+      "show_original": "Show original",
+      "show_translation": "Show translation"
+    },
+    "citizen": {
+      "badge": "Proposed by a resident",
+      "ballotQuestion": "Do you support this proposal?"
     }
   }
 }

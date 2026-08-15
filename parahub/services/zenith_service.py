@@ -20,10 +20,17 @@ from decimal import Decimal
 from google import genai
 from google.genai import types as genai_types
 
+from parahub.services.ai_pricing import cost_usd as ai_cost_usd, gemini_usage
+
 logger = logging.getLogger(__name__)
 
 # Gitea internal URL (Docker network)
 GITEA_URL = "http://localhost:3003"
+
+# Zenith answers from a whole knowledge base, so the prompt is large on every
+# call — the lite tier keeps that affordable. Must have an entry in
+# `ai_pricing.GEMINI_PRICING`, otherwise answers get logged at zero cost.
+GEMINI_ZENITH_MODEL = 'gemini-3.5-flash-lite'
 
 # Default system prompt for Zenith
 DEFAULT_SYSTEM_PROMPT = """You are Zenith, a personal AI assistant representing the Principal (the owner of this knowledge base).
@@ -162,7 +169,7 @@ class ZenithService:
         context: str,
         system_prompt: str,
         api_key: str,
-        model: str = 'gemini-2.0-flash-exp'
+        model: str = GEMINI_ZENITH_MODEL
     ) -> Dict[str, Any]:
         """
         Query Google Gemini API with knowledge base context.
@@ -219,12 +226,13 @@ Answer:"""
             cost_usd = Decimal('0')
 
             if hasattr(response, 'usage_metadata'):
-                input_tokens = response.usage_metadata.prompt_token_count
-                output_tokens = response.usage_metadata.candidates_token_count
-                # Gemini 2.0 Flash pricing: $0.30/1M input, $2.50/1M output
-                cost_usd = Decimal(str(
-                    (input_tokens * 0.30 / 1_000_000) + (output_tokens * 2.50 / 1_000_000)
-                ))
+                # gemini_usage(), not a hand-rolled two-field read: 3.x Flash
+                # always thinks, and thinking tokens are billed but sit outside
+                # `candidates_token_count`.
+                usage = gemini_usage(model, response.usage_metadata)
+                input_tokens = usage.input_tokens
+                output_tokens = usage.output_tokens
+                cost_usd = usage.cost
 
             return {
                 'answer': answer,

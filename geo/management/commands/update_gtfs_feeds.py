@@ -17,10 +17,11 @@ import hashlib
 import io
 import os
 import shutil
+import subprocess
 import tempfile
 import time
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 from django.conf import settings
@@ -28,7 +29,7 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.utils import timezone as dj_timezone
 
-from geo.management.commands.import_gtfs import HTTP_HEADERS, _normalize_gtfs_zip
+from geo.management.commands.import_gtfs import HTTP_HEADERS, _normalize_gtfs_zip, resolve_static_url
 
 from geo.models import Agency, Route, Stop, TransitDataSource, Trip
 
@@ -44,6 +45,13 @@ GTFS_REQUIRED = {'agency.txt', 'stops.txt', 'routes.txt', 'trips.txt', 'stop_tim
 
 MOTIS_INPUT_DIR = '/opt/motis/input'
 MOTIS_CONTAINER = 'parahub-motis'
+MOTIS_ROOT = '/opt/motis'
+# Blue-green data slots: /opt/motis/data is a relative symlink to the active
+# slot; imports build into the inactive one, then the symlink is flipped and
+# the server restarted (docker re-resolves the symlink on container start).
+MOTIS_DATA_LINK = os.path.join(MOTIS_ROOT, 'data')
+MOTIS_SLOTS = ('data-blue', 'data-green')
+MOTIS_URL = 'http://127.0.0.1:8090'
 
 PFAEDLE_BIN = '/usr/local/bin/pfaedle'
 PFAEDLE_CFG = '/usr/local/etc/pfaedle/pfaedle.cfg'
@@ -338,11 +346,70 @@ def _generate_shapes(zip_path, stdout=None):
         shutil.rmtree(work, ignore_errors=True)
 
 
+def _repair_dangling_agency_refs(zip_path, stdout=None):
+    """Repair routes.txt agency_id values that reference no agency.txt row.
+
+    Carris Metropolitana's 2026-07 feed redesign renamed agency.txt ids
+    (41-44 → A2L1N/BNA17/LA77N/YA15B) without migrating routes.txt. nigiri
+    synthesizes an agency without a timezone for a dangling ref and MOTIS
+    import dies with "timezone not set". Missing agencies are appended as
+    clones of the first agency row carrying the referenced id — real agency
+    rows stay untouched and the repair is a no-op once upstream fixes the
+    export.
+
+    Returns (path, is_temp); the original path when nothing was dangling.
+    """
+    with zipfile.ZipFile(zip_path, 'r') as zf:
+        names = zf.namelist()
+        if 'agency.txt' not in names or 'routes.txt' not in names:
+            return zip_path, False
+        with zf.open('agency.txt') as f:
+            reader = csv.DictReader(io.TextIOWrapper(f, encoding='utf-8-sig'))
+            agency_rows = list(reader)
+            agency_fields = list(reader.fieldnames or [])
+        if not agency_rows or 'agency_id' not in agency_fields:
+            return zip_path, False
+        known = {r.get('agency_id', '') for r in agency_rows}
+        with zf.open('routes.txt') as f:
+            referenced = {
+                row.get('agency_id', '')
+                for row in csv.DictReader(io.TextIOWrapper(f, encoding='utf-8-sig'))
+            }
+        dangling = sorted(a for a in referenced if a and a not in known)
+        if not dangling:
+            return zip_path, False
+
+        template = agency_rows[0]
+        if stdout:
+            stdout.write(
+                f"  repairing dangling agency_id refs {', '.join(dangling)} — "
+                f"cloning agency '{template.get('agency_id')}'")
+        for missing in dangling:
+            agency_rows.append({**template, 'agency_id': missing})
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=agency_fields, extrasaction='ignore')
+        writer.writeheader()
+        for row in agency_rows:
+            writer.writerow({k: row.get(k, '') for k in agency_fields})
+
+        fd, out_path = tempfile.mkstemp(suffix='.zip', prefix='gtfs_agency_fix_')
+        os.close(fd)
+        with zipfile.ZipFile(out_path, 'w', zipfile.ZIP_DEFLATED) as dst:
+            for item in zf.infolist():
+                if item.filename == 'agency.txt':
+                    dst.writestr('agency.txt', buf.getvalue())
+                else:
+                    with zf.open(item.filename) as sf, dst.open(item.filename, mode='w') as df:
+                        shutil.copyfileobj(sf, df, 1024 * 1024)
+        return out_path, True
+
+
 def _sync_to_motis(ds, zip_path, stdout=None):
     """Copy fresh GTFS ZIP into /opt/motis/input/ under canonical name.
 
     Nested-zip feeds (SEPTA) are flattened via _normalize_gtfs_zip first —
-    MOTIS reads the raw file, so it must be a standard flat GTFS.
+    MOTIS reads the raw file, so it must be a standard flat GTFS. Dangling
+    agency refs (CM) are repaired on top.
 
     Returns True if the destination file was created or changed (caller
     should then restart MOTIS), False if it was already identical (no-op).
@@ -350,36 +417,149 @@ def _sync_to_motis(ds, zip_path, stdout=None):
     if not ds.motis_input_name:
         return False
 
-    normalized_path, is_temp = _normalize_gtfs_zip(zip_path, stdout=stdout)
+    normalized_path, norm_temp = _normalize_gtfs_zip(zip_path, stdout=stdout)
+    repaired_path, repair_temp = _repair_dangling_agency_refs(normalized_path, stdout=stdout)
     try:
         dest = os.path.join(MOTIS_INPUT_DIR, ds.motis_input_name)
-        if os.path.exists(dest) and _sha256_file(dest) == _sha256_file(normalized_path):
+        if os.path.exists(dest) and _sha256_file(dest) == _sha256_file(repaired_path):
             return False
         tmp = dest + '.tmp'
-        shutil.copyfile(normalized_path, tmp)
+        shutil.copyfile(repaired_path, tmp)
         os.replace(tmp, dest)
         return True
     finally:
-        if is_temp and os.path.exists(normalized_path):
+        if repair_temp and os.path.exists(repaired_path):
+            os.unlink(repaired_path)
+        if norm_temp and os.path.exists(normalized_path):
             os.unlink(normalized_path)
 
 
+def _motis_slots():
+    """Resolve (active, inactive) slot names from the /opt/motis/data symlink.
+
+    Returns (None, None) when the blue-green layout is missing (data is a
+    plain directory or points outside the known slots) — caller must refuse
+    to import rather than build into the live dataset.
+    """
+    if not os.path.islink(MOTIS_DATA_LINK):
+        return None, None
+    active = os.path.basename(os.path.realpath(MOTIS_DATA_LINK))
+    if active not in MOTIS_SLOTS:
+        return None, None
+    inactive = MOTIS_SLOTS[1] if active == MOTIS_SLOTS[0] else MOTIS_SLOTS[0]
+    return active, inactive
+
+
+def _motis_flip(slot):
+    """Atomically repoint /opt/motis/data → slot (relative symlink + rename)."""
+    tmp = MOTIS_DATA_LINK + '.new'
+    if os.path.lexists(tmp):
+        os.unlink(tmp)
+    os.symlink(slot, tmp)
+    os.replace(tmp, MOTIS_DATA_LINK)
+
+
+def _motis_restart(timeout=180):
+    """Restart the MOTIS server container.
+
+    Docker re-resolves the bind-mount symlink on container start, so this is
+    what makes a slot flip take effect.
+    """
+    subprocess.run(['docker', 'compose', 'restart', 'motis'],
+                   cwd='/opt/parahub', check=True, capture_output=True, timeout=timeout)
+
+
+def _motis_probe(stdout, timeout=600):
+    """Wait for the MOTIS server to come up and prove it actually routes.
+
+    Phase 1: the map-stops endpoint answers 200 (the dataset passed MOTIS's
+    own startup verification and loaded). Phase 2: a real Lisbon plan query
+    (Cais do Sodré → Oriente, next day noon UTC to dodge night gaps) returns
+    at least one itinerary containing a transit leg.
+    """
+    stops_url = f'{MOTIS_URL}/api/v1/map/stops?min=38.70,-9.20&max=38.75,-9.10'
+    dep = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
+        hour=12, minute=0, second=0, microsecond=0)
+    plan_url = (
+        f'{MOTIS_URL}/api/v5/plan'
+        f'?fromPlace=38.7057,-9.1450'
+        f'&toPlace=38.7679,-9.0990'
+        f'&transitModes=TRANSIT'
+        f'&time={dep.strftime("%Y-%m-%dT%H:%M:%SZ")}'
+    )
+    deadline = time.monotonic() + timeout
+    up = False
+    while time.monotonic() < deadline:
+        try:
+            if requests.get(stops_url, timeout=10).status_code == 200:
+                up = True
+                break
+        except requests.RequestException:
+            pass
+        time.sleep(5)
+    if not up:
+        stdout.write(f"  MOTIS probe: server not answering after {timeout}s")
+        return False
+    try:
+        r = requests.get(plan_url, timeout=30)
+        itineraries = (r.json() or {}).get('itineraries') or []
+    except (requests.RequestException, ValueError) as e:
+        stdout.write(f"  MOTIS probe: plan query failed: {e}")
+        return False
+    has_transit = any(
+        leg.get('mode') != 'WALK'
+        for itinerary in itineraries for leg in itinerary.get('legs', [])
+    )
+    if not has_transit:
+        stdout.write(f"  MOTIS probe: plan returned {len(itineraries)} itineraries, none with a transit leg")
+        return False
+    stdout.write(f"  MOTIS probe: OK ({len(itineraries)} itineraries)")
+    return True
+
+
+def _notify_staff_motis_failure(stage, detail):
+    """Surface a failed re-import to staff.
+
+    Blue-green keeps routing up on the last-good dataset when an import
+    fails, so nothing user-visible breaks — the staleness would be silent
+    without an explicit alert.
+    """
+    try:
+        from django.contrib.auth import get_user_model
+        from notifications.services import emit_notification
+        for account in get_user_model().objects.filter(is_staff=True, is_active=True):
+            emit_notification(
+                account,
+                type='system_alert',
+                category='system',
+                title='MOTIS re-import failed',
+                body=f'{stage}: {detail}',
+            )
+    except Exception:
+        pass  # alerting must never break the import cycle
+
+
 def _reimport_motis(stdout):
-    """Full MOTIS re-import cycle: stop server, run `/motis import`, start server.
+    """Blue-green MOTIS re-import: build into the inactive slot, flip, verify.
 
     MOTIS `server` mode reads pre-built /data/ (nigiri timetable, OSR) — NOT
-    raw /input/*.zip. A simple `docker restart` does NOT pick up new /input/
-    files, so we must do a full re-import to refresh transit data.
+    raw /input/*.zip — so fresh feeds require a full `/motis import`. The
+    import runs against the inactive slot while the server keeps serving the
+    active one; on success /opt/motis/data is repointed and the server
+    restarted. A health probe gates the result: if the fresh slot fails it,
+    the symlink is flipped back and the last-good dataset keeps serving.
 
-    Duration: ~6-30 min typically (osr/matches cached), up to ~2h on cold
-    cache. Server is unavailable for routing during this window.
-
-    On failure (import non-zero exit): /data/ may be partially overwritten;
-    attempts to start server anyway so error surfaces via /api/v1/plan
-    returning errors rather than silently serving stale data. No automatic
-    rollback yet — see `.todo/motis-blue-green-reimport.md`.
+    Routing downtime is one container restart + probe (~seconds) instead of
+    the whole import window (6-30 min warm, ~2h cold). A failed import never
+    touches the active slot; failures are surfaced via journal + staff
+    notification.
     """
-    import subprocess
+    active, inactive = _motis_slots()
+    if not active:
+        stdout.write("  ERROR: /opt/motis/data is not a blue-green slot symlink — refusing to import over live data")
+        _notify_staff_motis_failure('layout', '/opt/motis/data is not a blue-green slot symlink')
+        return False
+
     try:
         inspect = subprocess.run(
             ['docker', 'inspect', MOTIS_CONTAINER, '--format', '{{.Config.Image}}'],
@@ -389,19 +569,26 @@ def _reimport_motis(stdout):
         if not image:
             stdout.write(f"  WARN: could not determine MOTIS image — skipping re-import")
             return False
-        stdout.write(f"  MOTIS re-import: image={image}")
+        stdout.write(f"  MOTIS re-import: image={image} active={active} building={inactive}")
 
-        stdout.write(f"  MOTIS: stopping server...")
-        subprocess.run(['docker', 'compose', 'stop', 'motis'],
-                       cwd='/opt/parahub', check=True, capture_output=True, timeout=120)
+        active_dir = os.path.join(MOTIS_ROOT, active)
+        inactive_dir = os.path.join(MOTIS_ROOT, inactive)
 
-        stdout.write(f"  MOTIS: /motis import (typically 6-30min, up to 2h cold cache)...")
+        stdout.write(f"  MOTIS: rsync {active} → {inactive} (server keeps serving)...")
+        subprocess.run(
+            ['sudo', '-n', 'rsync', '-a', '--delete', active_dir + '/', inactive_dir + '/'],
+            check=True, capture_output=True, timeout=1800,
+        )
+
+        stdout.write(f"  MOTIS: /motis import into {inactive} (typically 6-30min, up to ~2h cold cache)...")
+        subprocess.run(['docker', 'rm', '-f', 'parahub-motis-import'],
+                       capture_output=True, timeout=60)
         import_proc = subprocess.run(
             [
                 'docker', 'run', '--rm',
                 '--name', 'parahub-motis-import',
                 '-w', '/data',
-                '-v', '/opt/motis/data:/data',
+                '-v', f'{inactive_dir}:/data',
                 '-v', '/opt/motis/input:/input',
                 '-v', '/opt/planet/planet-latest.osm.pbf:/input/planet-latest.osm.pbf:ro',
                 '--network', 'none',
@@ -413,24 +600,49 @@ def _reimport_motis(stdout):
         )
 
         if import_proc.returncode != 0:
-            stdout.write(f"  ERROR: MOTIS import rc={import_proc.returncode}")
-            tail = (import_proc.stderr or import_proc.stdout or '')[-800:]
-            stdout.write(f"  output tail: {tail}")
-            subprocess.run(['docker', 'compose', 'up', '-d', 'motis'],
-                           cwd='/opt/parahub', capture_output=True, timeout=120)
+            stdout.write(f"  ERROR: MOTIS import rc={import_proc.returncode} — active slot untouched, server still serving {active}")
+            for stream, blob in (('stdout', import_proc.stdout), ('stderr', import_proc.stderr)):
+                if blob:
+                    stdout.write(f"  import {stream} tail: {blob[-800:]}")
+            _notify_staff_motis_failure(
+                'import', f'rc={import_proc.returncode}; routing still serves previous dataset ({active})')
             return False
 
-        stdout.write(f"  MOTIS: import done, starting server...")
-        subprocess.run(['docker', 'compose', 'up', '-d', 'motis'],
-                       cwd='/opt/parahub', check=True, capture_output=True, timeout=120)
-        stdout.write(f"  MOTIS: server up with fresh data")
-        return True
+        stdout.write(f"  MOTIS: import OK — flipping to {inactive} + server restart...")
+        _motis_flip(inactive)
+        try:
+            _motis_restart()
+            probe_ok = _motis_probe(stdout)
+        except Exception as e:
+            stdout.write(f"  ERROR: restart/probe on {inactive} raised: {e}")
+            probe_ok = False
+        if probe_ok:
+            stdout.write(f"  MOTIS: server up on {inactive} with fresh data")
+            return True
+
+        stdout.write(f"  ERROR: fresh {inactive} failed the probe — rolling back to {active}")
+        _motis_flip(active)
+        try:
+            _motis_restart()
+            back_ok = _motis_probe(stdout)
+        except Exception:
+            back_ok = False
+        if back_ok:
+            _notify_staff_motis_failure(
+                'probe', f'fresh {inactive} failed the probe; rolled back to {active}, routing up on previous dataset')
+        else:
+            stdout.write(f"  ERROR: rollback to {active} failed the probe too — MOTIS DOWN, manual intervention needed")
+            _notify_staff_motis_failure(
+                'rollback', f'{inactive} failed the probe AND {active} did not come back — MOTIS DOWN')
+        return False
 
     except subprocess.TimeoutExpired as e:
         stdout.write(f"  ERROR: MOTIS re-import timeout after {e.timeout}s")
+        _notify_staff_motis_failure('timeout', f'after {e.timeout}s')
         return False
     except Exception as e:
         stdout.write(f"  WARN: MOTIS re-import failed: {e}")
+        _notify_staff_motis_failure('exception', str(e))
         return False
 
 
@@ -546,9 +758,10 @@ class Command(BaseCommand):
                         part_paths = []
                         for url in urls:
                             self.stdout.write(f"    {url}")
+                            dl_url = resolve_static_url(url, stdout=self.stdout)
                             fd, part_path = tempfile.mkstemp(suffix='.zip', prefix='gtfs_part_')
                             os.close(fd)
-                            resp = requests.get(url, headers=HTTP_HEADERS, stream=True, timeout=300, allow_redirects=True)
+                            resp = requests.get(dl_url, headers=HTTP_HEADERS, stream=True, timeout=300, allow_redirects=True)
                             resp.raise_for_status()
                             with open(part_path, 'wb') as f:
                                 for chunk in resp.iter_content(65536):
@@ -589,9 +802,10 @@ class Command(BaseCommand):
                         tmp_fd, tmp_path = tempfile.mkstemp(suffix='.zip', prefix='gtfs_')
                         os.close(tmp_fd)
                         need_bundle = False
+                        dl_url = resolve_static_url(ds.url, stdout=self.stdout)
 
                         try:
-                            resp = requests.get(ds.url, headers=HTTP_HEADERS, stream=True, timeout=300)
+                            resp = requests.get(dl_url, headers=HTTP_HEADERS, stream=True, timeout=300)
                             resp.raise_for_status()
                             with open(tmp_path, 'wb') as f:
                                 for chunk in resp.iter_content(65536):
@@ -605,7 +819,7 @@ class Command(BaseCommand):
                                 f"  {ds.name}: not a ZIP download, "
                                 f"fetching individual GTFS files..."
                             )
-                            _bundle_gtfs_from_url(ds.url, tmp_path, stdout=self.stdout)
+                            _bundle_gtfs_from_url(dl_url, tmp_path, stdout=self.stdout)
 
                         # Move to persistent cache
                         shutil.move(tmp_path, cache_path)

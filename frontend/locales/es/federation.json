@@ -2,6 +2,7 @@
   "federation": {
     "title": "Federation",
     "page_title": "Federation - Parahub",
+    "subtitle": "Registro de nodos, organizaciones y migraciones de perfiles",
     "node": {
       "title": "Node",
       "domain": "Domain",

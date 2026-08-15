@@ -13,16 +13,17 @@ those are long-lived per process/connection, not per-request.
 import redis
 from django.conf import settings
 
-_pools: dict[bool, redis.ConnectionPool] = {}
+_pools: dict[tuple[int, bool], redis.ConnectionPool] = {}
 
 
-def get_redis(decode_responses: bool = True) -> redis.Redis:
+def get_redis(decode_responses: bool = True, db: int = 0) -> redis.Redis:
     """Pooled sync Redis client. Do not call .close() on it."""
-    pool = _pools.get(decode_responses)
+    pool = _pools.get((db, decode_responses))
     if pool is None:
-        pool = _pools[decode_responses] = redis.ConnectionPool(
+        pool = _pools[(db, decode_responses)] = redis.ConnectionPool(
             host=getattr(settings, 'REDIS_HOST', '127.0.0.1'),
             port=getattr(settings, 'REDIS_PORT', 6379),
+            db=db,
             decode_responses=decode_responses,
         )
     return redis.Redis(connection_pool=pool)

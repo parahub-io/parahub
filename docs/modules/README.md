@@ -38,7 +38,7 @@ Detailed documentation for individual Parahub subsystems. See [Features](../feat
 | [Mesh Network](mesh-network.md) | OpenWrt firmware, batman-adv, Yggdrasil, paid WiFi |
 | [ParaSOS](parasos.md) | Neighborhood emergency mutual aid (SOS alerts, safety groups) |
 | [Energy](energy.md) | P2P solar energy ACC groups |
-| [OpenSky](opensky.md) | Community drone mapping, 3D mesh generation |
+| [OpenSky](opensky.md) | Community drone mapping, flight planning and airspace, 3D mesh generation |
 | [Ads](ads.md) | P2P advertising with Lightning payments |
 | [Wallet](wallet.md) | Non-custodial Lightning wallet |
 | [Bearer Notes](tips.md) | Bitcoin notes given as a link or printed, funded from your own wallet, returning by themselves |

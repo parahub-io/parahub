@@ -5,7 +5,7 @@ End-to-end encrypted messaging via Matrix protocol, video calls via Jitsi, and r
 ## Matrix Chat
 
 ### Infrastructure
-- **Synapse** homeserver at `matrix.parahub.io`
+- **Synapse** homeserver, server name `parahub.io`
 - **OIDC SSO** -- single sign-on, same credentials as Parahub
 - **Username = Matrix ID**: `alice@parahub.io` = `@alice:parahub.io`
 
@@ -21,6 +21,20 @@ Three Matrix clients, user-selectable:
 
 All embedded as iframes with Teleport to body (KeepAlive-compatible). Users set their preferred client in profile settings. Cookie-based instant redirect.
 
+### Native Apps
+
+The chat is standard Matrix, so dedicated Matrix apps connect to the same account -- Element X or SchildiChat Next on mobile, Element on desktop, and any other client that signs in through the browser:
+
+1. Install the app and choose to enter a server address manually
+2. Enter `parahub.io` as the server
+3. The app opens a browser window -- sign in with your usual Parahub credentials and confirm
+
+There is **no separate chat password**: sign-in always goes through the browser with the Parahub account. Apps that only offer a username/password form cannot connect.
+
+**Second device via QR**: on a computer where you are already signed in (Element at `parahub.io/element`), open Settings → Sessions → "Link new device" → "Show QR code", then choose "Sign in with QR code" in the phone app and scan the screen. The devices verify each other automatically, so encrypted history stays readable.
+
+Active sessions can be reviewed and revoked in the account console at `parahub.io/mas/account`.
+
 ### Features
 - **E2E Encryption**: Megolm/Olm for all messages
 - **Auto DM Creation**: `POST /api/v1/matrix/create-dm` creates a DM room between two users. Bot auto-accepts invites for both. Duplicate detection prevents room spam.
@@ -29,9 +43,7 @@ All embedded as iframes with Teleport to body (KeepAlive-compatible). Users set 
 
 ### Auto-Login Flow
 1. User navigates to `/chat`
-2. Frontend requests Matrix SSO token from Parahub API
-3. Token passed to Matrix client iframe
-4. Client logs in seamlessly -- no separate Matrix credentials needed
+2. The embedded client signs in via single sign-on with the existing Parahub session -- fully automatic, no separate Matrix credentials
 
 ## Video Calls
 
@@ -72,7 +84,7 @@ All embedded as iframes with Teleport to body (KeepAlive-compatible). Users set 
 
 ## Technical Details
 
-- **Matrix**: `parahub/endpoints/matrix_auth.py` (DM creation, login tokens), `parahub/endpoints/matrix_sso.py` (SSO)
+- **Matrix**: `parahub/endpoints/matrix_auth.py` (DM creation, widget tokens), `parahub/endpoints/matrix_sso.py` (SSO)
 - **Jitsi**: `parahub/endpoints/jitsi.py` (JWT token generation)
 - **WebSocket**: `parahub/consumers/realtime.py` (unified), `parahub/consumers/public.py` (anonymous)
 - **Push**: `notifications/services.py`, `notifications/api.py`

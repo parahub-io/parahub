@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Instance, ObjectVideo, ObjectShare, ObjectDistribution, DistributionLine
+from django.utils import timezone
+from .models import (Instance, ObjectVideo, ObjectShare, ObjectDistribution,
+                     DistributionLine, ContentReport)
 
 
 @admin.register(Instance)
@@ -39,3 +41,38 @@ class ObjectDistributionAdmin(admin.ModelAdmin):
     search_fields = ['object_id', 'period_label']
     readonly_fields = ['id', 'created_at', 'updated_at']
     inlines = [DistributionLineInline]
+
+
+@admin.register(ContentReport)
+class ContentReportAdmin(admin.ModelAdmin):
+    """Moderation queue for UGC reports (Play UGC policy: taking action)."""
+
+    list_display = ['created_at', 'reason', 'object_type', 'excerpt_short',
+                    'reported_profile', 'reporter', 'status']
+    list_filter = ['status', 'reason', 'object_type']
+    search_fields = ['object_id', 'excerpt', 'details',
+                     'reporter__local_name', 'reported_profile__local_name']
+    readonly_fields = ['id', 'object_id', 'object_type', 'reporter', 'reported_profile',
+                       'reason', 'details', 'excerpt', 'context_url',
+                       'created_at', 'updated_at']
+    list_select_related = ['reporter', 'reported_profile']
+    date_hierarchy = 'created_at'
+    actions = ['mark_actioned', 'mark_dismissed']
+
+    @admin.display(description='Excerpt')
+    def excerpt_short(self, obj):
+        return (obj.excerpt[:60] + '…') if len(obj.excerpt) > 60 else obj.excerpt
+
+    def _review(self, request, queryset, status):
+        updated = queryset.filter(status=ContentReport.Status.PENDING).update(
+            status=status, reviewed_by=request.user, reviewed_at=timezone.now(),
+        )
+        self.message_user(request, f"{updated} report(s) marked {status}")
+
+    @admin.action(description='Mark selected as ACTIONED')
+    def mark_actioned(self, request, queryset):
+        self._review(request, queryset, ContentReport.Status.ACTIONED)
+
+    @admin.action(description='Mark selected as DISMISSED')
+    def mark_dismissed(self, request, queryset):
+        self._review(request, queryset, ContentReport.Status.DISMISSED)

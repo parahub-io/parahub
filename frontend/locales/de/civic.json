@@ -32,7 +32,8 @@
       "hideVoted": "Abgestimmte ausblenden",
       "showVoted": "Abgestimmte anzeigen",
       "showAll": "Alle anzeigen ({n})",
-      "history": "Abgeschlossen"
+      "history": "Abgeschlossen",
+      "allPolls": "Alle Abstimmungen"
     },
     "destination": "Wohin das Ergebnis geht",
     "outcome": "Ergebnis",
@@ -169,10 +170,10 @@
     },
     "ideas": {
       "title": "Ideen",
-      "hint": "Schlagen Sie eine Umfrage für Ihr Gebiet vor. Bei {threshold} Unterstützenden geht sie in die neutrale Formulierungsprüfung und wird zur Umfrage.",
+      "hint": "Schlagen Sie etwas für Ihr Gebiet vor. Sobald genügend Nachbarn zustimmen, wird die Idee von selbst zur Umfrage — niemand muss sie freigeben.",
       "create": "Idee vorschlagen",
       "formTitle": "Titel der Idee",
-      "formBody": "Was und warum (die Formulierung wird bei der Prüfung neutralisiert)",
+      "formBody": "Was und warum",
       "submit": "Idee senden",
       "support": "Unterstützen",
       "supported": "Unterstützt",
@@ -185,7 +186,20 @@
       "reject": "Ablehnen",
       "rejectSure": "Sicher?",
       "empty": "Noch keine Ideen — schlagen Sie die erste vor",
-      "report": "Melden"
+      "report": "Melden",
+      "badge": "Idee",
+      "sectionTitle": "Ideen der Nachbarn",
+      "ctaTitle": "Fehlt Ihre Frage?",
+      "ctaHint": "Schlagen Sie sie selbst vor — mit genug Nachbarn dahinter wird daraus eine Umfrage."
+    },
+    "translation": {
+      "auto_translated": "Automatisch übersetzt",
+      "show_original": "Original anzeigen",
+      "show_translation": "Übersetzung anzeigen"
+    },
+    "citizen": {
+      "badge": "Vorschlag aus der Nachbarschaft",
+      "ballotQuestion": "Unterstützen Sie diesen Vorschlag?"
     }
   }
 }

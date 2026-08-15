@@ -6,18 +6,26 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
+// Rising embers, drawn to fill the nearest positioned ancestor. Meant for the
+// landing's dark sections: the palette is fixed to light-on-dark and additive,
+// because those sections stay dark in both themes. Put it inside a `relative
+// overflow-hidden` block and keep the content above it (`relative z-10`).
 const fxCanvas = ref<HTMLCanvasElement | null>(null)
 let animationId: number | null = null
 let lastFrameTime = 0
 const FRAME_INTERVAL = 1000 / 30 // 30fps cap
+
+const STREAK_COLOR = 'rgba(255, 255, 255,'
+const SPARK_COLOR = 'rgba(255, 255, 255, 0.35)'
 
 // === Canvas 2D state ===
 let ctx: CanvasRenderingContext2D | null = null
 let embers: Ember[] = []
 let ambientSparks: AmbientSpark[] = []
 const dt = 1 / 30 // match 30fps
-let isDark = true
-let paused = false
+let tabHidden = false
+// The section is below the fold — don't paint until it is actually on screen
+let offScreen = true
 
 // =============================================
 // CANVAS 2D TYPES
@@ -95,7 +103,7 @@ function handleResize() {
 function animate(now: number) {
   animationId = requestAnimationFrame(animate)
 
-  if (paused) return
+  if (tabHidden || offScreen) return
 
   // Throttle to 30fps
   const elapsed = now - lastFrameTime
@@ -109,10 +117,7 @@ function animate(now: number) {
   const h = fxCanvas.value.height / dpr
 
   ctx.clearRect(0, 0, fxCanvas.value.width, fxCanvas.value.height)
-  ctx.globalCompositeOperation = isDark ? 'lighter' : 'source-over'
-
-  const darkMode = isDark
-  const streakColor = darkMode ? 'rgba(255, 255, 255,' : 'rgba(255, 210, 0,'
+  ctx.globalCompositeOperation = 'lighter'
 
   // --- Embers ---
   for (let i = embers.length - 1; i >= 0; i--) {
@@ -141,7 +146,7 @@ function animate(now: number) {
       ctx.beginPath()
       ctx.moveTo(px, py)
       ctx.lineTo(px, py + len)
-      ctx.strokeStyle = `${streakColor} ${alpha})`
+      ctx.strokeStyle = `${STREAK_COLOR} ${alpha})`
       ctx.lineWidth = e.streakWidth
       ctx.lineCap = 'butt'
       ctx.stroke()
@@ -171,9 +176,7 @@ function animate(now: number) {
     hasAmbient = true
   }
   if (hasAmbient) {
-    ctx.fillStyle = darkMode
-      ? 'rgba(255, 255, 255, 0.35)'
-      : 'rgba(255, 210, 0, 0.35)'
+    ctx.fillStyle = SPARK_COLOR
     ctx.fill()
   }
 
@@ -182,20 +185,20 @@ function animate(now: number) {
 }
 
 function handleVisibility() {
-  paused = document.hidden
+  tabHidden = document.hidden
 }
 
-let themeObserver: MutationObserver | null = null
+let viewObserver: IntersectionObserver | null = null
 
 onMounted(async () => {
   await nextTick()
   if (!fxCanvas.value) return
 
-  isDark = document.documentElement.classList.contains('dark')
-  themeObserver = new MutationObserver(() => {
-    isDark = document.documentElement.classList.contains('dark')
-  })
-  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+  viewObserver = new IntersectionObserver(
+    ([entry]) => { offScreen = !entry.isIntersecting },
+    { threshold: 0 },
+  )
+  viewObserver.observe(fxCanvas.value)
 
   handleResize()
 
@@ -211,7 +214,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (animationId) cancelAnimationFrame(animationId)
-  if (themeObserver) themeObserver.disconnect()
+  if (viewObserver) viewObserver.disconnect()
   document.removeEventListener('visibilitychange', handleVisibility)
   window.removeEventListener('resize', handleResize)
 })
@@ -219,11 +222,16 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .layer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer {
+    display: none;
+  }
 }
 </style>

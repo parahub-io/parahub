@@ -2,6 +2,7 @@
   "federation": {
     "title": "Federation",
     "page_title": "Federation - Parahub",
+    "subtitle": "Verzeichnis der Knoten, Organisationen und Profilmigrationen",
     "node": {
       "title": "Node",
       "domain": "Domain",

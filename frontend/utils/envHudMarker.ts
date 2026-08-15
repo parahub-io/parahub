@@ -8,8 +8,9 @@
  *  - readout column: primary line + per-metric rows (mono uppercase, white
  *    halo), side/topSlot/nudge/rail placement from the ensemble layout;
  *  - compass bezel (wind data only): transparent ring around the hex itself,
- *    12 round-cap ticks with a long red north tick, and a rim-pointer dart at
- *    the wind's ORIGIN bearing (meteorological convention). The ring
+ *    12 round-cap ticks with a long red north tick, and an arrow whose tail
+ *    parks on the wind's ORIGIN bearing (meteorological convention) with the
+ *    head pointing inward — i.e. it flies downwind, the way the air goes. The ring
  *    counter-rotates by the map bearing (`--map-bearing-neg` on the map
  *    container) so north stays geo-aligned; the pointer angle accumulates
  *    continuously so 350°→10° turns 20°, not −340°.
@@ -39,13 +40,14 @@ function _bezelSvg(): string {
     ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${north ? '#dc2626' : '#1f2937'}" stroke-width="${north ? 1.9 : cardinal ? 1.5 : 1.0}" opacity="${north ? 1 : cardinal ? 0.9 : 0.5}" stroke-linecap="round"/>`
   }
   // White halo under the ring keeps it legible on dark/satellite ground;
-  // the rim-pointer dart's apex points inward at the station
+  // the pointer is a one-headed arrow (flat tail outside the rim, head inward)
+  // so it reads as flow, not as a symmetric rim tick
   return `<svg class="env-hud-ring" viewBox="0 0 56 56">
     <circle cx="${C}" cy="${C}" r="${RING_R}" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="3.2"/>
     <circle cx="${C}" cy="${C}" r="${RING_R}" fill="none" stroke="#1f2937" stroke-width="1.1" opacity="0.85"/>
     ${ticks}
     <g class="env-hud-pointer">
-      <polygon points="${C},${C - 13.6} ${C - 2.9},${C - 19.4} ${C},${C - 18} ${C + 2.9},${C - 19.4}" fill="#4E4EC8" stroke="#ffffff" stroke-width="0.9" stroke-linejoin="round"/>
+      <polygon points="${C},${C - 11.5} ${C + 2.6},${C - 15.5} ${C + 0.75},${C - 15.5} ${C + 0.75},${C - 20.5} ${C - 0.75},${C - 20.5} ${C - 0.75},${C - 15.5} ${C - 2.6},${C - 15.5}" fill="#4E4EC8" stroke="#ffffff" stroke-width="0.9" stroke-linejoin="round"/>
     </g>
   </svg>`
 }

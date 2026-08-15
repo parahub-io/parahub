@@ -8,6 +8,8 @@
  * - Deleting missions
  */
 
+import { saveFile } from '~/utils/download'
+
 export type MeshStatus = 'NONE' | 'MESH_QUEUED' | 'MESH_PROCESSING' | 'MESH_READY' | 'MESH_FAILED'
 
 export interface OpenSkyMission {
@@ -496,15 +498,7 @@ export const useOpenSky = () => {
         headers: { 'Authorization': `Bearer ${authStore.token}` }
       })
       if (!response.ok) throw new Error('Download failed')
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `mesh_${missionId.slice(0, 8)}.glb`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      await saveFile(await response.blob(), `mesh_${missionId.slice(0, 8)}.glb`)
     } catch (error) {
       console.error('Failed to download mesh:', error)
       throw error

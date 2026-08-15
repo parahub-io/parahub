@@ -11,15 +11,19 @@ from typing import List, Optional, Dict
 from ninja import Router
 from ninja.errors import HttpError
 from django.conf import settings
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from pydantic import BaseModel, Field
 
 from parahub.auth import ProfileAuth, OptionalProfileAuth
+from parahub.capabilities import require_platform_capability
 from parahub.ratelimit import ratelimit
 from geo.models import Territory
 from .models import Poll, PollContext, PollOption, OpinionVote
+from identity.visibility import exclude_test_authors
 from .access import viewer_is_privileged, exclude_demo_polls
+from .services import AuditService
 from . import civic
 
 logger = logging.getLogger(__name__)
@@ -73,6 +77,7 @@ class CivicFeedItemSchema(BaseModel):
     n_display: str = '0'
     has_voted: bool = False
     comments_enabled: bool = False
+    citizen_authored: bool = False  # promoted from a resident's idea, text is machine-translated
     # ECI gauge (EU-scope polls only): support toward a European Citizens' Initiative
     eci_supporters: int = 0
     eci_countries: int = 0
@@ -431,6 +436,7 @@ def civic_feed(request, scope: Optional[str] = None, country: Optional[str] = No
                 n_display=civic._n_display(n),
                 has_voted=p.id in voted_ids,
                 comments_enabled=(territory.level in COMMENTABLE_LEVELS) if territory else False,
+                citizen_authored=bool((p.attributes or {}).get('citizen_authored')),
                 eci_supporters=(civic._n_quantized(n)
                                 if (territory and territory.level == Territory.Level.EU) else 0),
                 eci_countries=eci_countries_by_poll.get(p.id, 0),
@@ -746,8 +752,9 @@ class IdeaRejectRequest(BaseModel):
     note: str = Field(default='', max_length=500)
 
 
-def _idea_out(idea, viewer=None, supported_ids=None) -> dict:
-    return {
+def _idea_out(idea, viewer=None, supported_ids=None,
+              translate_to=None, mt_budget=None) -> dict:
+    out = {
         'id': idea.id,
         'object_type': 'civic_idea',
         'title': idea.title,
@@ -760,18 +767,37 @@ def _idea_out(idea, viewer=None, supported_ids=None) -> dict:
         'author_hna': idea.author.hna,
         'author_display_name': idea.author.display_name or '',
         'support_count': idea.support_count,
-        'threshold': settings.CIVIC_IDEA_SUPPORT_THRESHOLD,
+        'threshold': civic.idea_support_threshold(idea.territory),
         'supported_by_me': bool(supported_ids and idea.id in supported_ids),
         'promoted_poll_id': idea.promoted_poll_id,
         'review_note': idea.review_note,
         'created_at': idea.created_at.isoformat(),
+        # Ideas are pure UGC (the promoted poll gets a staff formulation, MT
+        # never touches ballot text) — any translated content here is machine
+        # output. review_note is not rendered anywhere, so it is not translated.
+        'translated_title': None,
+        'translated_body': None,
+        'is_translated': False,
     }
+    if translate_to and mt_budget is not None:
+        from governance.models import CivicIdea
+        from parahub.services.translation import resolve_mt_fields
+        translations, is_translated = resolve_mt_fields(
+            model=CivicIdea, pk=idea.id, source_lang=idea.language,
+            mt_cache=idea.mt_cache, translate_to=translate_to, mt_budget=mt_budget,
+            fields={'title': idea.title, 'body': idea.body},
+        )
+        out['translated_title'] = translations['title']
+        out['translated_body'] = translations['body']
+        out['is_translated'] = is_translated
+    return out
 
 
 @civic_router.get("/ideas/", auth=OptionalProfileAuth())
 @ratelimit(group='civic:ideas_list', key='ip', rate='60/m')
 def list_ideas(request, scope: Optional[str] = None, country: Optional[str] = None,
-               status: Optional[str] = None, page: int = 1, page_size: int = 20):
+               status: Optional[str] = None, translate_to: Optional[str] = None,
+               page: int = 1, page_size: int = 20):
     """Ideas in the viewer's residency chain (same scoping as the poll feed)."""
     from .models import CivicIdea, CivicIdeaSupport
     profile = getattr(request, 'auth_profile', None)
@@ -793,6 +819,10 @@ def list_ideas(request, scope: Optional[str] = None, country: Optional[str] = No
     qs = (CivicIdea.objects
           .filter(territory_id__in=[t.id for t in chain])
           .select_related('territory', 'author', 'topic'))
+    # Test/bot-authored ideas are invisible to real users. The feed is the
+    # only discovery surface — there is no detail endpoint and ULIDs are not
+    # guessable — so filtering here is complete enforcement.
+    qs = exclude_test_authors(qs, request, field='author')
     if status:
         qs = qs.filter(status=status)
     else:
@@ -801,9 +831,14 @@ def list_ideas(request, scope: Optional[str] = None, country: Optional[str] = No
 
     supported_ids = set()
     if profile and ideas:
+        # Keyed by account, not profile: one human holds up to seven profiles,
+        # and support is one-per-human (see support_idea)
         supported_ids = set(CivicIdeaSupport.objects.filter(
-            profile=profile, idea__in=ideas).values_list('idea_id', flat=True))
-    return [_idea_out(i, profile, supported_ids) for i in ideas]
+            profile__account_id=profile.account_id, idea__in=ideas
+        ).values_list('idea_id', flat=True))
+    from parahub.services.translation import MT_PER_REQUEST_CAP
+    mt_budget = [MT_PER_REQUEST_CAP]
+    return [_idea_out(i, profile, supported_ids, translate_to, mt_budget) for i in ideas]
 
 
 @civic_router.post("/ideas/", auth=ProfileAuth())
@@ -827,9 +862,12 @@ def create_idea(request, data: IdeaCreateRequest):
         if topic is None:
             raise HttpError(404, "Unknown civic topic")
 
+    from geo.utils import detect_content_language
     idea = CivicIdea.objects.create(
         territory=territory, topic=topic,
         title=data.title.strip(), body=data.body.strip(),
+        language=detect_content_language(
+            data.title, data.body, fallback=profile.preferred_language or ''),
         author=profile, support_count=1,
     )
     CivicIdeaSupport.objects.create(idea=idea, profile=profile)  # author supports implicitly
@@ -837,34 +875,50 @@ def create_idea(request, data: IdeaCreateRequest):
 
 
 def _refresh_idea_support(idea) -> None:
+    """Recount supporters and, on reaching the threshold, promote the idea itself.
+
+    Promotion is automatic — no staff formulation step (see governance.civic
+    § Citizen ideas → polls). The row is locked for the recount so two
+    simultaneous supporters cannot mint two polls from one idea.
+    """
     from .models import CivicIdea, CivicIdeaSupport
-    idea.support_count = CivicIdeaSupport.objects.filter(idea=idea).count()
-    update_fields = ['support_count']
-    if (idea.status == CivicIdea.Status.OPEN
-            and idea.support_count >= settings.CIVIC_IDEA_SUPPORT_THRESHOLD):
-        idea.status = CivicIdea.Status.REVIEW
-        update_fields.append('status')
-        try:
-            from notifications.services import emit_notification
-            if idea.author.account:
-                emit_notification(
-                    idea.author.account,
-                    type='civic_idea_threshold',
-                    title=idea.title[:120],
-                    body='Your idea reached the support threshold and entered formulation review.',
-                    url='/governance/ideas',
-                    data={'idea_id': idea.id},
-                )
-        except Exception:
-            pass
-    idea.save(update_fields=update_fields)
+
+    with transaction.atomic():
+        # No select_related here: a nullable FK joins LEFT OUTER, which Postgres
+        # refuses to lock (related rows load lazily below instead)
+        locked = CivicIdea.objects.select_for_update().get(id=idea.id)
+        locked.support_count = CivicIdeaSupport.objects.filter(idea=locked).count()
+        locked.save(update_fields=['support_count'])
+
+        promoted = None
+        if (locked.status == CivicIdea.Status.OPEN
+                and locked.support_count >= civic.idea_support_threshold(locked.territory)):
+            promoted = civic.promote_idea(locked)
+            # Same transaction as the poll: a live poll with an unlinked idea
+            # would leave the pipeline in a state nothing repairs
+            link_promoted_idea(locked.id, promoted, reviewer=None)
+
+    # Mirror the outcome onto the caller's instance — it is what the API returns
+    idea.support_count = locked.support_count
+    if promoted is not None:
+        idea.status = CivicIdea.Status.PROMOTED
+        idea.promoted_poll_id = promoted.id
 
 
 @civic_router.post("/ideas/{idea_id}/support/", auth=ProfileAuth())
 @ratelimit(group='civic:idea_support', key='user', rate='30/m')
-def support_idea(request, idea_id: str):
-    """Supporter lists are never public (Art. 9-adjacent) — counts only."""
+def support_idea(request, idea_id: str, translate_to: Optional[str] = None):
+    """Supporter lists are never public (Art. 9-adjacent) — counts only.
+
+    One support per **account**: an account carries a primary profile plus up to
+    six pseudonymous ones, so counting profiles would let two humans reach any
+    local threshold on their own — and the threshold now mints a live poll.
+
+    Accepts translate_to because the frontend replaces the list row with this
+    response — without it a support click would strip the card's translation.
+    """
     from .models import CivicIdea, CivicIdeaSupport
+    from parahub.services.translation import MT_PER_REQUEST_CAP
     profile = request.auth_profile
     if not profile.civic_opinion_consent:
         raise HttpError(422, "Civic consent required")
@@ -874,20 +928,25 @@ def support_idea(request, idea_id: str):
     chain = civic.residency_chain(profile)
     if idea.territory_id not in [t.id for t in chain]:
         raise HttpError(403, "Idea territory is outside your residency scope")
-    CivicIdeaSupport.objects.get_or_create(idea=idea, profile=profile)
+    if not CivicIdeaSupport.objects.filter(
+            idea=idea, profile__account_id=profile.account_id).exists():
+        CivicIdeaSupport.objects.get_or_create(idea=idea, profile=profile)
     _refresh_idea_support(idea)
-    return _idea_out(idea, profile, {idea.id})
+    return _idea_out(idea, profile, {idea.id}, translate_to, [MT_PER_REQUEST_CAP])
 
 
 @civic_router.post("/ideas/{idea_id}/unsupport/", auth=ProfileAuth())
 @ratelimit(group='civic:idea_support', key='user', rate='30/m')
-def unsupport_idea(request, idea_id: str):
+def unsupport_idea(request, idea_id: str, translate_to: Optional[str] = None):
     from .models import CivicIdea, CivicIdeaSupport
+    from parahub.services.translation import MT_PER_REQUEST_CAP
     profile = request.auth_profile
     idea = get_object_or_404(CivicIdea.objects.select_related('territory', 'author', 'topic'), id=idea_id)
-    CivicIdeaSupport.objects.filter(idea=idea, profile=profile).delete()
+    # Account-scoped, mirroring support_idea — otherwise a support cast from a
+    # sibling profile would be untoggleable from this one
+    CivicIdeaSupport.objects.filter(idea=idea, profile__account_id=profile.account_id).delete()
     _refresh_idea_support(idea)
-    return _idea_out(idea, profile, set())
+    return _idea_out(idea, profile, set(), translate_to, [MT_PER_REQUEST_CAP])
 
 
 @civic_router.post("/ideas/{idea_id}/report/", auth=ProfileAuth())
@@ -902,16 +961,33 @@ def report_idea(request, idea_id: str):
 @civic_router.post("/ideas/{idea_id}/reject/", auth=ProfileAuth())
 @ratelimit(group='civic:idea_reject', key='user', rate='30/m')
 def reject_idea(request, idea_id: str, data: IdeaRejectRequest):
-    """Staff formulation review: reject with a note (visible to the author)."""
-    from .models import CivicIdea
+    """Takedown with a note (visible to the author). Needs `moderation.review`.
+
+    Post-hoc moderation, not a veto: ideas reach the ballot on their supporters'
+    strength alone, so this is how spam and abuse leave — and it takes the
+    already-promoted poll down with the idea.
+    """
+    from .models import CivicIdea, Poll
     profile = request.auth_profile
-    if not profile.account.is_staff:
-        raise HttpError(403, "Staff only")
-    idea = get_object_or_404(CivicIdea.objects.select_related('territory', 'author', 'topic'), id=idea_id)
+    require_platform_capability(request, 'moderation.review')
+    idea = get_object_or_404(
+        CivicIdea.objects.select_related('territory', 'author', 'topic', 'promoted_poll'),
+        id=idea_id)
     idea.status = CivicIdea.Status.REJECTED
     idea.review_note = data.note
     idea.reviewed_by = profile
     idea.save(update_fields=['status', 'review_note', 'reviewed_by'])
+
+    poll = idea.promoted_poll
+    if poll and poll.status in (Poll.Status.DRAFT, Poll.Status.ACTIVE):
+        poll.status = Poll.Status.CANCELLED
+        poll.save(update_fields=['status'])
+        AuditService.create_log_entry(
+            poll=poll, action='poll_cancelled', actor=profile,
+            payload={'poll_id': poll.id, 'reason': data.note or 'idea rejected by staff',
+                     'source_idea': idea.id},
+            pgp_signature='SYSTEM_GENERATED',
+        )
     try:
         from notifications.services import emit_notification
         if idea.author.account:

@@ -45,8 +45,6 @@
     "data_source": "Fuente de datos",
     "schedule_date": "Fecha del horario",
     "view_route": "Ver línea",
-    "rideshare": "Viajes compartidos",
-    "rideshare_desc": "Encuentra u ofrece viajes compartidos en paradas",
     "cities": {
       "all_countries": "Todos",
       "stops": "{n} paradas",
@@ -77,7 +75,11 @@
       "stops": "Paradas",
       "trips": "Viajes",
       "imported": "Importado",
-      "show_error": "Ver error"
+      "show_error": "Ver error",
+      "license": "Licencia",
+      "license_missing": "El publicador no indica licencia",
+      "realtime": "En vivo",
+      "summary": "Feeds: {feeds} · Operadores: {agencies}"
     },
     "route_types": {
       "0": "Tranvía",
@@ -133,8 +135,27 @@
       "positions_sent": "enviados",
       "confirm_end": "¿Finalizar el turno actual?",
       "shift_ended": "Turno finalizado",
-      "tts_label": "Anuncios de parada"
+      "tts_label": "Anuncios de parada",
+      "scan_tickets": "Validar billetes",
+      "route_ladder": "Esquema de la línea",
+      "your_vehicle": "Su vehículo",
+      "vehicles_on_route": "Vehículos en este sentido",
+      "waiting_ahead": "{n} esperando tu línea en esta parada"
     },
-    "timetable_no_service": "Sin servicio este día"
+    "timetable_no_service": "Sin servicio este día",
+    "waiting": {
+      "title": "Esperando aquí",
+      "hint": "Toca la línea que esperas: otros pasajeros y quien conduce lo ven. Se borra solo cuando llega tu autobús.",
+      "im_here": "Estoy esperando esta línea aquí",
+      "im_here_cancel": "Ya no estoy esperando aquí",
+      "count": "{n} esperando esta línea aquí",
+      "dimmed_hint": "Marcado antes, pantalla apagada desde entonces",
+      "error_throttled": "Demasiado rápido: espera un momento antes de mover tu marca",
+      "error_ip_cap": "Demasiadas marcas anónimas desde esta conexión",
+      "error_failed": "No se pudo actualizar tu marca de espera",
+      "stranded_title": "No viene ningún autobús",
+      "stranded_desc": "Llevas {min} min esperando y no hay nada en circulación en tu línea.",
+      "stranded_company": "Otras personas atrapadas aquí: {n}."
+    }
   }
 }

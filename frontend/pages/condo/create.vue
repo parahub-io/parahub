@@ -12,7 +12,7 @@
         @click="idx < step ? step = idx : null"
         :class="[
           'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-          idx === step ? 'bg-primary text-neutral-900' : idx < step ? 'bg-primary/20 text-primary cursor-pointer' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400'
+          idx === step ? 'bg-primary text-neutral-900' : idx < step ? 'bg-primary/20 text-neutral-900 dark:text-neutral-100 cursor-pointer' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400'
         ]"
       >
         {{ idx + 1 }}. {{ label }}
@@ -187,11 +187,6 @@ import { Loader2 } from 'lucide-vue-next'
 definePageMeta({
   middleware: 'auth',
 })
-
-// Track onboarding: user has visited condo section
-if (import.meta.client) {
-  localStorage.setItem('onboarding:condo', '1')
-}
 
 const { t } = useI18n()
 const localePath = useLocalePath()

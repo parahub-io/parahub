@@ -1,61 +1,64 @@
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" @click.self="$emit('close')">
-    <div class="bg-white dark:bg-neutral-800 rounded-xl shadow-2xl w-full max-w-lg p-6">
-      <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
-        {{ $t('mesh.set_location') }}
-      </h3>
-      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-2">
-        {{ hint || $t('mesh.click_map') }}
-      </p>
+  <Teleport to="body">
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" @click.self="$emit('close')">
+      <div class="bg-white dark:bg-neutral-800 rounded-xl shadow-2xl w-full max-w-lg p-6">
+        <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
+          {{ $t('mesh.set_location') }}
+        </h3>
+        <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-2">
+          {{ hint || $t('mesh.click_map') }}
+        </p>
 
-      <!-- Quick fly-to properties -->
-      <div v-if="propertiesWithCoords.length" class="flex flex-wrap gap-1.5 mb-3">
-        <button
-          v-for="prop in propertiesWithCoords" :key="prop.id"
-          type="button"
-          @click="flyToProperty(prop)"
-          class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary transition-colors"
-        >
-          <Home class="w-3 h-3" />
-          {{ prop.name }}
-        </button>
-      </div>
+        <!-- Quick fly-to properties -->
+        <div v-if="propertiesWithCoords.length" class="flex flex-wrap gap-1.5 mb-3">
+          <button
+            v-for="prop in propertiesWithCoords" :key="prop.id"
+            type="button"
+            @click="flyToProperty(prop)"
+            class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary transition-colors"
+          >
+            <Home class="w-3 h-3" />
+            {{ prop.name }}
+          </button>
+        </div>
 
-      <!-- Map container -->
-      <div ref="mapContainer" class="w-full h-64 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-600 mb-4" />
+        <!-- Map container -->
+        <div ref="mapContainer" class="w-full h-64 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-600 mb-4" />
 
-      <!-- Coordinates display -->
-      <div v-if="selectedLat !== null" class="mb-4 text-sm text-neutral-700 dark:text-neutral-300 font-mono">
-        {{ selectedLat.toFixed(6) }}, {{ selectedLng!.toFixed(6) }}
-      </div>
-      <div v-else class="mb-4 text-sm text-neutral-400">
-        {{ $t('mesh.no_location') }}
-      </div>
+        <!-- Coordinates display -->
+        <div v-if="selectedLat !== null" class="mb-4 text-sm text-neutral-700 dark:text-neutral-300 font-mono">
+          {{ selectedLat.toFixed(6) }}, {{ selectedLng!.toFixed(6) }}
+        </div>
+        <div v-else class="mb-4 text-sm text-neutral-400">
+          {{ $t('mesh.no_location') }}
+        </div>
 
-      <!-- Actions -->
-      <div class="flex justify-end gap-3">
-        <button
-          @click="$emit('close')"
-          class="px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg"
-          :disabled="saving"
-        >
-          {{ $t('mesh.cancel') }}
-        </button>
-        <button
-          @click="handleSave"
-          :disabled="saving || selectedLat === null"
-          class="btn-secondary btn-sm flex items-center gap-2"
-        >
-          <Loader2 v-if="saving" class="w-4 h-4 animate-spin" />
-          {{ $t('mesh.save') }}
-        </button>
+        <!-- Actions -->
+        <div class="flex justify-end gap-3">
+          <button
+            @click="$emit('close')"
+            class="px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg"
+            :disabled="saving"
+          >
+            {{ $t('mesh.cancel') }}
+          </button>
+          <button
+            @click="handleSave"
+            :disabled="saving || selectedLat === null"
+            class="btn-secondary btn-sm flex items-center gap-2"
+          >
+            <Loader2 v-if="saving" class="w-4 h-4 animate-spin" />
+            {{ $t('mesh.save') }}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { Loader2, Home } from 'lucide-vue-next'
+import { createDeviceHexElement } from '~/utils/pickerMarker'
 
 interface Props {
   // Default persistence targets an IoTDevice via the store; pass `saveFn` to
@@ -65,6 +68,10 @@ interface Props {
   initialLng?: number
   saveFn?: (lat: number, lng: number) => Promise<void>
   hint?: string
+  /** Entity marker per PK/design-system § Minimap rule 5 — callers pass the
+   *  fill/glyph the device wears on /map; fallback = unknown-gray hex. */
+  markerFill?: string
+  markerGlyph?: string[] | 'wifi' | null
 }
 
 interface Emits {
@@ -91,13 +98,18 @@ let map: any = null
 let marker: any = null
 let maplibregl: any = null
 
+const deviceMarker = () => new maplibregl.Marker({
+  element: createDeviceHexElement(props.markerFill || '#a3a3a3', props.markerGlyph ?? null),
+  anchor: 'center',
+})
+
 const setPoint = (lat: number, lng: number) => {
   selectedLat.value = lat
   selectedLng.value = lng
   if (marker) {
     marker.setLngLat([lng, lat])
   } else if (map && maplibregl) {
-    marker = new maplibregl.Marker({ color: '#ef4444' })
+    marker = deviceMarker()
       .setLngLat([lng, lat])
       .addTo(map)
   }
@@ -144,7 +156,7 @@ onMounted(async () => {
 
   // Place initial marker if coordinates exist
   if (props.initialLat && props.initialLng) {
-    marker = new maplibregl.Marker({ color: '#ef4444' })
+    marker = deviceMarker()
       .setLngLat([props.initialLng, props.initialLat])
       .addTo(map)
   }

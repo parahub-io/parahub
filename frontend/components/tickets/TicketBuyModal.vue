@@ -3,7 +3,7 @@
     <Transition name="fade">
       <div
         v-if="ticketType"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
         @click.self="canClose && $emit('close')"
       >
         <div class="bg-white dark:bg-neutral-900 rounded-2xl max-w-sm w-full overflow-hidden">
@@ -128,6 +128,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Zap, Check, AlertCircle, QrCode, ShieldCheck, WalletMinimal } from 'lucide-vue-next'
+import { annotateTx } from '~/composables/useTxAnnotations'
 
 interface TicketType {
   id: string
@@ -230,6 +231,7 @@ async function pay() {
       const payment = await executeSend(prep)
       paymentHash = payment.details?.htlcDetails?.paymentHash || payment.id || ''
       preimage = payment.details?.htlcDetails?.preimage || ''
+      if (payment.id) annotateTx(payment.id, { kind: 'ticket', name: props.ticketType.name })
     } else if (parsed.type === 'lnurlPay' || parsed.type === 'lightningAddress') {
       // LN address: prepareLnurlPay + executeLnurlPay
       const payReq = parsed.type === 'lnurlPay' ? parsed : (parsed as any).payRequest
@@ -237,6 +239,7 @@ async function pay() {
       const payment = await executeLnurlPay(prep)
       paymentHash = payment.details?.htlcDetails?.paymentHash || payment.id || ''
       preimage = payment.details?.htlcDetails?.preimage || ''
+      if (payment.id) annotateTx(payment.id, { kind: 'ticket', name: props.ticketType.name })
     } else {
       throw new Error('Unsupported address type')
     }

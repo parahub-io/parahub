@@ -2,6 +2,39 @@
   <Modal v-model="visible" :title="$t('wallet.send')" size="lg">
     <!-- Step 1: Input -->
     <div v-if="!sendPrepared && !sendSuccess" class="space-y-4">
+      <!-- Partners: the people you deal with, above the addresses you happened to
+           use last. Only the top few — the long tail is reached through their
+           profile, which is where paying someone properly starts. -->
+      <div v-if="partners.length > 0 && !sendInput" class="space-y-1.5">
+        <p class="text-xs font-medium text-neutral-500 dark:text-neutral-400">{{ $t('wallet.partners') }}</p>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="partner in partners"
+            :key="partner.id"
+            type="button"
+            class="flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-700 text-sm transition-colors"
+            :class="partnerAddress(partner)
+              ? 'hover:bg-primary-100 dark:hover:bg-primary-900/40'
+              : 'opacity-50 cursor-not-allowed'"
+            :disabled="!partnerAddress(partner)"
+            :title="partnerAddress(partner) || $t('wallet.partner_no_address')"
+            @click="selectPartner(partner)"
+          >
+            <img
+              v-if="partner.avatar_url"
+              :src="partner.avatar_url"
+              :alt="partnerLabel(partner)"
+              class="w-6 h-6 rounded-full object-cover"
+            />
+            <span
+              v-else
+              class="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-[10px] font-bold text-black"
+            >{{ partnerInitials(partner) }}</span>
+            <span class="text-xs truncate max-w-[160px]">{{ partnerLabel(partner) }}</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Recent contacts -->
       <div v-if="recentContacts.length > 0 && !sendInput" class="space-y-1.5">
         <p class="text-xs font-medium text-neutral-500 dark:text-neutral-400">{{ $t('wallet.recentRecipients') }}</p>
@@ -11,10 +44,28 @@
             :key="contact.address"
             type="button"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-700 hover:bg-primary-100 dark:hover:bg-primary-900/40 text-sm transition-colors"
+            :title="contact.address"
             @click="selectContact(contact)"
           >
-            <Clock class="w-3 h-3 text-neutral-400" />
-            <span class="font-mono text-xs truncate max-w-[160px]">{{ contact.label || contact.address }}</span>
+            <!-- A recent address that belongs to a partner is shown as that person:
+                 the raw string stays in the tooltip -->
+            <template v-if="partnerForAddress(contact.address)">
+              <img
+                v-if="partnerForAddress(contact.address)!.avatar_url"
+                :src="partnerForAddress(contact.address)!.avatar_url!"
+                :alt="partnerLabel(partnerForAddress(contact.address)!)"
+                class="w-5 h-5 rounded-full object-cover"
+              />
+              <span
+                v-else
+                class="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-[9px] font-bold text-black"
+              >{{ partnerInitials(partnerForAddress(contact.address)!) }}</span>
+              <span class="text-xs truncate max-w-[160px]">{{ partnerLabel(partnerForAddress(contact.address)!) }}</span>
+            </template>
+            <template v-else>
+              <Clock class="w-3 h-3 text-neutral-400" />
+              <span class="font-mono text-xs truncate max-w-[160px]">{{ contact.label || contact.address }}</span>
+            </template>
           </button>
         </div>
       </div>
@@ -55,45 +106,12 @@
       </div>
 
       <!-- Amount (if needed) -->
-      <div v-if="sendNeedsAmount">
-        <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            {{ $t('wallet.amount') }} ({{ amountInFiat ? userCurrency : 'sats' }})
-          </label>
-          <button
-            v-if="userCurrency !== 'BTC'"
-            type="button"
-            class="text-xs px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 text-neutral-600 dark:text-neutral-300 transition-colors"
-            @click="toggleAmountMode"
-          >
-            {{ amountInFiat ? 'sats' : userCurrency }}
-          </button>
-        </div>
-        <div class="relative">
-          <input
-            v-model="amountDisplay"
-            type="text"
-            inputmode="decimal"
-            placeholder="0"
-            class="w-full px-4 py-3 pr-16 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-mono"
-          />
-          <button
-            type="button"
-            class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-medium bg-neutral-200 dark:bg-neutral-600 hover:bg-neutral-300 dark:hover:bg-neutral-500 text-neutral-700 dark:text-neutral-200 rounded transition-colors"
-            @click="setMaxAmount"
-          >
-            MAX
-          </button>
-        </div>
-        <p class="mt-1 text-sm text-neutral-500 font-mono">
-          <template v-if="amountInFiat">
-            ≈ {{ sendAmountSats > 0 ? `${sendAmountSats.toLocaleString()} sats` : '0 sats' }}
-          </template>
-          <template v-else-if="userCurrency !== 'BTC'">
-            ≈ {{ formatFiat((sendAmountSats > 0 ? satsToFiat(sendAmountSats) : null) ?? 0) }}
-          </template>
-        </p>
-      </div>
+      <WalletAmountInput
+        v-if="sendNeedsAmount"
+        v-model:sats="sendAmountSats"
+        :max-sats="balanceSats"
+        @submit="handlePrepareSend"
+      />
 
       <UiButton
         variant="primary"
@@ -163,7 +181,7 @@
 
   <!-- QR Scanner fullscreen overlay -->
   <Teleport to="body">
-    <div v-if="scannerActive" class="fixed inset-0 z-50 bg-black flex flex-col">
+    <div v-if="scannerActive" class="fixed inset-0 z-[60] bg-black flex flex-col">
       <div class="flex items-center justify-between p-4">
         <h2 class="text-white font-medium">{{ $t('wallet.scanQr') }}</h2>
         <button
@@ -192,6 +210,7 @@ import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import { ScanLine, X, AlertTriangle, Clock } from 'lucide-vue-next'
 import { useLightning } from '~/composables/useLightning'
 import { useBtcPrice } from '~/composables/useBtcPrice'
+import type { QuickPartner } from '~/composables/usePartnersQuickList'
 
 import type {
   PrepareSendPaymentResponse,
@@ -225,7 +244,7 @@ const {
   executeLnurlPay,
 } = useLightning()
 
-const { userCurrency, satsToFiat, fiatToSats, formatFiat } = useBtcPrice()
+const { userCurrency, satsToFiat, formatFiat } = useBtcPrice()
 
 const donation = useDonation()
 
@@ -264,45 +283,41 @@ const selectContact = (contact: RecentContact) => {
   sendInput.value = contact.address
 }
 
-// ===== FIAT/SATS AMOUNT TOGGLE =====
-const amountInFiat = ref(false)
-const amountDisplay = ref('')
+// ===== PARTNERS =====
+// Same cached list the site-menu strip uses. A partner without a payment
+// address stays in the row, greyed out with the reason in its tooltip —
+// silently dropping them reads as "my partner is missing".
+const { items: partners, fetch: fetchPartners } = usePartnersQuickList()
 
-const toggleAmountMode = () => {
-  const currentSats = sendAmountSats
-  amountInFiat.value = !amountInFiat.value
-  if (amountInFiat.value && currentSats > 0) {
-    // Convert current sats to fiat display
-    const fiat = satsToFiat(currentSats)
-    amountDisplay.value = fiat !== null ? fiat.toFixed(2) : ''
-  } else if (!amountInFiat.value && currentSats > 0) {
-    amountDisplay.value = String(currentSats)
-  } else {
-    amountDisplay.value = ''
-  }
+const partnerLabel = (partner: QuickPartner) => partner.display_name || partner.hna
+const partnerInitials = (partner: QuickPartner) => {
+  const name = partnerLabel(partner)
+  const parts = name.split(' ')
+  if (parts.length >= 2) return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
+  return name.substring(0, 2).toUpperCase()
 }
 
-const sendAmountSats = computed(() => {
-  const raw = amountDisplay.value.replace(',', '.')
-  const num = parseFloat(raw)
-  if (isNaN(num) || num <= 0) return 0
-  if (amountInFiat.value) {
-    return fiatToSats(num) ?? 0
+// Spark first — the same preference TicketBuyModal applies (direct P2P, no LN hop)
+const partnerAddress = (partner: QuickPartner) => partner.spark_address || partner.ln_address || ''
+
+const selectPartner = (partner: QuickPartner) => {
+  const address = partnerAddress(partner)
+  if (address) sendInput.value = address
+}
+
+// Address → partner, so a recent chip can name the person behind the string
+const partnersByAddress = computed(() => {
+  const map = new Map<string, QuickPartner>()
+  for (const partner of partners.value) {
+    if (partner.spark_address) map.set(partner.spark_address.toLowerCase(), partner)
+    if (partner.ln_address) map.set(partner.ln_address.toLowerCase(), partner)
   }
-  return Math.floor(num)
+  return map
 })
+const partnerForAddress = (address: string) => partnersByAddress.value.get(address.trim().toLowerCase()) || null
 
-// Sync sendAmount for the prepare flow (always sats)
-const sendAmount = computed(() => sendAmountSats.value > 0 ? String(sendAmountSats.value) : '')
-
-const setMaxAmount = () => {
-  if (amountInFiat.value) {
-    const fiat = satsToFiat(balanceSats.value)
-    amountDisplay.value = fiat !== null ? fiat.toFixed(2) : String(balanceSats.value)
-  } else {
-    amountDisplay.value = String(balanceSats.value)
-  }
-}
+// Amount entered via WalletAmountInput (always sats)
+const sendAmountSats = ref(0)
 
 // ===== SEND STATE =====
 const sendInputRaw = ref('')
@@ -424,38 +439,11 @@ const handleExecuteSend = async () => {
     saveContact(normalizedSendInput.value)
     recentContacts.value = loadContacts()
 
-    // Execute donation if level > 0 and association has an address
-    const donationSats = donation.calcDonationSats(sourceAmountSats)
-    if (donationSats > 0 && donation.hasAssociationAddress.value) {
-      try {
-        const addr = donation.associationSparkAddress.value || donation.associationLnAddress.value
-        const prep = await prepareSend(addr, BigInt(donationSats))
-        const result = await executeSend(prep)
-        await donation.recordDonation({
-          source: 'WALLET_SEND',
-          sourceAmountSats: sourceAmountSats,
-          donationAmountSats: donationSats,
-          supportLevelAtTime: donation.supportLevel.value,
-          lnPaymentHash: result.id || '',
-          status: 'COMPLETED',
-        })
-      } catch {
-        await donation.recordDonation({
-          source: 'WALLET_SEND',
-          sourceAmountSats: sourceAmountSats,
-          donationAmountSats: donationSats,
-          supportLevelAtTime: donation.supportLevel.value,
-          status: 'FAILED',
-        })
-      }
-    } else {
-      await donation.recordDonation({
-        source: 'WALLET_SEND',
-        donationAmountSats: 0,
-        supportLevelAtTime: donation.supportLevel.value,
-        status: 'SKIPPED',
-      })
-    }
+    // Association donation rides along (records SKIPPED at 0%)
+    await donation.executeDonation({
+      source: 'WALLET_SEND',
+      sourceAmountSats,
+    })
 
     sendSuccess.value = true
     emit('success')
@@ -482,8 +470,7 @@ const cancelSend = () => {
 const resetAll = () => {
   cancelSend()
   sendInputRaw.value = ''
-  amountDisplay.value = ''
-  amountInFiat.value = false
+  sendAmountSats.value = 0
   sendNeedsAmount.value = false
   sendParseInfo.value = ''
   sendError.value = ''
@@ -501,9 +488,10 @@ const mapSendError = (e: any): string => {
   return msg
 }
 
-// Reset on close
+// Reset on close; partners load with the open (cached for 60s across opens)
 watch(visible, (isOpen) => {
-  if (!isOpen) resetAll()
+  if (isOpen) fetchPartners()
+  else resetAll()
 })
 
 // ===== QR SCANNER =====
@@ -515,13 +503,24 @@ let qrScanner: any = null
 const openScanner = async () => {
   scannerError.value = ''
   try {
-    const QrScanner = (await import('qr-scanner')).default
-    const hasCamera = await QrScanner.hasCamera()
-    if (!hasCamera) {
+    // qr-scanner swallows getUserMedia DOMExceptions and rethrows a bare
+    // "Camera not found." string, so probe the camera directly to learn the
+    // real failure reason (and to trigger the native permission dialog).
+    const probe = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    probe.getTracks().forEach((track) => track.stop())
+  } catch (e: any) {
+    if (e?.name === 'NotAllowedError' || e?.name === 'SecurityError') {
+      scannerError.value = t('wallet.cameraPermissionDenied')
+    } else if (e?.name === 'NotFoundError' || e?.name === 'OverconstrainedError') {
       scannerError.value = t('wallet.noCameraAvailable')
-      scannerActive.value = true
-      return
+    } else {
+      scannerError.value = t('wallet.scannerUnavailable')
     }
+    scannerActive.value = true
+    return
+  }
+  try {
+    const QrScanner = (await import('qr-scanner')).default
     scannerActive.value = true
     await nextTick()
     if (!scannerVideo.value) return
@@ -538,13 +537,8 @@ const openScanner = async () => {
       }
     )
     await qrScanner.start()
-  } catch (e: any) {
-    const msg = e?.message || e?.toString() || ''
-    if (msg.includes('permission') || msg.includes('Permission') || msg.includes('NotAllowed')) {
-      scannerError.value = t('wallet.cameraPermissionDenied')
-    } else {
-      scannerError.value = t('wallet.scannerUnavailable')
-    }
+  } catch {
+    scannerError.value = t('wallet.scannerUnavailable')
     if (!scannerActive.value) scannerActive.value = true
   }
 }

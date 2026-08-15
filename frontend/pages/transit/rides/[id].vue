@@ -198,7 +198,7 @@
                   :key="star"
                   @click="reviewForm.rating = star"
                   class="text-2xl transition-colors"
-                  :class="star <= reviewForm.rating ? 'text-amber-400' : 'text-neutral-300 dark:text-neutral-600'"
+                  :class="star <= reviewForm.rating ? 'star-on' : 'star-off'"
                 >
                   &#9733;
                 </button>

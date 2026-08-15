@@ -1,0 +1,96 @@
+{
+  "version": "v0.9.31",
+  "date": "2026-07-10",
+  "locales": {
+    "en": {
+      "title": "Watch your bus arrive on time",
+      "summary": "Arrival predictions got a serious accuracy pass, live vehicles now glide across the map, and the aerial-imagery service learned to survive outages.",
+      "highlights": [
+        { "icon": "clock", "title": "More accurate arrival times", "body": "Predictions are corrected as a vehicle moves through its street segment and are validated against real observed arrivals." },
+        { "icon": "bus", "title": "Live vehicles on the map", "body": "Vehicles move smoothly with animated trails, and a tap reveals details about the exact vehicle serving your route." },
+        { "icon": "plane", "title": "Aerial imagery, always available", "body": "Drone imagery and 3D models are now served from a local mirror, so they stay online even when the processing server is down. The 3D viewer opens upright with a gentle demo rotation." },
+        { "icon": "landmark", "title": "Polls reach the European level", "body": "Civic polls gain an EU scope, including a gauge for European Citizens' Initiatives, with curated questions in six languages." }
+      ],
+      "notes": [
+        "Stop names are synthesized for voice announcements where transit feeds lack them.",
+        "The community network's peering terms are published as a dedicated page.",
+        "Keyboard zoom on the map: Q and E."
+      ]
+    },
+    "ru": {
+      "title": "Ваш автобус приходит вовремя",
+      "summary": "Серьёзный проход по точности прогнозов прибытия, транспорт теперь плавно движется по карте, а сервис аэрофотосъёмки научился переживать сбои.",
+      "highlights": [
+        { "icon": "clock", "title": "Более точное время прибытия", "body": "Прогнозы корректируются по мере движения транспорта внутри участка улицы и сверяются с реально наблюдаемыми прибытиями." },
+        { "icon": "bus", "title": "Живой транспорт на карте", "body": "Машины движутся плавно, с анимированными шлейфами, а по нажатию видно данные конкретной машины на вашем маршруте." },
+        { "icon": "plane", "title": "Аэросъёмка всегда доступна", "body": "Снимки с дронов и 3D-модели теперь отдаются с локального зеркала и остаются онлайн, даже когда сервер обработки недоступен. 3D-просмотр открывается ровно, с плавным демо-вращением." },
+        { "icon": "landmark", "title": "Опросы выходят на европейский уровень", "body": "У гражданских опросов появился масштаб ЕС, включая индикатор европейских гражданских инициатив, с выверенными вопросами на шести языках." }
+      ],
+      "notes": [
+        "Названия остановок синтезируются для голосовых объявлений там, где их нет в данных перевозчика.",
+        "Условия пиринга сообщества опубликованы отдельной страницей.",
+        "Зум карты с клавиатуры: Q и E."
+      ]
+    },
+    "pt": {
+      "title": "Veja o seu autocarro chegar a horas",
+      "summary": "As previsões de chegada receberam um sério trabalho de precisão, os veículos ao vivo deslizam agora pelo mapa e o serviço de imagens aéreas aprendeu a sobreviver a falhas.",
+      "highlights": [
+        { "icon": "clock", "title": "Horários de chegada mais precisos", "body": "As previsões são corrigidas à medida que o veículo avança no seu troço e validadas contra chegadas realmente observadas." },
+        { "icon": "bus", "title": "Veículos ao vivo no mapa", "body": "Os veículos movem-se suavemente, com rastos animados, e um toque revela os detalhes do veículo exato que serve a sua linha." },
+        { "icon": "plane", "title": "Imagens aéreas sempre disponíveis", "body": "As imagens de drone e os modelos 3D são agora servidos a partir de um espelho local e continuam online mesmo quando o servidor de processamento está em baixo. O visualizador 3D abre direito, com uma rotação suave de demonstração." },
+        { "icon": "landmark", "title": "Sondagens ao nível europeu", "body": "As sondagens cívicas ganham âmbito na UE, incluindo um indicador para Iniciativas de Cidadania Europeia, com perguntas cuidadas em seis línguas." }
+      ],
+      "notes": [
+        "Os nomes das paragens são sintetizados para anúncios de voz quando faltam nos dados do operador.",
+        "Os termos de peering da rede comunitária estão publicados numa página dedicada.",
+        "Zoom do mapa pelo teclado: Q e E."
+      ]
+    },
+    "es": {
+      "title": "Mira tu autobús llegar a tiempo",
+      "summary": "Las predicciones de llegada recibieron una seria mejora de precisión, los vehículos en vivo ahora se deslizan por el mapa y el servicio de imágenes aéreas aprendió a sobrevivir a las caídas.",
+      "highlights": [
+        { "icon": "clock", "title": "Horas de llegada más precisas", "body": "Las predicciones se corrigen a medida que el vehículo avanza por su tramo y se validan contra llegadas realmente observadas." },
+        { "icon": "bus", "title": "Vehículos en vivo en el mapa", "body": "Los vehículos se mueven con fluidez, con estelas animadas, y un toque muestra los detalles del vehículo exacto que sirve tu línea." },
+        { "icon": "plane", "title": "Imágenes aéreas siempre disponibles", "body": "Las imágenes de dron y los modelos 3D se sirven ahora desde un espejo local y siguen en línea aunque el servidor de procesado esté caído. El visor 3D abre derecho, con una rotación suave de demostración." },
+        { "icon": "landmark", "title": "Las encuestas llegan al nivel europeo", "body": "Las encuestas cívicas ganan ámbito europeo, incluido un indicador de Iniciativas Ciudadanas Europeas, con preguntas cuidadas en seis idiomas." }
+      ],
+      "notes": [
+        "Los nombres de las paradas se sintetizan para los anuncios de voz cuando faltan en los datos del operador.",
+        "Los términos de interconexión de la red comunitaria están publicados en una página dedicada.",
+        "Zoom del mapa con el teclado: Q y E."
+      ]
+    },
+    "fr": {
+      "title": "Votre bus arrive à l'heure, regardez-le",
+      "summary": "Les prévisions d'arrivée ont reçu un vrai travail de précision, les véhicules en direct glissent désormais sur la carte, et le service d'imagerie aérienne a appris à survivre aux pannes.",
+      "highlights": [
+        { "icon": "clock", "title": "Des horaires d'arrivée plus précis", "body": "Les prévisions sont corrigées au fil de la progression du véhicule sur son tronçon et validées contre des arrivées réellement observées." },
+        { "icon": "bus", "title": "Les véhicules en direct sur la carte", "body": "Les véhicules se déplacent en douceur, avec des traînées animées, et un appui révèle les détails du véhicule exact qui dessert votre ligne." },
+        { "icon": "plane", "title": "Imagerie aérienne toujours disponible", "body": "Les images de drone et les modèles 3D sont désormais servis depuis un miroir local et restent en ligne même quand le serveur de traitement est arrêté. La visionneuse 3D s'ouvre droite, avec une rotation de démonstration." },
+        { "icon": "landmark", "title": "Les sondages atteignent le niveau européen", "body": "Les sondages civiques gagnent une portée européenne, y compris une jauge pour les initiatives citoyennes européennes, avec des questions soignées en six langues." }
+      ],
+      "notes": [
+        "Les noms d'arrêts sont synthétisés pour les annonces vocales quand les données de l'opérateur en manquent.",
+        "Les conditions de peering du réseau communautaire sont publiées sur une page dédiée.",
+        "Zoom de la carte au clavier : Q et E."
+      ]
+    },
+    "de": {
+      "title": "Sehen Sie Ihren Bus pünktlich ankommen",
+      "summary": "Die Ankunftsprognosen haben einen gründlichen Genauigkeitsdurchgang erhalten, Fahrzeuge gleiten jetzt live über die Karte, und der Luftbilddienst übersteht Ausfälle.",
+      "highlights": [
+        { "icon": "clock", "title": "Genauere Ankunftszeiten", "body": "Prognosen werden korrigiert, während sich ein Fahrzeug durch seinen Streckenabschnitt bewegt, und gegen tatsächlich beobachtete Ankünfte validiert." },
+        { "icon": "bus", "title": "Live-Fahrzeuge auf der Karte", "body": "Fahrzeuge bewegen sich flüssig mit animierten Schweifen, und ein Tipp zeigt die Details genau des Fahrzeugs, das Ihre Linie bedient." },
+        { "icon": "plane", "title": "Luftbilder immer verfügbar", "body": "Drohnenbilder und 3D-Modelle kommen jetzt von einem lokalen Spiegel und bleiben online, selbst wenn der Verarbeitungsserver ausfällt. Der 3D-Viewer öffnet aufrecht, mit sanfter Demo-Rotation." },
+        { "icon": "landmark", "title": "Umfragen auf europäischer Ebene", "body": "Bürgerumfragen erhalten eine EU-Ebene, einschließlich einer Anzeige für Europäische Bürgerinitiativen, mit kuratierten Fragen in sechs Sprachen." }
+      ],
+      "notes": [
+        "Haltestellennamen werden für Sprachansagen synthetisiert, wo sie in den Betreiberdaten fehlen.",
+        "Die Peering-Bedingungen des Gemeinschaftsnetzes sind auf einer eigenen Seite veröffentlicht.",
+        "Karten-Zoom über die Tastatur: Q und E."
+      ]
+    }
+  }
+}

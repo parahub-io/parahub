@@ -5,7 +5,9 @@
        Sibling of <header> — its backdrop-filter creates a containing block, inset-0 inside would only cover the bar.
        Click lands outside siteMenuRef → handleClickOutside in useSiteMenu closes the menu. -->
   <div v-if="isSiteMenuOpen" class="fixed inset-0 z-40 bg-black/30 dark:bg-black/50"></div>
-  <header class="fixed left-0 right-0 z-50 bg-neutral-100/95 dark:bg-neutral-800/95 backdrop-blur-sm safe-area-top" :class="isDevMode ? 'top-[2px]' : 'top-0'">
+  <!-- Docks to the thumb on phones (bottom edge), to the top on md+ pointer
+       devices. Insets for both modes live in main.css § Navigation dock insets. -->
+  <header class="nav-dock fixed left-0 right-0 bottom-0 md:bottom-auto z-50 bg-neutral-100/95 dark:bg-neutral-800/95 backdrop-blur-sm nav-bar-safe" :class="isDevMode ? 'md:top-[2px]' : 'md:top-0'">
     <nav class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8" aria-label="Main navigation">
       <div class="flex items-center gap-1 md:gap-2 h-14 sm:h-16 md:h-20">
         <!-- Messages (authenticated) / Login (anonymous) -->
@@ -57,15 +59,15 @@
           @touchstart="handleDragStart"
         />
 
-        <!-- Transit -->
+        <!-- Transit — icon/label/target follow the last-opened section (bus ⇄ rides) -->
         <NavItem
-          to="/transit"
-          :icon="BusFront"
-          :label="$t('nav.transit')"
-          :aria-label="$t('nav.transit')"
+          :to="transitTarget"
+          :icon="transitSection === 'rides' ? Car : BusFront"
+          :label="$t(transitSection === 'rides' ? 'nav.rides' : 'nav.transit')"
+          :aria-label="$t(transitSection === 'rides' ? 'nav.rides' : 'nav.transit')"
           :active="isPathActive('/transit')"
-          :drag-hovered="isDragHovered('/transit', null)"
-          @click="handleButtonClick('/transit', null, $event)"
+          :drag-hovered="isDragHovered(transitTarget, null)"
+          @click="handleButtonClick(transitTarget, null, $event)"
           @touchstart="handleDragStart"
         />
 
@@ -97,12 +99,27 @@
               class="absolute top-1 right-1 min-w-[18px] h-[18px] bg-error text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1"
               :aria-label="$t('nav.notifications') || 'Notifications'"
             >{{ menuBadgeTotal > 99 ? '99+' : menuBadgeTotal }}</span>
+            <!-- Claimable-reward pill: yellow Zap chip = the FeedCard reward language
+                 (money, not a count), opposite corner so it never collides with the
+                 red unread badge (distinct by position AND meaning) -->
+            <!-- Phones: Zap-only 18px coin (a wider amount pill would cover the
+                 hamburger in the 44px dock button; the exact total sits on the
+                 ads tile one tap away). sm+: full amount pill. -->
+            <span
+              v-if="adsFeedRewardSats > 0"
+              class="absolute top-1 left-1 flex items-center justify-center gap-0.5 h-[18px] w-[18px] sm:w-auto sm:justify-start sm:px-1.5 rounded-full bg-primary text-neutral-900 text-[10px] font-bold tabular-nums ring-2 ring-neutral-100 dark:ring-neutral-800"
+              :class="{ 'reward-ping': adsPing }"
+              :aria-label="$t('nav.ads') || 'Ads'"
+            ><Zap class="w-2.5 h-2.5 fill-current shrink-0" /><span class="hidden sm:inline">{{ adsRewardLabel }}</span></span>
           </button>
 
-          <!-- Site Menu Dropdown -->
+          <!-- Site Menu panel — unfolds away from whichever edge the bar is
+               docked to: upward and full-bleed on phones (positioned by CSS,
+               see .site-menu-panel), downward as a card on md+ (positioned by
+               getSiteMenuStyle, which aligns it with the Menu button). -->
           <div
             v-if="isSiteMenuOpen"
-            class="fixed sm:w-[calc(100vw-2rem)] sm:max-w-2xl bg-neutral-100/95 dark:bg-neutral-800/95 backdrop-blur-sm border-b sm:border sm:border-t-0 border-neutral-300 dark:border-neutral-700 sm:rounded-b-2xl z-50 shadow-2xl"
+            class="site-menu-panel fixed bottom-full left-0 right-0 md:bottom-auto md:left-auto md:right-auto md:w-[calc(100vw-2rem)] md:max-w-2xl bg-neutral-100/95 dark:bg-neutral-800/95 backdrop-blur-sm border-t md:border md:border-t-0 border-neutral-300 dark:border-neutral-700 md:rounded-b-2xl z-50 shadow-2xl"
             :style="getSiteMenuStyle()"
             @click.stop
             @pointerenter="handleMenuHoverEnter"
@@ -234,7 +251,8 @@
                       :label="$t('nav.ads') || 'Ads'"
                       size="grid"
                       flush
-                      :badge="adsFeedCount"
+                      :reward-sats="adsFeedRewardSats"
+                      :reward-ping="adsPing"
                       :active="isPathActive('/ads')"
                       :drag-hovered="isDragHovered('/ads', null)"
                       @click="handleSubMenuClick('/ads', $event)"
@@ -371,6 +389,25 @@
                   @touchstart="handleDragStart"
                 />
 
+                <!-- People: the way to any person — partners on open, anyone else
+                     one query away. A pill, not a row of faces: the matrix keeps
+                     the same geometry whatever the partner count is, and it lives
+                     inside the reticle like every other action here. -->
+                <button
+                  v-if="authStore.isAuthenticated"
+                  @click="openPeoplePicker"
+                  @touchstart="handleDragStart"
+                  data-nav-button
+                  data-nav-action="people"
+                  class="flex flex-1 items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
+                  :class="isDragHovered(null, 'people')
+                    ? 'bg-primary text-neutral-900 dark:bg-primary dark:text-neutral-900'
+                    : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40'"
+                >
+                  <UserSearch class="w-3.5 h-3.5" />
+                  <span class="hidden sm:inline">{{ $t('nav.find_person') }}</span>
+                </button>
+
                 <!-- Invite (custom handler; neutral pill like About/Logout) -->
                 <button
                   v-if="authStore.isAuthenticated"
@@ -418,6 +455,24 @@
                   <span class="absolute w-px bg-secondary dark:bg-primary pointer-events-none" :style="{ top: `${bentoCross.bottom}px`, left: `${bentoCross.x - 0.5}px`, height: `${CROSS_TICK}px` }"></span>
                 </template>
               </div>
+
+              <!-- Google Play — the one install path offered here. The direct APK
+                   lives on /about: it stays available for anyone who wants no Google
+                   account, but it is not the route to hand a first-time visitor.
+                   Never shown inside the native shell: a store build pointing at an
+                   install path is a Play policy risk (see PK/capacitor-system.md). -->
+              <a
+                v-if="showStoreRow"
+                href="https://play.google.com/store/apps/details?id=io.parahub.app"
+                target="_blank"
+                rel="noopener"
+                @click="isSiteMenuOpen = false"
+                class="flex w-full items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+              >
+                <Store class="w-3.5 h-3.5" />
+                {{ $t('nav.google_play') }}
+              </a>
+
             </div>
           </div>
         </div>
@@ -425,13 +480,14 @@
     </nav>
   </header>
 
-  <!-- Drag hover label bar (bottom of screen) -->
+  <!-- Drag hover label bar — always on the edge OPPOSITE the bar, i.e. away
+       from the dragging thumb, which would otherwise cover the readout. -->
   <Teleport to="body">
     <div
       v-if="isDragging && dragMoved && dragHoverLabel"
-      class="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none"
+      class="fixed top-0 md:top-auto md:bottom-0 left-0 right-0 z-[100] pointer-events-none"
     >
-      <div class="drag-hover-bar bg-primary pt-3 px-4 flex flex-col items-center justify-center text-neutral-900">
+      <div class="drag-hover-bar bg-primary px-4 flex flex-col items-center justify-center text-neutral-900">
         <span
           v-if="dragHoverIconHtml"
           class="mb-1 [&>svg]:w-8 [&>svg]:h-8 [&>img]:w-8 [&>img]:h-8 [&>img]:rounded-full [&>img]:object-cover"
@@ -459,13 +515,15 @@
   </Teleport>
 
   <InviteModal v-model="showInviteModal" />
+  <UserPickerModal v-model="showPeoplePicker" @select="goToPerson" @invite="inviteFromPicker" />
 
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useAuthStore } from '~/stores/auth'
-import { MessageCircle, ShoppingBag, Map, Megaphone, Menu, Book, Settings, FileText, PackageCheck, FolderGit, Wallet, Shield, LogOut, Lock, Vote, Rocket, Calendar, UserPlus, BusFront, Mail, ExternalLink, Sun, Building, Cpu, Bell } from 'lucide-vue-next'
+import { MessageCircle, ShoppingBag, Map, Megaphone, Menu, Book, Settings, FileText, PackageCheck, FolderGit, Wallet, Shield, LogOut, Lock, Vote, Rocket, Calendar, UserPlus, BusFront, Car, Mail, ExternalLink, Sun, Building, Cpu, Bell, Store, Zap, UserSearch } from 'lucide-vue-next'
+import { isNative, isIosWeb } from '~/utils/capacitor'
 import { useMatrixUnread } from '~/composables/useMatrixUnread'
 import { useNotifications } from '~/composables/useNotifications'
 import { getMenuItemsMap, getSubmenuPathPrefixes, makeDragLabelLookup, makeDragHintLookup, PROJECTS_URL } from '~/components/nav/navMenu'
@@ -498,6 +556,19 @@ function isExactPath(base: string): boolean {
   return currentRouteName() === routeNameFor(base)
 }
 
+// Transit nav button follows the last-opened section (public transit ⇄ shared
+// rides): mode choice is sticky, so the button targets the user's tool
+// directly and swaps icon/label to match. Visiting any transit route updates
+// the memory (immediate: true also covers the SSR render, so direct /rides
+// visits paint the Car icon without a hydration mismatch).
+const { section: transitSection, remember: rememberTransitSection } = useTransitSection()
+const transitTarget = computed(() => (transitSection.value === 'rides' ? '/transit/rides' : '/transit'))
+
+watch(() => currentRouteName(), (name) => {
+  if (name === 'transit-rides' || name.startsWith('transit-rides-')) rememberTransitSection('rides')
+  else if (name === 'transit' || name.startsWith('transit-')) rememberTransitSection('transit')
+}, { immediate: true })
+
 // Dev mode indicator (yellow bar at top). useCookie reads the cookie during
 // SSR too, so on per-request renders the bar and the 2px header offset are in
 // the server HTML (no pop-in). But client-side useCookie reads document.cookie
@@ -515,6 +586,14 @@ const devModeHydrated = useState('dev-mode-bar', () => devModeCookie.value === '
 onMounted(() => { devModeHydrated.value = devModeCookie.value === '1' })
 const isDevMode = computed(() => devModeHydrated.value)
 
+// The store row is only for someone who can act on it: not the native shell
+// (already installed), and not iOS (there is no iOS build — /about states the
+// platform situation instead). Both checks need the client, so resolve after
+// mount and let SSR agree with the first client render; the menu is `v-if`-gated
+// behind a user click, so the row is never mid-flight when this settles.
+const showStoreRow = ref(false)
+onMounted(() => { showStoreRow.value = !isNative() && !isIosWeb() })
+
 // Matrix unread counter (global service)
 const { totalUnreadCount, isFirstSyncCompleted, initialize, cleanup } = useMatrixUnread()
 const unreadCount = totalUnreadCount // Use the ref directly
@@ -531,8 +610,23 @@ const {
 const { unseenCount: mailUnread, refresh: refreshMailUnread, reset: resetMailUnread } = useMailUnread()
 const menuBadgeTotal = computed(() => notifUnread.value + mailUnread.value)
 
-// Ads feed count (available unviewed ads, updated via WS)
-const { feedCount: adsFeedCount, loadFeedCount: loadAdsFeedCount } = useAdsState()
+// Ads claimable-reward total (sats across unviewed ads, updated via WS)
+const { feedRewardSats: adsFeedRewardSats, feedRewardPulse: adsFeedRewardPulse, loadFeedCount: loadAdsFeedCount } = useAdsState()
+const adsRewardLabel = computed(() =>
+  adsFeedRewardSats.value >= 10000 ? `${Math.floor(adsFeedRewardSats.value / 1000)}k` : String(adsFeedRewardSats.value))
+// One-shot ping when a live refetch raises the claimable total (page-load
+// fetches don't bump the pulse — see useAdsState)
+const adsPing = ref(false)
+let adsPingTimer: ReturnType<typeof setTimeout> | null = null
+watch(adsFeedRewardPulse, () => {
+  adsPing.value = false
+  requestAnimationFrame(() => { adsPing.value = true })
+  if (adsPingTimer) clearTimeout(adsPingTimer)
+  adsPingTimer = setTimeout(() => { adsPing.value = false }, 800)
+})
+// Browser-paid ad payouts: pays queued rewards from this account's wallet
+// (WS-triggered + one post-login sweep). No-op unless work is queued.
+const { init: initAdsPayer, cleanup: cleanupAdsPayer } = useAdsPayer()
 const realtimeStore = useRealtimeStore()
 
 // Invite modal: all state, API, QR generation live in <InviteModal>
@@ -541,6 +635,32 @@ function openInviteModal() {
   isSiteMenuOpen.value = false
   showInviteModal.value = true
 }
+
+// People picker: partners when it opens, anyone else one query away. It only
+// ever LEADS to `/@name` — the profile console is the single place where
+// anything is done to a person. Nothing is fetched until it is opened.
+const showPeoplePicker = ref(false)
+function openPeoplePicker() {
+  isSiteMenuOpen.value = false
+  showPeoplePicker.value = true
+}
+// "Nobody found → invite them": the picker's empty state hands the invite back
+// here. One overlay closes before the next opens — <Modal>'s close cleanup
+// (body scroll, Esc trap) is global state, and watcher order across two
+// instances is mount order, not call order, so a same-tick swap is a coin flip.
+async function inviteFromPicker() {
+  showPeoplePicker.value = false
+  await nextTick()
+  showInviteModal.value = true
+}
+
+function goToPerson(person: { hna: string }) {
+  const localName = (person.hna || '').split('@')[0]
+  if (localName) navigateTo(localePath(`/@${localName}`))
+}
+
+// Virtual keyboard tracking — collapses the bottom dock while typing
+useVirtualKeyboard()
 
 // Site menu: hover-open/close, click-outside, ESC
 const siteMenuRef = ref<HTMLElement | null>(null)
@@ -628,7 +748,7 @@ const avatarUrl = computed(() => {
 const profilePath = computed(() => {
   const hna = authStore.activeProfile?.hna || authStore.user?.profile?.hna
   if (!hna) return '/profile'
-  return `/u/${hna.split('@')[0]}`
+  return `/@${hna.split('@')[0]}`
 })
 
 // Handle logout (two-tap confirm)
@@ -692,13 +812,15 @@ const {
     if (action === 'site-menu') toggleSiteMenu()
     else if (action === 'logout') handleLogout()
     else if (action === 'invite') openInviteModal()
+    else if (action === 'people') openPeoplePicker()
   },
   resolveLabel: (path, action) => {
     if (action === 'site-menu') return t('nav.menu')
     if (action === 'logout') return t('profiles.logout')
     if (action === 'invite') return t('nav.invite')
+    if (action === 'people') return t('nav.find_person')
     if (!path) return null
-    if (path.startsWith('/u/')) {
+    if (path.startsWith('/@')) {
       return authStore.activeProfile?.display_name || authStore.user?.profile?.display_name || 'Profile'
     }
     return dragLabels[path] || null
@@ -720,7 +842,7 @@ const dragHoverHint = computed(() => {
   if (action) return t(`nav.hint.${action === 'site-menu' ? 'menu' : action}`)
   const path = currentHoverTarget.value.getAttribute('data-nav-path')
   if (!path) return null
-  if (path.startsWith('/u/')) return dragHints['/u/']
+  if (path.startsWith('/@')) return dragHints['/@']
   return dragHints[path] || null
 })
 
@@ -733,6 +855,13 @@ const dragHoverIconHtml = computed(() => {
   return gfx ? gfx.outerHTML : null
 })
 
+// Returning from the webmail tab (or Custom Tab in the native app): the SSO
+// credentials endpoint drops the server-side count cache on webmail entry, so
+// this refetch gets a fresh IMAP count and the badge clears right away
+const refreshMailOnVisible = () => {
+  if (document.visibilityState === 'visible') refreshMailUnread()
+}
+
 onMounted(() => {
   // Initialize Matrix unread counter if user is authenticated
   if (authStore.isAuthenticated) {
@@ -740,8 +869,10 @@ onMounted(() => {
     loadAdsFeedCount()
     realtimeStore.connect()
     initNotifications()
+    initAdsPayer()
     refreshMailUnread()
   }
+  document.addEventListener('visibilitychange', refreshMailOnVisible)
 })
 
 // Watch for auth changes and initialize when user logs in
@@ -751,10 +882,12 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
     loadAdsFeedCount()
     realtimeStore.connect()
     initNotifications()
+    initAdsPayer()
     refreshMailUnread()
   } else {
     cleanup()
     cleanupNotifications()
+    cleanupAdsPayer()
     resetMailUnread()
   }
 })
@@ -767,11 +900,12 @@ watch(isSiteMenuOpen, (open) => {
 onUnmounted(() => {
   // Don't cleanup Matrix — keep service running for other components
   // cleanup()
+  document.removeEventListener('visibilitychange', refreshMailOnVisible)
 })
 
 // Handle navigation click — re-tapping the section you're already in is
 // per-section: Market toggles its two views, Transit returns to its home,
-// Map & Messages "unpress" to the dashboard.
+// Messages "unpress" to the map (the home screen), Map re-tap is a no-op.
 function handleNavClick(path: string) {
   // Confirm-pulse fires only when the tap actually changes the screen
   const go = (p: string) => {
@@ -790,12 +924,17 @@ function handleNavClick(path: string) {
     // Toggle between the marketplace and the user's own items;
     // from a detail/create subpage, the first tap returns to the list
     go(isExactPath('/market') ? '/market/my' : '/market')
-  } else if (path === '/transit') {
-    // Return to transit home (e.g. from /transit/rides or a stop page)
-    if (!isExactPath('/transit')) go('/transit')
+  } else if (path === '/transit' || path === '/transit/rides') {
+    // Return to the section's home (e.g. from a ride detail or a stop page).
+    // `path` is the remembered target, which route-tracking keeps in sync
+    // with the section the user is currently inside.
+    if (!isExactPath(path)) go(path)
+  } else if (path === '/map') {
+    // The map is home — from a subpage return to it, on the map itself do nothing
+    if (!isExactPath(path)) go(path)
   } else {
-    // Map & Messages: "unpress" back to the dashboard
-    go('/')
+    // Messages: "unpress" back to the map home
+    go('/map')
   }
 }
 
@@ -831,17 +970,15 @@ function handleSubMenuClick(path: string, event: MouseEvent) {
   isSiteMenuOpen.value = false
 }
 
-// Position the dropdown directly below the navbar, right edge aligned with the Menu button
+// Top-dock (md+) only: hang the panel directly below the navbar with its right
+// edge on the Menu button's. The bottom dock needs no JS — `bottom: 100%` in
+// .site-menu-panel puts the panel on the bar's top edge, full-bleed.
 function getSiteMenuStyle(): string {
   if (!process.client) return ''
+  if (window.innerWidth < 768) return ''
 
   const header = document.querySelector('header')
-  const top = header ? header.getBoundingClientRect().bottom - 2 : 56 // overlap 2px to kill sub-pixel gap
-
-  // phones: full-bleed panel fused with the top bar (no side margins)
-  if (window.innerWidth < 640) {
-    return `top: ${top}px; left: 0; right: 0;`
-  }
+  const top = header ? header.getBoundingClientRect().bottom - 2 : 80 // overlap 2px to kill sub-pixel gap
 
   // align the panel's right edge with the Menu button's right edge (siteMenuRef wraps the button)
   let right = 16 // fallback ≈ navbar px-4
@@ -853,9 +990,50 @@ function getSiteMenuStyle(): string {
 </script>
 
 <style scoped>
-/* The strip stays flush to the physical bottom edge (edge-to-edge WebView),
-   but its content must clear the Android gesture/nav bar. */
+/* The strip stays flush to the physical edge (edge-to-edge WebView), but its
+   content must clear whatever system bar overlays that edge — the notch when
+   it rides the top (phones, where the nav bar took the bottom), the Android
+   gesture bar when it rides the bottom (md+). */
 .drag-hover-bar {
-  padding-bottom: calc(0.75rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  padding-top: calc(0.75rem + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  padding-bottom: 0.75rem;
+}
+@media (min-width: 768px) {
+  .drag-hover-bar {
+    padding-top: 0.75rem;
+    padding-bottom: calc(0.75rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+}
+
+/* Phones: the menu unfolds upward off the bar's top edge (`bottom: 100%`),
+   capped to the free band above it so a tall menu scrolls instead of running
+   off screen. The bar's backdrop-filter makes it the containing block for
+   this fixed panel, which is exactly what `bottom: 100%` needs. */
+.site-menu-panel {
+  max-height: calc(100dvh - var(--nav-inset-bottom) - var(--nav-inset-top) - 0.5rem);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Keyboard up: the bottom dock slides off so the field keeps the band
+   (see useVirtualKeyboard + main.css § Navigation dock insets). */
+.nav-dock {
+  transition: transform 0.18s ease-out;
+}
+@media (max-width: 767px) {
+  :root.kb-open .nav-dock {
+    transform: translateY(100%);
+    pointer-events: none;
+  }
+}
+
+/* One-shot pulse for the claimable-reward pill (NavItem carries its own copy) */
+@keyframes reward-ping {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.reward-ping {
+  animation: reward-ping 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 </style>

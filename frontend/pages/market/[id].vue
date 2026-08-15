@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ArrowLeft, MessageCircle, FileSignature, Edit, EyeOff, Eye, Trash2, X, ChevronLeft, ChevronRight, Share2, MapPin, LayoutGrid, Maximize2, ShieldCheck, Clock, Handshake, Send, CalendarClock, Hand, Lock, Play } from 'lucide-vue-next'
+import { ArrowLeft, MessageCircle, FileSignature, Edit, EyeOff, Eye, Trash2, X, ChevronLeft, ChevronRight, Share2, MapPin, LayoutGrid, Maximize2, ShieldCheck, Clock, Handshake, Send, CalendarClock, Hand, Lock, Play, Flag, Languages } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
+const { apiErrorMessage } = useApiError()
 const route = useRoute()
 const router = useRouter()
 const localePath = useLocalePath()
@@ -18,7 +19,8 @@ const itemId = computed(() => route.params.id as string)
 
 // Pricing block helpers. A listing can carry several pricing options — a sale
 // price and/or one or more rent windows (hour / 3hr / half-day / …). Group them
-// by offer kind so each kind keeps its own eyebrow (ПРОДАЖА / АРЕНДА). The price
+// by offer kind so each kind keeps its own eyebrow (Sale / Rent, or the Budget
+// wording when the listing is a want — see `pricingTypeLabel`). The price
 // block is purely informational; the Book CTA lives in the action zone below (see
 // `isRental`), so the rates never carry a button.
 const pricingOptions = computed<any[]>(() => item.value?.pricing_options || [])
@@ -27,6 +29,9 @@ const pricingOptions = computed<any[]>(() => item.value?.pricing_options || [])
 // structured booking flow (/rental/[id]) is the PRIMARY action, so the bottom
 // action zone leads with a full-width Book CTA instead of "make offer".
 const isRental = computed(() => pricingOptions.value.some(o => o.type === 'rent'))
+// Listing direction — drives the offer/want structural accents (rail, empty-slot
+// frame), the same grammar the list card speaks.
+const isOffer = computed(() => item.value?.item_type === 'CREDIT')
 const pricingGroups = computed(() => {
   const order: string[] = []
   const byType = new Map<string, any[]>()
@@ -38,11 +43,62 @@ const pricingGroups = computed(() => {
   return order.map(type => ({ type, options: byType.get(type)! }))
 })
 
-// Fetch item with SSR support
+// Fetch item with SSR support. translate_to asks the backend for the viewer's
+// language (machine translation; no-op when the item is already in it).
 const { data: item, pending: loading, error: fetchError, refresh: refreshItem } = await useAsyncData(
   `item-${itemId.value}`,
-  () => $fetch(`/api/v1/items/${itemId.value}/`)
+  () => $fetch(`/api/v1/items/${itemId.value}/`, { params: { translate_to: locale.value } })
 )
+
+// MT display state: badge + a toggle back to the seller's original text.
+// translated_* fields are null when nothing was translated.
+const showOriginal = ref(false)
+
+// The fetch above is cache-only by design — see `fetchMissingTranslation`.
+// Whatever the cache could not serve arrives later and is merged in here, so
+// every consumer reads one pair of computeds regardless of which call won.
+const lateTranslation = ref<any>(null)
+const translatedTitle = computed(() =>
+  item.value?.translated_title || lateTranslation.value?.translated_title || null)
+const translatedDescription = computed(() =>
+  item.value?.translated_description || lateTranslation.value?.translated_description || null)
+
+const hasTranslation = computed(() =>
+  !!(translatedTitle.value || translatedDescription.value))
+const displayTitle = computed(() =>
+  !showOriginal.value && translatedTitle.value
+    ? translatedTitle.value : item.value?.title)
+const displayDescription = computed(() =>
+  !showOriginal.value && translatedDescription.value
+    ? translatedDescription.value : item.value?.description)
+
+// Fill the gaps the detail response left. `/api/v1/items/{id}/` never calls the
+// translation provider: a listing nobody has viewed in this language yet would
+// cost ~0.6s per field, and that lands squarely inside the awaited page setup —
+// the navigation freezes and the loading bar creeps for seconds. So the page
+// paints the seller's original text immediately and upgrades it here.
+// Client-only on purpose: SSR waiting on this would reintroduce the stall.
+async function fetchMissingTranslation() {
+  const current = item.value
+  if (!current?.language || current.language === locale.value) return
+  const needsTitle = !!current.title && !current.translated_title
+  const needsDescription = !!current.description && !current.translated_description
+  if (!needsTitle && !needsDescription) return
+  try {
+    lateTranslation.value = await $fetch(
+      `/api/v1/items/${itemId.value}/translation/`,
+      { params: { lang: locale.value } })
+  } catch {
+    // Translation is an enhancement — on failure the original text just stays.
+  }
+}
+
+onMounted(fetchMissingTranslation)
+// Keep-alive can swap the listing under us without re-running setup.
+watch(() => item.value?.id, () => {
+  lateTranslation.value = null
+  fetchMissingTranslation()
+})
 const error = computed(() => {
   if (!fetchError.value) return null
   return (fetchError.value as any).data?.message || 'Item not found'
@@ -226,6 +282,15 @@ const fullscreenImage = ref(false)
 const fullscreenIndex = ref(0)
 const showDeleteItemConfirm = ref(false)
 
+const showReportModal = ref(false)
+function openReportModal() {
+  if (!authStore.isAuthenticated) {
+    toastStore.warning(t('login_required'))
+    return
+  }
+  showReportModal.value = true
+}
+
 // Navigate back to market
 function goBackToMarket() {
   // Use browser back only when the previous history entry is the market list
@@ -329,7 +394,7 @@ async function contactSeller() {
     }
   } catch (e: any) {
     console.error('Failed to create DM:', e)
-    toastStore.error(e.data?.message || 'Failed to start chat')
+    toastStore.error(apiErrorMessage(e, 'moderation.error_codes', e.data?.message || 'Failed to start chat'))
   }
 }
 
@@ -376,6 +441,27 @@ onBeforeUnmount(() => {
   document.body.style.overflow = ''
 })
 
+// Esc closes the listing — the keyboard twin of the "back to market" button, so
+// browsing the list feels like opening and dismissing cards. Whatever else owns
+// Esc gets it first and we stand down: an overlay on this page (each has its own
+// handler above), a native video fullscreen, a text field the user is typing in,
+// or another listener that already consumed the key (the site menu calls
+// preventDefault). Bound on activate, not only on mount: the page is kept-alive
+// (app.vue NuxtPage :keepalive), so an unmount-only cleanup would leave the
+// listener live and send Esc on every other page back to the market.
+function onPageEscape(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || e.defaultPrevented) return
+  if (fullscreenImage.value || showProposeDeal.value || showDeleteItemConfirm.value || showReportModal.value) return
+  if (document.fullscreenElement) return
+  const el = document.activeElement as HTMLElement | null
+  if (el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))) return
+  goBackToMarket()
+}
+onMounted(() => window.addEventListener('keydown', onPageEscape))
+onActivated(() => window.addEventListener('keydown', onPageEscape))
+onDeactivated(() => window.removeEventListener('keydown', onPageEscape))
+onBeforeUnmount(() => window.removeEventListener('keydown', onPageEscape))
+
 function openProposeDeal() {
   if (!authStore.isAuthenticated) {
     toastStore.warning(t('login_required'))
@@ -420,7 +506,7 @@ async function sendProposal() {
     }
   } catch (e: any) {
     console.error('Failed to send proposal:', e)
-    toastStore.error(e.data?.message || t('market.propose_deal.error'))
+    toastStore.error(apiErrorMessage(e, 'moderation.error_codes', e.data?.message || t('market.propose_deal.error')))
   } finally {
     proposalSending.value = false
   }
@@ -507,8 +593,29 @@ function getCategoryName(slug: string, fallback: string) {
 // Real-time updates
 useObjectSubscription(item)
 
+// View beacon — server dedupes to one view per viewer per 24h and never counts
+// the owner. Client-only (onMounted/onActivated), so crawlers stay out of the
+// numbers. Auth header lets the backend recognize the owner.
+const sendViewBeacon = async () => {
+  try {
+    const headers: Record<string, string> = {}
+    if (authStore.isAuthenticated) {
+      await authStore.ensureToken()
+      if (authStore.token) headers.Authorization = `Bearer ${authStore.token}`
+    }
+    await $fetch(`/api/v1/items/${itemId.value}/view/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+    })
+  } catch (e) {
+    // Fire-and-forget: a lost beacon must never disturb the page
+  }
+}
+
 // Init (client-side only)
 onMounted(async () => {
+  sendViewBeacon()
   // Load translated category names
   try {
     const tree = await fetchCategoryTree()
@@ -542,52 +649,102 @@ onActivated(() => {
     hasActivated = true
     return
   }
+  sendViewBeacon()
   refreshItem()
   refreshVideos()
 })
 
-// SEO - comprehensive meta tags for sharing
+// SEO - comprehensive meta tags for sharing.
+// Meta follows the machine translation, not the raw record: on /ru the <h1>
+// reads Russian, so a Portuguese <title> would label the tab, the search result
+// and every shared link in a language the page doesn't speak. `translated_*` is
+// what the viewer actually sees (the show-original toggle is a reading aid, it
+// must not rewrite the document head).
+const _baseUrl = useRuntimeConfig().public.siteUrl || 'https://parahub.io'
+// Crawlers resolve og:image against their own base, not ours — a relative
+// /media/... path silently yields no preview card.
+const absUrl = (u?: string | null) => (u && u.startsWith('/') ? `${_baseUrl}${u}` : u || '')
+// Read the MERGED translation, not the detail response alone: on a listing
+// nobody has opened in this language yet the translation arrives from the
+// follow-up call, and these getters are reactive — the head is rewritten when
+// it lands, so a JS-rendering crawler still indexes the viewer's language.
+// Known limit: the raw SSR HTML of a first-ever view carries the original text;
+// that view fills the cache, so every later render is translated.
+const seoTitle = computed(() => translatedTitle.value || item.value?.title || t('market.item_detail'))
+const seoDescription = computed(() =>
+  (translatedDescription.value || item.value?.description)?.slice(0, 160) || t('market.item_detail'))
+
 useSeoMeta({
-  title: () => item.value?.title || t('market.item_detail'),
-  ogTitle: () => item.value?.title || t('market.item_detail'),
-  description: () => item.value?.description?.slice(0, 160) || t('market.item_detail'),
-  ogDescription: () => item.value?.description?.slice(0, 160) || t('market.item_detail'),
-  ogImage: () => item.value?.images?.[0]?.url || '/og-image.jpg',
+  title: () => seoTitle.value,
+  ogTitle: () => seoTitle.value,
+  description: () => seoDescription.value,
+  ogDescription: () => seoDescription.value,
+  ogImage: () => absUrl(item.value?.images?.[0]?.url) || `${_baseUrl}/og-image.jpg`,
   ogType: 'product',
   twitterCard: 'summary_large_image',
 })
 
-// JSON-LD Product structured data
-const _baseUrl = useRuntimeConfig().public.siteUrl || 'https://parahub.io'
+// JSON-LD structured data. Direction decides the TYPE: a CREDIT listing offers
+// goods (Product + Offer), a DEBIT one seeks them (schema.org/Demand). Emitting
+// Product/Offer for a want listing tells search engines the author SELLS what
+// they are actually looking to buy — and prices the wish as if it were stock.
 useHead({
   script: computed(() => {
     if (!item.value) return []
     const baseUrl = _baseUrl
     const pricing = item.value.pricing_options?.[0]
-    const jsonLd: Record<string, any> = {
-      '@context': 'https://schema.org',
-      '@type': 'Product',
-      'name': item.value.title,
-      'url': `${baseUrl}/market/${item.value.slug || item.value.id}`,
-    }
-    if (item.value.description) jsonLd.description = item.value.description
-    if (item.value.images?.[0]?.url) jsonLd.image = item.value.images[0].url
-    if (item.value.owner_hna) {
-      jsonLd.seller = { '@type': 'Person', 'name': item.value.owner_hna }
-    }
-    if (pricing && pricing.amount) {
-      jsonLd.offers = {
-        '@type': 'Offer',
-        'price': pricing.amount,
-        'priceCurrency': pricing.currency || 'EUR',
-        'availability': item.value.is_active ? 'https://schema.org/InStock' : 'https://schema.org/Discontinued',
+    const wanted = item.value.item_type === 'DEBIT'
+    const name = translatedTitle.value || item.value.title
+    const description = translatedDescription.value || item.value.description
+    const image = absUrl(item.value.images?.[0]?.url)
+    // Must match the canonical the page renders (locale-prefixed), not a bare path.
+    const url = `${baseUrl}${localePath(`/market/${item.value.slug || item.value.id}`)}`
+
+    const jsonLd: Record<string, any> = wanted
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'Demand',
+          'name': name,
+          'url': url,
+          'itemOffered': { '@type': 'Product', 'name': name, ...(image ? { image } : {}) },
+        }
+      : {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          'name': name,
+          'url': url,
+          ...(image ? { image } : {}),
+        }
+    if (description) jsonLd.description = description
+
+    if (wanted) {
+      // A buyer's budget is a price the demand is willing to meet, never stock
+      // availability — Demand carries no seller and no InStock claim.
+      if (pricing && pricing.amount) {
+        jsonLd.priceSpecification = {
+          '@type': 'PriceSpecification',
+          'price': pricing.amount,
+          'priceCurrency': pricing.currency || 'EUR',
+        }
       }
-    } else if (pricing?.type === 'free') {
-      jsonLd.offers = {
-        '@type': 'Offer',
-        'price': '0',
-        'priceCurrency': 'EUR',
-        'availability': 'https://schema.org/InStock',
+    } else {
+      if (item.value.owner_hna) {
+        jsonLd.seller = { '@type': 'Person', 'name': item.value.owner_hna }
+      }
+      if (pricing && pricing.amount) {
+        jsonLd.offers = {
+          '@type': 'Offer',
+          'price': pricing.amount,
+          'priceCurrency': pricing.currency || 'EUR',
+          'availability': item.value.is_active ? 'https://schema.org/InStock' : 'https://schema.org/Discontinued',
+        }
+      } else if (pricing?.type === 'free') {
+        jsonLd.offers = {
+          '@type': 'Offer',
+          'price': '0',
+          'priceCurrency': 'EUR',
+          'availability': 'https://schema.org/InStock',
+        }
       }
     }
     return [{ type: 'application/ld+json', innerHTML: JSON.stringify(jsonLd) }]
@@ -607,7 +764,7 @@ useHead({
       <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           @click="goBackToMarket"
-          class="flex items-center gap-2 text-neutral-500 hover:text-primary transition-colors"
+          class="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-secondary dark:hover:text-secondary-400 transition-colors"
         >
           <LayoutGrid :size="20" />
           <span class="hidden sm:inline">{{ t('market.back_to_market') }}</span>
@@ -617,6 +774,7 @@ useHead({
         <div v-if="item" class="flex items-center gap-1">
           <LikeButton :target-id="item.id" target-type="item" />
           <UiButton variant="ghost" :icon="Share2" icon-only :aria-label="t('common.share')" @click="shareItem" />
+          <UiButton v-if="!isOwner" variant="ghost" :icon="Flag" icon-only :aria-label="t('moderation.report')" @click="openReportModal" />
         </div>
       </div>
     </div>
@@ -650,7 +808,7 @@ useHead({
             <template v-if="currentMedia?.kind === 'image'">
               <img
                 :src="currentMedia.url"
-                :alt="item.title"
+                :alt="displayTitle"
                 class="w-full h-full object-contain"
               />
               <button
@@ -736,7 +894,7 @@ useHead({
               <img
                 v-if="(m.kind === 'image' ? m.url : m.thumbnail_url)"
                 :src="m.kind === 'image' ? m.url : m.thumbnail_url"
-                :alt="m.kind === 'video' ? m.title : `${item.title} ${idx + 1}`"
+                :alt="m.kind === 'video' ? m.title : `${displayTitle} ${idx + 1}`"
                 class="w-full h-full object-cover"
               />
               <span v-else class="w-full h-full flex items-center justify-center bg-neutral-200 dark:bg-neutral-700">
@@ -758,20 +916,44 @@ useHead({
           </div>
         </div>
 
-        <!-- No media placeholder -->
-        <div v-else class="h-48 bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center">
+        <!-- No media placeholder. A want with nothing to show is an empty slot
+             rather than a missing photo, so it wears the list card's dashed
+             frame (an offer without a photo is just incomplete — no frame). -->
+        <div v-else class="relative h-48 bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center">
+          <span
+            v-if="!isOffer"
+            aria-hidden="true"
+            class="pointer-events-none absolute inset-2 rounded border border-dashed border-want-600/40 dark:border-want-400/40"
+          ></span>
           <span class="text-neutral-400 text-lg">{{ t('market.no_image') }}</span>
         </div>
+
+        <!-- Direction as structure: the same rail the list card carries between
+             media and content, so a listing reads as offer/want before a single
+             word is parsed. -->
+        <span aria-hidden="true" class="block h-0.5 w-full" :class="isOffer ? 'bg-offer-500' : 'bg-want-500'"></span>
 
         <!-- Content -->
         <div class="p-6">
           <!-- Listing meta — type eyebrow + category breadcrumb + qualifier badges on
                one wrapping row. The offer/want direction is a compact coloured eyebrow
                (<MarketListingType>, not a stand-alone pill), so it states the direction
-               without claiming its own row. Each chevron is glued to its following label
+               without claiming its own row. Like the breadcrumb next to it, and like the
+               card's eyebrow in the list, it is a filter: it opens the market on this
+               direction. Each chevron is glued to its following label
                (whitespace-nowrap); the row wraps segment-by-segment on mobile. -->
           <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 mb-3">
-            <MarketListingType :item-type="item.item_type" display="eyebrow" />
+            <NuxtLink
+              :to="localePath(`/market?type=${item.item_type}`)"
+              class="group/dir shrink-0"
+              :title="isOffer ? t('market.filters.offers') : t('market.filters.requests')"
+            >
+              <MarketListingType
+                :item-type="item.item_type"
+                display="eyebrow"
+                class="group-hover/dir:underline underline-offset-2"
+              />
+            </NuxtLink>
 
             <template v-if="item.category_path?.length">
               <span class="text-neutral-300 dark:text-neutral-600" aria-hidden="true">·</span>
@@ -784,7 +966,7 @@ useHead({
                   <span v-if="idx > 0" class="text-neutral-400">›</span>
                   <NuxtLink
                     :to="localePath(`/market?category=${cat.slug}`)"
-                    class="hover:text-secondary hover:underline"
+                    class="hover:text-secondary dark:hover:text-secondary-400 hover:underline"
                   >
                     {{ getCategoryName(cat.slug, cat.name) }}
                   </NuxtLink>
@@ -808,14 +990,25 @@ useHead({
           <!-- Title -->
           <div class="flex items-start gap-2 mb-4">
             <h1 class="text-2xl font-bold text-neutral-900 dark:text-white">
-              {{ item.title }}
+              {{ displayTitle }}
             </h1>
             <DemoBadge :is-demo="item.is_demo" class="mt-1.5" />
           </div>
 
+          <!-- MT indicator + toggle back to the seller's original text -->
+          <div v-if="hasTranslation" class="flex items-center gap-3 -mt-2 mb-4 text-xs text-neutral-500 dark:text-neutral-400">
+            <span v-if="!showOriginal" class="inline-flex items-center gap-1">
+              <Languages class="w-3.5 h-3.5" />
+              {{ t('market.translation.auto_translated') }}
+            </span>
+            <button class="underline underline-offset-2 hover:text-secondary dark:hover:text-secondary-400" @click="showOriginal = !showOriginal">
+              {{ showOriginal ? t('market.translation.show_translation') : t('market.translation.show_original') }}
+            </button>
+          </div>
+
           <!-- Description -->
           <p class="text-neutral-600 dark:text-neutral-300 whitespace-pre-wrap mb-6">
-            {{ item.description || t('market.detail_modal.no_description') }}
+            {{ displayDescription || t('market.detail_modal.no_description') }}
           </p>
 
           <!-- Price — the listing's key field, set by typography rather than a
@@ -831,10 +1024,10 @@ useHead({
             <div v-if="pricingOptions.length > 1" class="space-y-5">
               <div v-for="grp in pricingGroups" :key="grp.type">
                 <span
-                  v-if="pricingTypeLabel(grp.options[0])"
+                  v-if="pricingTypeLabel(grp.options[0], item.item_type)"
                   class="block text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2"
                 >
-                  {{ pricingTypeLabel(grp.options[0]) }}
+                  {{ pricingTypeLabel(grp.options[0], item.item_type) }}
                 </span>
                 <!-- single price in this group → inline; multiple tiers → table -->
                 <div
@@ -863,10 +1056,10 @@ useHead({
             <!-- Single option: hero price -->
             <div v-else-if="pricingOptions.length === 1">
               <div
-                v-if="pricingTypeLabel(pricingOptions[0])"
+                v-if="pricingTypeLabel(pricingOptions[0], item.item_type)"
                 class="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-0.5"
               >
-                {{ pricingTypeLabel(pricingOptions[0]) }}
+                {{ pricingTypeLabel(pricingOptions[0], item.item_type) }}
               </div>
               <div class="text-4xl font-bold text-neutral-900 dark:text-white leading-none">
                 {{ formatPricingOption(pricingOptions[0]) }}
@@ -907,7 +1100,7 @@ useHead({
             class="mb-6"
           >
             <NuxtLink
-              :to="localePath(`/market?item_type=${item.item_type === 'CREDIT' ? 'DEBIT' : 'CREDIT'}&category=${item.category_path?.[item.category_path.length - 1]?.slug || ''}`)"
+              :to="localePath(`/market?type=${item.item_type === 'CREDIT' ? 'DEBIT' : 'CREDIT'}&category=${item.category_path?.[item.category_path.length - 1]?.slug || ''}`)"
               class="text-link font-medium"
             >
               {{ item.item_type === 'CREDIT'
@@ -927,7 +1120,7 @@ useHead({
           <div class="border-t border-neutral-200 dark:border-neutral-700 pt-6 mb-6">
             <div class="flex items-start gap-3 sm:gap-4">
               <!-- Avatar -->
-              <NuxtLink :to="localePath(`/u/${item.owner_hna?.split('@')[0] || item.owner_id}`)" class="shrink-0">
+              <NuxtLink :to="localePath(`/@${item.owner_hna?.split('@')[0] || item.owner_id}`)" class="shrink-0">
                 <img
                   v-if="item.owner_avatar_url"
                   :src="item.owner_avatar_url"
@@ -954,15 +1147,15 @@ useHead({
                     </NuxtLink>
                     <span class="text-neutral-400">·</span>
                     <NuxtLink
-                      :to="localePath(`/u/${item.owner_hna?.split('@')[0] || item.owner_id}`)"
-                      class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-secondary"
+                      :to="localePath(`/@${item.owner_hna?.split('@')[0] || item.owner_id}`)"
+                      class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-secondary dark:hover:text-secondary-400"
                     >
                       {{ item.owner_display_name || item.owner_hna?.split('@')[0] || item.owner_id }}
                     </NuxtLink>
                   </template>
                   <NuxtLink
                     v-else
-                    :to="localePath(`/u/${item.owner_hna?.split('@')[0] || item.owner_id}`)"
+                    :to="localePath(`/@${item.owner_hna?.split('@')[0] || item.owner_id}`)"
                     class="font-medium text-neutral-900 dark:text-white hover:text-secondary dark:hover:text-secondary-400"
                   >
                     {{ item.owner_display_name || item.owner_hna?.split('@')[0] || item.owner_id }}
@@ -1078,7 +1271,7 @@ useHead({
     <Teleport to="body">
       <div
         v-if="showProposeDeal && item"
-        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center"
       >
         <!-- Backdrop -->
         <div
@@ -1108,11 +1301,11 @@ useHead({
               <img
                 v-if="item.images?.[0]?.url"
                 :src="item.images[0].url"
-                :alt="item.title"
+                :alt="displayTitle"
                 class="w-16 h-16 rounded-lg object-cover"
               />
               <div class="flex-1 min-w-0">
-                <h3 class="font-medium text-neutral-900 dark:text-white truncate">{{ item.title }}</h3>
+                <h3 class="font-medium text-neutral-900 dark:text-white truncate">{{ displayTitle }}</h3>
                 <div v-if="item.pricing_options?.length" class="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mt-0.5">
                   {{ formatPricingOption(item.pricing_options[0]) }}
                 </div>
@@ -1185,7 +1378,7 @@ useHead({
 
         <img
           :src="item.images[fullscreenIndex]?.url"
-          :alt="item.title"
+          :alt="displayTitle"
           class="max-w-full max-h-full object-contain"
           @click.stop
         />
@@ -1222,4 +1415,5 @@ useHead({
     :confirm-label="t('market.actions.delete')"
     @confirm="deleteItem"
   />
+  <ReportModal v-if="item" v-model="showReportModal" :object-id="item.id" />
 </template>

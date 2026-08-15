@@ -60,7 +60,7 @@
       <!-- Graph + side panel -->
       <div v-else-if="data" class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
         <!-- Canvas -->
-        <div class="card p-0 overflow-hidden relative" style="background: var(--graph-bg, #fafafa);">
+        <div class="card p-0 overflow-hidden relative graph-canvas" style="background: var(--graph-bg, #fafafa);">
           <svg
             ref="svgEl"
             :viewBox="`0 0 ${W} ${H}`"
@@ -187,7 +187,7 @@
             <div v-if="accountSiblings(selected).length" class="text-xs text-error mt-2">
               ⚠ {{ $t('wotGraph.detail.sharesAccount', { names: accountSiblings(selected).map(s => shortName(s.hna)).join(', ') }) }}
             </div>
-            <NuxtLink :to="localePath(`/u/${shortName(selected.hna)}`)" class="btn-sm btn-outline w-full mt-1">
+            <NuxtLink :to="localePath(`/@${shortName(selected.hna)}`)" class="btn-sm btn-outline w-full mt-1">
               {{ $t('wotGraph.detail.openProfile') }}
             </NuxtLink>
           </div>
@@ -200,13 +200,16 @@
 
 <script setup lang="ts">
 import { ShieldAlert, Share2, RefreshCw, Play, X } from 'lucide-vue-next'
+import type { SimNode } from '~/composables/useForceGraph'
 
 definePageMeta({ middleware: 'auth' })
 
 const { t } = useI18n()
 const localePath = useLocalePath()
 const authStore = useAuthStore()
-const isStaff = computed(() => authStore.user?.is_staff ?? false)
+// The global verification edge list is a Sybil-audit surface: `moderation.review`.
+const { can } = useCapabilities()
+const isStaff = computed(() => can('moderation.review'))
 
 interface GNode {
   id: string; hna: string | null; reputation: number; received: number; given: number
@@ -216,24 +219,15 @@ interface GNode {
 interface GEdge { source: string; target: string; method: string; verified_at: string | null; mutual: boolean }
 interface GraphData { nodes: GNode[]; edges: GEdge[]; total_profiles: number; verified_profiles: number; connected_profiles: number }
 
-type SimNode = GNode & { x: number; y: number; vx: number; vy: number; fixed: boolean }
+type WotSimNode = SimNode<GNode>
 
-const W = 900
-const H = 620
+const { W, H, nodes, nodeById, svgEl, setGraph, reheat, onPointerDown, onPointerMove, onPointerUp } = useForceGraph<GNode>()
 
 const loading = ref(false)
 const error = ref('')
 const data = ref<GraphData | null>(null)
-const nodes = ref<SimNode[]>([])
 const hovered = ref<string | null>(null)
-const selected = ref<SimNode | null>(null)
-const svgEl = ref<SVGSVGElement | null>(null)
-
-const nodeById = computed(() => {
-  const m = new Map<string, SimNode>()
-  for (const n of nodes.value) m.set(n.id, n)
-  return m
-})
+const selected = ref<WotSimNode | null>(null)
 
 const hoveredNode = computed(() => (hovered.value ? nodeById.value.get(hovered.value) ?? null : null))
 
@@ -248,7 +242,7 @@ const legendLevels = [
 function trustColor(level: string): string {
   return legendLevels.find(l => l.key === level)?.color ?? '#9ca3af'
 }
-function radius(n: SimNode): number {
+function radius(n: WotSimNode): number {
   return 8 + Math.sqrt(n.received) * 4
 }
 function shortName(hna: string | null): string {
@@ -284,13 +278,13 @@ const mutualPairCount = computed(() => renderLinks.value.filter(l => l.mutual).l
 
 // ── Same-account clusters (Sybil signal) ─────────────────────────────
 const sameAccountPairs = computed(() => {
-  const groups = new Map<string, SimNode[]>()
+  const groups = new Map<string, WotSimNode[]>()
   for (const n of nodes.value) {
     if (!n.account_id) continue
     const g = groups.get(n.account_id) ?? []
     g.push(n); groups.set(n.account_id, g)
   }
-  const pairs: Array<{ a: SimNode; b: SimNode }> = []
+  const pairs: Array<{ a: WotSimNode; b: WotSimNode }> = []
   for (const g of groups.values()) {
     if (g.length < 2) continue
     for (let i = 0; i < g.length; i++)
@@ -298,7 +292,7 @@ const sameAccountPairs = computed(() => {
   }
   return pairs
 })
-function accountSiblings(n: SimNode): SimNode[] {
+function accountSiblings(n: WotSimNode): WotSimNode[] {
   if (!n.account_id) return []
   return nodes.value.filter(o => o.id !== n.id && o.account_id === n.account_id)
 }
@@ -326,97 +320,6 @@ function edgeHighlighted(l: { sourceId: string; targetId: string }): boolean {
   return !!f && (l.sourceId === f || l.targetId === f)
 }
 
-// ── Force simulation (self-contained, no deps) ───────────────────────
-let alpha = 0
-let raf = 0
-const REPULSION = 9000
-const SPRING = 0.04
-const LINK_LEN = 110
-const CENTER = 0.02
-const DAMP = 0.85
-
-function step() {
-  const ns = nodes.value
-  const n = ns.length
-  // repulsion (O(n^2) — fine for a staff tool on <1k nodes)
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      const a = ns[i], b = ns[j]
-      let dx = a.x - b.x, dy = a.y - b.y
-      let d2 = dx * dx + dy * dy
-      if (d2 < 1) { dx = (i - j) || 1; dy = 1; d2 = dx * dx + dy * dy }
-      const f = (REPULSION / d2) * alpha
-      const d = Math.sqrt(d2)
-      const fx = (dx / d) * f, fy = (dy / d) * f
-      a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy
-    }
-  }
-  // springs along edges
-  if (data.value) {
-    for (const e of data.value.edges) {
-      const a = nodeById.value.get(e.source), b = nodeById.value.get(e.target)
-      if (!a || !b) continue
-      const dx = b.x - a.x, dy = b.y - a.y
-      const d = Math.hypot(dx, dy) || 1
-      const f = ((d - LINK_LEN) * SPRING) * alpha
-      const fx = (dx / d) * f, fy = (dy / d) * f
-      a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy
-    }
-  }
-  // centering + integrate
-  for (const p of ns) {
-    if (p.fixed) { p.vx = 0; p.vy = 0; continue }
-    p.vx += (W / 2 - p.x) * CENTER * alpha
-    p.vy += (H / 2 - p.y) * CENTER * alpha
-    p.vx *= DAMP; p.vy *= DAMP
-    p.x += p.vx; p.y += p.vy
-    p.x = Math.max(24, Math.min(W - 24, p.x))
-    p.y = Math.max(24, Math.min(H - 36, p.y))
-  }
-  alpha *= 0.985
-  if (alpha > 0.02 || dragging) {
-    raf = requestAnimationFrame(step)
-  } else {
-    raf = 0
-  }
-}
-function reheat() {
-  alpha = 1
-  if (!raf) raf = requestAnimationFrame(step)
-}
-
-function seedPositions() {
-  const n = nodes.value.length
-  nodes.value.forEach((p, i) => {
-    const ang = (i / Math.max(1, n)) * Math.PI * 2
-    p.x = W / 2 + Math.cos(ang) * 160
-    p.y = H / 2 + Math.sin(ang) * 160
-    p.vx = 0; p.vy = 0
-  })
-}
-
-// ── Drag ─────────────────────────────────────────────────────────────
-let dragging: SimNode | null = null
-function toSvg(ev: PointerEvent): { x: number; y: number } {
-  const el = svgEl.value
-  if (!el) return { x: 0, y: 0 }
-  const r = el.getBoundingClientRect()
-  return { x: ((ev.clientX - r.left) / r.width) * W, y: ((ev.clientY - r.top) / r.height) * H }
-}
-function onPointerDown(n: SimNode, ev: PointerEvent) {
-  dragging = n; n.fixed = true
-  ;(ev.target as Element).setPointerCapture?.(ev.pointerId)
-  reheat()
-}
-function onPointerMove(ev: PointerEvent) {
-  if (!dragging) return
-  const p = toSvg(ev)
-  dragging.x = p.x; dragging.y = p.y
-}
-function onPointerUp() {
-  if (dragging) { dragging.fixed = false; dragging = null; reheat() }
-}
-
 // ── Load ─────────────────────────────────────────────────────────────
 async function reload() {
   loading.value = true
@@ -428,10 +331,8 @@ async function reload() {
       headers: authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
     })
     data.value = res
-    nodes.value = res.nodes.map(n => ({ ...n, x: W / 2, y: H / 2, vx: 0, vy: 0, fixed: false }))
+    setGraph(res.nodes, res.edges)
     selected.value = null
-    seedPositions()
-    reheat()
   } catch (e: any) {
     error.value = e?.data?.detail || e?.message || t('wotGraph.loadError')
   } finally {
@@ -440,7 +341,6 @@ async function reload() {
 }
 
 onMounted(() => { if (isStaff.value) reload() })
-onBeforeUnmount(() => { if (raf) cancelAnimationFrame(raf) })
 </script>
 
 <style scoped>
@@ -448,5 +348,5 @@ onBeforeUnmount(() => { if (raf) cancelAnimationFrame(raf) })
   display: flex; align-items: center; justify-content: center;
   width: 2.5rem; height: 2.5rem; border-radius: 0.75rem;
 }
-.dark svg { --graph-bg: #18181b; }
+.dark .graph-canvas { --graph-bg: #18181b; }
 </style>

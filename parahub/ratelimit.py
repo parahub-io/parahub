@@ -6,11 +6,9 @@ Using django-ratelimit with Django Ninja integration
 import asyncio
 from functools import wraps
 from asgiref.sync import sync_to_async
-from django.core.cache import cache
-from ninja.errors import HttpError
 from django_ratelimit import ALL as RL_ALL
-from django_ratelimit.decorators import ratelimit as django_ratelimit
-from django_ratelimit.exceptions import Ratelimited
+from django_ratelimit.core import get_usage
+from parahub.errors import RateLimitedError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -37,35 +35,37 @@ def ratelimit(group=None, key='ip', rate='5/m', method='ALL', block=True):
             ...
     """
     def _enforce(request):
-        """Run the django-ratelimit check; raise HttpError(429) when limited."""
-        try:
-            # django-ratelimit's ALL is a sentinel tuple, not the string 'ALL'.
-            # Passing the string made _method_match compare request.method
-            # against ['ALL'] — never matching, i.e. the limit was silently
-            # OFF for every endpoint that used our 'ALL' default (all GETs).
-            limited = django_ratelimit(
-                group=group,
-                key=key,
-                rate=rate,
-                method=RL_ALL if method == 'ALL' else method,
-                block=block
-            )(lambda r: None)
-            limited(request)
+        """Count this request and raise 429 when the window is exhausted.
 
-            if getattr(request, 'limited', False) and block:
-                logger.warning(
-                    f"Rate limit exceeded for {group or 'endpoint'}: "
-                    f"IP={request.META.get('REMOTE_ADDR')}, "
-                    f"Path={request.path}"
-                )
-                raise HttpError(429, "rate_limited")
-        except Ratelimited:
+        Uses get_usage() rather than the blocking decorator so the response can
+        carry how long the window still has to run: a bare "too many attempts"
+        leaves the user tapping retry (each tap counting), while a countdown
+        tells them to come back later.
+        """
+        # django-ratelimit's ALL is a sentinel tuple, not the string 'ALL'.
+        # Passing the string made _method_match compare request.method
+        # against ['ALL'] — never matching, i.e. the limit was silently
+        # OFF for every endpoint that used our 'ALL' default (all GETs).
+        usage = get_usage(
+            request,
+            group=group,
+            key=key,
+            rate=rate,
+            method=RL_ALL if method == 'ALL' else method,
+            increment=True,
+        )
+        # None = method not covered, or RATELIMIT_FAIL_OPEN with a dead cache.
+        limited = bool(usage and usage['should_limit'])
+        request.limited = limited or getattr(request, 'limited', False)
+
+        if limited and block:
             logger.warning(
                 f"Rate limit exceeded for {group or 'endpoint'}: "
                 f"IP={request.META.get('REMOTE_ADDR')}, "
                 f"Path={request.path}"
             )
-            raise HttpError(429, "rate_limited")
+            # time_left is -1 when the counter itself failed to load
+            raise RateLimitedError(retry_after=max(usage['time_left'], 1))
 
     def decorator(func):
         if asyncio.iscoroutinefunction(func):

@@ -22,6 +22,7 @@ import time as _time
 import redis
 from django.core.cache import cache
 from django.core.management.base import BaseCommand
+from django.db import connections
 from django.utils import timezone
 
 from geo.models import TransitDataSource, FeedHealthSample
@@ -47,6 +48,11 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.SUCCESS(f'sampled {n} feeds'))
             except Exception as exc:  # never let one bad tick kill the daemon
                 self.stderr.write(f'sample tick failed: {exc!r}')
+                # A dropped DB connection (Postgres restart, TLS close) poisons every
+                # later tick with InterfaceError('connection already closed') — the
+                # loop survives but records nothing, and systemd Restart= can't help
+                # because the process never dies. Drop it so the next tick reconnects.
+                connections.close_all()
             if opts['once']:
                 break
             _time.sleep(interval)

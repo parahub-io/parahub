@@ -19,7 +19,7 @@
       </button>
       <!-- Establishments -->
       <button
-        v-for="est in establishments"
+        v-for="est in visibleEstablishments"
         :key="est.id"
         type="button"
         @click="select(est.id)"
@@ -38,7 +38,16 @@
         >
         <Building2 v-else class="w-4 h-4" />
         {{ est.name }}
-        <span class="text-xs text-neutral-400 dark:text-neutral-500 font-normal">{{ est.role }}</span>
+        <span class="text-xs text-neutral-400 dark:text-neutral-500 font-normal">{{ roleLabel(est.role) }}</span>
+      </button>
+      <!-- Long affiliation lists would push the form off-screen: reveal the tail on demand -->
+      <button
+        v-if="hiddenCount && !showAll"
+        type="button"
+        @click="showAll = true"
+        class="px-3 py-1.5 rounded-lg text-sm border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+      >
+        +{{ hiddenCount }}
       </button>
     </div>
     <NuxtLink :to="localePath('/org')" class="inline-block mt-2 text-xs text-link">
@@ -58,6 +67,10 @@ const emit = defineEmits(['update:modelValue'])
 
 const authStore = useAuthStore()
 const localePath = useLocalePath()
+const { t } = useI18n()
+
+// Roles arrive as raw enum values (OWNER/ADMIN/MEMBER) — label them in the UI language.
+const roleLabel = (role: string) => t(`directory.my_orgs.role.${role.toLowerCase()}`, role)
 
 interface PostableEstablishment {
   id: string
@@ -68,6 +81,17 @@ interface PostableEstablishment {
 }
 
 const establishments = ref<PostableEstablishment[]>([])
+
+const COLLAPSED = 6
+const showAll = ref(false)
+// A selected org must stay visible even when it sits in the collapsed tail.
+const visibleEstablishments = computed(() => {
+  if (showAll.value || establishments.value.length <= COLLAPSED) return establishments.value
+  const head = establishments.value.slice(0, COLLAPSED)
+  const selected = establishments.value.find(e => e.id === props.modelValue)
+  return selected && !head.includes(selected) ? [...head.slice(0, COLLAPSED - 1), selected] : head
+})
+const hiddenCount = computed(() => establishments.value.length - visibleEstablishments.value.length)
 
 const select = (id: string | null) => {
   emit('update:modelValue', id)

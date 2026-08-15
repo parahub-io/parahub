@@ -96,7 +96,8 @@ test.describe('Transit Management — CRUD flow', () => {
     await page.locator('input[type="text"], input[type="email"]').first().fill('alice@test.parahub.io')
     await page.locator('input[type="password"]').fill(getTestUserPassword('alice'))
     await loginBtn.click()
-    await page.waitForURL('/', { timeout: 20_000 })
+    // Authed landing is the map (`/` redirects there), so wait for "anything but /login"
+    await page.waitForURL(u => !u.pathname.endsWith('/login'), { timeout: 20_000 })
 
     // Fix WebKit Secure cookie issue
     await fixCookies()
@@ -119,8 +120,8 @@ test.describe('Transit Management — CRUD flow', () => {
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(2000)
 
-    // Verify we have staff access (heading visible, not staff-only message)
-    await expect(page.locator('h1').filter({ hasText: 'Route Management' })).toBeVisible({ timeout: 10_000 })
+    // Verify we have staff access (page header visible, not staff-only message)
+    await expect(page.getByText('Create and edit transit routes')).toBeVisible({ timeout: 10_000 })
 
     // ── Step 3: Create transit agency ──────────────────────────
 
@@ -204,8 +205,8 @@ test.describe('Transit Management — CRUD flow', () => {
 
     // ── Step 6: Open route editor and add stops ────────────────
 
-    // Click the route card to open editor
-    const routeCard = page.locator('.card').filter({ hasText: routeShortName })
+    // Click the route row to open editor (flush list: rows are children of the divide-y wrapper)
+    const routeCard = page.locator('.divide-y > div').filter({ hasText: routeShortName })
     await expect(routeCard).toBeVisible({ timeout: 10_000 })
     await routeCard.click()
 
@@ -245,7 +246,7 @@ test.describe('Transit Management — CRUD flow', () => {
 
     // ── Step 7: Verify route in listing ────────────────────────
 
-    const routeEntry = page.locator('.card').filter({ hasText: routeShortName })
+    const routeEntry = page.locator('.divide-y > div').filter({ hasText: routeShortName })
     await expect(routeEntry).toBeVisible({ timeout: 10_000 })
     await expect(routeEntry).toContainText(`${stopData.length} outbound`)
 

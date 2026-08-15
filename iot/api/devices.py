@@ -8,6 +8,7 @@ from datetime import datetime, timezone as dt_tz
 import logging
 from ninja import Schema
 from ninja.errors import HttpError
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
@@ -27,6 +28,21 @@ class IoTDeviceIn(Schema):
     imei: Optional[str] = None
     device_id: Optional[str] = None  # ID устройства для Traccar
     property_id: Optional[str] = None
+
+def _keeps_host_pass(device: IoTDevice, is_own: bool) -> bool:
+    """Whether this node is what keeps its viewer-owner's mesh pass covered.
+
+    Hosting reciprocity runs off the heartbeat (`iot/api/mesh.py`), for owned
+    routers only — a router still sitting in the unclaimed fleet pool earns
+    nobody anything.
+    """
+    return bool(
+        is_own
+        and device.device_type == 'MESH_ROUTER'
+        and settings.MESH_HOST_PASS_DAYS
+        and device.owner_id != settings.MESH_DEFAULT_OWNER_PROFILE_ID
+    )
+
 
 class IoTDeviceOut(Schema):
     id: str
@@ -55,6 +71,8 @@ class IoTDeviceOut(Schema):
     owner_name: Optional[str] = None
     # Owner attribution opt-in for the public map panel
     show_owner: bool = False
+    # This node's heartbeats are what keep the viewer's own mesh pass alive
+    keeps_host_pass: bool = False
 
     @staticmethod
     def from_orm(device: IoTDevice):
@@ -191,6 +209,7 @@ def list_devices(request, property_id: Optional[str] = None, unassigned: Optiona
             "access_role": 'OWNER' if is_own else grant_roles.get(device.id, 'VIEWER'),
             "owner_hna": None if is_own else (device.owner.hna or None),
             "owner_name": None if is_own else (device.owner.display_name or device.owner.local_name),
+            "keeps_host_pass": _keeps_host_pass(device, is_own),
         }
 
         # Inject Redis position for trackers
@@ -245,6 +264,7 @@ def get_device(request, device_id: str):
         "access_role": device.access_role,
         "owner_hna": None if is_own else (device.owner.hna or None),
         "owner_name": None if is_own else (device.owner.display_name or device.owner.local_name),
+        "keeps_host_pass": _keeps_host_pass(device, is_own),
     }
 
     if device.device_type == "TRACKER":

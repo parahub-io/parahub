@@ -36,7 +36,8 @@
     "event_ticket": "Veranstaltungsticket",
     "transit_ticket": "Fahrschein",
     "camera_permission": "Kamerazugriff zum Scannen erforderlich",
-    "camera_denied": "Kamerazugriff verweigert",
+    "camera_denied": "Kamerazugriff verweigert — erlauben Sie Parahub den Kamerazugriff in den Systemeinstellungen",
+    "camera_unavailable": "Kamera nicht verfügbar",
     "staff_only": "Nur für Personal / Betreiber",
     "error_purchase": "Kauf fehlgeschlagen",
     "error_confirm": "Zahlungsbestätigung fehlgeschlagen",
@@ -90,6 +91,8 @@
     "offline_unverified": "Keine Verbindung — Scan eingereiht, Prüfung nicht möglich",
     "offline_bad_signature": "Ungültige QR-Signatur",
     "offline_foreign_type": "Echt, aber nicht Ihr Tickettyp",
+    "offline_already_scanned": "Auf diesem Gerät bereits um {time} gescannt",
+    "offline_window_ended": "Gültigkeitsfenster endete um {time}",
     "scan_result_offline": "Offline"
   }
 }

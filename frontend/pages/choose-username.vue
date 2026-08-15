@@ -185,11 +185,11 @@ onMounted(async () => {
       }
     } else {
       // No credentials means not a new OAuth user, redirect to home
-      await navigateTo(localePath('/'))
+      await navigateTo(localePath('/map'))
     }
   } catch (error) {
     console.error('Failed to fetch credentials:', error)
-    await navigateTo(localePath('/'))
+    await navigateTo(localePath('/map'))
   }
 })
 

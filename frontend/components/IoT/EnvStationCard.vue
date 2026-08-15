@@ -24,7 +24,7 @@
     <div class="min-w-0">
       <div v-if="!editingName" class="flex items-center gap-1.5 min-w-0">
         <div class="font-medium text-neutral-900 dark:text-neutral-100 truncate">{{ station.name }}</div>
-        <button @click="startEditName" class="text-neutral-400 hover:text-primary shrink-0"
+        <button @click="startEditName" class="text-neutral-400 hover:text-secondary dark:hover:text-secondary-400 shrink-0"
                 :title="$t('map.env.rename')" :aria-label="$t('map.env.rename')">
           <Pencil class="w-3 h-3" />
         </button>
@@ -113,7 +113,7 @@
       <div class="text-neutral-500 dark:text-neutral-400 mb-0.5">{{ $t('map.env.ingest_hint') }}</div>
       <div class="flex items-center gap-2">
         <code class="flex-1 truncate text-neutral-700 dark:text-neutral-300">wx.parahub.io{{ station.ingest_path }}</code>
-        <button @click="copyPath" class="text-neutral-400 hover:text-primary" :title="$t('map.env.copy')">
+        <button @click="copyPath" class="text-neutral-400 hover:text-secondary dark:hover:text-secondary-400" :title="$t('map.env.copy')">
           <Check v-if="copied" class="w-3.5 h-3.5 text-green-500" />
           <Copy v-else class="w-3.5 h-3.5" />
         </button>
@@ -130,7 +130,7 @@
           class="flex-1 truncate text-link"
         >{{ station.public_url }}</a>
         <span v-else class="flex-1 text-neutral-400 dark:text-neutral-500">{{ $t('map.env.public_page_empty') }}</span>
-        <button @click="startEditUrl" class="text-neutral-400 hover:text-primary shrink-0"
+        <button @click="startEditUrl" class="text-neutral-400 hover:text-secondary dark:hover:text-secondary-400 shrink-0"
                 :title="$t('map.env.edit_public_page')" :aria-label="$t('map.env.edit_public_page')">
           <Pencil class="w-3.5 h-3.5" />
         </button>
@@ -156,17 +156,17 @@
     <!-- Actions -->
     <div class="flex items-center flex-wrap gap-2 pt-1 border-t border-neutral-100 dark:border-neutral-700/50">
       <button @click="showPicker = true"
-              class="inline-flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-300 hover:text-primary">
+              class="inline-flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-300 hover:text-secondary dark:hover:text-secondary-400">
         <MapPin class="w-3.5 h-3.5" /> {{ $t('map.env.set_location') }}
       </button>
       <button @click="togglePublic" :disabled="busy"
-              class="inline-flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-300 hover:text-primary">
+              class="inline-flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-300 hover:text-secondary dark:hover:text-secondary-400">
         <component :is="station.is_public ? EyeOff : Eye" class="w-3.5 h-3.5" />
         {{ station.is_public ? $t('map.env.make_private') : $t('map.env.make_public') }}
       </button>
       <!-- Owner attribution opt-in — only meaningful while the station is public -->
       <button v-if="station.is_public" @click="toggleShowOwner" :disabled="busy"
-              class="inline-flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-300 hover:text-primary">
+              class="inline-flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-300 hover:text-secondary dark:hover:text-secondary-400">
         <component :is="station.show_owner ? UserX : User" class="w-3.5 h-3.5" />
         {{ station.show_owner ? $t('map.env.hide_owner') : $t('map.env.show_owner') }}
       </button>
@@ -183,6 +183,8 @@
       :initial-lng="station.longitude"
       :save-fn="saveLocation"
       :hint="$t('map.env.click_map')"
+      :marker-fill="dotColor"
+      :marker-glyph="latest.aqi != null ? LEAF_GLYPH : WIND_GLYPH"
       @close="showPicker = false"
       @saved="showPicker = false"
     />
@@ -193,6 +195,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Globe, Lock, MapPin, Eye, EyeOff, Trash2, Copy, Check, Download, Loader2, Pencil, User, UserX, X } from 'lucide-vue-next'
 import { LEAF_GLYPH, WIND_GLYPH } from '~/composables/useMapToggleableLayer'
+import { saveFile } from '~/utils/download'
 import type { EnvStation } from '~/stores/env'
 import type { TimeChartSeries } from '~/components/ui/TimeChart.vue'
 
@@ -306,12 +309,7 @@ async function downloadCsv() {
       headers: { Authorization: `Bearer ${authStore.token}` },
     })
     if (!res.ok) throw new Error(String(res.status))
-    const url = URL.createObjectURL(await res.blob())
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${props.station.name.replace(/[^\w-]+/g, '_')}-readings-30d.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    await saveFile(await res.blob(), `${props.station.name.replace(/[^\w-]+/g, '_')}-readings-30d.csv`)
   } catch { /* transient network failure; button stays available */ }
   finally { csvBusy.value = false }
 }

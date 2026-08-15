@@ -35,6 +35,9 @@ class Command(BaseCommand):
         root, created = Category.objects.update_or_create(
             slug='civic-topics',
             defaults={'name': 'Civic topics', 'is_active': True,
+                      'name_i18n': {'en': 'Civic topics', 'ru': 'Гражданские темы',
+                                    'pt': 'Temas cívicos', 'es': 'Temas cívicos',
+                                    'de': 'Bürgerthemen', 'fr': 'Thèmes civiques'},
                       'description': 'Curated topics for civic opinion polls and standing delegations'},
         )
         self.stdout.write(f"root civic-topics: {'created' if created else 'exists'}")

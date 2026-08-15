@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MessageCircle, Trash2, Send, User } from 'lucide-vue-next'
+import { MessageCircle, Trash2, Send, User, Flag } from 'lucide-vue-next'
 import { useToastStore } from '~/stores/toast'
 
 const props = defineProps<{
@@ -16,6 +16,7 @@ const comments = ref<any[]>([])
 const loading = ref(true)
 const newText = ref('')
 const sending = ref(false)
+const reportedCommentId = ref<string | null>(null)
 
 async function fetchComments() {
   loading.value = true
@@ -120,6 +121,14 @@ onMounted(fetchComments)
               <Trash2 class="w-3.5 h-3.5" />
               <span>{{ t('common.delete') }}</span>
             </button>
+            <button
+              v-else-if="authStore.isAuthenticated"
+              @click="reportedCommentId = comment.id"
+              class="ml-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              :aria-label="t('moderation.report')"
+            >
+              <Flag class="w-3.5 h-3.5" />
+            </button>
           </div>
           <p class="text-neutral-700 dark:text-neutral-300 whitespace-pre-line">{{ comment.text }}</p>
         </div>
@@ -130,5 +139,11 @@ onMounted(fetchComments)
     <p v-else class="text-sm text-neutral-500 dark:text-neutral-400">
       {{ t('cms.noComments') }}
     </p>
+
+    <ReportModal
+      :model-value="!!reportedCommentId"
+      :object-id="reportedCommentId || ''"
+      @update:model-value="reportedCommentId = null"
+    />
   </div>
 </template>

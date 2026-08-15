@@ -1,9 +1,11 @@
 """
 Dispatch API: assign GPS tracker devices to transit routes.
 
-Staff-only endpoints for fleet management.
-Assigned devices inject positions into transit:geo pipeline,
-making them visible to passengers as regular transit vehicles.
+Fleet management for an operator: staff see every assignment, everyone else
+sees exactly the agencies they hold `transit.dispatch` in (their own, or their
+organization's). Assigned devices inject positions into the transit:geo
+pipeline, making them visible to passengers as regular transit vehicles — which
+is why the route side is checked on every write.
 """
 
 import json
@@ -21,6 +23,7 @@ from parahub.ratelimit import ratelimit, user_or_ip
 from iot.models import IoTDevice, VehicleAssignment
 from iot.services import TraccarService, _get_tracker_redis
 from geo.models import Route, TransitDataSource
+from geo.permissions import agencies_for_capability, can_operate_agency
 
 logger = logging.getLogger(__name__)
 router = Router(tags=["Dispatch"])
@@ -105,10 +108,49 @@ class AvailableDeviceOut(Schema):
 
 # --- Helpers ---
 
-def _staff_check(request):
-    if not request.user or not request.user.is_staff:
-        raise HttpError(403, "Staff only")
-    return request.auth_profile
+CAPABILITY = 'transit.dispatch'
+
+
+def _is_staff(request) -> bool:
+    return bool(request.user and request.user.is_staff)
+
+
+def _dispatcher_check(request):
+    """Anyone who dispatches for at least one agency. Scope is applied per query."""
+    profile = request.auth_profile
+    if _is_staff(request):
+        return profile
+    if not agencies_for_capability(profile, CAPABILITY).exists():
+        raise HttpError(403, "You are not a dispatcher for any operator")
+    return profile
+
+
+def _check_route_access(request, route):
+    """An assignment publishes into the route's feed — only its operator may."""
+    if _is_staff(request):
+        return
+    if not can_operate_agency(request.auth_profile, route.agency, CAPABILITY):
+        raise HttpError(403, "This route belongs to another operator")
+
+
+def _check_device_access(request, device):
+    """Trackers are personal property; dispatching one is the owner's call.
+
+    Organization-owned trackers are not modelled yet (IoTDevice has no
+    establishment link), so a dispatcher works with devices they own.
+    """
+    if _is_staff(request):
+        return
+    if device.owner_id != request.auth_profile.id:
+        raise HttpError(403, "This device belongs to someone else")
+
+
+def _visible_assignments(request):
+    """Assignment queryset scoped to what the caller may dispatch."""
+    qs = VehicleAssignment.objects.all()
+    if _is_staff(request):
+        return qs
+    return qs.filter(route__agency__in=agencies_for_capability(request.auth_profile, CAPABILITY))
 
 
 # --- Endpoints ---
@@ -117,10 +159,12 @@ def _staff_check(request):
 @ratelimit(group='dispatch:create', key=user_or_ip, rate='30/m', method='POST')
 def create_assignment(request, payload: AssignmentCreateIn):
     """Create a vehicle assignment (dispatch device to route)."""
-    profile = _staff_check(request)
+    profile = _dispatcher_check(request)
 
     device = get_object_or_404(IoTDevice, id=payload.device_id, device_type="TRACKER")
-    route = get_object_or_404(Route, id=payload.route_id)
+    route = get_object_or_404(Route.objects.select_related("agency__data_source"), id=payload.route_id)
+    _check_route_access(request, route)
+    _check_device_access(request, device)
     data_source = route.agency.data_source
 
     # Check no active assignment for this device+date
@@ -156,11 +200,11 @@ def create_assignment(request, payload: AssignmentCreateIn):
 @ratelimit(group='dispatch:list', key=user_or_ip, rate='60/m')
 def list_assignments(request):
     """List today's assignments with live positions."""
-    _staff_check(request)
+    _dispatcher_check(request)
 
     target_date = request.GET.get("date", str(timezone.localdate()))
     assignments = list(
-        VehicleAssignment.objects
+        _visible_assignments(request)
         .filter(date=target_date)
         .select_related("device", "route")
         .order_by("route__short_name", "direction_id")
@@ -180,10 +224,10 @@ def list_assignments(request):
 @ratelimit(group='dispatch:detail', key=user_or_ip, rate='60/m')
 def get_assignment(request, assignment_id: str):
     """Get single assignment detail."""
-    _staff_check(request)
+    _dispatcher_check(request)
 
     a = get_object_or_404(
-        VehicleAssignment.objects.select_related("device", "route"),
+        _visible_assignments(request).select_related("device", "route"),
         id=assignment_id,
     )
     positions = TraccarService.get_positions_from_redis([str(a.device_id)])
@@ -194,10 +238,10 @@ def get_assignment(request, assignment_id: str):
 @ratelimit(group='dispatch:update', key=user_or_ip, rate='30/m', method='PATCH')
 def update_assignment(request, assignment_id: str, payload: AssignmentUpdateIn):
     """Update assignment status (COMPLETED/CANCELLED)."""
-    _staff_check(request)
+    _dispatcher_check(request)
 
     a = get_object_or_404(
-        VehicleAssignment.objects.select_related("device", "route", "data_source"),
+        _visible_assignments(request).select_related("device", "route", "data_source"),
         id=assignment_id,
     )
 
@@ -233,12 +277,15 @@ def update_assignment(request, assignment_id: str, payload: AssignmentUpdateIn):
 @ratelimit(group='dispatch:routes', key=user_or_ip, rate='60/m')
 def list_dispatch_routes(request):
     """List routes with active assignment counts for dispatch panel."""
-    _staff_check(request)
+    _dispatcher_check(request)
 
     from django.db.models import Count, Q
     today = timezone.localdate()
+    base = Route.objects.all()
+    if not _is_staff(request):
+        base = base.filter(agency__in=agencies_for_capability(request.auth_profile, CAPABILITY))
     routes = (
-        Route.objects
+        base
         .filter(
             vehicle_assignments__date=today,
             vehicle_assignments__status__in=["ASSIGNED", "ACTIVE"],
@@ -275,7 +322,7 @@ def list_dispatch_routes(request):
 @ratelimit(group='dispatch:devices', key=user_or_ip, rate='60/m')
 def list_available_devices(request):
     """List tracker devices available for assignment (not assigned today)."""
-    _staff_check(request)
+    profile = _dispatcher_check(request)
 
     today = timezone.localdate()
     assigned_device_ids = set(
@@ -285,6 +332,9 @@ def list_available_devices(request):
     )
 
     devices = IoTDevice.objects.filter(device_type="TRACKER").order_by("name")
+    if not _is_staff(request):
+        # Someone else's tracker is someone else's location history
+        devices = devices.filter(owner=profile)
 
     # Check which devices have live positions
     all_ids = [str(d.id) for d in devices]

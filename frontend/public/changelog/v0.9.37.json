@@ -1,0 +1,108 @@
+{
+  "version": "v0.9.37",
+  "date": "2026-08-06",
+  "locales": {
+    "en": {
+      "title": "Safety tools and support in euros",
+      "summary": "Report what crosses the line and block who you don't want around; on shared devices your wallet and chats now stay yours. Plus euro amounts for tips, view counters on your listings and three new civic questions.",
+      "highlights": [
+        { "icon": "shield", "title": "Report and block", "body": "Listings, profiles, comments and photos now carry a report option, and you can block a person — they disappear from your listings, comments, search and the live map, and direct messages close in both directions." },
+        { "icon": "shield-check", "title": "Your wallet and chats stay yours", "body": "On a shared device, switching accounts no longer opens the previous person's wallet or chat: the wallet verifies its owner before opening, and the chat session is wiped on account switch and logout." },
+        { "icon": "gift", "title": "Support people in euros", "body": "Tips and subscriptions now take amounts in euros with live conversion to sats, and after the payment you can add a small optional donation to the association." },
+        { "icon": "eye", "title": "See interest in your listings", "body": "Every card on My market shows how many people viewed the listing — unique daily visitors, with a last-24-hours delta. Your own visits are never counted." },
+        { "icon": "vote", "title": "Three new civic questions", "body": "The civic barometer now asks where you stand on the EU plans to scan private messages, the twice-yearly clock change, and the audiovisual fee on electricity bills." }
+      ],
+      "notes": [
+        "New guides in the docs section: riding transit, contracts, events, maps and stop-to-stop ridesharing.",
+        "Privacy policy updated to v1.2, and a public child-safety standards page is up.",
+        "The wallet page links external services for moving between bitcoin and euros.",
+        "Map info panels draw far less power, and 'Show on map' now opens instantly."
+      ]
+    },
+    "ru": {
+      "title": "Инструменты безопасности и поддержка в евро",
+      "summary": "Жалуйтесь на то, что переходит границы, и блокируйте тех, кого не хотите видеть; на общих устройствах кошелёк и чаты теперь остаются вашими. Плюс суммы в евро для чаевых, счётчики просмотров объявлений и три новых гражданских вопроса.",
+      "highlights": [
+        { "icon": "shield", "title": "Жалобы и блокировка", "body": "На объявления, профили, комментарии и фото теперь можно пожаловаться, а человека — заблокировать: он исчезает из ваших объявлений, комментариев, поиска и живой карты, а личные сообщения закрываются в обе стороны." },
+        { "icon": "shield-check", "title": "Кошелёк и чаты остаются вашими", "body": "На общем устройстве смена аккаунта больше не открывает чужой кошелёк или чат: кошелёк проверяет владельца перед открытием, а сессия чата стирается при смене аккаунта и выходе." },
+        { "icon": "gift", "title": "Поддержка людей в евро", "body": "Чаевые и подписки теперь принимают суммы в евро с живой конвертацией в саты, а после платежа можно добавить небольшое необязательное пожертвование ассоциации." },
+        { "icon": "eye", "title": "Интерес к вашим объявлениям", "body": "Каждая карточка в «Моём маркете» показывает, сколько людей посмотрели объявление — уникальные посетители за день, с приростом за последние 24 часа. Ваши собственные просмотры не считаются." },
+        { "icon": "vote", "title": "Три новых гражданских вопроса", "body": "Гражданский барометр спрашивает ваше мнение о планах ЕС по сканированию личных сообщений, сезонном переводе часов и аудиовизуальном сборе в счетах за электричество." }
+      ],
+      "notes": [
+        "Новые руководства в документации: транспорт, контракты, события, карты и совместные поездки от остановки к остановке.",
+        "Политика конфиденциальности обновлена до v1.2, опубликована страница стандартов защиты детей.",
+        "Страница кошелька ссылается на внешние сервисы обмена между биткоином и евро.",
+        "Панели карты потребляют заметно меньше энергии, а «Показать на карте» открывается мгновенно."
+      ]
+    },
+    "pt": {
+      "title": "Ferramentas de segurança e apoio em euros",
+      "summary": "Denuncie o que passa dos limites e bloqueie quem não quer por perto; em dispositivos partilhados, a sua carteira e as suas conversas ficam suas. Além disso: valores em euros nas gorjetas, contadores de visualizações nos anúncios e três novas perguntas cívicas.",
+      "highlights": [
+        { "icon": "shield", "title": "Denunciar e bloquear", "body": "Anúncios, perfis, comentários e fotos passam a ter opção de denúncia, e pode bloquear uma pessoa — ela desaparece dos seus anúncios, comentários, pesquisa e do mapa ao vivo, e as mensagens diretas fecham-se nos dois sentidos." },
+        { "icon": "shield-check", "title": "A sua carteira e as suas conversas ficam suas", "body": "Num dispositivo partilhado, trocar de conta já não abre a carteira nem a conversa da pessoa anterior: a carteira verifica o dono antes de abrir, e a sessão de chat é limpa ao trocar de conta e ao sair." },
+        { "icon": "gift", "title": "Apoie pessoas em euros", "body": "As gorjetas e subscrições aceitam agora valores em euros com conversão em direto para sats, e depois do pagamento pode juntar um pequeno donativo opcional à associação." },
+        { "icon": "eye", "title": "Veja o interesse nos seus anúncios", "body": "Cada cartão em O meu mercado mostra quantas pessoas viram o anúncio — visitantes únicos por dia, com a variação das últimas 24 horas. As suas próprias visitas nunca contam." },
+        { "icon": "vote", "title": "Três novas perguntas cívicas", "body": "O barómetro cívico pergunta agora a sua posição sobre os planos da UE de análise das mensagens privadas, a mudança sazonal da hora e a taxa do audiovisual na fatura da eletricidade." }
+      ],
+      "notes": [
+        "Novos guias na documentação: transportes, contratos, eventos, mapas e boleias de paragem a paragem.",
+        "Política de privacidade atualizada para a v1.2 e nova página pública de normas de proteção de menores.",
+        "A página da carteira liga a serviços externos para converter entre bitcoin e euros.",
+        "Os painéis do mapa gastam muito menos energia, e «Mostrar no mapa» abre instantaneamente."
+      ]
+    },
+    "es": {
+      "title": "Herramientas de seguridad y apoyo en euros",
+      "summary": "Denuncia lo que cruza la línea y bloquea a quien no quieres cerca; en dispositivos compartidos tu cartera y tus chats siguen siendo tuyos. Además: importes en euros para propinas, contadores de visitas en tus anuncios y tres nuevas preguntas cívicas.",
+      "highlights": [
+        { "icon": "shield", "title": "Denunciar y bloquear", "body": "Los anuncios, perfiles, comentarios y fotos ahora tienen opción de denuncia, y puedes bloquear a una persona: desaparece de tus anuncios, comentarios, búsqueda y del mapa en vivo, y los mensajes directos se cierran en ambos sentidos." },
+        { "icon": "shield-check", "title": "Tu cartera y tus chats siguen siendo tuyos", "body": "En un dispositivo compartido, cambiar de cuenta ya no abre la cartera ni el chat de la persona anterior: la cartera verifica a su dueño antes de abrirse, y la sesión de chat se borra al cambiar de cuenta y al cerrar sesión." },
+        { "icon": "gift", "title": "Apoya a la gente en euros", "body": "Las propinas y suscripciones ahora aceptan importes en euros con conversión en vivo a sats, y tras el pago puedes añadir una pequeña donación opcional a la asociación." },
+        { "icon": "eye", "title": "Mira el interés por tus anuncios", "body": "Cada tarjeta en Mi mercado muestra cuántas personas vieron el anuncio — visitantes únicos al día, con la variación de las últimas 24 horas. Tus propias visitas nunca cuentan." },
+        { "icon": "vote", "title": "Tres nuevas preguntas cívicas", "body": "El barómetro cívico pregunta ahora tu postura sobre los planes de la UE de escanear los mensajes privados, el cambio de hora estacional y la tasa audiovisual en la factura de la luz." }
+      ],
+      "notes": [
+        "Nuevas guías en la documentación: transporte, contratos, eventos, mapas y viajes compartidos de parada a parada.",
+        "Política de privacidad actualizada a la v1.2 y nueva página pública de normas de protección infantil.",
+        "La página de la cartera enlaza servicios externos para convertir entre bitcoin y euros.",
+        "Los paneles del mapa consumen mucha menos energía, y «Mostrar en el mapa» se abre al instante."
+      ]
+    },
+    "fr": {
+      "title": "Des outils de sécurité et du soutien en euros",
+      "summary": "Signalez ce qui dépasse les limites et bloquez qui vous ne voulez pas voir ; sur un appareil partagé, votre portefeuille et vos conversations restent à vous. En plus : des montants en euros pour les pourboires, des compteurs de vues sur vos annonces et trois nouvelles questions citoyennes.",
+      "highlights": [
+        { "icon": "shield", "title": "Signaler et bloquer", "body": "Les annonces, profils, commentaires et photos ont désormais une option de signalement, et vous pouvez bloquer une personne : elle disparaît de vos annonces, commentaires, recherches et de la carte en direct, et les messages directs se ferment dans les deux sens." },
+        { "icon": "shield-check", "title": "Votre portefeuille et vos conversations restent à vous", "body": "Sur un appareil partagé, changer de compte n'ouvre plus le portefeuille ni la conversation de la personne précédente : le portefeuille vérifie son propriétaire avant de s'ouvrir, et la session de chat est effacée au changement de compte et à la déconnexion." },
+        { "icon": "gift", "title": "Soutenez en euros", "body": "Les pourboires et abonnements acceptent désormais des montants en euros avec conversion en direct en sats, et après le paiement vous pouvez ajouter un petit don facultatif à l'association." },
+        { "icon": "eye", "title": "Voyez l'intérêt pour vos annonces", "body": "Chaque carte de Mon marché montre combien de personnes ont vu l'annonce — visiteurs uniques par jour, avec l'évolution des dernières 24 heures. Vos propres visites ne comptent jamais." },
+        { "icon": "vote", "title": "Trois nouvelles questions citoyennes", "body": "Le baromètre citoyen demande désormais votre position sur les projets européens d'analyse des messages privés, le changement d'heure saisonnier et la redevance audiovisuelle sur la facture d'électricité." }
+      ],
+      "notes": [
+        "Nouveaux guides dans la documentation : transports, contrats, événements, cartes et covoiturage d'arrêt à arrêt.",
+        "Politique de confidentialité mise à jour en v1.2 et nouvelle page publique des normes de protection de l'enfance.",
+        "La page du portefeuille renvoie vers des services externes pour passer du bitcoin à l'euro et inversement.",
+        "Les panneaux de la carte consomment bien moins d'énergie, et « Afficher sur la carte » s'ouvre instantanément."
+      ]
+    },
+    "de": {
+      "title": "Sicherheitswerkzeuge und Unterstützung in Euro",
+      "summary": "Melden Sie, was Grenzen überschreitet, und blockieren Sie, wen Sie nicht dabeihaben möchten; auf geteilten Geräten bleiben Ihre Wallet und Ihre Chats Ihre. Dazu: Beträge in Euro für Trinkgelder, Aufrufzähler für Ihre Anzeigen und drei neue Bürgerfragen.",
+      "highlights": [
+        { "icon": "shield", "title": "Melden und blockieren", "body": "Anzeigen, Profile, Kommentare und Fotos haben jetzt eine Melden-Option, und Sie können eine Person blockieren: Sie verschwindet aus Ihren Anzeigen, Kommentaren, der Suche und der Live-Karte, und Direktnachrichten schließen sich in beide Richtungen." },
+        { "icon": "shield-check", "title": "Ihre Wallet und Ihre Chats bleiben Ihre", "body": "Auf einem geteilten Gerät öffnet ein Kontowechsel nicht mehr die Wallet oder den Chat der vorherigen Person: Die Wallet prüft vor dem Öffnen ihren Besitzer, und die Chat-Sitzung wird bei Kontowechsel und Abmeldung gelöscht." },
+        { "icon": "gift", "title": "Menschen in Euro unterstützen", "body": "Trinkgelder und Abos akzeptieren jetzt Beträge in Euro mit Live-Umrechnung in Sats, und nach der Zahlung können Sie eine kleine freiwillige Spende an den Verein anfügen." },
+        { "icon": "eye", "title": "Das Interesse an Ihren Anzeigen sehen", "body": "Jede Karte unter Mein Markt zeigt, wie viele Menschen die Anzeige gesehen haben — eindeutige Besucher pro Tag, mit der Veränderung der letzten 24 Stunden. Ihre eigenen Aufrufe zählen nie." },
+        { "icon": "vote", "title": "Drei neue Bürgerfragen", "body": "Das Bürgerbarometer fragt jetzt nach Ihrer Haltung zu den EU-Plänen, private Nachrichten zu durchleuchten, zur saisonalen Zeitumstellung und zur Audiovisuell-Abgabe auf der Stromrechnung." }
+      ],
+      "notes": [
+        "Neue Leitfäden in der Dokumentation: Nahverkehr, Verträge, Veranstaltungen, Karten und Mitfahren von Haltestelle zu Haltestelle.",
+        "Datenschutzerklärung auf v1.2 aktualisiert und neue öffentliche Seite zu Kinderschutz-Standards.",
+        "Die Wallet-Seite verlinkt externe Dienste für den Wechsel zwischen Bitcoin und Euro.",
+        "Die Kartenpanels verbrauchen deutlich weniger Energie, und „Auf der Karte zeigen“ öffnet sofort."
+      ]
+    }
+  }
+}

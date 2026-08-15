@@ -56,6 +56,11 @@
           </ul>
         </div>
 
+        <div>
+          <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">{{ $t('about.wotSystem.badge.title') }}</h3>
+          <p>{{ $t('about.wotSystem.badge.text') }}</p>
+        </div>
+
       </div>
       <DocsPrevNext />
     </div>

@@ -6,14 +6,22 @@ switch/delete, manageable list, mail credentials.
 
 from ninja.pagination import paginate, PageNumberPagination
 from ninja.errors import HttpError
+from parahub.errors import LocalizedHttpError
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import Http404
+from decimal import Decimal
 from typing import List, Optional
 import logging
 
 from parahub.auth import GlobalAuth, ProfileAuth
+from identity.visibility import (
+    account_is_synthetic,
+    account_sees_test_content,
+    exclude_test_authors,
+    viewer_account,
+)
 from parahub.middleware.pgp import PGPSignatureAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 from identity.models import Profile
@@ -58,7 +66,7 @@ def get_my_profile(request):
 
     except Exception as e:
         logger.error(f"Error retrieving private profile: {e}")
-        return {"error": "Failed to retrieve profile"}, 500
+        raise HttpError(500, "Failed to retrieve profile")
 
 @profile_router.get("/me/mail-credentials/", auth=ProfileAuth())
 @ratelimit(group='profiles:mail_credentials', key=user_or_ip, rate='30/m')
@@ -66,10 +74,14 @@ def get_mail_credentials(request):
     """Return decrypted mail password for the authenticated user (used for webmail auto-login)."""
     account = request.auth_profile.account
     if not account.mail_password:
-        return {"error": "No mail account found"}, 404
+        raise HttpError(404, "No mail account found")
     try:
+        from django.core.cache import cache
         from parahub.services.mailcow import decrypt_mail_password
         from django.conf import settings as djsettings
+        # User is heading into webmail — the unseen count is about to change,
+        # so drop the cached value; the next badge refresh hits IMAP directly
+        cache.delete(f'mail_unseen:{account.id}')
         return {
             'username': account.username,
             'password': decrypt_mail_password(account.mail_password),
@@ -77,7 +89,7 @@ def get_mail_credentials(request):
         }
     except Exception as e:
         logger.error(f'Failed to decrypt mail password for {account.username}: {e}')
-        return {"error": "Failed to retrieve mail credentials"}, 500
+        raise HttpError(500, "Failed to retrieve mail credentials")
 
 @profile_router.get("/me/mail-unread/", auth=ProfileAuth())
 @ratelimit(group='profiles:mail_unread', key=user_or_ip, rate='30/m')
@@ -167,7 +179,12 @@ def update_my_preferences(request, data: ProfileUpdateRequest):
             update_fields.append('support_level')
 
         if data.notification_prefs is not None:
-            allowed_keys = {'social', 'contracts', 'governance', 'calls'}
+            # Derived from the dispatcher's own map instead of a literal set:
+            # the hand-written one had gone stale (it silently dropped `rental`,
+            # so that toggle looked saved and did nothing), and a preference the
+            # UI offers but the backend discards is worse than no toggle.
+            from notifications.services import TYPE_TO_CATEGORY
+            allowed_keys = set(TYPE_TO_CATEGORY.values())
             prefs = {k: bool(v) for k, v in data.notification_prefs.items() if k in allowed_keys}
             profile.notification_prefs = prefs
             update_fields.append('notification_prefs')
@@ -241,10 +258,10 @@ def update_my_profile(request, data: ProfileUpdateRequest):
         
     except ValidationError as e:
         logger.warning(f"Profile update validation error: {e}")
-        return {"error": "Invalid profile data", "details": str(e)}, 400
+        raise HttpError(400, f"Invalid profile data: {e}")
     except Exception as e:
         logger.error(f"Error updating profile: {e}")
-        return {"error": "Failed to update profile"}, 500
+        raise HttpError(500, "Failed to update profile")
 
 @profile_router.get("/manageable/", response=List[ProfileDetailResponse], auth=ProfileAuth())
 @ratelimit(group='profiles:manageable', key=user_or_ip, rate='60/m')
@@ -274,11 +291,11 @@ def get_manageable_profiles(request):
 
     except Exception as e:
         logger.error(f"Error retrieving manageable profiles: {e}")
-        return {"error": "Failed to retrieve profiles"}, 500
+        raise HttpError(500, "Failed to retrieve profiles")
 
 @profile_router.get("/search/", response=dict, auth=ProfileAuth())
 @ratelimit(group='profiles:search', key=user_or_ip, rate='60/m')
-def search_profiles(request, q: Optional[str] = None, verified_only: bool = False, only_partners: bool = False, page: int = 1, page_size: int = 50):
+def search_profiles(request, q: Optional[str] = None, verified_only: bool = False, only_partners: bool = False, exclude_test: bool = False, page: int = 1, page_size: int = 50):
     """
     Search for public profiles (requires authentication)
 
@@ -286,6 +303,12 @@ def search_profiles(request, q: Optional[str] = None, verified_only: bool = Fals
         q: Search query for display name or local name
         verified_only: Only return WoT verified profiles
         only_partners: Only return user's partners
+        exclude_test: Drop test/bot profiles even for viewers normally exempt
+            from synthetic-content hiding (staff, test accounts). The directory
+            sends it because a browse surface should show the real community;
+            the by-name pickers this endpoint also backs (delegation, poll
+            invite, shipment receiver) leave it off so seeded users stay
+            findable in E2E flows
         page: Page number (default: 1)
         page_size: Items per page (default: 50, max: 100)
     """
@@ -294,9 +317,18 @@ def search_profiles(request, q: Optional[str] = None, verified_only: bool = Fals
 
         queryset = Profile.objects.filter(is_publicly_linked=True).select_related('account', 'instance')
 
-        # Hide test/bot/admin accounts and localhost instance profiles from directory listings
-        queryset = queryset.exclude(account__is_test=True).exclude(account__is_bot=True).exclude(account__is_superuser=True)
+        # Hide test/bot profiles from real viewers; exempt viewers keep them
+        # unless the caller opted out (request=None = "no viewer" = always hide)
+        queryset = exclude_test_authors(queryset, None if exclude_test else request, field='')
+        # Admin accounts and localhost instance profiles stay out for everyone
+        queryset = queryset.exclude(account__is_superuser=True)
         queryset = queryset.exclude(instance__domain='localhost')
+
+        # Hide profiles the viewer blocked
+        from identity.services.blocks import blocked_profile_ids
+        blocked_ids = blocked_profile_ids(current_profile.account_id)
+        if blocked_ids:
+            queryset = queryset.exclude(id__in=blocked_ids)
 
         # Filter by partners if requested
         if only_partners and current_profile:
@@ -370,7 +402,7 @@ def search_profiles(request, q: Optional[str] = None, verified_only: bool = Fals
             # Use aggregation to efficiently count items per profile
             # CREDIT = user offers (has to give), DEBIT = user wants (needs to receive)
             items_query = Item.objects.filter(
-                owner_id__in=profile_ids
+                owner_id__in=profile_ids, is_active=True
             ).values('owner_id', 'type').annotate(count=Count('id'))
 
             for item in items_query:
@@ -423,6 +455,10 @@ def search_profiles(request, q: Optional[str] = None, verified_only: bool = Fals
                 preferred_currency=profile.preferred_currency or 'EUR',
                 bio=profile.bio or '',
                 avatar_url=profile.avatar_url,
+                # Public addresses (ProfilePublicResponse hands them to everyone) —
+                # carried here so a picker row can pay without a second lookup
+                ln_address=profile.ln_address or None,
+                spark_address=profile.spark_address or None,
                 country_code=profile.country_code or '',
                 is_partner=profile.id in partner_map,
                 items_credit_count=counts.get('CREDIT', 0),
@@ -509,6 +545,31 @@ def create_profile(request, data: ProfileCreateRequest):
         logger.error(f"Error creating profile: {e}")
         raise HttpError(500, "Failed to create profile")
 
+def _held_handle_stub(kind: str, handle: str, profile=None) -> ProfilePublicResponse:
+    """Minimal response for a handle the platform holds (service agent, test
+    fixture, reserved name).
+
+    Answering 404 here would contradict the signup form, which calls the same
+    handle taken. So the page says so instead — and says nothing else: no
+    account ULID (the by-account resolver stays reachable), no display name, no
+    reputation, no WoT, no counters.
+    """
+    from django.conf import settings
+
+    domain = profile.instance.domain if profile else settings.FEDERATION_DOMAIN
+    return ProfilePublicResponse(
+        id=profile.id if profile else '',
+        account_id='',
+        hna=f'{handle}@{domain}',
+        display_name='',
+        reputation_score=Decimal('0'),
+        is_verified_wot=False,
+        antispam_fee_sats=0,
+        is_publicly_linked=True,
+        account_kind=kind,
+    )
+
+
 @profile_router.get("/{id}/", response=ProfilePublicResponse, auth=None)
 @ratelimit(group='profiles:public', key='ip', rate='60/m')
 def get_public_profile(request, id: str):
@@ -525,14 +586,29 @@ def get_public_profile(request, id: str):
     If user is authenticated, also returns whether they already verified this profile.
     """
     try:
-        # Try to find by ULID first (26 alphanumeric chars), otherwise by local_name
+        from parahub.endpoints.auth import reserved_match
+
+        # Try to find by ULID first (26 alphanumeric chars), otherwise by
+        # local_name — case-insensitively, so /@vera reaches "Vera" instead of
+        # claiming a taken handle does not exist
         if len(id) == 26 and id.isalnum():
-            profile = get_object_or_404(Profile.objects.select_related('account'), id=id)
+            profile = get_object_or_404(
+                Profile.objects.select_related('account', 'instance'), id=id)
         else:
-            profile = get_object_or_404(Profile.objects.select_related('account'), local_name=id)
+            profile = Profile.objects.select_related(
+                'account', 'instance').filter(local_name__iexact=id).order_by('id').first()
+            if profile is None:
+                # A reserved name is held even with nothing behind it
+                if reserved_match(id) == 'exact':
+                    return _held_handle_stub('reserved', id)
+                raise Http404("Profile not found")
 
         # Check if profile is publicly linked
         if not profile.is_publicly_linked:
+            # A reserved handle says so; a member's own hidden pseudonymous
+            # profile stays invisible, exactly as before
+            if reserved_match(profile.local_name) == 'exact':
+                return _held_handle_stub('reserved', profile.local_name, profile)
             raise Http404("Profile not found")
 
         # Try to get authenticated profile (optional)
@@ -553,6 +629,21 @@ def get_public_profile(request, id: str):
             # Optional auth failed - this is OK for public endpoint
             logger.debug(f"Optional auth failed for profile {id}: {e}")
 
+        # A synthetic (test/bot) profile is not a public face of the platform:
+        # a stranger following a link — or a crawler — must not read a seeded
+        # account as a trusted member. They get the stripped stub instead, which
+        # also explains why the handle cannot be registered. Exempt viewers
+        # (staff, test accounts) and the owner see the real profile, so admin
+        # work and E2E flows keep working. Resolved without touching `request`:
+        # the item counts below deliberately stay anonymous.
+        viewer = current_profile.account if current_profile else viewer_account(request)
+        own_profile = viewer is not None and viewer.id == profile.account_id
+        if account_is_synthetic(profile.account) and not (
+                own_profile or account_sees_test_content(viewer)):
+            return _held_handle_stub(
+                'bot' if profile.account.is_bot else 'test',
+                profile.local_name, profile)
+
         # Count items for this profile
         from market.models import Item
         from market.visibility import visible_items_q
@@ -562,7 +653,7 @@ def get_public_profile(request, id: str):
         # visibility: counts reflect the PUBLIC storefront face and never leak
         # the existence of REGISTERED items to crawlers.
         item_counts = Item.objects.filter(
-            owner_id=profile.id
+            owner_id=profile.id, is_active=True
         ).filter(visible_items_q(request)).values('type').annotate(count=Count('id'))
 
         counts = {'CREDIT': 0, 'DEBIT': 0}
@@ -600,12 +691,19 @@ def get_public_profile(request, id: str):
 
         # Whether this profile uploaded a WoT verification photo (consent + face embedding).
         # Mirrors the backend gate in wot.create_verification — without it nobody can verify them.
+        # The same row carries the re-confirmation state: the profile replaced its
+        # face and the existing verifications point at one nobody can check against
+        # any more. Public, like the verification counts — it qualifies what those
+        # counts are worth right now.
         from identity.models import ProfileVerificationPhoto
-        has_verification_photo = ProfileVerificationPhoto.objects.filter(
+        ver_photo = ProfileVerificationPhoto.objects.filter(
             profile_id=profile.id,
             biometric_consent=True,
             face_embedding__isnull=False,
-        ).exists()
+        ).only('reconfirmation_needed', 'reconfirmation_count').first()
+        has_verification_photo = ver_photo is not None
+        photo_reconfirmation_needed = bool(ver_photo and ver_photo.reconfirmation_needed)
+        photo_reconfirmation_count = ver_photo.reconfirmation_count if ver_photo else 0
 
         # Count contracts for this profile
         from contracts.models import Contract
@@ -646,6 +744,15 @@ def get_public_profile(request, id: str):
                 ).filter(cnt__gte=3).values('verified_profile_id')
             ).count()
 
+        # Block state for the viewer (account-wide: any of the viewer's profiles)
+        is_blocked_by_viewer = False
+        if authenticated_user:
+            from identity.models import ProfileBlock
+            is_blocked_by_viewer = ProfileBlock.objects.filter(
+                blocker__account_id=authenticated_user.id,
+                blocked_id=profile.id,
+            ).exists()
+
         return ProfilePublicResponse.model_validate(
             profile,
             items_credit_count=counts.get('CREDIT', 0),
@@ -654,6 +761,8 @@ def get_public_profile(request, id: str):
             verifications_given_count=verifications_given,
             i_verified_them=i_verified_them,
             has_verification_photo=has_verification_photo,
+            photo_reconfirmation_needed=photo_reconfirmation_needed,
+            photo_reconfirmation_count=photo_reconfirmation_count,
             contracts_active_count=contracts_active,
             contracts_completed_count=contracts_completed,
             debts_active_count=debts_active,
@@ -663,10 +772,11 @@ def get_public_profile(request, id: str):
             rentable_count=rentable_count,
             current_user=authenticated_user,
             current_profile=current_profile,
+            is_blocked_by_viewer=is_blocked_by_viewer,
         )
 
-    except Profile.DoesNotExist:
-        raise Http404("Profile not found")
+    except Http404:
+        raise  # get_object_or_404 raises Http404, not Profile.DoesNotExist
     except Exception as e:
         logger.error(f"Error retrieving public profile {id}: {e}")
         raise Http404("Profile not found")
@@ -703,7 +813,7 @@ def get_profile_by_account(request, account_id: str):
 
         # auth=None -> anonymous viewer: PUBLIC-only counts (no REGISTERED leak).
         item_counts = Item.objects.filter(
-            owner_id=profile.id
+            owner_id=profile.id, is_active=True
         ).filter(visible_items_q(request)).values('type').annotate(count=Count('id'))
 
         counts = {'CREDIT': 0, 'DEBIT': 0}
@@ -775,8 +885,8 @@ def get_profile_by_account(request, account_id: str):
             invited_verified_count=invited_verified_count
         )
 
-    except Profile.DoesNotExist:
-        raise Http404("Profile not found")
+    except Http404:
+        raise  # get_object_or_404 raises Http404, not Profile.DoesNotExist
     except Exception as e:
         logger.error(f"Error retrieving profile for account {account_id}: {e}")
         raise Http404("Profile not found")
@@ -797,8 +907,8 @@ def get_profile_reviews(request, id: str):
         # Placeholder return - will be implemented with Review model in Phase 3
         return []
 
-    except Profile.DoesNotExist:
-        raise Http404("Profile not found")
+    except Http404:
+        raise  # a missing profile is a 404, not an empty review list
     except Exception as e:
         logger.error(f"Error retrieving reviews for profile {id}: {e}")
         return []
@@ -866,17 +976,11 @@ def delete_profile(request, id: str):
 
         # Cannot delete primary profile
         if target_profile.is_primary:
-            return {
-                "error": "CANNOT_DELETE_PRIMARY",
-                "message": "Cannot delete primary profile"
-            }, 400
+            raise LocalizedHttpError(400, "cannot_delete_primary", "Cannot delete primary profile")
 
         # Check if user can manage this profile
         if not current_profile.can_manage_profile(target_profile):
-            return {
-                "error": "PERMISSION_DENIED",
-                "message": "You don't have permission to delete this profile"
-            }, 403
+            raise LocalizedHttpError(403, "permission_denied", "You don't have permission to delete this profile")
 
         # Store HNA for logging
         profile_hna = target_profile.hna
@@ -893,8 +997,10 @@ def delete_profile(request, id: str):
 
         return {"message": "Profile deleted successfully", "deleted_profile": profile_hna}
 
-    except Profile.DoesNotExist:
-        raise Http404("Profile not found")
+    except HttpError:
+        raise  # the 400/403 above are the answer, not a server fault
+    except Http404:
+        raise
     except Exception as e:
         logger.error(f"Error deleting profile: {e}")
-        return {"error": "INTERNAL_ERROR", "message": "Failed to delete profile"}, 500
+        raise HttpError(500, "Failed to delete profile")

@@ -3,6 +3,7 @@
     "title": "Despacho",
     "page_title": "Despacho - Parahub",
     "subtitle": "Asignación de vehículos a rutas",
+    "assignments": "Asignaciones",
     "staff_only": "Solo para personal",
     "assign": "Asignar",
     "stats_active": "Activos",
@@ -35,6 +36,15 @@
     "notes_placeholder": "Notas opcionales...",
     "create_assignment": "Crear Asignación",
     "error_create": "Error al crear asignación",
-    "error_action": "Error"
+    "error_action": "Error",
+    "cancel_sure": "¿Seguro?",
+    "status": {
+      "ACTIVE": "Activa",
+      "ASSIGNED": "Asignada",
+      "COMPLETED": "Completada",
+      "CANCELLED": "Cancelada"
+    },
+    "no_operator": "Sin operador",
+    "no_operator_hint": "El despacho es para operadores de transporte — aún no gestiona ninguno. Pida a un operador que le añada, o cree su propia agencia."
   }
 }

@@ -115,9 +115,19 @@
         },
         "not_collected": {
           "title": "Daten, die wir NICHT absichtlich erheben:",
-          "sensitive": "Wir erheben keine sensiblen personenbezogenen Daten (rassische oder ethnische Herkunft, politische Ansichten, religiöse Überzeugungen, Gesundheitsdaten usw.), es sei denn, Sie geben diese freiwillig und ausdrücklich in öffentlichen Teilen Ihres Profils oder Ihrer Inhalte an.",
-          "location": "Standortdaten werden mit Datenschutz-Unschärfe verarbeitet (Annäherung auf einen Radius von 100m). Der genaue Standort wird niemals ohne Ihre ausdrückliche Zustimmung gespeichert oder weitergegeben.",
+          "sensitive": "Für die Nutzung des Dienstes sind keine sensiblen personenbezogenen Daten erforderlich (rassische oder ethnische Herkunft, religiöse Überzeugungen, Gesundheitsdaten usw.), und wir leiten solche Daten nicht aus Ihrer Aktivität ab. Die zwei optionalen Funktionen, die besondere Datenkategorien berühren, werden unten beschrieben.",
+          "location": "Standorte, die Sie öffentlichen Anzeigen beifügen, werden anderen Nutzern auf ein Raster von etwa 100 m vergröbert angezeigt. Funktionen, deren Zweck gerade das Teilen Ihrer genauen Position ist (Live-Präsenz auf der Karte, Fahrermodus, SOS-Alarme), übertragen sie nur, solange Sie sie aktiv nutzen.",
           "crypto": "Kryptografische private Schlüssel (PGP) werden ausschließlich auf Ihrem Gerät generiert und gespeichert. Der Server hat niemals Zugriff auf Ihre privaten Schlüssel — es werden nur öffentliche Schlüssel gespeichert. Dies ist ein grundlegendes architektonisches Prinzip, keine Richtlinienentscheidung."
+        },
+        "special": {
+          "title": "Besondere Kategorien von Daten (Art. 9 DSGVO)",
+          "intro": "Drei optionale Funktionen verarbeiten Daten, die die DSGVO als besondere Kategorien einstuft. Alle funktionieren nur, wenn Sie sich für ihre Nutzung entscheiden, auf Grundlage Ihrer ausdrücklichen Einwilligung (Art. 9 Abs. 2 lit. a DSGVO):",
+          "civic_label": "Bürgerbefragungen",
+          "civic": "Ein von Ihnen abgegebener Stimmzettel kann eine politische Meinung ausdrücken. Meinungs-Stimmzettel werden unter einem Einweg-Pseudonym (Hash mit Schlüssel) erfasst; der Stimmzettel-Datensatz enthält keine Verknüpfung zu Ihrem Profil, Ihrer IP-Adresse oder Ihren Schlüsseln, veröffentlichte Ergebnisse sind Aggregate, und Ihre Quittung erlaubt es Ihnen, die eigene Stimme zu überprüfen, ohne sie jemandem offenzulegen. Abstimmungen, die ihrer Natur nach offen sind (Entscheidungen von Haushalten und Wohnungseigentümergemeinschaften, Stimmen mit Delegation), werden Ihnen zugeordnet — die Abstimmungsseite weist vor der Stimmabgabe darauf hin.",
+          "psy_label": "Psychometrisches Profil",
+          "psy": "Wenn Sie die optionale Selbsteinschätzung ausfüllen, werden Ihre Antworten (mit Hilfe eines KI-Modells — siehe Abschnitt 6) analysiert, um eine kurze Charakterisierung abzuleiten. Öffentlich angezeigt wird nur die endgültige Vier-Wort-Zusammenfassung; Sie können sie jederzeit aktualisieren oder ihre Löschung verlangen.",
+          "voice_label": "Stimmklon (Sprachnachrichten)",
+          "voice": "Wenn Sie den Stimmklon aktivieren, werden Aufnahmen Ihrer eigenen Sprache an unseren Sprachdienstleister (ElevenLabs) gesendet und daraus ein Stimmabdruck erstellt — biometrische Daten. Aufbewahrt werden nur Ihre eigenen Aufnahmen, nie die der anderen Person; die Proben werden gelöscht, sobald der Klon fertig ist, das Audio der Nachrichten verfällt nach 30 Tagen, und das Löschen der Stimme entfernt sie auch beim Anbieter. Sprachnachrichten funktionieren auch ohne Klon, in einer Standardstimme."
         }
       },
       "mesh": {
@@ -130,7 +140,7 @@
         "retention_label": "Speicherdauer",
         "retention": "Lease-Daten werden nur als aktueller Zustand vorgehalten: Jeder Heartbeat ersetzt die vorherige Momentaufnahme, eine Historie entsteht nicht. Wir protokollieren nicht, welche Seiten Gäste besuchen, und Gastverkehr wird nicht inspiziert.",
         "egress_label": "Internet-Ausgang",
-        "egress": "Gastverkehr verlässt das Netz über einen VPN-Tunnel und erreicht das Internet daher nicht über die Heim-IP-Adresse der Knotenbetreiberin oder des Knotenbetreibers. Der Verein betreibt den gemeinsamen Ausgang, dessen letzter Abschnitt bei einem kommerziellen VPN-Anbieter liegt, und verarbeitet die dafür minimal nötigen Verbindungsmetadaten.",
+        "egress": "Gastverkehr verlässt das Netz über einen VPN-Tunnel und erreicht das Internet daher nicht über die Heim-IP-Adresse der Knotenbetreiberin oder des Knotenbetreibers. Knoten ohne eigene Internetleitung (und die dahinter liegenden Geräte ihrer Betreiberinnen und Betreiber) erreichen das Internet auf demselben Weg, über das Mesh und den VPN-Ausgang. Der Verein betreibt den gemeinsamen Ausgang, dessen letzter Abschnitt bei einem kommerziellen VPN-Anbieter liegt, und verarbeitet die dafür minimal nötigen Verbindungsmetadaten. Die Funkstrecken zwischen den Knoten sind ein gemeinsames Medium der Community: wie in jedem offenen WLAN kommt die Vertraulichkeit im Funk von Ende-zu-Ende-Verschlüsselung (HTTPS) und dem VPN-Tunnel.",
         "basis_label": "Rechtsgrundlage",
         "basis": "Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO) für die Zuordnung des Vollgeschwindigkeits-Passes zu deinem Gerät sowie berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO) am Betrieb und Schutz des Netzes. Die Peering-Bedingungen zwischen Knotenbetreibern stehen in der Mesh-Peering-Vereinbarung."
       },
@@ -165,12 +175,18 @@
         "matrix": "Wenn diese Instanz einen von einem Dritten verwalteten Matrix-Server verwendet oder Sie mit Nutzern auf anderen Matrix-Servern kommunizieren, werden Daten gemäß dem Matrix-Protokoll übertragen.",
         "legal_label": "Rechtliche Anforderungen",
         "legal": "Wir können Ihre Daten offenlegen, wenn dies gesetzlich vorgeschrieben ist oder als Antwort auf eine gültige rechtliche Anfrage von Strafverfolgungsbehörden (unter Einhaltung der geltenden Verfahren).",
-        "no_sale": "Wir verkaufen Ihre personenbezogenen Daten nicht."
+        "no_sale": "Wir verkaufen Ihre personenbezogenen Daten nicht.",
+        "ai_label": "KI-Funktionen",
+        "ai": "Einige Funktionen stützen sich auf KI-Modelle Dritter: der Assistent und die Wissenssuche, die Bildanalyse für Anzeigen, der Sprachsupport, Sprachnachrichten und die psychometrische Selbsteinschätzung. Wenn Sie eine solche Funktion nutzen, wird der von Ihnen übermittelte Inhalt (Text, Bild oder Sprachaudio) an den konfigurierten Anbieter gesendet — derzeit Google (Gemini) für Assistent, Sprache und Bildanalyse, OpenAI für die Kategorisierung von Anzeigen und ElevenLabs für Spracherkennung und -synthese —, der als unser Auftragsverarbeiter handelt. Diese Anfragen enthalten weder Ihren Namen noch Kennungen Ihres Kontos.",
+        "push_label": "Push-Benachrichtigungen",
+        "push": "Wenn Sie Push-Benachrichtigungen aktivieren, erfolgt die Zustellung über den Push-Dienst Ihrer Plattform (Google Firebase Cloud Messaging auf Android, Apple Push Notification service auf iOS oder den Push-Dienst Ihres Browsers), der ein Zustellungs-Token für Ihr Gerät verarbeitet.",
+        "transfers_label": "Internationale Datenübermittlungen",
+        "transfers": "Die oben genannten KI- und Push-Anbieter können Daten auf Servern außerhalb der EU verarbeiten, vor allem in den USA. Solche Übermittlungen stützen sich auf das EU–U.S. Data Privacy Framework (für zertifizierte Anbieter) und/oder Standardvertragsklauseln (Art. 46 DSGVO). Alles andere — Ihr Konto, Ihre Inhalte und die gesamte primäre Speicherung — verbleibt auf unseren Servern in der EU (siehe Abschnitt 7)."
       },
       "storage": {
         "title": "Datenspeicherung und Sicherheit",
         "measures": "Wir implementieren angemessene technische und organisatorische Maßnahmen zum Schutz Ihrer personenbezogenen Daten vor unbefugtem Zugriff, Änderung, Offenlegung oder Vernichtung (z. B. HTTPS, Passwortverschlüsselung, regelmäßige Software-Updates, eingeschränkter Datenzugriff für Mitarbeiter).",
-        "location": "Die Daten werden auf Servern in der Europäischen Union gespeichert.",
+        "location": "Ruhende Daten werden auf unseren Servern in der Europäischen Union gespeichert (Deutschland und Portugal). Außerhalb der EU wird nur verarbeitet, was Abschnitt 6 beschreibt: an KI-Funktionen übermittelte Inhalte und Zustellungs-Tokens für Push-Benachrichtigungen.",
         "retention": "Die Aufbewahrungsfristen richten sich nach dem Zweck und den gesetzlichen Anforderungen. Daten werden nicht länger aufbewahrt als für die Zwecke erforderlich, für die sie erhoben wurden. Sie können die Löschung Ihrer Daten beantragen (siehe Ihre Rechte)."
       },
       "rights": {
@@ -191,8 +207,9 @@
         "withdraw_label": "Recht auf Widerruf der Einwilligung",
         "withdraw": "Wenn die Verarbeitung auf einer Einwilligung beruht, können Sie diese jederzeit widerrufen.",
         "complaint_label": "Beschwerderecht",
-        "complaint": "Eine Beschwerde bei einer Datenschutzaufsichtsbehörde einreichen.",
-        "contact": "Um diese Rechte auszuüben, kontaktieren Sie uns bitte unter {email}."
+        "complaint": "Beschwerde bei einer Datenschutz-Aufsichtsbehörde einlegen. In Portugal ist dies die Comissão Nacional de Proteção de Dados (CNPD, www.cnpd.pt).",
+        "contact": "Um diese Rechte auszuüben, kontaktieren Sie uns bitte unter {email}.",
+        "erasure_limits": "Die Löschung hat technische und rechtliche Grenzen (Art. 17 Abs. 3 DSGVO). Kryptographische Prüfaufzeichnungen (Zeitstempel und aggregierte Abstimmungsnachweise), signierte Vertragsunterlagen, die zur Geltendmachung oder Verteidigung von Rechtsansprüchen erforderlich sind, sowie Kopien öffentlicher Inhalte, die bereits auf andere Föderationsinstanzen oder öffentliche Spiegel repliziert wurden, können von uns nicht immer einseitig entfernt werden. Wenn Sie die Löschung verlangen, löschen wir alles, was unserer Kontrolle unterliegt, und teilen Ihnen mit, was verbleibt und warum."
       },
       "cookies": {
         "title": "Cookies",
@@ -353,7 +370,6 @@
     }
   },
   "about": {
-    "android_app": "Android",
     "meta": {
       "description": "Parahub — quelloffene föderierte Plattform für P2P-Kooperation, Handel und Kommunikation. Keine Gebühren, keine Mittelsmänner, clientseitige Verschlüsselung."
     },
@@ -417,7 +433,7 @@
       },
       "mesh": {
         "title": "Mesh-Netzwerk",
-        "desc": "Flashen Sie einen Router und er wird Teil des Netzwerks. Kostenloses WLAN für Nachbarn, verdienen Sie am Traffic."
+        "desc": "Flashen Sie einen Router und er wird Teil des Netzwerks. Kostenloses WLAN für Nachbarn, volle Geschwindigkeit für Sie, solange Ihr Knoten läuft."
       },
       "arbitration": {
         "title": "Streitbeilegung",
@@ -613,6 +629,34 @@
         }
       }
     },
+    "contractsSystem": {
+      "title": "Verträge",
+      "intro": "Digitale Vereinbarungen zwischen Menschen, signiert mit echter Kryptografie. Das Dokument verlässt Ihr Gerät nie — die Plattform speichert nur seinen Fingerabdruck, und beide Seiten signieren mit ihren persönlichen Schlüsseln.",
+      "how": {
+        "title": "So funktioniert es",
+        "step1": "Wer den Vertrag anlegt, wählt die Vertragsdatei. Sie bleibt auf dem eigenen Gerät; das System berechnet ihren kurzen digitalen Fingerabdruck.",
+        "step2": "Der Partner erhält den Vertrag, prüft, dass seine Kopie der Datei zum Fingerabdruck passt, und signiert ebenfalls.",
+        "step3": "Beide Signaturen entstehen mit persönlichen PGP-Schlüsseln auf dem jeweils eigenen Gerät — der Server sieht weder Datei noch Schlüssel.",
+        "step4": "Die Arbeit läuft zu den vereinbarten Bedingungen.",
+        "step5": "Jede Seite markiert den Vertrag unabhängig als erledigt und bewertet die andere. Abgeschlossen ist er erst, wenn beide bestätigt haben."
+      },
+      "privacy": {
+        "title": "Ihre Dokumente bleiben Ihre",
+        "text": "Gespeichert wird nur ein Fingerabdruck aus 64 Zeichen — genug, um später zu beweisen, dass genau diese Datei signiert wurde, und nie genug, um sie wiederherzustellen. Der Inhalt bleibt privat und unter Ihrer Kontrolle."
+      },
+      "linking": {
+        "title": "Mit echten Geschäften verknüpft",
+        "text": "Ein Vertrag kann eine Marktanzeige oder eine Immobilie zum Gegenstand haben. Der Kaufen-Knopf jeder Anzeige startet einen Vertrag mit Verkäufer und Artikel bereits ausgefüllt; mit Abschluss des Vertrags schließt sich die Anzeige automatisch."
+      },
+      "proof": {
+        "title": "Gerichtsfester Nachweis",
+        "text": "Jeder Vertrag lässt sich als Paket exportieren: seine Daten, beide PGP-Signaturen, ein in Bitcoin verankerter Zeitstempel und eine Prüfanleitung — ein unabhängiger Beleg, dass die Vereinbarung existierte und genau dann signiert wurde."
+      },
+      "disputes": {
+        "title": "Wenn etwas schiefgeht",
+        "text": "Jede Seite kann ein Schiedsverfahren starten: Eine gewählte Schiedsperson tritt einem privaten Chat mit beiden Seiten bei, prüft die Belege und fällt ein Urteil. Schiedspersonen haben öffentliche Profile mit transparenter Statistik; ungelöste Fälle können an ein institutionelles Schiedszentrum und zuletzt vor Gericht eskalieren."
+      }
+    },
     "wotSystem": {
       "title": "Web of Trust",
       "problem": {
@@ -636,6 +680,10 @@
         "wot1": "1+ Verifizierung: Angebote erstellen, Tausch, Direktnachrichten",
         "wot2": "2+ Verifizierungen: Unternehmensverzeichnis, Events organisieren, P2P-Werbung",
         "wot3": "3+ Verifizierungen: Vollzugang, Möglichkeit Schlichter zu werden"
+      },
+      "badge": {
+        "title": "Para-ID-Karte",
+        "text": "Ihre druckbare Para-ID-Karte trägt das Web-of-Trust-Siegel, sobald Sie von 3+ Mitgliedern bestätigt wurden. Das Siegel auf Papier ist eine Momentaufnahme vom Ausstellungstag — der QR-Code zu Ihrem Live-Profil bleibt stets der maßgebliche Nachweis."
       }
     },
     "adsSystem": {
@@ -677,15 +725,15 @@
       "networks": {
         "title": "Zwei Netzwerke aus einem Router",
         "public": "Offenes Netzwerk ohne Passwort. Geschwindigkeit auf 512 kbps begrenzt. Gäste-Traffic läuft durch einen VPN-Tunnel: Sie haften nicht für deren Internetaktivitäten (Mere-Conduit-Prinzip).",
-        "private": "Ihr privates WPA3-Netzwerk mit voller Geschwindigkeit. Zugang zu Heimgeräten, NAS, DLNA. Von Gästen isoliert, teilt denselben Mesh-Backhaul über separates VLAN."
+        "private": "Ihr privates WPA3-Netzwerk mit voller Geschwindigkeit. Zugang zu Heimgeräten, NAS, DLNA. Lokal auf Ihrem Router und von Gästen isoliert; Ihre eigenen Knoten sind über einen verschlüsselten Tunnel verbunden, sodass ein privates Netzwerk mehrere Gebäude umspannen kann."
       },
       "earn": {
-        "title": "Mit Gäste-Traffic verdienen",
-        "text": "Gäste erhalten grundlegenden kostenlosen Zugang. Für mehr Geschwindigkeit scannen sie einen QR-Code und zahlen Satoshis via Lightning. Der Router hebt sofort die Drosselung auf. Sie erhalten die Zahlung ohne Ihr Zutun."
+        "title": "Volle Geschwindigkeit für den Host",
+        "text": "Gäste erhalten grundlegenden kostenlosen Zugang. Für mehr Geschwindigkeit scannen sie einen QR-Code und zahlen Satoshis via Lightning — die Zahlung geht an den Verein und fließt ins Netzwerk. Solange Ihr Knoten online ist, laufen Ihre eigenen Geräte auf jedem Parahub-Knoten mit voller Geschwindigkeit, ohne Zahlung."
       },
       "global": {
         "title": "Lokales und globales Mesh",
-        "text": "Benachbarte Knoten verbinden sich automatisch über Wi-Fi via batman-adv — nahtloses Roaming, einheitliches DLNA. Knoten in verschiedenen Städten verbinden sich via Yggdrasil über normales Internet — automatisch, ohne Port-Weiterleitung."
+        "text": "Benachbarte Knoten verbinden sich automatisch über Wi-Fi via batman-adv — ein gemeinsames Gastnetz mit nahtlosem Roaming, und Ihre eigenen Knoten halten untereinander ein einziges privates Netzwerk. Knoten in verschiedenen Städten verbinden sich via Yggdrasil über normales Internet — automatisch, ohne Port-Weiterleitung."
       }
     },
     "condoSystem": {
@@ -809,6 +857,38 @@
         "text": "Alle Ihre Routen, Haltestellen und Fahrpläne werden kontinuierlich als Standard-GTFS-Daten exportiert. Externe Verkehrs-Apps können Ihre Routen ohne manuellen Aufwand nutzen."
       }
     },
+    "transitSystem": {
+      "title": "Öffentlicher Verkehr",
+      "intro": "Öffentlicher Verkehr live an einem Ort: Fahrzeuge in Echtzeit auf der Karte, Ankunftsprognosen an jeder Haltestelle, Linienseiten mit Fahrplänen und Tür-zu-Tür-Routenplanung. Die Abdeckung umfasst mehrere Städte und Betreiber — Bus, Tram, Metro, Zug und Fähre.",
+      "live": {
+        "title": "Fahrzeuge live",
+        "text": "Jedes Fahrzeug mit Live-GPS bewegt sich während der Fahrt über die Karte. Tippen Sie eines an, um Linie und Details zu sehen; eine optionale Spur zeigt, wo es gerade entlanggefahren ist."
+      },
+      "pages": {
+        "title": "Linien- und Haltestellenseiten",
+        "text": "Jede Linie und jede Haltestelle hat ihre eigene Seite: Live-Ankünfte, den vollständigen Fahrplan, beide Richtungen auf der Karte und einen druckbaren Fahrplan."
+      },
+      "eta": {
+        "title": "Ehrliche Ankünfte",
+        "text": "Die Ankunftsprognosen lernen daraus, wie Fahrzeuge die einzelnen Abschnitte einer Linie tatsächlich fahren — nicht nur aus dem gedruckten Fahrplan. Wo Live-Daten fehlen, wird der Fahrplan angezeigt."
+      },
+      "planner": {
+        "title": "Routenplanung",
+        "text": "Planen Sie eine Fahrt von A nach B aus Fußwegen und Verkehrsmitteln aller abgedeckten Betreiber zugleich — auch mit Linien ohne Live-Ortung, sodass Züge und Fähren als Anschlüsse auftauchen."
+      },
+      "waiting": {
+        "title": "Warten an der Haltestelle",
+        "text": "An der Haltestelle öffnen Sie ihre Seite und markieren die Linie, auf die Sie warten — ganz ohne Konto. Mitreisende sehen, wie viele auf dieselbe Linie warten, und der Fahrer sieht die Zahl bei der Annäherung. Die Markierung löscht sich selbst, wenn Ihr Fahrzeug ankommt — und kommt länger nichts, schlägt die Seite eine Mitfahrgelegenheit vor und zeigt, wie viele mit Ihnen festsitzen."
+      },
+      "opendata": {
+        "title": "Offene Daten",
+        "text": "Die von der Plattform gesammelten Verkehrsdaten werden in offenen Standardformaten weiterveröffentlicht — jeder kann eigene Werkzeuge darauf aufbauen."
+      },
+      "related": {
+        "title": "Siehe auch"
+      },
+      "cta": "Zum Nahverkehr"
+    },
     "ticketsSystem": {
       "title": "Tickets",
       "intro": "Kaufen Sie digitale Tickets für Veranstaltungen und Nahverkehr mit sofortigen Lightning-Zahlungen. Ein System für Konzerte, Gemeinschaftstreffen und Busfahrten — ohne Zwischenhändler, ohne Gebühren über das hinaus, was der Betreiber festlegt.",
@@ -877,13 +957,68 @@
         "title": "Für Fahrgäste sichtbar",
         "text": "Ihr Fahrzeug erscheint auf der öffentlichen Karte neben offiziellen Feeds. Fahrgäste sehen geschätzte Ankunftszeiten an jeder Haltestelle."
       },
+      "routeOverview": {
+        "title": "Live-Streckenübersicht",
+        "text": "Blenden Sie im Fahrerbildschirm eine Streckenleiter ein: beide Richtungen nebeneinander, jedes Fahrzeug auf der Linie, Ankunftszeiten je Richtung, Ihr eigener Bus hervorgehoben — der Abstand zum Bus davor und dahinter auf einen Blick."
+      },
+      "ticketScanning": {
+        "title": "Ticketkontrolle während der Schicht",
+        "text": "Öffnen Sie den Ticketscanner direkt im Fahrerbildschirm, um QR-Tickets der Fahrgäste zu prüfen — die Schicht läuft weiter. Funktioniert auch offline und weist ein Ticket ab, das das Gerät bereits gesehen hat."
+      },
+      "waitingPassengers": {
+        "title": "Wartende Fahrgäste",
+        "text": "Bei Annäherung an eine Haltestelle zeigt der Bildschirm, wie viele Fahrgäste sich dort als wartend auf Ihre Linie markiert haben."
+      },
       "shiftHistory": {
         "title": "Schichtprotokoll",
         "text": "Alle Schichten werden mit Start-/Endzeiten und Routendetails aufgezeichnet. Nützlich für Audits und Gehaltsabrechnung."
       },
       "requirements": {
         "title": "Voraussetzungen",
-        "text": "Vertrauensnetzwerk Stufe 2+ ist erforderlich, um als Fahrer zu senden. Dies stellt sicher, dass nur vertrauenswürdige Mitglieder als offizielle Fahrzeuge auf der Karte erscheinen."
+        "text": "Web-of-Trust-Stufe 3+ ist erforderlich, um als Fahrer zu senden. So können nur vertrauenswürdige Community-Mitglieder als offizielle Fahrzeuge auf der Karte erscheinen."
+      }
+    },
+    "carpoolSystem": {
+      "title": "Fahrgemeinschaften",
+      "intro": "Mitfahrten von Haltestelle zu Haltestelle, gesteuert vom Fahrgast. Fragen Sie an Ihrer Haltestelle eine Mitfahrt an, erhalten Sie Angebote von Fahrern und koordinieren Sie alles per verschlüsseltem Chat — ohne Provisionen, ohne Zwischenhändler.",
+      "howItWorks": {
+        "title": "So funktioniert es",
+        "step1": "Erstellen Sie eine Mitfahranfrage — wählen Sie Start- und Zielhaltestelle, Plätze und den Preis, den Sie anbieten",
+        "step2": "Fahrer in der Nähe oder auf passender Route sehen die Anfrage und senden Angebote mit Fahrzeugbeschreibung",
+        "step3": "Nehmen Sie ein Angebot an — ein verschlüsselter Matrix-Chat mit dem Fahrer wird automatisch zur Koordination erstellt",
+        "step4": "Nach der Fahrt bewerten sich beide gegenseitig — 1–5-Sterne-Bewertungen bauen Reputation in der Gemeinschaft auf"
+      },
+      "stopBased": {
+        "title": "Haltestelle zu Haltestelle",
+        "text": "Alle Fahrten beginnen und enden an ÖPNV-Haltestellen — bekannte, leicht auffindbare Treffpunkte statt beliebiger Adressen."
+      },
+      "passengerDriven": {
+        "title": "Vom Fahrgast gesteuert",
+        "text": "Der Fahrgast stellt die Anfrage und setzt den Preis; Fahrer antworten mit konkurrierenden Angeboten — das Gegenteil einer Taxizentrale."
+      },
+      "noFees": {
+        "title": "Keine Plattformgebühren",
+        "text": "Die Vereinbarung läuft direkt zwischen Fahrgast und Fahrer. Die Plattform nimmt nichts und hält niemals Geld."
+      },
+      "liveRequests": {
+        "title": "Live-Anfragen",
+        "text": "Anfragen gelten für jetzt, nicht nach Fahrplan: Sie laufen automatisch ab, Fahrer sehen nur Menschen, die wirklich warten."
+      },
+      "routeSearch": {
+        "title": "Suche entlang der Route",
+        "text": "Fahrer finden Anfragen in der Nähe oder entlang der geplanten Route — der Umweg bleibt klein."
+      },
+      "reputation": {
+        "title": "Reputation",
+        "text": "Gegenseitige Bewertungen nach jeder abgeschlossenen Fahrt; die Bewertung erscheint bei jeder Anfrage und jedem Angebot."
+      },
+      "stranded": {
+        "title": "An der Haltestelle gestrandet?",
+        "text": "Wenn auf Ihrer Linie nichts kommt, schlägt die Haltestellen-Seite eine Mitfahrt vor und zeigt, wie viele andere dort mit Ihnen warten — eine Brücke vom ausgefallenen Bus zum Auto eines Nachbarn."
+      },
+      "requirements": {
+        "title": "Voraussetzungen",
+        "text": "Ein verifiziertes Profil ist erforderlich: Anfragen und Angebote stehen Mitgliedern offen, die über das Vertrauensnetz verifiziert sind. Die Bezahlung vereinbaren beide direkt."
       }
     },
     "walletSystem": {
@@ -977,7 +1112,60 @@
       "callout": {
         "title": "Ein offenes Protokoll, kein goldener Käfig",
         "text": "Matrix ist ein offener, föderierter Standard: Ihre Gespräche sind nicht in Parahub eingeschlossen, und gewöhnliche Matrix-Apps können sich mit demselben Konto verbinden."
+      },
+      "nativeApps": {
+        "title": "Eine native Matrix-App verwenden",
+        "intro": "Lieber eine eigene App auf dem Handy oder Computer? Jeder Matrix-Client mit Anmeldung über den Browser funktioniert — zum Beispiel Element X oder SchildiChat Next auf dem Handy oder Element auf dem Desktop.",
+        "step1": "Installieren Sie die App und wählen Sie die manuelle Eingabe der Serveradresse.",
+        "step2": "Geben Sie parahub.io als Server ein.",
+        "step3": "Der Browser öffnet sich — melden Sie sich mit Ihrer gewohnten Parahub-E-Mail und Ihrem Passwort an und bestätigen Sie. Fertig.",
+        "noPassword": {
+          "title": "Es gibt kein separates Chat-Passwort",
+          "text": "Die Anmeldung läuft immer über den Browser mit Ihrem normalen Parahub-Konto. Apps, die nur ein Formular für Benutzername und Passwort anbieten, können sich nicht verbinden — wählen Sie eine mit Browser-Anmeldung."
+        },
+        "qr": {
+          "title": "Handy als zweites Gerät hinzufügen?",
+          "text": "Öffnen Sie auf einem Computer, auf dem Sie bereits angemeldet sind, Element (parahub.io/element), gehen Sie zu Einstellungen → Sitzungen → „Neues Gerät koppeln“ und zeigen Sie den QR-Code an; wählen Sie dann in der Handy-App „Mit QR-Code anmelden“ und scannen Sie den Bildschirm. Die Geräte verifizieren sich automatisch, und Ihr verschlüsselter Verlauf bleibt lesbar."
+        }
       }
+    },
+    "eventsSystem": {
+      "title": "Veranstaltungen",
+      "intro": "Veranstaltungen und Treffen der Community — vom Nachbarschaftsputz bis zum Online-Workshop. Jede veröffentlichte Veranstaltung bekommt ihren eigenen verschlüsselten Chatraum, in dem sich die Teilnehmenden abstimmen.",
+      "types": {
+        "offline": {
+          "title": "Vor Ort",
+          "text": "Ein Treffen an einem realen Ort, angezeigt auf der Karte."
+        },
+        "online": {
+          "title": "Online",
+          "text": "Eine virtuelle Veranstaltung mit Videocall-Link."
+        },
+        "hybrid": {
+          "title": "Hybrid",
+          "text": "Beides zugleich — kommen Sie vorbei oder schalten Sie sich zu."
+        }
+      },
+      "flow": {
+        "title": "Von der Idee zur Veranstaltung",
+        "step1": "Wählen Sie Format und Kategorie; legen Sie Titel, Beschreibung, Datum und Uhrzeit fest.",
+        "step2": "Für Treffen vor Ort wählen Sie den Platz auf der Karte; online fügen Sie den Link zum Videocall hinzu.",
+        "step3": "Begrenzen Sie bei Bedarf die Teilnehmerzahl und fügen Sie ein Titelbild hinzu.",
+        "step4": "Veröffentlichen Sie — der Gruppenchat entsteht automatisch, und wer der Veranstaltung beitritt, betritt auch ihn."
+      },
+      "participate": {
+        "title": "Mitmachen",
+        "text": "Treten Sie bei, um sich einen Platz zu sichern und in den Chat zu kommen; markieren Sie sich als dabei oder vielleicht; austreten geht jederzeit."
+      },
+      "discover": {
+        "title": "Veranstaltungen finden",
+        "text": "Stöbern Sie mit Filtern durch Kommendes — Format, Kategorie, Stadt, Datum oder Entfernung — oder entdecken Sie Veranstaltungen direkt auf der Community-Karte. Vergangenes bleibt einsehbar."
+      },
+      "access": {
+        "title": "Wer darf was",
+        "text": "Ansehen kann jeder, beitreten jeder angemeldete Nutzer. Zum Erstellen braucht es ein Profil, für das andere Mitglieder gebürgt haben — der übliche Schutz der Plattform vor Fake-Konten. Bearbeiten und Absagen kann nur, wer organisiert."
+      },
+      "cta": "Veranstaltungen ansehen"
     },
     "cmsSystem": {
       "title": "Blog & Mini-Sites",
@@ -1146,6 +1334,18 @@
       "email": "E-Mail:",
       "support": "Sprachsupport"
     },
+    "app": {
+      "title": "App",
+      "intro": "Die Web-Version läuft in jedem Browser. Die native Android-App ergänzt, was der Browser nicht kann: eine Notfallsirene über dem Sperrbildschirm und eine Hardware-Paniktaste.",
+      "android": "Android",
+      "android_action": "APK herunterladen",
+      "android_note": "Direkt-Download, mit unserem eigenen Schlüssel signiert",
+      "play": "Google Play",
+      "play_action": "In Google Play öffnen",
+      "play_note": "Store-Version, Updates über Google Play",
+      "ios": "iOS",
+      "status_planned": "geplant"
+    },
     "energySystem": {
       "title": "Parahub Energy",
       "wip": "in Entwicklung",
@@ -1288,6 +1488,7 @@
     "cryptoProofs": {
       "title": "Kryptografische Nachweise",
       "intro": "Parahub verankert Verträge, Schulden und Identitätsverifizierungen in kryptografischen Nachweisen, die unabhängig von der Plattform existieren. Selbst wenn unsere Server nicht mehr existieren würden, könnte jeder überprüfen, wann ein Dokument unterzeichnet wurde und von wem.",
+      "why": "Stellen Sie es sich als digitalen Notar vor: Die PGP-Signatur beweist, wer zugestimmt hat, und der Bitcoin-Zeitstempel beweist, wann es existierte. Keines von beiden kann gefälscht oder rückdatiert werden — auch nicht von uns.",
       "pgp": {
         "title": "PGP-Signaturen",
         "text": "Jeder Vertrag erhält eine PGP-Signatur, die mit dem privaten Schlüssel des Benutzers erstellt wird — der niemals das Gerät verlässt.",
@@ -1304,12 +1505,12 @@
       },
       "export": {
         "title": "Export für Gericht",
-        "text": "Jeder Vertrag oder jede Schuld kann als ZIP-Archiv mit allen enthaltenen Nachweisen exportiert werden.",
+        "text": "Jeder signierte Vertrag und jede bestätigte Schuld kann als ZIP-Paket exportiert werden. Die Signaturen und der Bitcoin-Zeitstempel des Stapels lassen sich offline mit gängigen Open-Source-Werkzeugen überprüfen — ganz ohne Parahub-Konto.",
         "contains": "Das Archiv enthält:",
-        "item1": "PDF-Datei des unterzeichneten Dokuments",
-        "item2": "PGP-Signatur (.sig)",
-        "item3": "OTS-Nachweis (.ots) — verknüpft mit dem Bitcoin-Block",
-        "item4": "Textdatei mit Git-Hash, Zeitstempel und Blocknummer"
+        "item1": "Vollständiges Vertrags-JSON mit beiden Signaturen",
+        "item2": "OTS-Nachweisdatei (.ots), verankert in Bitcoin",
+        "item3": "Git-Commit-Referenz und Pfad im Ereignisprotokoll",
+        "item4": "README mit Schritt-für-Schritt-Anleitung zur Überprüfung"
       },
       "verify": {
         "title": "So verifizieren Sie",
@@ -1320,7 +1521,9 @@
       "legal": {
         "title": "Rechtliche Gültigkeit",
         "text": "Kryptografische Nachweise werden in vielen Rechtssystemen als Beweis anerkannt. PGP-Signaturen belegen die Zustimmung; Bitcoin-Zeitstempel etablieren die Priorität. Konsultieren Sie einen Anwalt für Ihren spezifischen Fall."
-      }
+      },
+      "short": "Wir bitten Sie nicht, uns beim Wort zu nehmen. Verträge und Schulden werden mit Ihrem eigenen Schlüssel auf Ihrem Gerät signiert, und ihre Existenz wird in der Bitcoin-Blockchain verankert — nachträglich kann nichts verändert oder rückdatiert werden, auch nicht von uns. Jeder kann das mit unabhängigen Werkzeugen überprüfen.",
+      "aboutCta": "Wie es funktioniert und wie Sie es prüfen"
     },
     "transparency": {
       "title": "Transparenz",
@@ -1352,11 +1555,7 @@
       "supporters": "Unterstützer"
     },
     "services": {
-      "title": "Plattformdienste",
-      "video": "Video",
-      "video_desc": "Video-Hosting und Streaming",
-      "status": "Status",
-      "status_desc": "Plattform-Verfügbarkeitsüberwachung"
+      "status": "Status"
     },
     "subscriptionsSystem": {
       "title": "Wiederkehrende Unterstützung",
@@ -1450,6 +1649,132 @@
         "text": "Stöbern und Suchen stehen allen offen, ohne Konto. Einen Ort oder eine Organisation anzulegen und Rezensionen zu schreiben erfordert ein verifiziertes Profil (Netz des Vertrauens). Nur Eigentümer und Administratoren können einen Eintrag bearbeiten oder Mitglieder verwalten."
       }
     },
+    "mapsSystem": {
+      "title": "Karte",
+      "intro": "Eine lebendige Karte für die ganze Community: Orte und Organisationen, Nahverkehr, Sensoren, Energie, das Mesh-Netz — alles, was die Plattform über die physische Welt weiß, in einer Ansicht. Der gesamte Kartenstack läuft auf eigenen Servern: Adresssuche und Routenberechnung verlassen die Plattform nie.",
+      "tools": {
+        "title": "Werkzeuge",
+        "search": {
+          "title": "Suche",
+          "text": "Ein Suchfeld für Adressen und Community-Inhalte — Orte, Anzeigen, Veranstaltungen. Treffer außerhalb des Bildschirms zeigen sich mit Entfernung am Kartenrand an."
+        },
+        "directions": {
+          "title": "Routen",
+          "text": "Schritt-für-Schritt-Routen mit dem Auto, zu Fuß oder per Rad, dazu Tür-zu-Tür-Verbindungen im Nahverkehr."
+        },
+        "measure": {
+          "title": "Messen",
+          "text": "Messen Sie Entfernungen und Flächen direkt auf der Karte oder zeichnen Sie den Bereich, der in einer gewählten Reisezeit erreichbar ist."
+        },
+        "sun": {
+          "title": "Sonne und Mond",
+          "text": "Für jeden Punkt und Moment: wo die Sonne steht und wo der Mond — mit echter Phase sowie Auf- und Untergangszeiten. Praktisch, um Licht und Schatten einzuschätzen — für ein Haus, ein Solarpanel oder eine Terrasse."
+        },
+        "weather": {
+          "title": "Wetter",
+          "text": "Eine kompakte Live-Wetteranzeige wandert beim Verschieben mit der Karte mit."
+        },
+        "basemap": {
+          "title": "Basiskarten",
+          "text": "Standard ist eine selbst gehostete Straßenkarte; in Portugal lässt sich das amtliche Luftbild zuschalten, um Dächer und Grundstücksgrenzen zu erkennen."
+        }
+      },
+      "layers": {
+        "title": "Ebenen",
+        "intro": "Der Ebenen-Knopf schaltet beliebige Kombinationen von Datenebenen ein und aus:",
+        "transit": {
+          "title": "Nahverkehr",
+          "text": "Fahrzeuge bewegen sich in Echtzeit über die Karte."
+        },
+        "places": {
+          "title": "Orte und Organisationen",
+          "text": "Das Verzeichnis der Community: Geschäfte, Vereine, öffentliche Gebäude, Kirchen."
+        },
+        "poi": {
+          "title": "Interessante Orte",
+          "text": "Vertraute Ortsbeschriftungen aus OpenStreetMap."
+        },
+        "hubs": {
+          "title": "Paketpunkte",
+          "text": "Abgabe- und Abholstellen des Community-Paketnetzes."
+        },
+        "energy": {
+          "title": "Energiegemeinschaften",
+          "text": "Gebiete, in denen Nachbarn lokal erzeugten Solarstrom teilen."
+        },
+        "condos": {
+          "title": "Wohnanlagen",
+          "text": "Gebäude, die auf der Plattform verwaltet werden."
+        },
+        "mesh": {
+          "title": "Mesh-Netz",
+          "text": "Knoten und Abdeckung des von der Community betriebenen Netzes."
+        },
+        "stations": {
+          "title": "Wetter und Luft",
+          "text": "Wetterstationen und Luftqualitätssensoren aus der Community, mit Live-Messwerten daneben."
+        },
+        "aerial": {
+          "title": "Luftbilder",
+          "text": "Aktuelle Luftaufnahmen von Drohnenpiloten der Community, automatisch zu Kartenebenen verarbeitet — oft schärfer und frischer als Satellitenbilder. Manche Gebiete haben zusätzlich eine 3D-Ansicht."
+        },
+        "devices": {
+          "title": "Ihre Geräte",
+          "text": "Ihre GPS-Tracker und smarten Geräte, live auf der Karte."
+        }
+      },
+      "presence": {
+        "title": "Menschen auf der Karte",
+        "text": "Bei geöffneter Karte können Sie darauf als kleine animierte Figur erscheinen — andere sehen, winken, sich setzen oder etwas in einer Sprechblase sagen; ein Tipp auf eine Figur öffnet das Profil ihres Besitzers. Geteilt wird nur der Kartenausschnitt, den Sie gerade ansehen, nie Ihr physischer Standort, und nichts wird gespeichert: Die Figur verschwindet wenige Minuten, nachdem ihr Besitzer gegangen ist."
+      },
+      "cta": "Karte öffnen"
+    },
+    "openskySystem": {
+      "title": "Luftbilder",
+      "intro": "Gemeinschaftliche Drohnenkartierung: Jemand fliegt mit der eigenen Drohne ein einzelnes Kartenquadrat ab und lädt die Fotos hoch. Wenige Stunden später liegt das Gebiet als scharfe Luftbildebene und häufig auch als 3D-Modell auf der Karte — nutzbar für alle, auch für alle ohne eigene Drohne.",
+      "flow": {
+        "title": "So läuft eine Befliegung ab",
+        "step1": "Schalten Sie das Luftbildraster auf der Karte ein. Die Karte ist in feste Quadrate geteilt, in Portugal rund 250 Meter breit; bereits beflogene Quadrate sind eingefärbt und tragen das Datum des letzten Fluges.",
+        "step2": "Wählen Sie ein Quadrat und prüfen Sie, ob Sie es von Ihrem geplanten Startpunkt aus erreichen — der Planer klärt das, bevor Sie losfahren.",
+        "step3": "Ein Klick lädt fünf fertige Flugpläne für DJI-Drohnen herunter: einen senkrechten Vermessungsflug und vier schräge für Fassaden. Fliegen Sie so viele davon, wie Gelände und Akkuvorrat rechtfertigen.",
+        "step4": "Laden Sie die Fotos als JPG direkt von der Speicherkarte hoch. Mehrere Flüge, auch an verschiedenen Tagen, können zu einer Mission gehören.",
+        "step5": "Die Verarbeitung läuft von selbst — Zusammenfügen, Georeferenzierung, 3D. Den Fortschritt sehen Sie auf der Missionskarte, das Ergebnis wird Teil der öffentlichen Karte."
+      },
+      "checks": {
+        "title": "Vor der Abfahrt: Lässt sich das Quadrat befliegen?",
+        "range": {
+          "title": "Entfernung",
+          "text": "Ein Luftlinienradius um Ihren Startpunkt — 500 m, 2 km oder 5 km. Eine Drohne fliegt geradeaus, das ist also ein Kreis und keine Straßenentfernung."
+        },
+        "ceiling": {
+          "title": "Gelände im Weg",
+          "text": "Die Mission hält eine feste Höhe über Ihrem Startpunkt, ohne dem Gelände zu folgen. Steigt der Boden im Quadrat nah an diese Höhe heran, gilt das Quadrat als gesperrt. Der Höhenregler endet bei 120 Metern, der zulässigen Obergrenze der offenen Kategorie."
+        },
+        "link": {
+          "title": "Funksichtverbindung",
+          "text": "Ein Bergrücken zwischen Ihnen und dem Quadrat kann die Verbindung zur Fernsteuerung kappen, selbst wo die Drohne das Gelände überflöge. Solche Quadrate sind eigens markiert: hinfliegen ginge, steuern nicht."
+        },
+        "airspace": {
+          "title": "Gesperrter Luftraum",
+          "text": "Amtliche Geo-Zonen lassen sich als eigene Ebene einblenden — für Portugal der nationale ANAC-Datensatz. Quadrate, die auf Ihrer Flughöhe in einem harten Verbot liegen, gelten als gesperrt; Zonen, die nur eine Genehmigung verlangen, erscheinen als Hinweisumriss zur eigenen Beurteilung."
+        }
+      },
+      "limits": {
+        "title": "Eine Planungshilfe, keine Freigabe",
+        "text": "Die Geländedaten kennen Hügel, aber keine Masten, Leitungen, Bäume oder Gebäudekanten, und die Sichtprüfung ist Geometrie und kein Funkmodell. Zeitlich befristete Beschränkungen — NOTAM, Veranstaltungen, kurzfristige Sperrungen — stecken gar nicht in der Zonenebene. Wind und Kälte sind ebenfalls nicht modelliert, planen Sie Akkureserve ein. Die Karte erspart Ihnen vergebliche Fahrten; die geltenden Regeln zu prüfen und die nötigen Genehmigungen zu haben, bleibt Ihre Sache als Pilot."
+      },
+      "upload": {
+        "title": "Was der Upload erwartet",
+        "rule1": "JPG direkt aus der Drohne — die Position, die die Kamera in jedes Foto schreibt, verortet die Mission auf der Karte.",
+        "rule2": "Alle Fotos einer Mission gehören zu einem Quadrat, und mindestens ein Teil des Fluges muss senkrecht nach unten aufgenommen sein: schräge Bilder allein ergeben keine brauchbare Karte.",
+        "rule3": "Ein Quadrat kann mehrere Missionen aus verschiedenen Zeiten enthalten — genau das erlaubt den Vergleich desselben Ortes über die Jahreszeiten.",
+        "rule4": "Schräge Aufnahmen können Sie später nachreichen — die Mission wird aus allem neu gerechnet, was Sie geflogen haben."
+      },
+      "license": {
+        "title": "Ihre Fotos werden Gemeingut",
+        "text": "Hochgeladene Bilder und alles daraus Entstehende — Karten, 3D-Modelle — erscheinen unter Creative Commons BY-SA 4.0: nutzbar für jeden bei Namensnennung, Abgeleitetes bleibt ebenso offen. Sie bestätigen das beim Hochladen. Was eine Lizenz nicht regelt, bleibt beim Piloten: Persönlichkeitsschutz, wo Gesichter, Kennzeichen oder Privatgrundstücke erkennbar sind, und die Flugregeln Ihres Landes."
+      }
+    },
     "marketplaceSystem": {
       "title": "Marktplatz",
       "intro": "Der Kern von Parahub: ein Ort, um alles anzubieten oder zu suchen — Waren, Dienste, Fähigkeiten oder Hilfe. Keine Plattformgebühren, kein algorithmisches Ranking, kein Mittelsmann. Einfach Menschen, die direkt handeln, auf einer Karte, in ihrer Sprache.",
@@ -1484,5 +1809,78 @@
     },
     "title": "Über das Projekt — Parahub",
     "documents": "Dokumente"
+  },
+  "childsafety": {
+    "title": "Kinderschutz-Standards",
+    "intro": "Dies sind die veröffentlichten Standards von {operator} gegen sexuellen Missbrauch und sexuelle Ausbeutung von Kindern (CSAE) auf der Parahub-Plattform. Sie gelten für alle Bereiche des Dienstes, in denen Menschen Inhalte veröffentlichen oder interagieren: Profile, Marktplatz-Anzeigen, Beiträge, Kommentare, Fotos, Videos, Veranstaltungen, Einrichtungen und Chats.",
+    "commitment": {
+      "title": "Unsere Verpflichtung",
+      "text": "Wir haben null Toleranz gegenüber sexuellem Missbrauch und sexueller Ausbeutung von Kindern. Parahub ist eine Community-Plattform, die für Erwachsene konzipiert ist und sich an Erwachsene richtet. Jeder Inhalt und jedes Verhalten, das Minderjährige sexualisiert, ausbeutet oder gefährdet, ist verboten und führt zu sofortigen Maßnahmen."
+    },
+    "prohibited": {
+      "title": "Verbotene Inhalte und Verhaltensweisen",
+      "intro": "Streng und ausnahmslos verboten sind:",
+      "item1": "Material über sexuellen Kindesmissbrauch (CSAM) in jeder Form, einschließlich gezeichneter, animierter oder KI-generierter Darstellungen",
+      "item2": "Grooming: die Kontaktaufnahme mit Minderjährigen mit dem Ziel sexueller Kontakte, online oder offline",
+      "item3": "Sextortion: Drohung oder Erpressung einer Person unter Verwendung von tatsächlichem oder behauptetem Zugriff auf intime Bilder",
+      "item4": "Jede Sexualisierung Minderjähriger, einschließlich des Teilens von Links zu solchem Material auf anderen Plattformen",
+      "item5": "Handel mit Minderjährigen oder das Anbieten eines Kindes zur kommerziellen sexuellen Ausbeutung"
+    },
+    "reporting": {
+      "title": "Meldungen in der App",
+      "text1": "Jedes Profil und jeder nutzergenerierte Inhalt auf Parahub kann direkt in der App über die Melden-Funktion gemeldet werden. Meldungen umfassen Kategorien wie sexuelle oder explizite Inhalte und illegale Aktivitäten sowie eine Freitextbeschreibung.",
+      "text2": "Meldungen gelangen in eine Moderationswarteschlange, die von unserem Team geprüft wird. Meldungen mit Verdacht auf sexuellen Missbrauch oder sexuelle Ausbeutung von Kindern werden mit höchster Priorität behandelt. In Chats können Teilnehmer zusätzlich Nachrichten melden und Nutzer blockieren."
+    },
+    "enforcement": {
+      "title": "Durchsetzung",
+      "intro": "Wenn wir CSAE-Inhalte oder -Verhalten feststellen:",
+      "item1": "Entfernen wir den Inhalt sofort",
+      "item2": "Schließen wir die beteiligten Konten",
+      "item3": "Sichern wir die Beweise für die Strafverfolgungsbehörden",
+      "item4": "Melden wir den Fall den zuständigen Behörden"
+    },
+    "authorities": {
+      "title": "Zusammenarbeit mit Behörden",
+      "text": "Wir halten die geltenden Kinderschutzgesetze ein. Bestätigtes oder mutmaßliches CSAM wird den zuständigen Behörden gemeldet — in Portugal der Polícia Judiciária und der Hotline Linha Internet Segura (Mitglied des INHOPE-Netzwerks) — und wir kooperieren mit rechtmäßigen Anfragen von Strafverfolgungsbehörden anderer Länder."
+    },
+    "contact": {
+      "title": "Kinderschutz-Kontakt",
+      "text": "Unsere benannte Kinderschutz-Kontaktstelle kann Auskunft über Parahubs CSAE-Präventionspraktiken und Compliance geben. Für Meldungen und Fragen von Nutzern, Behörden und Branchenpartnern:"
+    }
+  },
+  "sources": {
+    "title": "Datenquellen",
+    "meta": "Woher die Daten von Parahub stammen — Verkehrsfeeds, Karten, Wetter und offene Daten Portugals, mit Lizenzen und Attribution.",
+    "lead": "Alles, was auf der Karte und in den Fahrplänen steht, stammt aus offenen Quellen. Hier steht jede einzelne: was sie liefert, unter welchen Bedingungen sie veröffentlicht ist und wann sie zuletzt importiert wurde.",
+    "license": "Lizenz",
+    "publisher_terms": "Bedingungen des Herausgebers",
+    "basis": {
+      "title": "Wie wir mit fremden Daten umgehen",
+      "text": "Wir spiegeln offene Daten unverändert und zeigen die Bedingungen des Herausgebers direkt daneben. Hat ein Herausgeber keine Lizenz angegeben, steht genau das da — wir erfinden keine. Eine leere Lizenz ist eine Tatsache über den Herausgeber, keine Behauptung von uns.",
+      "contact": "Wenn Sie eine dieser Quellen herausgeben und die Attribution ändern oder die Daten entfernen lassen möchten, schreiben Sie an {email} — wir setzen es um."
+    },
+    "transit": {
+      "title": "Öffentlicher Verkehr (GTFS)",
+      "counts": "Feeds: {feeds} · Betreiber: {agencies} · Linien: {routes} · Haltestellen: {stops}",
+      "lead": "Fahrpläne werden automatisch importiert; der Punkt zeigt den Stand des letzten Imports, die Markierung kennzeichnet Feeds mit Echtzeitpositionen.",
+      "unavailable": "Das Quellenregister ist vorübergehend nicht verfügbar."
+    },
+    "groups": {
+      "map": "Karte, Suche und Routing",
+      "weather": "Wetter",
+      "pt": "Portugal: Gebiet und Stadtplanung"
+    },
+    "items": {
+      "osm": "Basiskarte, Adresssuche, Straßenrouting",
+      "geocoder_support": "Referenzdaten für die Adresssuche (Pelias)",
+      "open_meteo": "Wetter auf der Karte",
+      "dgt_ortho": "Orthofoto-Ebene für Portugal",
+      "dgt_caop": "Verwaltungsgrenzen — Distrikte, Gemeinden, Ortsgemeinden, NUTS-Codes",
+      "caminha_pdm": "Ordenamento- und Condicionantes-Ebenen des PDM für die Bauleitanalyse (Pilot Caminha)"
+    },
+    "members": {
+      "title": "Daten der Mitglieder",
+      "text": "Luftbildflüge, Umweltstationen und Mesh-Router veröffentlichen ihre Eigentümer, und der Eigentümer entscheidet, was sichtbar bleibt. Die Bedingungen stehen in {terms}."
+    }
   }
 }

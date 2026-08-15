@@ -31,6 +31,7 @@
     "transit_ops_desc": "Create routes, assign vehicles, export GTFS — transit management for agencies",
     "tickets_desc": "Buy digital tickets for events and transit with instant Lightning payments",
     "driver_desc": "Broadcast your live GPS position while driving a transit route",
+    "carpool_desc": "Passenger-driven rideshare between transit stops — request, get offers, ride",
     "parasos_desc": "Press one button — your neighbors arrive in 2 minutes",
     "intro": "Concepts and principles that make Parahub different from other platforms",
     "group_start": "Start here",
@@ -47,7 +48,12 @@
     "subscriptions_desc": "Back a creator every month — direct, non-custodial, no platform cut",
     "rental_desc": "Book by the day or by the slot — availability that can't double-book",
     "marketplace_desc": "Offer or request anything — direct P2P trade, no platform fees",
-    "directory_desc": "Find local businesses and organizations on the map"
+    "directory_desc": "Find local businesses and organizations on the map",
+    "maps_desc": "Tools and layers of the community map",
+    "opensky_desc": "Fly one square, upload the photos, and the map gets sharper for everyone",
+    "transit_desc": "Live vehicles, arrivals, route pages and journey planning",
+    "contracts_desc": "Digital agreements signed with your own keys",
+    "events_desc": "Meetups and workshops with automatic group chats"
   },
   "common": {
     "save": "Save",
@@ -80,16 +86,16 @@
       "login": "Your key to all of it",
       "market": "Buy, sell, barter — no middlemen",
       "map": "Your area, alive in real time",
-      "transit": "Every bus, tracked live",
+      "transit": "Buses, trains, ferries — live",
       "rides": "Shared rides from your stop",
       "menu": "The whole platform, one grid",
       "profile": "How the community sees you",
       "wallet": "Lightning sats, only your keys",
-      "settings": "Tune Parahub to your taste",
+      "settings": "Identity, keys, language — your rules",
       "events": "Meet the community offline",
       "directory": "Every place and business nearby",
       "governance": "Vote, delegate, decide together",
-      "iot": "Your devices, one dashboard",
+      "iot": "Sensors, switches, weather — one panel",
       "ads": "Local offers, zero spam",
       "contracts": "Handshakes with cryptographic teeth",
       "shipments": "Parcels carried by people you trust",
@@ -101,7 +107,8 @@
       "about": "Why all of this exists",
       "notifications": "Everything you missed, one feed",
       "invite": "Bring someone you trust",
-      "logout": "Leave — your data stays yours"
+      "logout": "Leave — your data stays yours",
+      "people": "Straight to anyone you know"
     },
     "notifications": "Notifications",
     "messages": "Messages",
@@ -125,11 +132,13 @@
     "invite": "Invite",
     "transit": "Transit",
     "webmail": "Webmail",
+    "google_play": "Google Play",
     "energy": "Solar",
     "shipments": "Shipping",
     "barter": "Barter",
     "condo": "Condominium",
-    "language": "Language"
+    "language": "Language",
+    "find_person": "Find"
   },
   "footer": {
     "description": "Decentralized P2P cooperation platform for direct trade, communications, and community interactions.",
@@ -142,7 +151,8 @@
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "code_of_conduct": "Code of Conduct",
-    "imprint": "Imprint"
+    "imprint": "Imprint",
+    "sources": "Data sources"
   },
   "auth": {
     "login": "Login / Register",
@@ -172,9 +182,25 @@
   },
   "update": {
     "new_version": "A new version is available",
+    "description": "Refresh the page to get the latest features and improvements.",
     "refresh": "Refresh",
+    "later": "Later",
     "app_new_version": "App update available",
-    "download": "Download"
+    "app_description": "Download the update, then open the file to install it.",
+    "download": "Download",
+    "whats_new": "What's new",
+    "full_changelog": "Full changelog",
+    "updated_description": "The app updated since your last visit — here's what changed.",
+    "got_it": "Got it"
+  },
+  "changelog": {
+    "title": "What's new",
+    "subtitle": "Every release of the platform, in plain words.",
+    "latest": "Latest",
+    "also": "Also in this release",
+    "show_earlier": "Show earlier releases",
+    "empty": "No release notes yet",
+    "meta_description": "Release notes for the Parahub platform — what shipped in every version, in plain words."
   },
   "choose_username": {
     "title": "Choose Your Username",
@@ -240,46 +266,12 @@
     "getting_started": "Getting Started",
     "action_profile": "Complete your profile",
     "action_profile_desc": "Add your photo, skills, and location",
-    "action_listing": "Post a listing",
-    "action_listing_desc": "Offer goods or services to the community",
-    "action_directory": "Find people nearby",
-    "action_directory_desc": "Browse the directory and add partners",
-    "action_map": "Explore the map",
-    "action_map_desc": "See transit, people, and places around you",
-    "action_condo": "Manage your building",
-    "action_condo_desc": "Digital assemblies, quotas, and voting",
-    "wot_hint": "Get verified by 3 community members to unlock all features. This is how trust works here — no passports, no corporations.",
-    "wot_learn_how": "Learn how it works →",
-    "wot_find_people": "Find people nearby →",
-    "stats_verifications": "Verifications",
-    "stats_reputation": "Reputation",
-    "stats_deals": "Deals",
-    "stats_partners": "Partners",
-    "stats_following": "Following",
-    "stats_verified": "Verified",
-    "stats_confirmations": "confirmations",
-    "auth_error": "Session expired. Please log in again.",
-    "timeout": "Dashboard loading timed out. Please try again.",
-    "load_error": "Failed to load dashboard",
-    "loading": "Loading dashboard...",
-    "pulse_members": "members",
-    "pulse_listings": "listings",
-    "pulse_events": "events",
-    "pulse_polls": "polls open",
-    "online_people": "{count} online",
-    "online_guests": "{count} guests",
+    "action_keys": "Set up your keys",
+    "action_keys_desc": "One seed phrase — your signature and your wallet",
+    "action_verify": "Get verified",
+    "action_verify_desc": "Three members vouch for you — no passports, no corporations",
     "top_partners": "Top Partners",
-    "recent_listings": "Recent Listings",
-    "upcoming_events": "Upcoming Events",
-    "active_polls": "Active Polls",
-    "view_all": "View all",
-    "options": "options",
-    "ends": "ends",
-    "today": "today",
-    "tomorrow": "tomorrow",
-    "quick_actions": "What would you like to do?",
-    "create_event": "Create event",
-    "create_contract": "New contract"
+    "view_all": "View all"
   },
   "like": "Like",
   "unlike": "Unlike",
@@ -288,5 +280,13 @@
   "error_server": "Something went wrong",
   "about": {
     "title": "About"
+  },
+  "people_picker": {
+    "title": "Find a person",
+    "placeholder": "Name or handle",
+    "partners": "Your partners",
+    "empty": "Nobody found",
+    "no_partners": "You have no partners yet",
+    "invite": "Invite someone"
   }
 }

@@ -119,6 +119,24 @@ class PresenceService:
             logger.warning(f'presence mark_offline failed: {e}')
 
     @classmethod
+    def is_any_online(cls, slot: str, profile_ids: list) -> bool:
+        """True if any of the given profiles is currently online (fresh score).
+
+        Lets money flows adapt to reachability — e.g. skip the "come pay your
+        queued ad rewards" push when one of the account's profiles has a live
+        connection that is about to pay them automatically.
+        """
+        if not profile_ids:
+            return False
+        try:
+            scores = cls._r().zmscore(cls._auth_key(slot), [str(p) for p in profile_ids])
+            cutoff = time.time() - WINDOW
+            return any(s is not None and s >= cutoff for s in scores)
+        except Exception as e:
+            logger.warning(f'presence is_any_online failed: {e}')
+            return False
+
+    @classmethod
     def touch(cls, slot: str, profile_id: str) -> None:
         """Heartbeat: refresh the freshness score; republish only if the count changed."""
         try:

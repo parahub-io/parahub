@@ -38,8 +38,8 @@
       "arbiter_hint": "Opcional: Escolha um árbitro para resolução de disputas, se necessário",
       "items_label": "Vincular itens (opcional)",
       "items_hint": "Os itens serão desativados automaticamente quando o contrato for concluído",
-      "file_label": "Arquivo do contrato",
-      "file_hint": "O conteúdo do arquivo nunca sai do seu dispositivo. Apenas o hash SHA256 é armazenado no servidor.",
+      "file_label": "Ficheiro do contrato",
+      "file_hint": "O conteúdo do ficheiro nunca sai do seu dispositivo. Apenas o hash SHA256 é armazenado no servidor.",
       "computing_hash": "Calculando hash SHA256...",
       "submit": "Criar e assinar",
       "creating": "Criando...",
@@ -59,14 +59,14 @@
       "title": "Assinar contrato",
       "from": "De",
       "read_terms": "Termos — leia antes de assinar",
-      "verify_file": "1. Verifique seu arquivo primeiro",
-      "verify_hint": "Carregue sua cópia do arquivo do contrato para verificar se o hash SHA256 corresponde",
-      "hash_mismatch_warning": "AVISO: Os hashes dos arquivos não correspondem! Este NÃO é o mesmo arquivo. Não assine!",
+      "verify_file": "1. Verifique primeiro o seu ficheiro",
+      "verify_hint": "Carregue a sua cópia do ficheiro do contrato para verificar se o hash SHA256 corresponde",
+      "hash_mismatch_warning": "AVISO: Os hashes dos ficheiros não correspondem! Este NÃO é o mesmo ficheiro. Não assine!",
       "confirm": "Assinar contrato",
       "signing": "Assinando..."
     },
     "verify": {
-      "match": "Arquivo verificado! Hashes correspondem.",
+      "match": "Ficheiro verificado! Hashes correspondem.",
       "mismatch": "Verificação falhou! Hashes não correspondem."
     },
     "complete_modal": {
@@ -95,7 +95,7 @@
     },
     "errors": {
       "no_pgp_keys": "Você deve gerar chaves PGP primeiro (Perfil -> Segurança)",
-      "file_hash_failed": "Falha ao calcular hash do arquivo",
+      "file_hash_failed": "Falha ao calcular o hash do ficheiro",
       "create_failed": "Falha ao criar contrato",
       "sign_failed": "Falha ao assinar contrato",
       "complete_failed": "Falha ao concluir contrato",

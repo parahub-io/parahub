@@ -58,8 +58,10 @@ export function useMapTransitLayers() {
     subscribeBbox: subscribeTransitBbox,
     updateBbox: updateTransitBbox,
     toGeoJSON: transitToGeoJSON,
+    waitingToGeoJSON: transitWaitingToGeoJSON,
     isConnected: isTransitWsConnected,
     onUpdate: onTransitUpdate,
+    onWaitingUpdate: onTransitWaitingUpdate,
   } = useTransitVehicles()
 
   // Shared deck.gl overlaid canvas for all live-transit rendering: comet
@@ -185,9 +187,73 @@ export function useMapTransitLayers() {
       minzoom: STOP_DETAIL_ZOOM,
     })
 
+    addWaitingLayers(map)
+
     if (transitEnabled.value) {
       loadTransitData(map)
     }
+  }
+
+  /** Waiting passengers, as an amber badge above the stop dot.
+   *
+   * Only occupied poles are ever in the data — an empty viewport draws nothing
+   * rather than a field of zeros. Non-interactive on purpose: the badge sits on
+   * top of the stop dot and a click must reach the stop underneath. */
+  function addWaitingLayers(map: any) {
+    for (const id of WAITING_LAYERS) {
+      if (map.getLayer(id)) map.removeLayer(id)
+    }
+    if (map.getSource('transit-waiting')) map.removeSource('transit-waiting')
+
+    map.addSource('transit-waiting', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    })
+
+    const vis = transitEnabled.value ? 'visible' : 'none'
+    // Faded when nobody's page is beating — those people marked themselves and
+    // pocketed the phone, which is not the same as being there right now.
+    const dimmed = ['case', ['==', ['get', 'active'], 0], 0.55, 1]
+
+    map.addLayer({
+      id: 'transit-waiting-badge',
+      type: 'circle',
+      source: 'transit-waiting',
+      minzoom: 11,
+      layout: { visibility: vis },
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 5, 14, 8, 18, 11],
+        'circle-color': '#f59e0b',
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 1.5,
+        'circle-opacity': dimmed,
+        'circle-stroke-opacity': dimmed,
+        // Lifted clear of the stop dot AND of a vehicle icon parked on it —
+        // at a busy pole the badge would otherwise sit under the bus.
+        'circle-translate': [0, -22],
+      },
+    })
+
+    map.addLayer({
+      id: 'transit-waiting-count',
+      type: 'symbol',
+      source: 'transit-waiting',
+      minzoom: 13,
+      layout: {
+        'text-field': ['to-string', ['get', 'n']],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 13, 9, 18, 12],
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+        visibility: vis,
+      },
+      paint: {
+        'text-color': '#1f2937',
+        'text-opacity': dimmed,
+        // Pixels, matching the circle: an em-based offset drifts away from it
+        // as the text size interpolates with zoom.
+        'text-translate': [0, -22],
+      },
+    })
   }
 
   /** Viewport bbox padded outward to the backend's 2-decimal cache grid —
@@ -508,8 +574,10 @@ export function useMapTransitLayers() {
 
   // ======== Combined setup ========
 
+  const WAITING_LAYERS = ['transit-waiting-badge', 'transit-waiting-count']
   const STOP_LAYERS = ['transit-stops-circle', 'transit-stops-label',
-                       'transit-stops-virtual-circle', 'transit-stops-virtual-label']
+                       'transit-stops-virtual-circle', 'transit-stops-virtual-label',
+                       ...WAITING_LAYERS]
 
   function setupLayers(map: any) {
     addTransitStopLayers(map)
@@ -578,6 +646,22 @@ export function useMapTransitLayers() {
     onScopeDispose(unsub)
   }
 
+  /** Sync waiting-passenger badges from WS to their own map source.
+   *
+   * Separate from the vehicle sync: markers change when a human taps, not on the
+   * 30s daemon tick, and a badge appearing must not re-aim the vehicle glide. */
+  function syncWaitingData() {
+    const unsub = onTransitWaitingUpdate(() => {
+      const map = mapStore.mapInstance
+      const source = map?.getSource('transit-waiting')
+      if (!map || !source) return
+      source.setData(transitEnabled.value
+        ? transitWaitingToGeoJSON()
+        : { type: 'FeatureCollection', features: [] })
+    })
+    onScopeDispose(unsub)
+  }
+
   /** Enable transit layers visibility (for pending transit marker). */
   function enableLayerVisibility(map: any) {
     for (const id of STOP_LAYERS) {
@@ -612,6 +696,7 @@ export function useMapTransitLayers() {
     disconnectWs,
     isWsConnected: isTransitWsConnected,
     syncVehicleData,
+    syncWaitingData,
     enableLayerVisibility,
     loadTransitData,
     setVehicleClickHandler,

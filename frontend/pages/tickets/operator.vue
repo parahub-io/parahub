@@ -184,6 +184,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { ChartColumn, Download, ScanLine, Ticket as TicketIcon, Undo2 } from 'lucide-vue-next'
+import { saveFile } from '~/utils/download'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -312,12 +313,7 @@ async function downloadCsv() {
       query: { days: days.value, establishment_id: establishmentParam.value },
       responseType: 'blob',
     })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'ticket-sales.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    await saveFile(blob, 'ticket-sales.csv')
   } finally {
     csvLoading.value = false
   }

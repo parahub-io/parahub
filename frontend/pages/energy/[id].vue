@@ -67,15 +67,20 @@
           </button>
         </div>
 
-        <!-- Mini map -->
-        <div class="card overflow-hidden mb-4">
+        <!-- Mini map: click opens the full map with this cell's panel + lock-on -->
+        <NuxtLink
+          :to="localePath(`/map?device=energy:${cell.id}&lat=${cell.latitude}&lng=${cell.longitude}&zoom=14`)"
+          class="card overflow-hidden mb-4 block relative hover:border-primary transition-colors"
+        >
           <StaticMapPreview
             :latitude="cell.latitude"
             :longitude="cell.longitude"
             :zoom="14"
             :height="180"
+            hide-marker
           />
-        </div>
+          <IoTSnapshotMarker :fill="markerFill" :glyph="ZAP_GLYPH" />
+        </NuxtLink>
 
         <!-- Stats row -->
         <div class="grid grid-cols-4 gap-3 mb-6">
@@ -159,7 +164,7 @@
             <button
               v-if="!showRelayForm"
               @click="showRelayForm = true"
-              class="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+              class="text-xs text-link"
             >
               + {{ $t('energy.relay.add') }}
             </button>
@@ -389,7 +394,7 @@
             >
               <div class="flex items-center gap-2">
                 <NuxtLink
-                  :to="localePath(`/u/${m.profile_hna.split('@')[0]}`)"
+                  :to="localePath(`/@${m.profile_hna.split('@')[0]}`)"
                   class="text-neutral-900 dark:text-neutral-100 hover:text-secondary transition-colors"
                 >
                   {{ m.profile_display_name || m.profile_hna.split('@')[0] }}
@@ -421,15 +426,6 @@
           </div>
         </div>
 
-        <!-- Map link -->
-        <NuxtLink
-          :to="localePath(`/map?energy=${cell.id}&lat=${cell.latitude}&lng=${cell.longitude}&zoom=14`)"
-          class="card p-4 flex items-center gap-3 hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
-        >
-          <MapPin :size="18" class="text-secondary-500" />
-          <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('energy.detail.view_on_map') }}</span>
-          <ChevronRight :size="16" class="ml-auto text-neutral-300 dark:text-neutral-600" />
-        </NuxtLink>
       </template>
     </div>
 
@@ -437,11 +433,11 @@
     <Teleport to="body">
       <div
         v-if="showSettingsModal"
-        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+        class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center"
         @click.self="showSettingsModal = false"
       >
         <div class="absolute inset-0 bg-black/40" @click="showSettingsModal = false" />
-        <div class="relative w-full max-w-md bg-white dark:bg-neutral-900 rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 mx-0 sm:mx-4">
+        <div class="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-neutral-900 rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 mx-0 sm:mx-4">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
               {{ $t('energy.detail.settings') }}
@@ -453,6 +449,16 @@
           <form @submit.prevent="updateCell" class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                {{ $t('energy.form.cell_name') }}
+              </label>
+              <input
+                v-model="settingsForm.name"
+                type="text"
+                class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 {{ $t('energy.form.description') }}
               </label>
               <textarea
@@ -461,17 +467,63 @@
                 class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none"
               />
             </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  {{ $t('energy.detail.price_eur_kwh') }}
+                </label>
+                <input
+                  v-model.number="settingsForm.current_price_eur"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  {{ $t('energy.form.transformer_id') }}
+                </label>
+                <input
+                  v-model="settingsForm.transformer_id"
+                  type="text"
+                  placeholder="PT-XXXXXX"
+                  class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                />
+              </div>
+            </div>
             <div>
               <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                {{ $t('energy.detail.price_eur_kwh') }}
+                {{ $t('energy.form.radius_km') }}
               </label>
-              <input
-                v-model.number="settingsForm.current_price_eur"
-                type="number"
-                step="0.01"
-                min="0"
+              <select
+                v-model.number="settingsForm.radius_km"
                 class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
+              >
+                <option :value="2">{{ $t('energy.form.radius_2_lv') }}</option>
+                <option :value="4">{{ $t('energy.form.radius_4_mv') }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                {{ $t('energy.form.location_hint') }}
+              </label>
+              <p class="text-xs text-neutral-400 mb-2">{{ $t('energy.form.click_map') }}</p>
+              <div v-if="propertiesWithCoords.length" class="flex flex-wrap gap-1.5 mb-2">
+                <button
+                  v-for="prop in propertiesWithCoords"
+                  :key="prop.id"
+                  type="button"
+                  class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 hover:border-primary"
+                  @click="flyToProperty(prop)"
+                >
+                  <Home class="w-3 h-3" /> {{ prop.name }}
+                </button>
+              </div>
+              <div ref="settingsMapContainer" class="w-full h-48 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-600 cursor-crosshair" />
+              <div class="mt-1.5 text-sm font-mono text-neutral-700 dark:text-neutral-300">
+                {{ settingsForm.latitude?.toFixed(6) }}, {{ settingsForm.longitude?.toFixed(6) }}
+              </div>
             </div>
             <div class="flex gap-3 pt-2">
               <UiButton variant="outline" class="flex-1" @click="showSettingsModal = false">
@@ -481,25 +533,56 @@
                 {{ $t('common.save') }}
               </UiButton>
             </div>
+            <div class="pt-3 border-t border-neutral-200 dark:border-neutral-700">
+              <UiButton
+                variant="outline-error"
+                size="sm"
+                :icon="Trash2"
+                :disabled="hasActiveMembers"
+                @click="showDeleteConfirm = true"
+              >
+                {{ $t('energy.detail.delete_cell') }}
+              </UiButton>
+              <p v-if="hasActiveMembers" class="text-xs text-neutral-400 mt-1.5">
+                {{ $t('energy.detail.delete_blocked') }}
+              </p>
+            </div>
           </form>
         </div>
       </div>
     </Teleport>
+
+    <UiConfirmModal
+      v-model="showDeleteConfirm"
+      :title="$t('energy.detail.delete_cell')"
+      :message="$t('energy.detail.delete_confirm')"
+      :confirm-label="$t('energy.detail.delete_cell')"
+      variant="error"
+      :icon="Trash2"
+      :loading="deleting"
+      @confirm="deleteCell"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { ArrowLeft, Zap, MapPin, Users, Sun, Home, Settings, X, Activity, ChevronRight, ToggleLeft, Wifi, Trash2 } from 'lucide-vue-next'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, onDeactivated } from 'vue'
+import { ArrowLeft, Zap, Users, Sun, Home, Settings, X, Activity, ToggleLeft, Wifi, Trash2 } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import { useToastStore } from '~/stores/toast'
 import StaticMapPreview from '~/components/IoT/StaticMapPreview.vue'
+import { ZAP_GLYPH } from '~/composables/useMapToggleableLayer'
+import { ENERGY_STATUS_COLORS } from '~/composables/useMapIoTLayers'
+import { createDeviceHexElement } from '~/utils/pickerMarker'
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const authStore = useAuthStore()
 const localePath = useLocalePath()
 const toastStore = useToastStore()
+const colorMode = useColorMode()
+const propertyStore = usePropertyStore()
 
 const cellId = route.params.id as string
 
@@ -527,9 +610,16 @@ const joinForm = ref({
 })
 
 const settingsForm = ref({
+  name: '',
   description: '',
   current_price_eur: null as number | null,
+  radius_km: 2,
+  transformer_id: '',
+  latitude: null as number | null,
+  longitude: null as number | null,
 })
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
 
 const inverterTypes = ['SOLARMAN', 'FRONIUS', 'GROWATT', 'SMA', 'SHELLY', 'OTHER']
 
@@ -547,9 +637,17 @@ const isOwner = computed(() => {
 
 const displayStatus = computed(() => {
   if (!cell.value) return 'OFFLINE'
-  if (cell.value.producers_count === 0 && cell.value.status !== 'OFFLINE') return 'WAITING'
+  // Same grammar as the list page: no producers = waiting to be joined.
+  if (cell.value.producers_count === 0) return 'WAITING'
   return cell.value.status
 })
+
+const hasActiveMembers = computed(() =>
+  (cell.value?.producers_count || 0) + (cell.value?.consumers_count || 0) > 0
+)
+
+// Same fill the GL layer uses — cards and map stay pixel-identical.
+const markerFill = computed(() => ENERGY_STATUS_COLORS[cell.value?.status] || '#6b7280')
 
 const statusDotClass = computed(() => ({
   'bg-success-500': displayStatus.value === 'GREEN',
@@ -574,8 +672,13 @@ const authHeaders = async () => {
 const fetchCell = async () => {
   try {
     cell.value = await $fetch(`/api/v1/energy/cells/${cellId}/`)
+    settingsForm.value.name = cell.value.name || ''
     settingsForm.value.description = cell.value.description || ''
     settingsForm.value.current_price_eur = cell.value.current_price_eur
+    settingsForm.value.radius_km = Number(cell.value.radius_km) || 2
+    settingsForm.value.transformer_id = cell.value.transformer_id || ''
+    settingsForm.value.latitude = cell.value.latitude
+    settingsForm.value.longitude = cell.value.longitude
   } catch {
     cell.value = null
   }
@@ -673,8 +776,13 @@ const updateCell = async () => {
       credentials: 'include',
       headers,
       body: {
+        name: settingsForm.value.name,
         description: settingsForm.value.description,
         current_price_eur: settingsForm.value.current_price_eur,
+        radius_km: settingsForm.value.radius_km,
+        transformer_id: settingsForm.value.transformer_id,
+        latitude: settingsForm.value.latitude,
+        longitude: settingsForm.value.longitude,
       },
     })
     toastStore.success(t('common.saved'))
@@ -686,6 +794,101 @@ const updateCell = async () => {
     saving.value = false
   }
 }
+
+const deleteCell = async () => {
+  deleting.value = true
+  try {
+    const headers = await authHeaders()
+    await $fetch(`/api/v1/energy/cells/${cellId}/`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers,
+    })
+    toastStore.success(t('energy.detail.deleted'))
+    showDeleteConfirm.value = false
+    showSettingsModal.value = false
+    router.push(localePath('/energy'))
+  } catch (err: any) {
+    toastStore.error(err?.data?.detail || t('common.error'))
+  } finally {
+    deleting.value = false
+  }
+}
+
+// ── Settings modal location map ──────────────────────────────────────────────
+
+const settingsMapContainer = ref<HTMLElement | null>(null)
+let settingsMap: any = null
+let settingsMarker: any = null
+let maplibregl: any = null
+
+const propertiesWithCoords = computed(() =>
+  propertyStore.properties.filter(p => p.latitude && p.longitude)
+)
+
+// The picker moves the same status-filled energy hex the cell wears on /map.
+const cellHexMarker = () =>
+  new maplibregl.Marker({ element: createDeviceHexElement(markerFill.value, ZAP_GLYPH), anchor: 'center' })
+
+const placeMarker = (lng: number, lat: number) => {
+  settingsForm.value.latitude = Math.round(lat * 1e6) / 1e6
+  settingsForm.value.longitude = Math.round(lng * 1e6) / 1e6
+  if (settingsMarker) {
+    settingsMarker.setLngLat([lng, lat])
+  } else if (settingsMap && maplibregl) {
+    settingsMarker = cellHexMarker().setLngLat([lng, lat]).addTo(settingsMap)
+  }
+}
+
+const flyToProperty = (prop: { latitude: number; longitude: number }) => {
+  if (settingsMap) settingsMap.flyTo({ center: [prop.longitude, prop.latitude], zoom: 17, essential: true, speed: 4.5 })
+  placeMarker(prop.longitude, prop.latitude)
+}
+
+const getStyleUrl = () =>
+  colorMode.value === 'dark'
+    ? '/map-styles/dark-liberty-parahub.json'
+    : '/map-styles/liberty-parahub.json'
+
+async function initSettingsMap() {
+  if (!settingsMapContainer.value || settingsMap) return
+  const mod = await import('maplibre-gl')
+  maplibregl = mod.default || mod
+  await import('maplibre-gl/dist/maplibre-gl.css')
+  settingsMap = new maplibregl.Map({
+    container: settingsMapContainer.value,
+    style: getStyleUrl(),
+    center: [settingsForm.value.longitude, settingsForm.value.latitude],
+    zoom: 14,
+    attributionControl: false,
+    fadeDuration: 0,
+  })
+  settingsMap.once('load', () => settingsMap.resize())
+  settingsMap.on('click', (e: any) => placeMarker(e.lngLat.lng, e.lngLat.lat))
+  settingsMarker = cellHexMarker()
+    .setLngLat([settingsForm.value.longitude, settingsForm.value.latitude])
+    .addTo(settingsMap)
+}
+
+function destroySettingsMap() {
+  if (settingsMap) { settingsMap.remove(); settingsMap = null; settingsMarker = null }
+}
+
+watch(showSettingsModal, async (open) => {
+  if (open) {
+    propertyStore.fetchProperties()
+    await nextTick()
+    initSettingsMap()
+  } else {
+    destroySettingsMap()
+  }
+})
+
+onDeactivated(() => {
+  showSettingsModal.value = false
+  destroySettingsMap()
+})
+onUnmounted(destroySettingsMap)
 
 // ── Relays ───────────────────────────────────────────────────────────────────
 

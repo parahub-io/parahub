@@ -4,9 +4,11 @@ claim-by-MAC flow (unclaimed pool -> claimant), ownership transfer.
 
 Claim model: factory-fresh routers heartbeat into the fleet pool profile
 (``MESH_DEFAULT_OWNER_PROFILE_ID``). Anyone holding the physical router proves
-possession by typing the full MAC from its sticker; on claim they become the
-owner and the support profile (``MESH_SUPPORT_PROFILE_ID``) receives a
-revocable MANAGER grant for remote assistance.
+possession by typing the full MAC from its sticker; on claim they become its
+sole holder of access. No standing support grant is created: the platform never
+keeps a key to a router it handed out — an owner who wants remote help grants it
+explicitly, and can revoke it. ``MESH_SUPPORT_PROFILE_ID`` is only notified that
+a claim happened.
 """
 
 import logging
@@ -16,14 +18,16 @@ from typing import List, Optional
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from ninja import Schema
 from ninja.errors import HttpError
 
 from core.access import ROLE_MANAGER, ROLE_OWNER
-from core.models import ObjectAccess, OwnershipLog
+from core.models import ObjectAccess, ObjectActionLog, OwnershipLog
 from identity.models import Profile
 from parahub.auth import ProfileAuth
+from parahub.errors import LocalizedHttpError
 from parahub.ratelimit import ratelimit, user_or_ip
 
 from ..models import IoTDevice
@@ -56,6 +60,19 @@ class DeviceAccessOut(Schema):
     owner_name: Optional[str] = None
     is_owner: bool
     grants: List[AccessGrantOut]
+
+
+class ActionLogOut(Schema):
+    id: str
+    object_type: str = "object_action_log"
+    action: str
+    role: str
+    method: str
+    status: int
+    fields: List[str] = []
+    actor_hna: Optional[str] = None
+    actor_name: Optional[str] = None
+    created_at: datetime
 
 
 class GrantIn(Schema):
@@ -118,18 +135,38 @@ def _resolve_profile(handle: str) -> Profile:
     return profile
 
 
-def _find_claimable(mac: str) -> IoTDevice:
+def _find_claimable(mac: str, profile: Profile) -> IoTDevice:
     """Unclaimed pool lookup — only devices still owned by the fleet pool
     profile are claimable, so nobody can claim a router that already has a
-    real owner."""
+    real owner.
+
+    Matches any of the node's burned-in addresses (`hw_macs`, ph45+), not just
+    its device_id: device_id is br-private's address at first boot, which on
+    some boards is a locally-administered one the bridge invented and that
+    appears on no label. Every hw_mac belongs to the same physical box, so any
+    of them is equally good proof of possession.
+
+    A router that IS known but already owned answers with its own status
+    instead of "unknown MAC": otherwise someone retyping the sticker of a
+    router they already claimed gets sent back to check the label, and burns
+    the claim budget doing it. This only reveals that a MAC belongs to the
+    fleet — never who owns it — and the MAC has to be known in full first.
+    """
     pool_id = settings.MESH_DEFAULT_OWNER_PROFILE_ID
     if not pool_id:
         raise HttpError(503, "Claim flow not configured")
     device = IoTDevice.objects.filter(
-        device_id=mac, device_type='MESH_ROUTER', owner_id=pool_id,
+        Q(device_id=mac) | Q(connection_info__contains={'hw_macs': [mac]}),
+        device_type='MESH_ROUTER',
     ).first()
     if not device:
-        raise HttpError(404, "No unclaimed router with this MAC")
+        raise LocalizedHttpError(404, "claim_not_found", "No router with this MAC")
+    if device.owner_id == profile.id:
+        raise LocalizedHttpError(409, "claim_already_yours",
+                                 "This router is already attached to your account")
+    if device.owner_id != pool_id:
+        raise LocalizedHttpError(409, "claim_already_owned",
+                                 "This router is already attached to another account")
     return device
 
 
@@ -164,13 +201,19 @@ def _online(device: IoTDevice) -> bool:
 # ---------------------------------------------------------------------------
 
 @router.post("/devices/claim/preview", response=ClaimPreviewOut, auth=ProfileAuth())
-@ratelimit(group='iot:claim', key=user_or_ip, rate='10/h', method='POST')
+@ratelimit(group='iot:claim_preview', key=user_or_ip, rate='30/h', method='POST')
 def claim_preview(request, payload: ClaimIn):
-    """Look up an unclaimed router by its sticker MAC (no mutation)."""
+    """Look up an unclaimed router by its sticker MAC (no mutation).
+
+    Budgeted apart from the claim itself: a lookup mutates nothing and the
+    sticker MAC is easy to mistype (the label may carry the LAN, WAN or radio
+    address), so failed searches must not eat the budget of the one call that
+    actually transfers ownership.
+    """
     profile = request.auth_profile
     if not profile:
         raise HttpError(401, "Authentication required")
-    device = _find_claimable(_normalize_mac(payload.mac))
+    device = _find_claimable(_normalize_mac(payload.mac), profile)
     ci = device.connection_info or {}
     return ClaimPreviewOut(
         name=device.name,
@@ -185,8 +228,8 @@ def claim_preview(request, payload: ClaimIn):
 @router.post("/devices/claim", response=ClaimOut, auth=ProfileAuth())
 @ratelimit(group='iot:claim', key=user_or_ip, rate='10/h', method='POST')
 def claim_device(request, payload: ClaimIn):
-    """Claim an unclaimed router: claimant becomes owner, support profile
-    receives a revocable MANAGER grant."""
+    """Claim an unclaimed router: the claimant becomes owner and the only party
+    with access. Support is notified, but receives no grant."""
     profile = request.auth_profile
     if not profile:
         raise HttpError(401, "Authentication required")
@@ -195,22 +238,13 @@ def claim_device(request, payload: ClaimIn):
     support_id = getattr(settings, 'MESH_SUPPORT_PROFILE_ID', '')
 
     with transaction.atomic():
-        device = _find_claimable(mac)
+        device = _find_claimable(mac, profile)
         pool_profile = device.owner
         device.owner = profile
         device.save(update_fields=['owner'])
 
         # Claimant's own stale grant (if any) is superseded by ownership
         ObjectAccess.objects.filter(object_id=device.id, profile=profile).delete()
-
-        support_profile = None
-        if support_id and support_id != profile.id:
-            support_profile = Profile.objects.filter(id=support_id).first()
-            if support_profile:
-                ObjectAccess.objects.update_or_create(
-                    object_id=device.id, profile=support_profile,
-                    defaults={'role': ObjectAccess.Role.MANAGER, 'granted_by': profile},
-                )
 
         OwnershipLog.objects.create(
             object_id=device.id,
@@ -220,7 +254,11 @@ def claim_device(request, payload: ClaimIn):
             new_owner=profile,
         )
 
-    logger.info(f"Mesh router {mac} claimed by profile {profile.id}")
+    # log the device's own id too: the claim may have matched an hw_mac
+    logger.info(f"Mesh router {device.device_id} claimed by profile "
+                f"{profile.id} (typed {mac})")
+    support_profile = (Profile.objects.filter(id=support_id).first()
+                       if support_id and support_id != profile.id else None)
     if support_profile:
         _notify(
             support_profile.account,
@@ -253,6 +291,37 @@ def list_device_access(request, device_id: str):
         is_owner=device.owner_id == profile.id,
         grants=[_grant_payload(g) for g in grants],
     )
+
+
+@router.get("/devices/{device_id}/activity", response=List[ActionLogOut], auth=ProfileAuth())
+@ratelimit(group='iot:activity', key=user_or_ip, rate='30/m')
+def device_activity(request, device_id: str, limit: int = 50):
+    """What was done to this device, by whom, as what role.
+
+    Readable by anyone with access, deliberately: the owner sees what a helper
+    changed, and a helper sees that the record of their work is not private to
+    the owner. Same audience as the grants list, hence the same name handling.
+    """
+    profile = request.auth_profile
+    device = get_device_for(profile, device_id)
+    rows = ObjectActionLog.objects.filter(object_id=device.id).select_related(
+        'actor__instance')[:max(1, min(limit, 200))]
+    out = []
+    for row in rows:
+        detail = row.detail or {}
+        actor = row.actor
+        out.append(ActionLogOut(
+            id=row.id,
+            action=row.action,
+            role=row.role,
+            method=detail.get('method', ''),
+            status=detail.get('status', 0),
+            fields=detail.get('fields', []),
+            actor_hna=(actor.hna or None) if actor else None,
+            actor_name=(actor.display_name or actor.local_name) if actor else None,
+            created_at=row.created_at,
+        ))
+    return out
 
 
 @router.post("/devices/{device_id}/access", response=AccessGrantOut, auth=ProfileAuth())

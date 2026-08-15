@@ -9,8 +9,10 @@ max_connections=100.
 
 - Fixed pool of daemon worker threads per process, started lazily.
 - Bounded PriorityQueue: when full, spawn() drops the task and logs an error
-  — the same best-effort semantics the fire-and-forget daemon threads had
-  (they died silently with the process).
+  (best-effort fire-and-forget semantics).
+- atexit drain: on normal process exit the queue is flushed (bounded, see
+  drain()) so short-lived processes don't lose queued tasks. SIGKILL still
+  loses them — best-effort stands.
 - close_old_connections() around every task keeps the per-worker Django DB
   connections healthy; long-lived worker threads would otherwise hold stale
   connections across postgres restarts.
@@ -18,10 +20,12 @@ max_connections=100.
   PRIORITY_URGENT to jump ahead of bulk sync work.
 """
 
+import atexit
 import itertools
 import logging
 import queue
 import threading
+import time
 
 from django.db import close_old_connections
 
@@ -32,14 +36,21 @@ PRIORITY_DEFAULT = 10
 
 _MAX_QUEUE = 1000
 _WORKERS = 4
+_DRAIN_TIMEOUT = 10.0
 
 _queue: queue.PriorityQueue = queue.PriorityQueue(maxsize=_MAX_QUEUE)
 _counter = itertools.count()  # FIFO tie-break; keeps task tuples comparable
 _start_lock = threading.Lock()
 _started = False
+# Own pending counter (not Queue.unfinished_tasks — private, and Queue.join()
+# has no timeout). Incremented in spawn(), decremented by workers when a task
+# finishes; drain() waits on the condition until it hits zero.
+_pending = 0
+_pending_cv = threading.Condition()
 
 
 def _worker():
+    global _pending
     while True:
         _prio, _seq, fn, args, kwargs, label = _queue.get()
         try:
@@ -50,6 +61,9 @@ def _worker():
         finally:
             close_old_connections()
             _queue.task_done()
+            with _pending_cv:
+                _pending -= 1
+                _pending_cv.notify_all()
 
 
 def _ensure_workers():
@@ -71,11 +85,47 @@ def spawn(fn, *args, priority=PRIORITY_DEFAULT, label=None, **kwargs):
     error logged). Callers treat this as best-effort fire-and-forget,
     exactly like the daemon threads this replaces.
     """
+    global _pending
     _ensure_workers()
     label = label or getattr(fn, '__name__', repr(fn))
+    with _pending_cv:
+        _pending += 1
     try:
         _queue.put_nowait((priority, next(_counter), fn, args, kwargs, label))
         return True
     except queue.Full:
+        with _pending_cv:
+            _pending -= 1
         logger.error(f"Background queue full ({_MAX_QUEUE}); dropped task {label}")
         return False
+
+
+def drain(timeout=_DRAIN_TIMEOUT):
+    """Block until all queued tasks finish, or `timeout` seconds pass.
+
+    Registered with atexit because the workers are daemon threads: without a
+    drain, any task still queued when a short-lived process exits (management
+    command, manage.py shell, uvicorn worker recycled by --limit-max-requests)
+    is silently lost — Postgres commits but the deferred side effect (Neo4j
+    sync, notification, email) never runs. Daemon threads stay schedulable
+    while atexit callbacks execute, so the pool keeps working the queue here.
+
+    Bounded: with Neo4j down each task burns its full query deadline, so an
+    unbounded wait could stall shutdown behind systemd's TimeoutStopSec.
+    Returns True if fully drained, False if tasks were abandoned (logged).
+    """
+    deadline = time.monotonic() + timeout
+    with _pending_cv:
+        while _pending > 0:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.error(
+                    f"Background drain timed out after {timeout}s; "
+                    f"abandoning {_pending} pending task(s)"
+                )
+                return False
+            _pending_cv.wait(remaining)
+    return True
+
+
+atexit.register(drain)

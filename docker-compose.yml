@@ -171,6 +171,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # Matrix Authentication Service (next-gen Matrix auth; issuer https://parahub.io/mas/)
+  mas:
+    image: ghcr.io/element-hq/matrix-authentication-service:1.22.0
+    container_name: parahub-mas
+    restart: unless-stopped
+    command: ["server", "--config", "/config/config.yaml"]
+    volumes:
+      - ./mas:/config:ro
+    ports:
+      - "127.0.0.1:8081:8080"  # web listener (prefix /mas): oauth, account UI, admin API
+      - "127.0.0.1:8084:8082"  # compat listener: /_matrix/client/*/login|logout|refresh
+    networks:
+      - parahub-net
+    depends_on:
+      - synapse-postgres
+
   # Synapse Admin Web Interface
   synapse-admin:
     image: ghcr.io/etkecc/synapse-admin@sha256:b27a079b962fb227d874b5729cad8eb77b69aa736310caf59b277fd09f7ccf4b
@@ -182,6 +198,40 @@ services:
       - parahub-net
     healthcheck:
       disable: true
+
+  # LiveKit SFU — media for calls inside Matrix rooms (MatrixRTC / Element Call).
+  # Unrelated to Jitsi, which serves profile-to-profile calls on /call.
+  livekit:
+    image: livekit/livekit-server:v1.13.5
+    container_name: parahub-livekit
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./livekit/livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "127.0.0.1:7880:7880"   # signalling + API, published by nginx at /livekit/sfu
+      - "7881:7881"             # ICE over TCP, for clients whose network blocks UDP
+      - "7882:7882/udp"         # single-port UDP mux for media (DNAT'd on the flat host)
+    networks:
+      - parahub-net
+
+  # MatrixRTC authorization service: trades a Matrix openid token for a LiveKit JWT.
+  # Verifies the token against the user's homeserver, so only our users get in.
+  lk-jwt-service:
+    image: ghcr.io/element-hq/lk-jwt-service:0.5.0
+    container_name: parahub-lk-jwt-service
+    restart: unless-stopped
+    environment:
+      - LIVEKIT_URL=wss://parahub.io/livekit/sfu
+      - LIVEKIT_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_SECRET=${LIVEKIT_API_SECRET}
+      - LIVEKIT_FULL_ACCESS_HOMESERVERS=parahub.io
+    ports:
+      - "127.0.0.1:8086:8080"
+    networks:
+      - parahub-net
+    depends_on:
+      - livekit
 
   # ==================== DEVELOPMENT TIER ====================
 
@@ -208,7 +258,9 @@ services:
       - GITEA__server__HTTP_PORT=3000
       - GITEA__service__DISABLE_REGISTRATION=false
       - GITEA__service__ALLOW_ONLY_EXTERNAL_REGISTRATION=true
-      - GITEA__service__REQUIRE_SIGNIN_VIEW=true
+      # Anonymous read of public-flagged repos (audit/parahub-registry, cms/parahub-cms)
+      # is the point of the transparency layer; private repos stay signin-only.
+      - GITEA__service__REQUIRE_SIGNIN_VIEW=false
       - GITEA__repository__DEFAULT_PRIVATE=private
       - GITEA__openid__ENABLE_OPENID_SIGNIN=false
       - GITEA__openid__ENABLE_OPENID_SIGNUP=false
@@ -241,6 +293,44 @@ services:
       timeout: 10s
       retries: 3
 
+
+  # ==================== AUDIT TIER ====================
+
+  # Bitcoin Core (pruned) — local node for trustless OpenTimestamps
+  # verification (verify_ots_batches tier 1). RPC consumer only: `ots verify`
+  # needs getblockheader, and a pruned node keeps the full header chain
+  # forever. Server rpcauth lives in /opt/bitcoind/bitcoin.conf (outside git);
+  # client credentials in ~norn/.bitcoin/bitcoin.conf (read by
+  # opentimestamps-client, parahub-ots-verify.service runs as norn).
+  bitcoind:
+    image: bitcoin/bitcoin:31.1
+    container_name: parahub-bitcoind
+    restart: unless-stopped
+    environment:
+      # Entrypoint remaps the in-container bitcoin user so the bind-mounted
+      # datadir stays owned by norn on the host
+      - UID=1003
+      - GID=1003
+    volumes:
+      - /opt/bitcoind:/home/bitcoin/.bitcoin
+    ports:
+      - "127.0.0.1:8332:8332"  # JSON-RPC (auth via rpcauth)
+    networks:
+      - parahub-net
+    # Flushing a large dbcache on shutdown takes minutes; SIGKILL at the
+    # default 10s would force a long replay on next start
+    stop_grace_period: 15m
+    healthcheck:
+      test: ["CMD-SHELL", "bitcoin-cli -datadir=/home/bitcoin/.bitcoin getblockchaininfo >/dev/null"]
+      interval: 60s
+      timeout: 15s
+      retries: 5
+      start_period: 600s
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+          cpus: '4'
 
   # ==================== VIDEO TIER ====================
 
@@ -552,7 +642,13 @@ services:
       - JVB_PORT=10000
       - JVB_WS_DOMAIN=jitsi.parahub.io
       - JVB_WS_SERVER_ID=default
-      - JVB_STUN_SERVERS=turn.parahub.io:3478
+      # The bridge sits behind two NAT layers (flat host -> LXC -> docker), so it
+      # must be told its internet-facing address: udp/10000 is DNAT'd here from
+      # <VPS_IP>. STUN discovery cannot find it -- coturn runs on the flat
+      # host and sees us as the LXC-private <LXC_IP>, which is not only
+      # useless to remote clients but collides with their own 10.x LANs.
+      - JVB_ADVERTISE_IPS=<VPS_IP>
+      - JVB_DISABLE_STUN=1
     volumes:
       - ./jitsi/jvb:/config
     ports:

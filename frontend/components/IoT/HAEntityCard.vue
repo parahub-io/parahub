@@ -84,7 +84,7 @@ const domainIcon = computed(() => {
 
 const stateColor = computed(() => {
   const s = props.entity.state
-  if (s === 'on' || s === 'unlocked' || s === 'open') return 'text-primary-600 dark:text-primary-400'
+  if (s === 'on' || s === 'unlocked' || s === 'open') return 'text-secondary dark:text-secondary-400'
   if (s === 'off' || s === 'locked' || s === 'closed') return 'text-neutral-500 dark:text-neutral-400'
   if (s === 'unavailable') return 'text-red-500'
   return 'text-neutral-700 dark:text-neutral-300'

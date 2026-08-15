@@ -8,12 +8,25 @@
     />
 
     <div v-if="!batches.length" class="py-12 text-center">
-      <Banknote class="w-12 h-12 mx-auto text-neutral-400" />
+      <img src="/images/tips/note.webp" alt="" class="mx-auto h-32 w-auto object-contain" />
       <h3 class="mt-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
         {{ $t('tips.empty.title') }}
       </h3>
       <p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
         {{ $t('tips.empty.text') }}
+      </p>
+      <!-- Minted on another device? Point at the opt-in sync toggle / explain a key mismatch. -->
+      <p v-if="syncError === 'key-mismatch'" class="mt-2 text-sm text-amber-600 dark:text-amber-400 max-w-md mx-auto">
+        {{ $t('tips.sync.keyMismatch') }}
+      </p>
+      <p v-else-if="syncError === 'no-seed'" class="mt-2 text-sm text-amber-600 dark:text-amber-400 max-w-md mx-auto">
+        {{ $t('profile.preferences.wallet_sync_needs_wallet') }}
+      </p>
+      <p v-else-if="syncEnabled === false" class="mt-2 text-sm text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
+        {{ $t('tips.sync.offHint') }}
+        <NuxtLink :to="localePath('/profile') + '#wallet-sync'" class="text-link">
+          {{ $t('tips.sync.settingsLink') }}
+        </NuxtLink>
       </p>
       <UiButton class="mt-6" :to="localePath('/tips/new')" :icon="Plus">
         {{ $t('tips.create') }}
@@ -53,10 +66,16 @@ definePageMeta({ middleware: 'auth' })
 const localePath = useLocalePath()
 const { t } = useI18n()
 const { batches, load } = useTipBatches()
+const { enabled: syncEnabled, lastError: syncError, pull } = useWalletSync()
 
 const formatSats = (sats: number) => `${sats.toLocaleString()} sats`
 
-onMounted(load)
+onMounted(async () => {
+  load()
+  // Opt-in cross-device sync: merge batches minted on other devices, then re-read.
+  await pull()
+  load()
+})
 
 useHead({ title: t('tips.title') })
 </script>

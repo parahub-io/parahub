@@ -1,4 +1,5 @@
 import { computed, onMounted, onUnmounted, ref, type Ref } from 'vue'
+import { useHaptics } from './useHaptics'
 
 /**
  * Touch-drag selection for AppNavigation (mobile only):
@@ -8,8 +9,8 @@ import { computed, onMounted, onUnmounted, ref, type Ref } from 'vue'
  *   - button under finger highlights via isDragHovered() (yellow)
  *   - label bar at bottom of screen shows current target's label (yellow)
  *   - haptic tick whenever the finger crosses onto a different button,
- *     firmer pulse when release commits a screen change
- *     (Vibration API — Android only, iOS WebView lacks it and no-ops)
+ *     confirm pulse when release commits a screen change (see useHaptics —
+ *     Capacitor Haptics natively, Vibration API in the browser)
  *   - on release: a colored dot appears at the target, transitions to a
  *     vertical beam 100vh tall fading to opacity 0 over 300ms
  *   - light theme = red beam, dark theme = yellow
@@ -21,8 +22,8 @@ export interface NavDragOptions {
   isSiteMenuOpen: Ref<boolean>
   /** Called on release when target is a path nav-item (usually: router.push + close menu) */
   onSelectPath: (path: string) => void
-  /** Called on release when target is an action button (site-menu / logout / invite) */
-  onSelectAction: (action: 'site-menu' | 'logout' | 'invite') => void
+  /** Called on release when target is an action button (site-menu / logout / invite / people) */
+  onSelectAction: (action: 'site-menu' | 'logout' | 'invite' | 'people') => void
   /** Cancel any pending hover-open timer (hybrid device: touchstart fires after pointerenter:mouse) */
   cancelHoverOpen: () => void
   /** Path prefixes that belong to the dropdown grid — hovering these keeps the menu open */
@@ -61,17 +62,10 @@ export function useNavDragSelect(opts: NavDragOptions) {
     return element.closest('[data-nav-button]') as HTMLElement | null
   }
 
-  // Short tick when the drag target changes. 10ms reads as a selection detent
-  // rather than a notification buzz.
-  function hapticTick() {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10)
-  }
-
-  // Firmer confirm pulse when a selection commits to a screen change —
-  // exported so tap navigation (AppNavigation) shares the same feel.
-  function hapticSelect() {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(20)
-  }
+  // Tick per crossed button, confirm pulse on commit. Strength/duration and the
+  // native-vs-web split live in useHaptics; hapticSelect is re-exported below so
+  // tap navigation (AppNavigation) shares the same confirm.
+  const { hapticTick, hapticSelect, hapticSelectionStart, hapticSelectionEnd } = useHaptics()
 
   function handleDragStart(event: MouseEvent | TouchEvent) {
     // Touch only; mouse ignored
@@ -89,6 +83,7 @@ export function useNavDragSelect(opts: NavDragOptions) {
     dragMoved.value = false
     dragStartTarget.value = navButton
     currentHoverTarget.value = navButton
+    hapticSelectionStart() // arms the iOS selection generator for this gesture
     // No menu open/close here — only when drag actually moves
   }
 
@@ -166,7 +161,7 @@ export function useNavDragSelect(opts: NavDragOptions) {
         if (path) {
           hapticSelect() // screen change committed
           opts.onSelectPath(path)
-        } else if (action === 'site-menu' || action === 'logout' || action === 'invite') {
+        } else if (action === 'site-menu' || action === 'logout' || action === 'invite' || action === 'people') {
           opts.onSelectAction(action)
         }
 
@@ -182,6 +177,7 @@ export function useNavDragSelect(opts: NavDragOptions) {
     dragStartTarget.value = null
     currentHoverTarget.value = null
     dragMoved.value = false
+    hapticSelectionEnd() // also runs on touchcancel — the generator must not leak
   }
 
   function isDragHovered(buttonPath: string | null, buttonAction: string | null): boolean {

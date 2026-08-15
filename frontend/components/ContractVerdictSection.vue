@@ -41,7 +41,7 @@
                 type="button"
                 @click="arbiterRating = star"
                 class="text-xl transition-colors"
-                :class="star <= arbiterRating ? 'text-yellow-400' : 'text-neutral-300 dark:text-neutral-600'"
+                :class="star <= arbiterRating ? 'star-on' : 'star-off'"
               >
                 ★
               </button>

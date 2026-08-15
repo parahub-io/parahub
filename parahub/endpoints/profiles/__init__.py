@@ -4,7 +4,9 @@ Importing the endpoint modules registers their routes on the shared router.
 """
 
 from .base import profile_router
-from . import core, pgp, psych, notes, photos, badge  # noqa: E402,F401
+# `blocks` first: its literal /blocked/ route must register before core's
+# /{id}/ param routes (PK/architecture.md § Ninja path shadowing).
+from . import blocks, core, pgp, psych, notes, photos, badge  # noqa: E402,F401
 
 # Re-exports for identity/tests.py (direct handler calls + schema imports).
 from .core import (  # noqa: F401

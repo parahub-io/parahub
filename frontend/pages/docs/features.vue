@@ -12,7 +12,7 @@
             :is="f.to ? NuxtLink : f.href ? 'a' : 'div'"
             v-for="f in group.items"
             :key="f.key"
-            :to="f.to"
+            :to="f.to ? localePath(f.to) : undefined"
             :href="!f.to ? f.href : undefined"
             :target="(!f.to && f.href) ? '_blank' : undefined"
             :rel="(!f.to && f.href) ? 'noopener' : undefined"
@@ -50,6 +50,7 @@ import {
 } from 'lucide-vue-next'
 
 const { t } = useI18n()
+const localePath = useLocalePath()
 useHead({ title: computed(() => `${t('about.features.title')} — Parahub`) })
 useSeoMeta({
   description: computed(() => t('docs.features_desc')),
@@ -103,7 +104,7 @@ const groups = [
       { key: 'transit', icon: Bus, href: 'https://transporte.parahub.io' },
       { key: 'logistics', icon: Package, wip: true },
       { key: 'driver', icon: Navigation },
-      { key: 'carpool', icon: Car, href: 'https://boleias.parahub.io', wip: true },
+      { key: 'carpool', icon: Car, to: '/docs/carpool', href: 'https://boleias.parahub.io', wip: true },
       { key: 'tickets', icon: Ticket, to: '/docs/tickets', wip: true },
       { key: 'dispatch', icon: LayoutDashboard },
       { key: 'mesh', icon: Wifi, to: '/docs/mesh' },

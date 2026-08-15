@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import datetime
 import logging
 
-from parahub.auth import ProfileAuth
+from parahub.auth import ProfileAuth, OptionalProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 
 logger = logging.getLogger(__name__)
@@ -62,19 +62,22 @@ def create_comment(request, data: CommentInput):
     return 201, _format(comment, request.auth, viewer=request.auth)
 
 
-@router.get("/", auth=None, response=List[CommentResponse])
+@router.get("/", auth=OptionalProfileAuth(), response=List[CommentResponse])
 @ratelimit(group='core:list_comments', key='ip', rate='60/m')
 def list_comments(request, object_id: str):
-    """List comments for a given object_id."""
+    """List comments for a given object_id (minus authors the viewer blocked)."""
     from core.models import ObjectComment
+    from identity.services.blocks import blocked_ids_for_request
 
     if not object_id or len(object_id) != 26:
         return []
 
-    return [
-        _format(c)
-        for c in ObjectComment.objects.filter(object_id=object_id).select_related('author')
-    ]
+    qs = ObjectComment.objects.filter(object_id=object_id).select_related('author')
+    blocked_ids = blocked_ids_for_request(request)
+    if blocked_ids:
+        qs = qs.exclude(author_id__in=blocked_ids)
+
+    return [_format(c) for c in qs]
 
 
 @router.delete("/{comment_id}/", auth=ProfileAuth(), response={200: dict, 403: dict, 404: dict})

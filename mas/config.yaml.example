@@ -1,0 +1,99 @@
+http:
+  listeners:
+  - name: web
+    resources:
+    - name: discovery
+    - name: human
+    - name: oauth
+    - name: graphql
+    - name: adminapi
+    - name: assets
+    binds:
+    - address: '[::]:8080'
+    proxy_protocol: false
+    prefix: /mas
+  - name: compat
+    resources:
+    - name: compat
+    binds:
+    - address: '[::]:8082'
+    proxy_protocol: false
+  - name: internal
+    resources:
+    - name: health
+    binds:
+    - host: localhost
+      port: 8081
+    proxy_protocol: false
+  trusted_proxies:
+  - 192.168.0.0/16
+  - 172.16.0.0/12
+  - 10.0.0.0/10
+  - 127.0.0.1/8
+  - fd00::/8
+  - ::1/128
+  public_base: https://parahub.io/mas/
+  issuer: https://parahub.io/mas/
+database:
+  uri: postgresql://synapse:CHANGE_ME@synapse-postgres:5432/mas
+  max_connections: 10
+  min_connections: 0
+  connect_timeout: 30
+  idle_timeout: 600
+  max_lifetime: 1800
+email:
+  from: '"Authentication Service" <root@localhost>'
+  reply_to: '"Authentication Service" <root@localhost>'
+  transport: blackhole
+secrets:
+  encryption: CHANGE_ME_64_HEX
+  keys: []  # generate with: mas-cli config generate
+passwords:
+  enabled: false
+  schemes:
+  - version: 1
+    algorithm: bcrypt
+  minimum_complexity: 3
+branding:
+  service_name: Parahub
+  policy_uri: https://parahub.io/about/privacy
+  tos_uri: https://parahub.io/about/terms
+
+matrix:
+  kind: synapse
+  homeserver: parahub.io
+  secret: CHANGE_ME  # must match matrix_authentication_service.secret in homeserver.yaml
+  endpoint: http://synapse:8008/
+upstream_oauth2:
+  providers:
+  - id: 01KZH6NDVYZHEY089NYF2ZPKGV
+    synapse_idp_id: oidc-parahub_django
+    human_name: Parahub Identity
+    issuer: https://parahub.io
+    discovery_mode: disabled
+    authorization_endpoint: https://parahub.io/o/authorize/
+    token_endpoint: https://parahub.io/o/token/
+    userinfo_endpoint: https://parahub.io/o/userinfo/
+    jwks_uri: https://parahub.io/o/.well-known/jwks.json
+    client_id: mas-client
+    client_secret: CHANGE_ME
+    token_endpoint_auth_method: client_secret_basic
+    scope: openid profile email
+    claims_imports:
+      localpart:
+        action: require
+        template: '{{ user.local_name | lower | replace("-", "_") }}'
+      displayname:
+        action: suggest
+        template: '{{ user.local_name }}'
+      email:
+        action: suggest
+        template: '{{ user.email }}'
+clients:
+- client_id: 01KZH6NDVYHK9PH0341WC2AA3D
+  client_auth_method: client_secret_basic
+  client_secret: CHANGE_ME
+policy:
+  data:
+    admin_clients:
+    - 01KZH6NDVYHK9PH0341WC2AA3D

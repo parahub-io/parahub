@@ -6,6 +6,7 @@ from ninja import Router
 
 from geo.endpoints.geocoding import router as geocoding_router
 from geo.endpoints.buildings import router as buildings_router
+from geo.endpoints.members import router as members_router
 from geo.endpoints.events import router as events_router
 from geo.endpoints.opensky import router as opensky_router
 from geo.endpoints.transit import router as transit_router
@@ -21,6 +22,7 @@ router = Router(tags=["Geo"])
 
 router.add_router("", geocoding_router)
 router.add_router("", buildings_router)
+router.add_router("", members_router)
 router.add_router("", events_router)
 router.add_router("", opensky_router)
 router.add_router("", transit_router)

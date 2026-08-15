@@ -6,11 +6,12 @@ Handles real Matrix/Synapse integration with auto-provisioning
 from ninja import Router
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
+import hashlib
 import html
 import httpx
-import hashlib
-import hmac
 import logging
+import mimetypes
+import os
 import time
 from django.conf import settings
 from django.core.cache import cache
@@ -25,34 +26,159 @@ router = Router(tags=["matrix"])
 SYNAPSE_BASE_URL = "http://localhost:8008"
 SYNAPSE_PUBLIC_URL = "https://parahub.io"
 SYNAPSE_ADMIN_TOKEN = getattr(settings, 'SYNAPSE_ADMIN_TOKEN', None)
-SYNAPSE_SHARED_SECRET = settings.SYNAPSE_REGISTRATION_SHARED_SECRET
 
 # Synapse is local; connect must be near-instant. The overall ceiling bounds
 # how long a Synapse hiccup can hold a request slot (endpoints here are sync,
 # and sync handlers share a single executor thread per worker).
 SYNAPSE_HTTP_TIMEOUT = httpx.Timeout(10.0, connect=2.0)
 
+# MAS (Matrix Authentication Service). Synapse delegates auth to MAS: users are
+# created through the MAS admin API (MAS provisions them into Synapse) and
+# backend tokens are MAS personal sessions. The Synapse admin API is still used
+# for room-level operations (members, purge) with SYNAPSE_ADMIN_TOKEN.
+MAS_BASE_URL = getattr(settings, 'MAS_BASE_URL', 'http://localhost:8081/mas')
+MAS_ADMIN_CLIENT_ID = getattr(settings, 'MAS_ADMIN_CLIENT_ID', None)
+MAS_ADMIN_CLIENT_SECRET = getattr(settings, 'MAS_ADMIN_CLIENT_SECRET', None)
+MAS_UPSTREAM_PROVIDER_ID = getattr(settings, 'MAS_UPSTREAM_PROVIDER_ID', None)
 
-def generate_mac(shared_secret: str, nonce: str, user: str, password: str, 
-                  admin: bool = False, user_type: str = None) -> str:
-    """Generate HMAC for Synapse shared secret registration"""
-    mac = hmac.new(
-        key=shared_secret.encode('utf8'),
-        digestmod=hashlib.sha1,
-    )
-    
-    mac.update(nonce.encode('utf8'))
-    mac.update(b"\x00")
-    mac.update(user.encode('utf8'))
-    mac.update(b"\x00")
-    mac.update(password.encode('utf8'))
-    mac.update(b"\x00")
-    mac.update(b"admin" if admin else b"notadmin")
-    if user_type:
-        mac.update(b"\x00")
-        mac.update(user_type.encode('utf8'))
-    
-    return mac.hexdigest()
+# client_credentials tokens are short-lived (MAS default 5 min); cache per
+# worker process with a safety margin.
+_mas_admin_token_cache: Dict[str, Any] = {"token": None, "expires_at": 0.0}
+
+
+def _get_mas_admin_token(client: httpx.Client) -> Optional[str]:
+    """Obtain (and cache) a MAS admin API token via client_credentials."""
+    if not (MAS_ADMIN_CLIENT_ID and MAS_ADMIN_CLIENT_SECRET):
+        logger.error("[MAS] MAS_ADMIN_CLIENT_ID / MAS_ADMIN_CLIENT_SECRET not configured")
+        return None
+
+    now = time.time()
+    if _mas_admin_token_cache["token"] and _mas_admin_token_cache["expires_at"] > now:
+        return _mas_admin_token_cache["token"]
+
+    try:
+        response = client.post(
+            f"{MAS_BASE_URL}/oauth2/token",
+            auth=(MAS_ADMIN_CLIENT_ID, MAS_ADMIN_CLIENT_SECRET),
+            data={"grant_type": "client_credentials", "scope": "urn:mas:admin"},
+        )
+        if response.status_code != 200:
+            logger.error(f"[MAS] client_credentials failed: {response.status_code} - {response.text}")
+            return None
+        payload = response.json()
+        token = payload.get("access_token")
+        expires_in = payload.get("expires_in", 300)
+        _mas_admin_token_cache["token"] = token
+        _mas_admin_token_cache["expires_at"] = now + max(60, expires_in - 60)
+        return token
+    except Exception as e:
+        logger.error(f"[MAS] Exception obtaining admin token: {e}")
+        return None
+
+
+def _mas_ensure_user(client: httpx.Client, account_id: str, matrix_user_id: str) -> Optional[str]:
+    """Ensure the user exists in MAS with an upstream link to the Parahub
+    account, so SSO logs into the same Matrix user the backend acts on.
+
+    MAS provisions the user into Synapse on creation. Returns the MAS user
+    ULID, or None on error.
+    """
+    admin_token = _get_mas_admin_token(client)
+    if not admin_token:
+        return None
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    localpart = matrix_user_id.lstrip('@').split(':', 1)[0]
+
+    try:
+        response = client.get(
+            f"{MAS_BASE_URL}/api/admin/v1/users/by-username/{localpart}", headers=headers
+        )
+        if response.status_code == 200:
+            mas_user_id = response.json()["data"]["id"]
+        elif response.status_code == 404:
+            response = client.post(
+                f"{MAS_BASE_URL}/api/admin/v1/users", headers=headers,
+                json={"username": localpart},
+            )
+            if response.status_code not in (200, 201):
+                logger.error(f"[MAS] Failed to create user {localpart}: {response.status_code} - {response.text}")
+                return None
+            mas_user_id = response.json()["data"]["id"]
+            logger.info(f"[MAS] Created user {matrix_user_id} (MAS id {mas_user_id})")
+        else:
+            logger.error(f"[MAS] User lookup failed for {localpart}: {response.status_code} - {response.text}")
+            return None
+
+        # Upstream link: subject = Account ULID ('sub' claim of the Parahub IdP)
+        if MAS_UPSTREAM_PROVIDER_ID:
+            response = client.get(
+                f"{MAS_BASE_URL}/api/admin/v1/upstream-oauth-links",
+                headers=headers,
+                params={"filter[user]": mas_user_id},
+            )
+            links = response.json().get("data", []) if response.status_code == 200 else []
+            linked = any(
+                l["attributes"].get("provider_id") == MAS_UPSTREAM_PROVIDER_ID
+                and l["attributes"].get("subject") == account_id
+                for l in links
+            )
+            if not linked:
+                response = client.post(
+                    f"{MAS_BASE_URL}/api/admin/v1/upstream-oauth-links",
+                    headers=headers,
+                    json={
+                        "user_id": mas_user_id,
+                        "provider_id": MAS_UPSTREAM_PROVIDER_ID,
+                        "subject": account_id,
+                    },
+                )
+                if response.status_code in (200, 201):
+                    logger.info(f"[MAS] Linked {matrix_user_id} to account {account_id}")
+                else:
+                    # 409 = subject already linked (possibly to another user after
+                    # a rename); SSO keeps working through the existing link.
+                    logger.warning(f"[MAS] Upstream link for {matrix_user_id} not created: {response.status_code} - {response.text}")
+
+        return mas_user_id
+    except Exception as e:
+        logger.error(f"[MAS] Exception ensuring user {matrix_user_id}: {e}")
+        return None
+
+
+def _mas_mint_user_token(client: httpx.Client, mas_user_id: str, matrix_user_id: str,
+                          ttl_seconds: int = 7 * 86400) -> Optional[Dict[str, str]]:
+    """Mint a Matrix access token for a user via a MAS personal session.
+
+    Replaces the pre-MAS admin /login mint. Returns
+    {'access_token': ..., 'device_id': ...} or None.
+    """
+    import secrets as _secrets
+
+    admin_token = _get_mas_admin_token(client)
+    if not admin_token:
+        return None
+
+    device_id = "PW" + _secrets.token_hex(4).upper()
+    try:
+        response = client.post(
+            f"{MAS_BASE_URL}/api/admin/v1/personal-sessions",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={
+                "actor_user_id": mas_user_id,
+                "human_name": f"parahub-backend {matrix_user_id}",
+                "scope": "urn:matrix:org.matrix.msc2967.client:api:*"
+                         f" urn:matrix:org.matrix.msc2967.client:device:{device_id}",
+                "expires_in": ttl_seconds,
+            },
+        )
+        if response.status_code not in (200, 201):
+            logger.error(f"[MAS] personal-session mint failed for {matrix_user_id}: {response.status_code} - {response.text}")
+            return None
+        access_token = response.json()["data"]["attributes"]["access_token"]
+        return {"access_token": access_token, "device_id": device_id}
+    except Exception as e:
+        logger.error(f"[MAS] Exception minting token for {matrix_user_id}: {e}")
+        return None
 
 
 def get_matrix_localpart_for_account(account_id: str) -> str:
@@ -111,6 +237,74 @@ def get_matrix_user_id(account_id: str) -> str:
     return f"@{localpart}:parahub.io"
 
 
+def get_account_id_for_matrix_user(matrix_user_id: str) -> Optional[str]:
+    """Reverse of get_matrix_user_id: map @localpart:server to an Account ID.
+
+    Matrix lowercases localparts, so local_name is matched case-insensitively.
+    Primary profiles win when several profiles share a local_name.
+    """
+    from identity.models import Profile
+
+    localpart = matrix_user_id.lstrip('@').split(':', 1)[0]
+    account_id = (
+        Profile.objects.filter(local_name__iexact=localpart)
+        .order_by('-is_primary')
+        .values_list('account_id', flat=True)
+        .first()
+    )
+    return str(account_id) if account_id else None
+
+
+def get_room_joined_members(room_id: str) -> Optional[list]:
+    """Currently joined members of a room via the admin API (client APIs may
+    serve stale cache after a Matrix DB reset).
+
+    Returns [] when the room is gone or nobody is joined — positively dead:
+    on a homeserver with no other server in the room such a room can never be
+    joined again. Returns None when liveness cannot be determined; callers
+    must treat None as "unknown" and never recreate a room because of it.
+    """
+    if not SYNAPSE_ADMIN_TOKEN:
+        return None
+    from urllib.parse import quote
+    try:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
+            resp = client.get(
+                f"{SYNAPSE_BASE_URL}/_synapse/admin/v1/rooms/{quote(room_id, safe='')}/members",
+                headers={"Authorization": f"Bearer {SYNAPSE_ADMIN_TOKEN}"},
+            )
+        if resp.status_code == 200:
+            return resp.json().get("members", [])
+        if resp.status_code == 404:
+            return []
+        logger.warning(f"[Matrix] Members lookup for {room_id} returned {resp.status_code}")
+    except Exception as e:
+        logger.warning(f"[Matrix] Members lookup for {room_id} failed: {e}")
+    return None
+
+
+def purge_matrix_room(room_id: str) -> None:
+    """Delete a room server-side (admin API v2, asynchronous purge).
+
+    Best effort — intended for rooms already verified dead via
+    get_room_joined_members, or for a just-created duplicate abandoned after
+    losing a heal race.
+    """
+    if not (room_id and SYNAPSE_ADMIN_TOKEN):
+        return
+    from urllib.parse import quote
+    try:
+        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
+            client.request(
+                "DELETE",
+                f"{SYNAPSE_BASE_URL}/_synapse/admin/v2/rooms/{quote(room_id, safe='')}",
+                headers={"Authorization": f"Bearer {SYNAPSE_ADMIN_TOKEN}"},
+                json={"purge": True, "block": False},
+            )
+    except Exception as e:
+        logger.warning(f"[Matrix] Purge of {room_id} failed: {e}")
+
+
 def _ensure_matrix_user_exists(client: httpx.Client, account_id: str, matrix_user_id: str,
                                 displayname: str = None) -> bool:
     """
@@ -134,106 +328,182 @@ def _ensure_matrix_user_exists(client: httpx.Client, account_id: str, matrix_use
     import logging
     logger = logging.getLogger(__name__)
 
-    if not SYNAPSE_ADMIN_TOKEN:
-        logger.error("[Matrix] SYNAPSE_ADMIN_TOKEN not configured")
+    # Under MAS the Synapse admin PUT would create a Synapse-only phantom that
+    # MAS (the authority on users) never sees — SSO would then collide on the
+    # localpart. Users must be created through MAS, which provisions them into
+    # Synapse. The displayname is applied later, once a user token exists
+    # (MAS user creation takes no displayname).
+    return _mas_ensure_user(client, account_id, matrix_user_id) is not None
+
+
+# --- Matrix profile mirroring (display name + avatar) -----------------------
+# MAS imports only localpart/displayname/email from our OIDC claims — it has no
+# avatar claim — so the avatar is pushed straight to Synapse with the member's
+# own token. The marker TTL only bounds Redis growth; losing a marker costs one
+# redundant upload, nothing else.
+MATRIX_AVATAR_MARKER_TTL = 90 * 86400
+
+
+def _mas_user_exists(client: httpx.Client, matrix_user_id: str) -> bool:
+    """True when MAS already knows this Matrix user.
+
+    Profile mirroring must never provision: a member who uploads an avatar but
+    has never opened the chat should not gain a Matrix account as a side effect
+    of that upload.
+    """
+    admin_token = _get_mas_admin_token(client)
+    if not admin_token:
         return False
 
+    localpart = matrix_user_id.lstrip('@').split(':', 1)[0]
     try:
-        # OIDC provider ID from homeserver.yaml: idp_id: parahub_django
-        # Synapse prefixes it with "oidc-" internally
-        oidc_provider_id = "oidc-parahub_django"
-
-        # NOTE: Do NOT include "password" field - Synapse has password_config.enabled: false
-        # Including password causes 403 "Password change disabled" error
-        user_data = {
-            "admin": False,
-            "deactivated": False,
-            "external_ids": [
-                {
-                    "auth_provider": oidc_provider_id,
-                    "external_id": account_id  # This is the 'sub' claim in ID token
-                }
-            ]
-        }
-
-        if displayname:
-            user_data["displayname"] = displayname
-
-        put_response = client.put(
-            f"{SYNAPSE_BASE_URL}/_synapse/admin/v2/users/{matrix_user_id}",
-            headers={"Authorization": f"Bearer {SYNAPSE_ADMIN_TOKEN}"},
-            json=user_data
+        response = client.get(
+            f"{MAS_BASE_URL}/api/admin/v1/users/by-username/{localpart}",
+            headers={"Authorization": f"Bearer {admin_token}"},
         )
-
-        if put_response.status_code in (200, 201):
-            logger.info(f"[Matrix] User {matrix_user_id} exists/created with OIDC link to {account_id}")
-            return True
-        else:
-            logger.error(f"[Matrix] Failed to create user {matrix_user_id}: {put_response.status_code} - {put_response.text}")
-            return False
-
+        return response.status_code == 200
     except Exception as e:
-        logger.error(f"[Matrix] Exception creating user {matrix_user_id}: {e}")
+        logger.warning(f"[Matrix] MAS lookup failed for {localpart}: {e}")
         return False
 
 
-@router.post("/login-token", response=Dict[str, Any], auth=GlobalAuth())
-@ratelimit(group='matrix:login_token', key=user_or_ip, rate='10/m', method='POST')
-def get_login_token(request):
-    """
-    Generate a Matrix login token for SSO auto-login
-    Creates user if needed, then generates a one-time login token
-    """
-    user = request.user
+def sync_matrix_profile(account_id: str, force: bool = False) -> bool:
+    """Mirror the account's PRIMARY profile — display name and avatar — onto
+    its Matrix user, so chat shows the same face as the rest of the site.
 
-    # Check if this is a new OAuth user who hasn't confirmed username yet
-    # Matrix user should not be created until username is finalized
-    is_new_oauth_user = request.session.get('is_new_oauth_user', False)
-    if is_new_oauth_user:
-        logger.warning(f"[Matrix] Blocking login-token for new OAuth user {user.username} - needs username confirmation")
-        return {"success": False, "error": "Please confirm your username first", "needs_username_confirmation": True}
+    Only the primary profile is mirrored. The Matrix identity is derived from
+    it (see /whoami), so pushing a pseudonym's avatar would tie that pseudonym
+    to the primary account for everyone in the room.
 
-    # Generate Matrix user ID from profile's local_name (human-readable)
-    matrix_user_id = get_matrix_user_id(user.id)
+    Synapse stores every upload as its own media entry, so the avatar bytes are
+    hashed and the hash cached: repeat calls upload nothing while the avatar is
+    unchanged. Best-effort — returns False instead of raising.
+    """
+    from identity.models import Profile
+
+    profile = (
+        Profile.objects.filter(account_id=account_id, is_primary=True)
+        .select_related('account', 'instance')
+        .first()
+    )
+    if not profile:
+        return False
+
+    matrix_user_id = get_matrix_user_id(account_id)
+    marker_key = f"matrix_avatar_{account_id}"
+
+    avatar_bytes = None
+    if profile.avatar:
+        try:
+            with profile.avatar.open('rb') as f:
+                avatar_bytes = f.read()
+        except Exception as e:
+            logger.warning(f"[Matrix] Avatar unreadable for profile {profile.id}: {e}")
+    digest = hashlib.sha256(avatar_bytes).hexdigest() if avatar_bytes else ''
 
     try:
         with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
-            # Ensure user exists with OIDC link (so SSO will use same user)
-            displayname = user.profile.hna if hasattr(user, 'profile') else user.username
-            if not _ensure_matrix_user_exists(client, user.id, matrix_user_id, displayname):
-                raise Exception("Failed to ensure Matrix user exists")
+            if not _mas_user_exists(client, matrix_user_id):
+                return False
 
-            # Now generate login token using admin API
-            if not SYNAPSE_ADMIN_TOKEN:
-                return {
-                    "success": False,
-                    "error": "SYNAPSE_ADMIN_TOKEN not configured"
-                }
+            token = _get_or_create_matrix_token_for_dm(account_id)
+            if not token:
+                return False
+            headers = {"Authorization": f"Bearer {token}"}
 
-            # Generate login token
-            login_token_response = client.post(
-                f"{SYNAPSE_BASE_URL}/_synapse/admin/v1/users/{matrix_user_id}/login",
-                headers={"Authorization": f"Bearer {SYNAPSE_ADMIN_TOKEN}"},
-                json={}
+            # Synapse has no no-op guard: every profile PUT propagates a member
+            # state event into every room the user is in. Read the current
+            # profile first and write only what actually differs.
+            response = client.get(
+                f"{SYNAPSE_BASE_URL}/_matrix/client/v3/profile/{matrix_user_id}"
             )
+            current = response.json() if response.status_code == 200 else {}
 
-            if login_token_response.status_code == 200:
-                token_data = login_token_response.json()
+            ok = True
+            # Bare local_name, not the hna: Matrix already renders the full
+            # @name:parahub.io beside it, and the member's real name is behind
+            # a visibility toggle that a room-wide display name would ignore.
+            displayname = profile.local_name or profile.account.username
+            if current.get('displayname') != displayname:
+                response = client.put(
+                    f"{SYNAPSE_BASE_URL}/_matrix/client/v3/profile/{matrix_user_id}/displayname",
+                    headers=headers,
+                    json={"displayname": displayname},
+                )
+                if response.status_code != 200:
+                    ok = False
+                    logger.warning(f"[Matrix] Displayname sync failed for {matrix_user_id}: {response.status_code} - {response.text}")
 
-                return {
-                    "success": True,
-                    "user_id": matrix_user_id,
-                    "login_token": token_data.get("access_token"),
-                    "homeserver": SYNAPSE_PUBLIC_URL
-                }
+            # The marker alone cannot be trusted when Matrix disagrees about
+            # whether an avatar exists at all (media purge, profile reset), so
+            # presence is cross-checked and the mirror self-heals.
+            in_sync = cache.get(marker_key) == digest and bool(current.get('avatar_url')) == bool(avatar_bytes)
+            if in_sync and not force:
+                return ok
+
+            if avatar_bytes:
+                filename = os.path.basename(profile.avatar.name)
+                content_type = mimetypes.guess_type(filename)[0] or 'image/jpeg'
+                response = client.post(
+                    f"{SYNAPSE_BASE_URL}/_matrix/media/v3/upload",
+                    params={"filename": filename},
+                    headers={**headers, "Content-Type": content_type},
+                    content=avatar_bytes,
+                )
+                if response.status_code != 200:
+                    logger.warning(f"[Matrix] Avatar upload failed for {matrix_user_id}: {response.status_code} - {response.text}")
+                    return False
+                avatar_url = response.json().get("content_uri")
+            elif current.get('avatar_url'):
+                avatar_url = ""
             else:
-                raise Exception(f"Failed to generate login token: {login_token_response.text}")
+                # Nothing to clear — record the empty state and leave Matrix alone.
+                cache.set(marker_key, digest, MATRIX_AVATAR_MARKER_TTL)
+                return ok
 
+            response = client.put(
+                f"{SYNAPSE_BASE_URL}/_matrix/client/v3/profile/{matrix_user_id}/avatar_url",
+                headers=headers,
+                json={"avatar_url": avatar_url},
+            )
+            if response.status_code != 200:
+                logger.warning(f"[Matrix] Avatar sync failed for {matrix_user_id}: {response.status_code} - {response.text}")
+                return False
+
+            cache.set(marker_key, digest, MATRIX_AVATAR_MARKER_TTL)
+            logger.info(f"[Matrix] Profile mirrored for {matrix_user_id} (avatar {'set' if avatar_bytes else 'cleared'})")
+            return ok
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        logger.warning(f"[Matrix] Profile sync failed for {matrix_user_id}: {e}")
+        return False
+
+
+def spawn_matrix_profile_sync(profile) -> None:
+    """Queue a background mirror of `profile` onto its Matrix user.
+
+    No-op for pseudonym profiles (see sync_matrix_profile). Call sites are the
+    avatar write paths, where the member is waiting on the response and must
+    not pay for a Synapse round-trip.
+    """
+    if not profile.is_primary:
+        return
+
+    from parahub.background import spawn
+
+    spawn(sync_matrix_profile, str(profile.account_id), label='matrix_profile_sync')
+
+
+@router.get("/whoami", response=Dict[str, Any], auth=GlobalAuth())
+@ratelimit(group='matrix:whoami', key=user_or_ip, rate='30/m', method='GET')
+def get_expected_matrix_user(request):
+    """
+    Return the Matrix user ID this account maps to on SSO login.
+
+    The chat page compares it against the Cinny session cached in the
+    browser to detect a session left behind by another account
+    (account switch / shared computer) and wipe it before mounting.
+    """
+    return {"user_id": get_matrix_user_id(request.user.id)}
 
 
 @router.post("/widget-token", response=Dict[str, Any], auth=GlobalAuth())
@@ -265,49 +535,39 @@ def get_widget_token(request):
         }
     
     try:
-        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
-            # Ensure user exists with OIDC link (so SSO will use same user)
-            if SYNAPSE_ADMIN_TOKEN:
-                displayname = user.profile.hna if hasattr(user, 'profile') else user.username
-                if not _ensure_matrix_user_exists(client, user.id, matrix_user_id, displayname):
-                    raise Exception("Failed to create/update Matrix user")
+        session = _get_or_create_matrix_session(user.id)
+        if not session:
+            return {"success": False, "error": "Failed to create Matrix session"}
 
-                # Generate admin login token
-                admin_login_response = client.post(
-                    f"{SYNAPSE_BASE_URL}/_synapse/admin/v1/users/{matrix_user_id}/login",
-                    headers={"Authorization": f"Bearer {SYNAPSE_ADMIN_TOKEN}"},
-                    json={"valid_until_ms": int((time.time() + 86400 * 7) * 1000)}  # 7 days
-                )
+        access_token = session["access_token"]
+        device_id = session.get("device_id", "PARAHUB_WEB")
 
-                if admin_login_response.status_code == 200:
-                    admin_data = admin_login_response.json()
-                    access_token = admin_data.get("access_token")
-                    device_id = admin_data.get("device_id", "PARAHUB_WEB")
-                else:
-                    raise Exception(f"Failed to create session: {admin_login_response.text}")
-            else:
-                return {"success": False, "error": "SYNAPSE_ADMIN_TOKEN not configured"}
-            
-            widget_token = access_token
-                
-            session_data = {
-                "user_id": matrix_user_id,
-                "access_token": access_token,
-                "device_id": device_id,
-                "homeserver": SYNAPSE_PUBLIC_URL,
-                "widget_token": widget_token,
-                "widget_url": f"{SYNAPSE_PUBLIC_URL}/_matrix/client",
-                "message": "Matrix session created successfully"
-            }
+        # Best-effort profile mirror from the primary profile (MAS user creation
+        # takes no displayname, and imports no avatar at all; backend-created
+        # users would otherwise show as bare localparts with no face). This is
+        # also the catch-up path for avatars changed before the feature existed
+        # — it only runs on a cold session cache, so at most every 6h per user.
+        from parahub.background import spawn
+        spawn(sync_matrix_profile, str(user.id), label='matrix_profile_sync')
 
-            # Cache session for 6 hours
-            cache.set(cache_key, session_data, 6 * 3600)
+        session_data = {
+            "user_id": matrix_user_id,
+            "access_token": access_token,
+            "device_id": device_id,
+            "homeserver": SYNAPSE_PUBLIC_URL,
+            "widget_token": access_token,
+            "widget_url": f"{SYNAPSE_PUBLIC_URL}/_matrix/client",
+            "message": "Matrix session created successfully"
+        }
 
-            return {
-                "success": True,
-                **session_data
-            }
-            
+        # Cache session for 6 hours
+        cache.set(cache_key, session_data, 6 * 3600)
+
+        return {
+            "success": True,
+            **session_data
+        }
+
     except Exception as e:
         return {
             "success": False,
@@ -438,19 +698,15 @@ def notify_unread_count(request, payload: UnreadCountPayload):
         }
 
 
-def _get_or_create_matrix_token(user_id: str) -> Optional[str]:
-    """
-    Internal helper: Get or create Matrix access token for a user by Account ID
-    Returns access_token or None on failure
+def _get_or_create_matrix_session(user_id: str) -> Optional[Dict[str, str]]:
+    """Get or create a Matrix session for a user by Account ID.
 
-    Steps:
-    1. Try to register new user via admin API (uses shared secret)
-    2. If user exists, try password login with deterministic password
-    3. If that fails and SYNAPSE_ADMIN_TOKEN exists, use admin login API
+    Ensures the user exists in MAS (provisioned into Synapse, upstream-linked
+    to the Parahub account) and mints a MAS personal-session token. Returns
+    {'access_token': ..., 'device_id': ...} or None. Cached for 6h; the minted
+    token itself lives 7 days.
     """
     from identity.models import Account
-    import logging
-    logger = logging.getLogger(__name__)
 
     try:
         Account.objects.get(id=user_id)
@@ -458,227 +714,59 @@ def _get_or_create_matrix_token(user_id: str) -> Optional[str]:
         logger.error(f"[Matrix] Account {user_id} does not exist")
         return None
 
-    # Generate Matrix user ID from profile's local_name (human-readable)
-    matrix_localpart = get_matrix_localpart_for_account(user_id)
-    matrix_user_id = f"@{matrix_localpart}:parahub.io"
-
-    # Check cache first
     cache_key = f"matrix_session_{user_id}"
     cached_session = cache.get(cache_key)
-    if cached_session:
-        return cached_session.get('access_token')
+    if cached_session and cached_session.get('access_token'):
+        return cached_session
 
-    # Generate deterministic password
-    password = hashlib.sha256(f"{user_id}:{SYNAPSE_SHARED_SECRET}".encode()).hexdigest()
+    matrix_user_id = get_matrix_user_id(user_id)
 
     try:
         with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
-            # CRITICAL: DO NOT create users via backend API!
-            # Users MUST be created via OIDC SSO to avoid localpart conflicts.
-            # Backend only tries to login existing users or use admin API.
+            mas_user_id = _mas_ensure_user(client, user_id, matrix_user_id)
+            if not mas_user_id:
+                logger.error(f"[Matrix] Failed to ensure MAS user for {matrix_user_id}")
+                return None
 
-            # Step 2: User exists - try password login
-            try:
-                login_response = client.post(
-                    f"{SYNAPSE_BASE_URL}/_matrix/client/r0/login",
-                    json={
-                        "type": "m.login.password",
-                        "identifier": {
-                            "type": "m.id.user",
-                            "user": matrix_localpart
-                        },
-                        "password": password
-                    }
-                )
+            session = _mas_mint_user_token(client, mas_user_id, matrix_user_id)
+            if not session:
+                return None
 
-                if login_response.status_code == 200:
-                    access_token = login_response.json().get("access_token")
-                    logger.info(f"[Matrix] Successfully logged in user {matrix_user_id} via password")
-                    cache.set(cache_key, {"access_token": access_token}, 6 * 3600)
-                    return access_token
-                else:
-                    logger.warning(f"[Matrix] Password login failed for {matrix_user_id}: {login_response.status_code} - {login_response.text}")
-            except Exception as e:
-                logger.warning(f"[Matrix] Exception during password login for {matrix_user_id}: {e}")
-
-            # Step 3: Try admin API to create user + login token (requires SYNAPSE_ADMIN_TOKEN)
-            if SYNAPSE_ADMIN_TOKEN:
-                try:
-                    # Ensure user exists with OIDC link (so SSO will use same user)
-                    if not _ensure_matrix_user_exists(client, user_id, matrix_user_id):
-                        logger.warning(f"[Matrix] Failed to ensure user {matrix_user_id} exists")
-
-                    # Then create login token
-                    admin_response = client.post(
-                        f"{SYNAPSE_BASE_URL}/_synapse/admin/v1/users/{matrix_user_id}/login",
-                        headers={"Authorization": f"Bearer {SYNAPSE_ADMIN_TOKEN}"},
-                        json={"valid_until_ms": int((time.time() + 86400 * 7) * 1000)}
-                    )
-
-                    if admin_response.status_code == 200:
-                        access_token = admin_response.json().get("access_token")
-                        logger.info(f"[Matrix] Successfully created admin login token for {matrix_user_id}")
-                        cache.set(cache_key, {"access_token": access_token}, 6 * 3600)
-                        return access_token
-                    else:
-                        logger.error(f"[Matrix] Admin login API failed for {matrix_user_id}: {admin_response.status_code} - {admin_response.text}")
-                except Exception as e:
-                    logger.error(f"[Matrix] Exception during admin login for {matrix_user_id}: {e}")
-            else:
-                logger.warning(f"[Matrix] SYNAPSE_ADMIN_TOKEN not configured, cannot use admin login API for {matrix_user_id}")
-
-            logger.error(f"[Matrix] All methods failed to create token for {matrix_user_id}")
-            return None
+            cache.set(cache_key, session, 6 * 3600)
+            return session
     except Exception as e:
-        logger.error(f"[Matrix] Unexpected error in _get_or_create_matrix_token for {user_id}: {e}")
+        logger.error(f"[Matrix] Unexpected error creating session for {user_id}: {e}")
         return None
+
+
+def _get_or_create_matrix_token(user_id: str) -> Optional[str]:
+    """Get or create a Matrix access token for a user by Account ID."""
+    session = _get_or_create_matrix_session(user_id)
+    return session.get('access_token') if session else None
 
 
 def _get_or_create_matrix_token_for_dm(user_id: str) -> Optional[str]:
-    """
-    Get OR CREATE Matrix token for DM purposes.
-    Unlike _get_or_create_matrix_token, this WILL create user via admin API if needed.
-
-    Used ONLY for DM auto-join - ensures target user exists for room invitation.
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-
-    # Try normal flow first
+    """Like _get_or_create_matrix_token, but validates the (possibly cached)
+    token against Synapse and re-mints once if it went stale (DB reset,
+    revoked session)."""
     token = _get_or_create_matrix_token(user_id)
-
-    # Validate token before returning
-    if token:
-        try:
-            with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
-                response = client.get(
-                    f"{SYNAPSE_BASE_URL}/_matrix/client/v3/account/whoami",
-                    headers={"Authorization": f"Bearer {token}"}
-                )
-
-                if response.status_code == 200:
-                    # Token is valid
-                    return token
-                else:
-                    logger.warning(f"[Matrix DM] Cached token invalid for {user_id}, creating fresh user")
-                    # Clear cache
-                    cache_key = f"matrix_session_{user_id}"
-                    cache.delete(cache_key)
-        except Exception as e:
-            logger.warning(f"[Matrix DM] Token validation failed: {e}")
-
-    # User doesn't exist or token invalid - create via admin API
-    if not SYNAPSE_ADMIN_TOKEN:
-        logger.error(f"[Matrix DM] No admin token, cannot create user {user_id}")
+    if not token:
         return None
 
     try:
-        # Generate Matrix user ID from profile's local_name (human-readable)
-        matrix_user_id = get_matrix_user_id(user_id)
-
         with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
-            # Step 1: Ensure user exists with OIDC link (so SSO will use same user)
-            if not _ensure_matrix_user_exists(client, user_id, matrix_user_id):
-                logger.error(f"[Matrix DM] Failed to create user {matrix_user_id}")
-                return None
-
-            logger.info(f"[Matrix DM] Created/verified Matrix user for DM: {matrix_user_id}")
-
-            # Step 2: Get access token via admin login API (password login disabled)
-            login_response = client.post(
-                f"{SYNAPSE_BASE_URL}/_synapse/admin/v1/users/{matrix_user_id}/login",
-                headers={"Authorization": f"Bearer {SYNAPSE_ADMIN_TOKEN}"},
-                json={}
+            response = client.get(
+                f"{SYNAPSE_BASE_URL}/_matrix/client/v3/account/whoami",
+                headers={"Authorization": f"Bearer {token}"}
             )
-
-            if login_response.status_code == 200:
-                access_token = login_response.json().get("access_token")
-                logger.info(f"[Matrix DM] Got access token for {matrix_user_id}")
-
-                # Cache it
-                cache_key = f"matrix_session_{user_id}"
-                cache.set(cache_key, {"access_token": access_token}, 6 * 3600)
-
-                return access_token
-            else:
-                logger.error(f"[Matrix DM] Admin login failed: {login_response.status_code} - {login_response.text}")
-                return None
+        if response.status_code == 200:
+            return token
+        logger.warning(f"[Matrix DM] Cached token invalid for {user_id}, re-minting")
     except Exception as e:
-        logger.error(f"[Matrix DM] Exception creating user {user_id}: {e}")
-        return None
+        logger.warning(f"[Matrix DM] Token validation failed: {e}")
 
-
-@router.get("/get-login-token", response=Dict[str, Any], auth=GlobalAuth())
-@ratelimit(group='matrix:get_login_token', key=user_or_ip, rate='10/m')
-def get_matrix_login_token(request):
-    """
-    Get a one-time Matrix SSO login token for auto-login in Cinny/Element
-
-    This token can be passed as ?loginToken=xxx to Matrix web clients for seamless authentication.
-    The token is single-use and expires after being used or after a short time.
-
-    Returns:
-        {
-            "success": true,
-            "loginToken": "abc123..."
-        }
-    """
-    user_id = request.user.id
-
-    # Check if this is a new OAuth user who hasn't confirmed username yet
-    # Matrix user should not be created until username is finalized
-    is_new_oauth_user = request.session.get('is_new_oauth_user', False)
-    if is_new_oauth_user:
-        logger.warning(f"[Matrix] Blocking Matrix token for new OAuth user {request.user.username} - needs username confirmation")
-        return {"success": False, "error": "Please confirm your username first", "needs_username_confirmation": True}
-
-    try:
-        # First ensure Matrix user exists
-        access_token = _get_or_create_matrix_token(user_id)
-        if not access_token:
-            logger.error(f"[Matrix] Failed to get access token for user {user_id}")
-            return {"success": False, "error": "Failed to create Matrix session"}
-
-        # Generate Matrix user ID from profile's local_name (human-readable)
-        matrix_user_id = get_matrix_user_id(user_id)
-
-        # Request a login token from Synapse (requires admin API)
-        with httpx.Client(timeout=SYNAPSE_HTTP_TIMEOUT) as client:
-            # Use the user's own access token to get a login token
-            # This is the standard way: user authenticates with their access_token and gets a login_token
-            login_token_response = client.post(
-                f"{SYNAPSE_BASE_URL}/_matrix/client/v1/login/get_token",
-                headers={"Authorization": f"Bearer {access_token}"},
-                json={}  # MSC3882 requires JSON body
-            )
-
-            if login_token_response.status_code == 200:
-                login_token_data = login_token_response.json()
-                login_token = login_token_data.get("login_token")
-
-                if login_token:
-                    logger.info(f"[Matrix] Generated login token for {matrix_user_id}")
-                    return {
-                        "success": True,
-                        "loginToken": login_token
-                    }
-                else:
-                    logger.error(f"[Matrix] No login_token in response for {matrix_user_id}")
-                    return {"success": False, "error": "Invalid response from Matrix server"}
-            else:
-                logger.error(f"[Matrix] Failed to get login token for {matrix_user_id}: {login_token_response.status_code} - {login_token_response.text}")
-
-                # Fallback: return the access token directly (less secure but works)
-                logger.warning(f"[Matrix] Falling back to access token for {matrix_user_id}")
-                return {
-                    "success": True,
-                    "loginToken": access_token,
-                    "fallback": True  # Indicate this is not a proper login token
-                }
-
-    except Exception as e:
-        logger.error(f"[Matrix] Exception getting login token for {user_id}: {e}")
-        return {"success": False, "error": str(e)}
+    cache.delete(f"matrix_session_{user_id}")
+    return _get_or_create_matrix_token(user_id)
 
 
 def _find_existing_dm(client: httpx.Client, access_token: str, user_id: str, dm_partner_mxid: str, partner_token: str = None) -> Optional[str]:
@@ -1031,6 +1119,14 @@ def create_dm_room(request, payload: CreateDMRequest):
     if current_user_id == target_user_id:
         return {"success": False, "error": "Cannot create DM with yourself"}
 
+    # Block enforcement (Play UGC policy). Direction-neutral error: the caller
+    # is not told who blocked whom. System-initiated DMs (contract signing,
+    # shipments, rides) bypass this — those follow explicit mutual engagement.
+    from identity.services.blocks import dm_blocked_between_accounts
+    from parahub.errors import LocalizedHttpError
+    if dm_blocked_between_accounts(current_user_id, target_user_id):
+        raise LocalizedHttpError(403, "dm_blocked", "Unable to start a chat with this user")
+
     # Build initial message from context
     initial_message = None
     initial_message_html = None
@@ -1044,7 +1140,7 @@ def create_dm_room(request, payload: CreateDMRequest):
         buyer_local_name = buyer_profile.local_name if buyer_profile else str(current_user_id)
 
         item_url = f"https://parahub.io/market/{payload.item_id}"
-        profile_url = f"https://parahub.io/u/{buyer_local_name}"
+        profile_url = f"https://parahub.io/@{buyer_local_name}"
 
         initial_message = f"\U0001f6d2 {payload.item_title}\n{item_url}\n\n\U0001f464 {buyer_hna}\n{profile_url}"
         # Escape everything interpolated into formatted_body — item_id/item_title

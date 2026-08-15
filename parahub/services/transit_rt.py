@@ -17,11 +17,12 @@ import logging
 import math
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
 from asgiref.sync import sync_to_async
 from django.contrib.gis.geos import GEOSGeometry, LineString, Point
+
+from parahub.services.transit_eta import STT_PRIOR_TTL, prior_bucket
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,15 @@ class RouteCache:
         # Write stop_seqs to Redis for API access
         if redis_conn and stop_seqs:
             await self._write_stop_seqs_to_redis(redis_conn, stop_seqs)
+
+        # Publish feed timezones for the ETA readers' prior-bucket resolution
+        # (transit_eta.bucket_for) — readers have no DB-side route cache. TTL
+        # is far past the refresh cadence, so the key only dies with the feed.
+        if redis_conn and ds_tz:
+            pipe = redis_conn.pipeline(transaction=False)
+            for ds_id, tz in ds_tz.items():
+                pipe.set(f'transit:tz:{ds_id}', tz.key, ex=86400)
+            await pipe.execute()
 
         elapsed = (time.monotonic() - t0) * 1000
         ds_label = f" (ds={len(data_source_ids)})" if data_source_ids else ""
@@ -319,16 +329,27 @@ class RouteCache:
             # Raw feed color ('' when the feed defines none) — display fallbacks live at read sites
             route_info[r.source_id] = (r.route_color or '', r.short_name, place_slug, r.route_type, r.slug or '')
 
-        # 2. Headsign info — LATERAL join: one headsign per (route, direction), ~128ms vs 757ms
+        # 2. Headsign info — LATERAL join: one headsign per (route, direction), ~128ms vs 757ms.
+        # The winner is the direction's BUSIEST headsign, not an arbitrary one: a
+        # direction routinely carries a rare variant alongside the regular service
+        # (TTSL "SX" dir 0 = 47 trips "Cais do Sodré" + 2 "Barreiro"), and a bare
+        # DISTINCT ON with no tiebreak let Postgres return either — labelling every
+        # live ferry on that route with a destination it does not serve. Same rule
+        # as _stop_directions (busiest headsigns by departure count); the headsign
+        # tiebreak keeps the pick deterministic across refreshes.
         headsign_info = {}
         headsign_sql = """
             SELECT r.source_id, d.direction_id, d.headsign
             FROM geo_route r
             CROSS JOIN LATERAL (
-                SELECT DISTINCT ON (t.direction_id) t.direction_id, t.headsign
-                FROM geo_trip t
-                WHERE t.route_id = r.id AND t.headsign IS NOT NULL AND t.headsign != ''
-                ORDER BY t.direction_id
+                SELECT DISTINCT ON (g.direction_id) g.direction_id, g.headsign
+                FROM (
+                    SELECT t.direction_id, t.headsign, count(*) AS n
+                    FROM geo_trip t
+                    WHERE t.route_id = r.id AND t.headsign IS NOT NULL AND t.headsign <> ''
+                    GROUP BY t.direction_id, t.headsign
+                ) g
+                ORDER BY g.direction_id, g.n DESC, g.headsign
             ) d
         """
         params = []
@@ -529,19 +550,8 @@ STT_STALL_AWAY_M = 20        # d(next) must grow by more than this per poll to c
 STT_VPREV_TTL = 300          # Redis TTL for vehicle state
 STT_SEGMENT_TTL = 1800       # Redis TTL for segment FIFO
 STT_DWELL_KEEP_S = 120       # stationary seconds per segment window kept in the recorded time; excess (layover) is subtracted
-STT_PRIOR_TTL = 120 * 86400  # Redis TTL for per-segment historical priors (refreshed on write)
-
-
-def prior_bucket(now: float, tz=None) -> str:
-    """Hour-of-day × day-class bucket id for segment-prior aggregates.
-
-    ``'{HH}{w|s|u}'`` in feed-local time (w=Mon-Fri, s=Sat, u=Sun) — transit
-    traffic regimes follow service-local clock, not server UTC.
-    """
-    ldt = datetime.fromtimestamp(now, tz or dt_timezone.utc)
-    wd = ldt.weekday()
-    dc = 'w' if wd < 5 else ('s' if wd == 5 else 'u')
-    return f'{ldt.hour:02d}{dc}'
+# STT_PRIOR_TTL and prior_bucket() live in parahub.services.transit_eta —
+# shared with the blending readers and the sync_transit_priors snapshot.
 
 
 class SttProcessor:
@@ -599,6 +609,7 @@ class SttProcessor:
         writes = []       # (key, hash_dict) for vprev updates
         segments = []      # (stt_key, travel_time) for LPUSH
         deletes = []       # vprev keys to delete (end of route)
+        arrivals = []      # (stop_source_id, route_source_id, direction) reached this tick
 
         vids = list(vid_to_vehicle.keys())
 
@@ -618,6 +629,10 @@ class SttProcessor:
                     k = k_bytes.decode() if isinstance(k_bytes, bytes) else k_bytes
                     val = v_bytes.decode() if isinstance(v_bytes, bytes) else v_bytes
                     state[k] = val
+
+            # Read before tracking: the trackers may hand back the same dict
+            # mutated in place, so this is the only chance to see the old index.
+            prev_idx = state.get('idx')
 
             if not state or state.get('r') != route_src or cache_changed:
                 # --- INIT: vehicle first seen, route changed, or cache refreshed ---
@@ -720,6 +735,12 @@ class SttProcessor:
                     hs = self.cache.headsign_info.get((route_src, di))
                     if hs:
                         v['hs'] = hs
+                    # Index advanced → the bus is now AT this stop. Whoever
+                    # marked themselves waiting here for this line is boarding
+                    # it, so the marker ends the way a real wait ends rather
+                    # than by timing out.
+                    if prev_idx is not None and prev_idx != new_state.get('idx'):
+                        arrivals.append((v['sid'], route_src, di))
             elif st_now == ST_DUAL:
                 # Direction genuinely unknown (terminus turnaround / re-init):
                 # don't guess. None → no direction column on the page (honest, no
@@ -759,6 +780,47 @@ class SttProcessor:
 
         if segments:
             logger.debug(f'STT [{ds_id[:8]}]: {len(segments)} segment times recorded')
+
+        if arrivals:
+            await self._clear_waiting_on_arrivals(redis_conn, ds_id, arrivals)
+
+    async def _clear_waiting_on_arrivals(self, redis_conn, ds_id, arrivals):
+        """Retire waiting-passenger markers whose line just pulled in.
+
+        Arrivals happen constantly and a marker is rare, so the hot path is one
+        pipelined EXISTS per distinct stop; the sync service — one implementation,
+        shared with the REST write path — is only entered for the stops that
+        actually have somebody waiting.
+        """
+        from parahub.services.transit_waiting import WaitingService, key_stop
+
+        by_stop = {}
+        for stop_source_id, route_source_id, direction in arrivals:
+            by_stop.setdefault(stop_source_id, set()).add((route_source_id, direction))
+
+        stops = list(by_stop)
+        pipe = redis_conn.pipeline(transaction=False)
+        for stop_source_id in stops:
+            pipe.exists(key_stop(ds_id, stop_source_id))
+        try:
+            occupied_flags = await pipe.execute()
+        except Exception as exc:
+            logger.debug(f'waiting-marker arrival probe failed: {exc!r}')
+            return
+
+        for stop_source_id, occupied in zip(stops, occupied_flags):
+            if not occupied:
+                continue
+            try:
+                cleared = await sync_to_async(
+                    WaitingService.clear_on_arrival, thread_sensitive=False
+                )(ds_id, stop_source_id, by_stop[stop_source_id])
+                if cleared:
+                    logger.debug(
+                        f'waiting: {cleared} marker(s) retired on arrival at {stop_source_id}'
+                    )
+            except Exception as exc:
+                logger.debug(f'waiting-marker arrival clear failed: {exc!r}')
 
     def _init_vehicle(self, route_src, feed_dir, lat, lon, now, ds_id):
         """Initialize tracking for a newly seen vehicle."""

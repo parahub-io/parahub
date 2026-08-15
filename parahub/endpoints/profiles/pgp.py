@@ -52,6 +52,30 @@ def upload_pgp_key(request, data: PGPKeyRequest):
             logger.warning(f"Invalid PGP key upload attempt: {e}")
             raise HttpError(400, f"Invalid PGP public key: {str(e)}")
 
+        # Re-upload of the unchanged key (e.g. seed restore on a new device)
+        # must not rotate history: keep the active row so valid_from stays
+        # continuous instead of splitting the key into phantom EXPIRED segments.
+        if profile.pgp_fingerprint == fingerprint:
+            active_key = PGPKeyHistory.objects.filter(
+                profile=profile,
+                fingerprint=fingerprint,
+                valid_until__isnull=True
+            ).first()
+            if active_key:
+                if active_key.public_key != data.public_key:
+                    # Same fingerprint, different armor (export formatting,
+                    # refreshed subkey signatures) — refresh the stored copy
+                    active_key.public_key = data.public_key
+                    active_key.save(update_fields=['public_key'])
+                    profile.pgp_public_key = data.public_key
+                    profile.save()
+                logger.info(f"PGP key re-upload, no rotation for profile {profile.id}: {fingerprint}")
+                return PGPKeyResponse(
+                    fingerprint=fingerprint,
+                    created_at=active_key.valid_from.isoformat(),
+                    is_active=True
+                )
+
         # Client IP for the audit trail. REMOTE_ADDR is set by uvicorn
         # proxy-headers to the real client and is not spoofable; the raw
         # X-Forwarded-For left-most element is (nginx appends to it), so never

@@ -165,6 +165,48 @@
         </div>
       </div>
 
+      <!-- "I'm waiting here" — one chip per line served from this pole, in the
+           direction its headsign names. Direction is what the passenger has to
+           supply: the opposite pole is ten metres away, inside GPS error, and a
+           person waiting for the other side is noise to the driver. Chips with
+           nobody waiting carry no number — a board of zeros would advertise an
+           empty city instead of offering an action. -->
+      <div v-if="waitingChips.length" class="mb-6">
+        <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">{{ $t('transit.waiting.title') }}</h2>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="chip in waitingChips"
+            :key="`${chip.route}|${chip.direction}`"
+            type="button"
+            @click="toggleWaiting(chip)"
+            class="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-lg border transition-colors min-h-[44px]"
+            :class="chip.mine
+              ? 'border-primary bg-primary/20 dark:bg-primary/15'
+              : 'border-neutral-200 dark:border-neutral-700 hover:bg-primary/10 dark:hover:bg-primary/10'"
+            :aria-pressed="chip.mine"
+          >
+            <span
+              class="px-1.5 py-0.5 rounded font-bold text-xs min-w-[2.5rem] text-center flex-shrink-0"
+              :style="`background-color: #${chip.color}; color: ${textColorFor(chip.color)}`"
+            >{{ chip.short_name }}</span>
+            <span v-if="chip.headsign" class="text-xs text-neutral-600 dark:text-neutral-400 truncate max-w-[10rem]">{{ chip.headsign }}</span>
+            <span
+              class="flex items-center gap-1 flex-shrink-0"
+              :class="chip.mine
+                ? 'text-neutral-900 dark:text-neutral-100'
+                : chip.n
+                  ? (chip.active ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-400 dark:text-neutral-500')
+                  : 'text-neutral-300 dark:text-neutral-600'"
+              :title="chip.n && !chip.active ? $t('transit.waiting.dimmed_hint') : ''"
+            >
+              <PersonStanding class="w-4 h-4" />
+              <span v-if="chip.n" class="text-xs font-bold font-mono">{{ chip.n }}</span>
+            </span>
+          </button>
+        </div>
+        <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{{ $t('transit.waiting.hint') }}</p>
+      </div>
+
       <!-- Stop Mini-Map: every pole at this location. Hovering a sibling row in
            the list below pulses an amber hex on that pole's marker (setHoverHex).
            Raised above the siblings/routes so the map sits right under the
@@ -236,11 +278,29 @@
         </div>
       </div>
 
-      <!-- Carpool CTA -->
+      <!-- Carpool CTA. Promoted when the wait has gone long with nothing live on
+           the awaited line: a marker that has stood there for a quarter of an
+           hour IS the demand signal a rideshare exists for, so the offer appears
+           at the moment it is useful instead of sitting as permanent furniture. -->
       <NuxtLink
         :to="localePath(`/transit/rides?origin_id=${stopData.id}&origin_name=${encodeURIComponent(stopData.name)}&origin_lat=${stopData.lat}&origin_lon=${stopData.lon}`)"
-        class="block mb-6 p-4 rounded-lg border border-secondary-300 dark:border-secondary-700 bg-secondary-50 dark:bg-secondary-900/20 hover:bg-secondary-100 dark:hover:bg-secondary-900/40 transition-colors group"
+        class="block mb-6 p-4 rounded-lg border transition-colors group"
+        :class="strandedMinutes
+          ? 'border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+          : 'border-secondary-300 dark:border-secondary-700 bg-secondary-50 dark:bg-secondary-900/20 hover:bg-secondary-100 dark:hover:bg-secondary-900/40'"
       >
+        <div v-if="strandedMinutes" class="flex items-center gap-3">
+          <Car class="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('transit.waiting.stranded_title') }}</div>
+            <div class="text-sm text-neutral-600 dark:text-neutral-400">
+              {{ $t('transit.waiting.stranded_desc', { min: strandedMinutes }) }}
+              <template v-if="strandedCompanions"> {{ $t('transit.waiting.stranded_company', { n: strandedCompanions }) }}</template>
+            </div>
+          </div>
+          <span class="btn-primary btn-sm flex-shrink-0">{{ $t('rides.cta_stop.button') }}</span>
+        </div>
+        <template v-else>
         <div class="flex items-center gap-3">
           <Car class="w-6 h-6 text-secondary-600 dark:text-secondary-400 flex-shrink-0" />
           <div class="flex-1 min-w-0">
@@ -249,11 +309,12 @@
           </div>
           <span class="btn-secondary btn-sm flex-shrink-0 group-hover:bg-secondary-600 group-hover:text-white transition-colors">{{ $t('rides.cta_stop.button') }}</span>
         </div>
+        </template>
       </NuxtLink>
 
       <!-- Departure Detail Modal -->
       <Teleport to="body">
-        <div v-if="depDetail" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" @click.self="depDetail = null">
+        <div v-if="depDetail" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" @click.self="depDetail = null">
           <div class="fixed inset-0 bg-black/50" @click="depDetail = null"></div>
           <div class="relative bg-white dark:bg-neutral-900 w-full sm:max-w-lg sm:rounded-xl rounded-t-xl max-h-[85vh] overflow-y-auto shadow-xl">
             <div class="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
@@ -332,7 +393,7 @@
 
       <!-- Vehicle Detail Modal -->
       <Teleport to="body">
-        <div v-if="vehicleDetail" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" @click.self="vehicleDetail = null">
+        <div v-if="vehicleDetail" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" @click.self="vehicleDetail = null">
           <div class="fixed inset-0 bg-black/50" @click="vehicleDetail = null"></div>
           <div class="relative bg-white dark:bg-neutral-900 w-full sm:max-w-lg sm:rounded-xl rounded-t-xl max-h-[85vh] overflow-y-auto shadow-xl">
             <div class="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
@@ -409,7 +470,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { ArrowLeft, Car, Clock, X } from 'lucide-vue-next'
+import { ArrowLeft, Car, Clock, PersonStanding, X } from 'lucide-vue-next'
 import type { WeatherData } from '~/composables/useMapWeather'
 
 const { t } = useI18n()
@@ -521,6 +582,114 @@ function liveColor(v: any): string {
 const atStopVehicles = ref<any[]>([])
 const approachingVehicles = ref<any[]>([])
 
+// ===== Waiting passengers =====
+// [{route, direction, n, active, short_name, route_color, route_type}] pooled
+// across the co-located poles this board merges.
+const waitingRows = ref<any[]>([])
+// Every (line, direction) the pole cluster serves, pushed once on subscribe.
+// Keeps the marker affordance alive for a line the board no longer lists —
+// the last bus that never came has already dropped off it, and its passenger
+// is exactly who the marker is for.
+const stopLines = ref<any[]>([])
+
+const {
+  marker: waitingMarker, isMine: isMyWaitingMarker,
+  toggle: toggleWaitingMarker, restore: restoreWaitingMarker,
+} = useWaitingMarker()
+
+/**
+ * One chip per (line, direction) a passenger could be waiting for here.
+ *
+ * Built from the departure board, which is the only place a human-readable
+ * headsign lives — unioned with the full serving-line set from `stop_lines`
+ * and with the lines that actually hold markers. The union is what keeps the
+ * affordance and the count alive for a line whose next departure fell outside
+ * the board's window (a night bus, a line already gone for the day, the last
+ * bus that never came). Board-less chips carry the badge the server resolved
+ * on subscribe and show the route's long name instead of a headsign — that is
+ * what still tells two same-numbered percursos apart.
+ */
+const waitingChips = computed(() => {
+  const dsId = stopData.value?.data_source_id || ''
+  const stopSrc = stopData.value?.source_id || ''
+  const byLine = new Map<string, any>()
+
+  for (const dep of schedule.value?.departures || []) {
+    if (!dep.route_source_id) continue
+    const direction = dep.direction_id ?? 0
+    const key = `${dep.route_source_id}|${direction}`
+    if (byLine.has(key)) continue
+    byLine.set(key, {
+      route: dep.route_source_id,
+      direction,
+      short_name: dep.route_short_name || dep.route_long_name || '',
+      headsign: dep.headsign || '',
+      color: resolveColor(dep),
+      n: 0, active: 0, mine: false,
+    })
+  }
+
+  for (const row of [...stopLines.value, ...waitingRows.value]) {
+    const key = `${row.route}|${row.direction}`
+    const chip = byLine.get(key) || {
+      route: row.route,
+      direction: row.direction,
+      short_name: row.short_name || '',
+      headsign: row.long_name || '',
+      color: resolveColor({ route_color: row.route_color, route_type: row.route_type }),
+      n: 0, active: 0, mine: false,
+    }
+    chip.n = row.n ?? chip.n
+    chip.active = row.active ?? chip.active
+    byLine.set(key, chip)
+  }
+
+  for (const chip of byLine.values()) {
+    chip.mine = isMyWaitingMarker(dsId, stopSrc, chip.route, chip.direction)
+  }
+  return [...byLine.values()]
+})
+
+async function toggleWaiting(chip: { route: string, direction: number }) {
+  const dsId = stopData.value?.data_source_id
+  const stopSrc = stopData.value?.source_id
+  if (!dsId || !stopSrc) return
+  await toggleWaitingMarker(dsId, stopSrc, { route: chip.route, direction: chip.direction })
+}
+
+// ===== Stranded → carpool =====
+// A wait this long with nothing live on the awaited line is the moment a
+// rideshare is worth offering. Deliberately NOT read off the schedule board:
+// the backend only returns departures "≥ now", so a bus that never came has
+// already dropped off it — the marker's own age is the honest measure, and it
+// works identically on feeds that have no live GPS at all.
+const STRANDED_AFTER_MIN = 12
+
+const nowTick = ref(Date.now())
+let nowTickTimer: ReturnType<typeof setInterval> | null = null
+
+/** Minutes stranded, or 0 when the offer should stay quiet. */
+const strandedMinutes = computed(() => {
+  const m = waitingMarker.value
+  if (!m || m.stop_source_id !== stopData.value?.source_id) return 0
+  // Anything live on an awaited line means transport IS coming — no offer.
+  const incoming = m.lines.some(l => liveEtasByRouteDir.value.has(`${l.route}|${l.direction}`))
+  if (incoming) return 0
+  const minutes = Math.floor((nowTick.value / 1000 - m.declared_at) / 60)
+  return minutes >= STRANDED_AFTER_MIN ? minutes : 0
+})
+
+/** Other people stuck on the same lines — a shared ride needs company to be worth it. */
+const strandedCompanions = computed(() => {
+  const m = waitingMarker.value
+  if (!m || !strandedMinutes.value) return 0
+  const keys = new Set(m.lines.map(l => `${l.route}|${l.direction}`))
+  const total = waitingRows.value
+    .filter(row => keys.has(`${row.route}|${row.direction}`))
+    .reduce((max, row) => Math.max(max, row.n), 0)
+  return Math.max(0, total - 1)  // minus me
+})
+
 // Early-arrival nudge: flag an approaching vehicle as "arriving" this many
 // seconds BEFORE its honest ETA reaches zero. The countdown number itself stays
 // truthful — this only advances the "head to the stop now" cue, a deliberate
@@ -625,7 +794,14 @@ function connectLiveWS() {
       if (msg.type === 'stop_live') {
         atStopVehicles.value = msg.at_stop || []
         approachingVehicles.value = msg.approaching || []
+        waitingRows.value = msg.waiting || []
         reconcileArrivals(atStopVehicles.value)
+      } else if (msg.type === 'waiting_update' && msg.scope === 'stop') {
+        // Its own message: a marker moves on a human tap, not on the daemon
+        // tick, so it must not wait up to 30s for the next stop_live.
+        waitingRows.value = msg.waiting || []
+      } else if (msg.type === 'stop_lines') {
+        stopLines.value = msg.lines || []
       }
     } catch {}
   }
@@ -659,6 +835,11 @@ let scheduleTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
   refreshSchedule()
+  restoreWaitingMarker()
+  // Drives the stranded check; visibility-gated like every other timer here.
+  nowTickTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') nowTick.value = Date.now()
+  }, 30_000)
   scheduleTimer = setInterval(() => {
     if (document.visibilityState === 'visible') refreshSchedule()
   }, 60_000)
@@ -674,6 +855,7 @@ onUnmounted(() => {
   liveWsIntentionalClose = true
   if (liveWsReconnectTimer) clearTimeout(liveWsReconnectTimer)
   if (scheduleTimer) clearInterval(scheduleTimer)
+  if (nowTickTimer) { clearInterval(nowTickTimer); nowTickTimer = null }
   liveWs?.close()
   liveWs = null
   hoverHexMarker?.remove()

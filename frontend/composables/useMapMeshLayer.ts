@@ -103,9 +103,10 @@ export function useMapMeshLayer() {
         lon: p.longitude,
         role: 'infra' as const,
         hud: !!p.guest_ssid,
-        // Co-located routers broadcast the same shared wifi — one column
-        // represents the spot, the rest keep their name labels
-        hudDedupeKey: 'wifi',
+        // Routers on one mesh broadcast the same shared wifi — one column
+        // represents the neighbourhood, the rest keep their name labels.
+        // Keyed by SSID so a second network next door keeps its own readout.
+        hudDedupeKey: `wifi:${p.guest_ssid || ''}`,
       }),
       hudView: (p: any) => {
         if (!p.guest_ssid) return null

@@ -1,7 +1,5 @@
 <template>
-  <div :class="['layout-container flex flex-col overflow-x-hidden overflow-y-hidden', isDashboard && 'dashboard-layout-bg']">
-    <!-- Background particles on dashboard only -->
-    <VfxParticles v-if="isDashboard" />
+  <div class="layout-container flex flex-col overflow-x-hidden overflow-y-hidden">
     <!-- Skip navigation link -->
     <a
       href="#main-content"
@@ -14,16 +12,21 @@
     <div id="announcements" aria-live="polite" aria-atomic="true" class="sr-only"></div>
     <div id="urgent-announcements" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
 
-    <!-- Navigation -->
-    <AppNavigation class="z-20" />
+    <!-- Navigation (multi-root component — the header inside carries its own fixed z-50) -->
+    <AppNavigation />
 
-    <!-- Spacer for fixed navbar (matches navbar height + safe area inset for notched devices) -->
-    <div class="h-14 sm:h-16 md:h-20 flex-shrink-0 relative z-10 safe-area-spacer-top"></div>
+    <!-- Chrome spacers: one band per edge, each the size of whatever occupies
+         that edge (nav bar on one, bare safe area on the other — the bar docks
+         bottom on phones and top on md+). Symmetric by design, so <main> gets
+         exactly the space between them in both modes. -->
+    <div class="flex-shrink-0 relative z-10 nav-spacer-top"></div>
 
     <!-- Main content - full width and height, scroll inside -->
     <main id="main-content" role="main" class="flex-1 relative overflow-y-auto overflow-x-hidden main-content z-10">
       <slot />
     </main>
+
+    <div class="flex-shrink-0 relative z-10 nav-spacer-bottom"></div>
 
     <!-- First-time user onboarding -->
     <OnboardingWelcomeModal v-if="showOnboarding" v-model="showOnboarding" />
@@ -33,12 +36,7 @@
 <script setup>
 import { useAuthStore } from '~/stores/auth'
 
-const route = useRoute()
 const authStore = useAuthStore()
-const isDashboard = computed(() => {
-  const name = route.name?.toString().replace(/___[a-z]{2}$/, '') || ''
-  return name === 'index' && authStore.isAuthenticated
-})
 
 // Onboarding modal for first-time authenticated users
 // Uses watch instead of onMounted because auth state resolves asynchronously
@@ -62,10 +60,21 @@ onMounted(() => {
 
 <style scoped>
 /* Dynamic viewport height - fixes mobile browser UI (address bar) issues.
-   Subtract bottom safe area so Android nav bar sits on empty space. */
+   Full height here: the safe areas are carved out by the two chrome spacers,
+   whichever edge each one lands on. */
 .layout-container {
   height: 100vh; /* Fallback for older browsers */
-  height: calc(100dvh - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  height: 100dvh;
+}
+
+/* Both resolve to "nav bar + its safe area" on the docked edge and to the bare
+   safe area on the other — see main.css § Navigation dock insets. */
+.nav-spacer-top {
+  height: var(--nav-inset-top);
+}
+.nav-spacer-bottom {
+  height: var(--nav-inset-bottom);
+  transition: height 0.18s ease-out; /* tracks the keyboard slide-out */
 }
 
 /* Safety padding for scrollable content bottom */
@@ -93,13 +102,5 @@ onMounted(() => {
 
 .skip-link:focus {
   top: 6px;
-}
-
-/* Dashboard background: white for light mode, black for dark mode */
-.dashboard-layout-bg {
-  background: white;
-}
-:root.dark .dashboard-layout-bg {
-  background: black;
 }
 </style>

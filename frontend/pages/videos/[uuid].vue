@@ -1,7 +1,7 @@
 <template>
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <!-- Back link -->
-    <NuxtLink :to="localePath('/videos')" class="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-primary mb-4">
+    <NuxtLink :to="localePath('/videos')" class="inline-flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400 hover:text-secondary dark:hover:text-secondary-400 mb-4">
       <ArrowLeft class="w-4 h-4" />
       {{ $t('videos.back_to_videos') }}
     </NuxtLink>
@@ -56,7 +56,7 @@
         <div class="flex-1 min-w-0">
           <NuxtLink
             v-if="video.account?.name"
-            :to="localePath(`/u/${video.account.name}`)"
+            :to="localePath(`/@${video.account.name}`)"
             class="text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:text-secondary"
           >
             {{ video.account?.displayName || video.account?.name }}

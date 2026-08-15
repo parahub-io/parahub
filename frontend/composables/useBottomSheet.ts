@@ -26,9 +26,13 @@ export function useBottomSheet(options: UseBottomSheetOptions = {}) {
   let startTime = 0
   let lastY = 0
 
+  // Sheets are seated on the nav dock, not on the viewport edge, so the cap is
+  // the free band between the two chrome bands — a bare 90vh would push the
+  // sheet's top off screen by the dock's height. dvh, not vh: vh tracks the
+  // largest viewport (mobile URL bar collapsed) and overshoots while it is up.
   const sheetStyle = computed(() => ({
-    height: `${currentHeight.value}vh`,
-    maxHeight: '90vh',
+    height: `${currentHeight.value}dvh`,
+    maxHeight: 'calc(100dvh - var(--nav-inset-top) - var(--nav-inset-bottom))',
     transition: isDragging.value ? 'none' : 'height 0.3s ease'
   }))
 

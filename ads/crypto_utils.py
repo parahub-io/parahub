@@ -38,6 +38,7 @@ def encrypt_wallet_config(config: dict) -> dict:
         Config dict with encrypted sensitive fields
 
     Sensitive fields encrypted:
+    - connection_uri (NWC — carries the wallet secret)
     - invoice_key (LNbits)
     - access_token (Alby)
     - macaroon, cert (LND - future)
@@ -49,7 +50,12 @@ def encrypt_wallet_config(config: dict) -> dict:
     fernet = Fernet(get_encryption_key())
 
     # Encrypt sensitive fields based on provider
-    if config.get('provider') == 'lnbits':
+    if config.get('provider') == 'nwc':
+        if 'connection_uri' in config:
+            encrypted = fernet.encrypt(config['connection_uri'].encode('utf-8'))
+            encrypted_config['connection_uri'] = encrypted.decode('utf-8')
+
+    elif config.get('provider') == 'lnbits':
         if 'invoice_key' in config:
             encrypted = fernet.encrypt(config['invoice_key'].encode('utf-8'))
             encrypted_config['invoice_key'] = encrypted.decode('utf-8')
@@ -93,7 +99,12 @@ def decrypt_wallet_config(encrypted_config: dict) -> dict:
 
     try:
         # Decrypt based on provider
-        if encrypted_config.get('provider') == 'lnbits':
+        if encrypted_config.get('provider') == 'nwc':
+            if 'connection_uri' in encrypted_config:
+                decrypted = fernet.decrypt(encrypted_config['connection_uri'].encode('utf-8'))
+                decrypted_config['connection_uri'] = decrypted.decode('utf-8')
+
+        elif encrypted_config.get('provider') == 'lnbits':
             if 'invoice_key' in encrypted_config:
                 decrypted = fernet.decrypt(encrypted_config['invoice_key'].encode('utf-8'))
                 decrypted_config['invoice_key'] = decrypted.decode('utf-8')

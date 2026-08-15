@@ -35,7 +35,7 @@
         <button
           v-for="action in incompleteActions"
           :key="action.id"
-          @click="emit('action-click', action.id)"
+          @click="emit('action-click', action.section ?? action.id)"
           class="w-full flex items-center gap-3 p-3 bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-lg hover:border-primary dark:hover:border-primary transition-all group"
         >
           <div class="w-6 h-6 border-2 border-primary rounded flex items-center justify-center flex-shrink-0 group-hover:bg-primary/10 transition-colors">
@@ -78,6 +78,7 @@ export interface ProfileAction {
   description: string
   completed: boolean
   priority: number
+  section?: string // accordion section to open; defaults to id
 }
 
 interface Achievement {

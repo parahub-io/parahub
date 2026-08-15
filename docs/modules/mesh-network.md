@@ -30,7 +30,8 @@ Zero-touch provisioning via `99-parahub-mesh` uci-defaults (runs once, deletes s
 
 - **Dual WiFi**: Private `Parahub` (802.11r/k/v roaming, both bands) + Free `parahub.io/free` (open — OWE reverted until an OpenWrt 25.12.x hostapd bug is fixed upstream)
 - **Speed Control**: nftables + tc HTB (per-guest rate, 512 kbps default; host budget on Bee, 10 Mbps default; paid = full speed via Lightning). Both defaults are gateway-owner settings in /iot
-- **Paid WiFi**: Lightning invoice per IP, 30-day subscriptions, nftables sync
+- **Paid WiFi**: Lightning-paid full-speed pass (30 days), received by the association and spent on the network; nftables sync
+- **Hosting reciprocity**: while your node stays online, your own pass stays covered -- full speed on every Parahub node, no payment. Hosts are deliberately not paid a share of guest payments: that would make every host a micro-provider with declarable income, and a collect-then-distribute pot would be escrow. The device card in `/iot` shows a full-speed pass chip while the node is up, and the first time hosting grants a pass the owner is notified once
 - **OTA Auto-Updates**: Nightly 3am (Yggdrasil first, public fallback), manifest.json SHA256 verification
 - **Coverage Map**: Mesh node locations on Parahub map
 - **Heartbeat**: 5-minute cron, sends MAC/Yggdrasil/firmware/WG pubkey, receives paid clients + VPS config + ACL whitelist
@@ -43,8 +44,9 @@ Zero-touch provisioning via `99-parahub-mesh` uci-defaults (runs once, deletes s
 
 - Mesh nodes register as IoT devices on the platform
 - Heartbeat reports sent to `/api/v1/iot/mesh/heartbeat/`
-- Account-level speed pass (`MeshPass`) with per-device binding (`MeshDevice`)
+- Account-level speed pass (`MeshPass`) with per-device binding (`MeshDevice`); the guest portal explains when a pass is covered by a hosted node rather than a payment
 - Coverage layer on the map shows active mesh nodes
+- A printable quick-start sheet is linked from `/mesh` and `/iot`
 
 ## Ownership and Sharing
 

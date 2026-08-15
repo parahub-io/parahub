@@ -167,6 +167,10 @@ class PollListItemSchema(BaseModel):
     civic_outcome: str = ''
     scope_level: Optional[str] = None  # territory level when context is TERRITORY
     scope_name: str = ''
+    # Promoted from a resident's idea: the text is the author's own and machine-
+    # translated, unlike curated ballots (PK/civic-polls-system.md § Ideas pipeline)
+    citizen_authored: bool = False
+    source_lang: str = ''
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -543,6 +547,8 @@ def get_poll(request, poll_id: str):
         civic_outcome=poll.civic_outcome,
         scope_level=scope_level,
         scope_name=scope_name,
+        citizen_authored=bool(poll.attributes.get('citizen_authored')),
+        source_lang=poll.attributes.get('source_lang') or '',
     )
 
     return detail
@@ -559,7 +565,9 @@ def create_poll(request, data: PollCreateRequest):
     is_territory = data.context_type == 'territory'
     is_community = data.context_type in ('household', 'condominium')
     if is_territory:
-        # MVP: territory (civic) polls are staff-seeded until the Phase 3 idea pipeline
+        # Hand-authored territory polls stay staff-only. Citizens reach the same
+        # ballot through the ideas pipeline, which mints the poll itself once the
+        # support threshold is met (governance.civic.promote_idea).
         if not profile.account.is_staff:
             raise HttpError(403, "Territory polls are staff-only for now")
         from geo.models import Territory

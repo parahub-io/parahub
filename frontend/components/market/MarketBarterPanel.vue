@@ -57,7 +57,7 @@
             <template v-for="(user, userIdx) in chain.users" :key="userIdx">
               <div class="flex items-center gap-2">
                 <NuxtLink
-                  :to="localePath(`/u/${user.hna?.split('@')[0] || user.id}`)"
+                  :to="localePath(`/@${user.hna?.split('@')[0] || user.id}`)"
                   class="px-3 py-2 bg-neutral-100 dark:bg-neutral-700 rounded-lg text-sm font-medium whitespace-nowrap hover:bg-primary/10 transition-colors"
                 >
                   {{ user.display_name || user.hna.split('@')[0] }}
@@ -156,11 +156,11 @@
               class="bg-neutral-50 dark:bg-neutral-900 rounded-lg p-4"
             >
               <div class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">
-                <NuxtLink :to="localePath(`/u/${getUserSlug(swap.from_user)}`)" class="hover:text-secondary">
+                <NuxtLink :to="localePath(`/@${getUserSlug(swap.from_user)}`)" class="hover:text-secondary">
                   {{ getUserName(swap.from_user) }}
                 </NuxtLink>
                 →
-                <NuxtLink :to="localePath(`/u/${getUserSlug(swap.to_user)}`)" class="hover:text-secondary">
+                <NuxtLink :to="localePath(`/@${getUserSlug(swap.to_user)}`)" class="hover:text-secondary">
                   {{ getUserName(swap.to_user) }}
                 </NuxtLink>
               </div>
@@ -270,60 +270,62 @@
     </template>
 
     <!-- Item Detail Modal -->
-    <div v-if="selectedItem" class="fixed inset-0 z-50 overflow-y-auto">
-      <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-        <div @click="selectedItem = null" class="fixed inset-0 bg-neutral-900 bg-opacity-75" aria-hidden="true"></div>
+    <Teleport to="body">
+      <div v-if="selectedItem" class="fixed inset-0 z-[60] overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+          <div @click="selectedItem = null" class="fixed inset-0 bg-neutral-900 bg-opacity-75" aria-hidden="true"></div>
 
-        <div class="relative inline-block w-full max-w-2xl px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transform bg-white dark:bg-neutral-800 rounded-lg shadow-xl sm:my-8 sm:align-middle sm:p-6" role="dialog" aria-modal="true">
-          <div class="absolute top-0 right-0 pt-4 pr-4">
-            <button @click="selectedItem = null" class="text-neutral-400 hover:text-neutral-500" :aria-label="$t('common.close')">
-              <X class="w-6 h-6" aria-hidden="true" />
-            </button>
-          </div>
+          <div class="relative inline-block w-full max-w-2xl px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transform bg-white dark:bg-neutral-800 rounded-lg shadow-xl sm:my-8 sm:align-middle sm:p-6" role="dialog" aria-modal="true">
+            <div class="absolute top-0 right-0 pt-4 pr-4">
+              <button @click="selectedItem = null" class="text-neutral-400 hover:text-neutral-500" :aria-label="$t('common.close')">
+                <X class="w-6 h-6" aria-hidden="true" />
+              </button>
+            </div>
 
-          <div class="sm:flex sm:items-start">
-            <div class="w-full">
-              <div v-if="selectedItem.images && selectedItem.images.length > 0" class="mb-4">
-                <div class="w-full aspect-video bg-neutral-200 dark:bg-neutral-700 rounded-lg overflow-hidden">
-                  <img :src="selectedItem.images[0].url" :alt="selectedItem.title" class="w-full h-full object-cover">
-                </div>
-              </div>
-
-              <div class="flex items-start justify-between mb-4">
-                <div class="flex flex-wrap items-center gap-2">
-                  <MarketListingType :item-type="selectedItem.item_type" />
-                  <span v-if="selectedItem.category_name" class="text-xs text-neutral-500 dark:text-neutral-400">
-                    {{ selectedItem.category_name }}
-                  </span>
-                </div>
-              </div>
-
-              <h3 class="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-3">
-                {{ selectedItem.title }}
-              </h3>
-
-              <p class="text-neutral-600 dark:text-neutral-400 mb-4 whitespace-pre-wrap">
-                {{ selectedItem.description || $t('market.detail_modal.no_description') }}
-              </p>
-
-              <div class="mb-4">
-                <span class="text-sm text-neutral-500 dark:text-neutral-400 block mb-2">{{ $t('market.detail_modal.price_label') }}</span>
-                <div v-if="selectedItem.pricing_options && selectedItem.pricing_options.length > 0" class="space-y-1">
-                  <div v-for="(opt, i) in selectedItem.pricing_options" :key="i" class="font-semibold text-neutral-900 dark:text-neutral-100">
-                    {{ formatPricingOption(opt) }}
+            <div class="sm:flex sm:items-start">
+              <div class="w-full">
+                <div v-if="selectedItem.images && selectedItem.images.length > 0" class="mb-4">
+                  <div class="w-full aspect-video bg-neutral-200 dark:bg-neutral-700 rounded-lg overflow-hidden">
+                    <img :src="selectedItem.images[0].url" :alt="selectedItem.title" class="w-full h-full object-cover">
                   </div>
                 </div>
-                <div v-else class="font-semibold text-success-600 dark:text-success-400">
-                  {{ $t('market.item.free') }}
-                </div>
-              </div>
 
-              <div class="border-t border-neutral-200 dark:border-neutral-700 pt-4">
-                <div class="flex items-center justify-between mb-2">
-                  <div>
-                    <span class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('market.detail_modal.listed_by') }}</span>
-                    <div class="text-neutral-900 dark:text-neutral-100">
-                      {{ selectedItem.owner_display_name || selectedItem.owner_hna?.split('@')[0] || selectedItem.owner_id }}
+                <div class="flex items-start justify-between mb-4">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <MarketListingType :item-type="selectedItem.item_type" />
+                    <span v-if="selectedItem.category_name" class="text-xs text-neutral-500 dark:text-neutral-400">
+                      {{ selectedItem.category_name }}
+                    </span>
+                  </div>
+                </div>
+
+                <h3 class="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-3">
+                  {{ selectedItem.title }}
+                </h3>
+
+                <p class="text-neutral-600 dark:text-neutral-400 mb-4 whitespace-pre-wrap">
+                  {{ selectedItem.description || $t('market.detail_modal.no_description') }}
+                </p>
+
+                <div class="mb-4">
+                  <span class="text-sm text-neutral-500 dark:text-neutral-400 block mb-2">{{ $t('market.detail_modal.price_label') }}</span>
+                  <div v-if="selectedItem.pricing_options && selectedItem.pricing_options.length > 0" class="space-y-1">
+                    <div v-for="(opt, i) in selectedItem.pricing_options" :key="i" class="font-semibold text-neutral-900 dark:text-neutral-100">
+                      {{ formatPricingOption(opt) }}
+                    </div>
+                  </div>
+                  <div v-else class="font-semibold text-success-600 dark:text-success-400">
+                    {{ $t('market.item.free') }}
+                  </div>
+                </div>
+
+                <div class="border-t border-neutral-200 dark:border-neutral-700 pt-4">
+                  <div class="flex items-center justify-between mb-2">
+                    <div>
+                      <span class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('market.detail_modal.listed_by') }}</span>
+                      <div class="text-neutral-900 dark:text-neutral-100">
+                        {{ selectedItem.owner_display_name || selectedItem.owner_hna?.split('@')[0] || selectedItem.owner_id }}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -332,7 +334,7 @@
           </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 

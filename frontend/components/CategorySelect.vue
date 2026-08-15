@@ -78,18 +78,36 @@
     <div v-else class="space-y-2 max-h-96 overflow-y-auto">
       <!-- Popular/Root categories (first N shown by default) -->
       <div v-for="cat in visibleRootCategories" :key="cat.id">
-        <button
-          type="button"
-          @click="toggleCategory(cat)"
-          class="w-full flex items-center justify-between px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg text-sm font-medium"
-          :class="{ 'bg-primary bg-opacity-10': selectedRootCategory?.id === cat.id }"
-        >
-          <span class="flex items-center gap-2">
-            <span class="text-lg">{{ cat.icon }}</span>
-            <span class="text-neutral-900 dark:text-neutral-100">{{ cat.name }}</span>
-          </span>
-          <ChevronRight class="w-4 h-4 text-neutral-600 dark:text-neutral-300 transition-transform" :class="{ 'rotate-90': expandedCategories[cat.id] }" />
-        </button>
+        <div class="flex items-center gap-1">
+          <!-- Root label: selects (leaf roots and filter mode), expands in create mode -->
+          <button
+            type="button"
+            @click="onRootClick(cat)"
+            class="flex-1 min-w-0 flex items-center justify-between px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg text-sm font-medium"
+            :class="{ 'bg-primary bg-opacity-10': modelValue === cat.id || selectedRootCategory?.id === cat.id }"
+          >
+            <span class="flex items-center gap-2 min-w-0">
+              <span class="text-lg">{{ cat.icon }}</span>
+              <span
+                class="truncate"
+                :class="isUnselectableParent(cat)
+                  ? 'text-neutral-400 dark:text-neutral-500'
+                  : 'text-neutral-900 dark:text-neutral-100'"
+              >{{ cat.name }}</span>
+            </span>
+            <Check v-if="modelValue === cat.id" class="w-4 h-4 flex-shrink-0 text-primary" />
+          </button>
+
+          <!-- Expand/collapse: only for roots that actually have children -->
+          <button
+            v-if="cat.children && cat.children.length"
+            type="button"
+            @click.stop="toggleCategory(cat)"
+            class="flex-shrink-0 p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded"
+          >
+            <ChevronRight class="w-4 h-4 text-neutral-600 dark:text-neutral-300 transition-transform" :class="{ 'rotate-90': expandedCategories[cat.id] }" />
+          </button>
+        </div>
 
         <!-- Subcategories (expanded) - recursive -->
         <CategoryTreeLevel
@@ -255,6 +273,22 @@ const onSearchInput = () => {
       filteredCategories.value = []
     }
   }, 300)
+}
+
+// In 'create' mode a category with children is a grouping node, not a choice
+const isUnselectableParent = (category) => {
+  return props.mode === 'create' && !!(category.children && category.children.length)
+}
+
+// Root row click: parents in create mode only expand, everything else selects.
+// Leaf roots (the whole events tree is flat) must be selectable — the tree has
+// nothing to expand into.
+const onRootClick = (category) => {
+  if (isUnselectableParent(category)) {
+    toggleCategory(category)
+    return
+  }
+  selectCategory(category)
 }
 
 const toggleCategory = (category) => {

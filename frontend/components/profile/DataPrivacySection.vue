@@ -1,12 +1,9 @@
 <template>
-  <AccordionSection
-    section-id="data-privacy"
-    :title="$t('profile.data_privacy.title')"
-    :icon="Shield"
-    :open-sections="openSections"
-    :animation-enabled="animationEnabled"
-    @toggle="emit('toggle', $event)"
-  >
+  <div id="data-privacy" class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-4">
+    <h2 class="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+      <Shield class="w-4 h-4 text-primary" />
+      {{ $t('profile.data_privacy.title') }}
+    </h2>
     <div class="space-y-6">
       <!-- Export Info -->
       <UiAlert variant="info" :title="$t('profile.data_privacy.info_title')">
@@ -83,7 +80,7 @@
     <Teleport to="body">
       <div
         v-if="showDeleteDialog"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+        class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50"
         @click.self="showDeleteDialog = false"
       >
         <div class="bg-white dark:bg-neutral-800 rounded-xl shadow-xl max-w-md w-full p-6">
@@ -125,7 +122,7 @@
         </div>
       </div>
     </Teleport>
-  </AccordionSection>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -133,16 +130,7 @@ import { ref, onMounted } from 'vue'
 import { Shield, Download, Info, FileArchive, Check, Scale, AlertTriangle, Trash2 } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import { useToastStore } from '~/stores/toast'
-import AccordionSection from './AccordionSection.vue'
-
-const props = defineProps<{
-  openSections: string[]
-  animationEnabled?: boolean
-}>()
-
-const emit = defineEmits<{
-  'toggle': [sectionId: string]
-}>()
+import { saveFile } from '~/utils/download'
 
 const { t: $t } = useI18n()
 const localePath = useLocalePath()
@@ -201,16 +189,8 @@ async function exportAllData() {
       responseType: 'blob'
     })
 
-    // Create download link
-    const url = window.URL.createObjectURL(response)
-    const a = document.createElement('a')
-    a.href = url
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
-    a.download = `parahub_export_${timestamp}.zip`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
+    await saveFile(response, `parahub_export_${timestamp}.zip`)
 
     toastStore.success($t('profile.data_privacy.export_success'))
 

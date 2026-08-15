@@ -106,10 +106,13 @@ async function copyLink() {
   <Teleport to="body">
     <div
       v-if="model"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]"
-      @click.self="model = false"
+      class="fixed inset-0 bg-black/50 z-[60] overflow-y-auto"
     >
-      <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 p-6 max-w-md w-full mx-4">
+      <div
+        class="flex min-h-full items-center justify-center p-4"
+        @click.self="model = false"
+      >
+      <div class="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-300 dark:border-neutral-600 p-6 max-w-md w-full">
         <div class="flex justify-between items-center mb-4">
           <h3 class="text-xl font-bold text-neutral-900 dark:text-neutral-100">
             {{ $t('directory.users.invite_modal.title') }}
@@ -127,9 +130,28 @@ async function copyLink() {
             <canvas ref="qrCanvas" role="img" :aria-label="$t('directory.users.invite_modal.qr_aria_label')"></canvas>
           </div>
 
-          <div class="flex items-center justify-between bg-neutral-100 dark:bg-neutral-700/50 rounded-lg px-4 py-3">
-            <span class="text-sm text-neutral-600 dark:text-neutral-400">{{ $t('directory.users.invite_modal.invited_count_label') }}</span>
-            <span class="text-lg font-bold text-neutral-900 dark:text-neutral-100">{{ inviteData.invited_count }}</span>
+          <!-- What the link does for each side -->
+          <div class="space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
+            <p>
+              <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ $t('directory.users.invite_modal.explainer_them_title') }}:</span>
+              {{ $t('directory.users.invite_modal.explainer_them_text') }}
+            </p>
+            <p>
+              <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ $t('directory.users.invite_modal.explainer_you_title') }}:</span>
+              {{ $t('directory.users.invite_modal.explainer_you_text') }}
+            </p>
+            <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('directory.users.invite_modal.wot_note') }}</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-neutral-100 dark:bg-neutral-700/50 rounded-lg px-4 py-3 text-center">
+              <div class="text-lg font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ inviteData.invited_count }}</div>
+              <div class="text-xs text-neutral-600 dark:text-neutral-400">{{ $t('directory.users.invite_modal.invited_count_label') }}</div>
+            </div>
+            <div class="bg-neutral-100 dark:bg-neutral-700/50 rounded-lg px-4 py-3 text-center">
+              <div class="text-lg font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">{{ inviteData.rooted_count }}</div>
+              <div class="text-xs text-neutral-600 dark:text-neutral-400">{{ $t('directory.users.invite_modal.rooted_count_label') }}</div>
+            </div>
           </div>
 
           <div>
@@ -180,6 +202,7 @@ async function copyLink() {
         <div v-else class="text-center py-8">
           <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100 mx-auto"></div>
         </div>
+      </div>
       </div>
     </div>
   </Teleport>

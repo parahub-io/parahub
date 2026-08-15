@@ -10,8 +10,11 @@ from .opensky import OpenSkyMission, OpenSkyTileLayer, OpenSkyConsolidationMembe
 from .transit import (
     TransitDataSource, Agency, StopGroup, Stop, Route, Shape, Trip, RouteStop,
     Vehicle, StopTime, CalendarDate, VehiclePositionHistory, FeedHealthSample, DriverShift,
+    WaitingSnapshot,
 )
-from .establishments import WorldObject, Establishment, EstablishmentMembership, EstablishmentReview
+from .establishments import (
+    WorldObject, Establishment, EstablishmentMembership, EstablishmentInvite, EstablishmentReview,
+)
 from .condominium import CondominiumFraction, QuotaPayment
 from .events import Event, EventParticipant
 from .drones import DroneZone
@@ -23,7 +26,9 @@ __all__ = [
     'OpenSkyMission', 'OpenSkyTileLayer', 'OpenSkyConsolidationMember', 'OpenSkyPoseEdge',
     'TransitDataSource', 'Agency', 'StopGroup', 'Stop', 'Route', 'Shape', 'Trip', 'RouteStop',
     'Vehicle', 'StopTime', 'CalendarDate', 'VehiclePositionHistory', 'FeedHealthSample', 'DriverShift',
-    'WorldObject', 'Establishment', 'EstablishmentMembership', 'EstablishmentReview',
+    'WaitingSnapshot',
+    'WorldObject', 'Establishment', 'EstablishmentMembership', 'EstablishmentInvite',
+    'EstablishmentReview',
     'CondominiumFraction', 'QuotaPayment',
     'Event', 'EventParticipant',
     'DroneZone',

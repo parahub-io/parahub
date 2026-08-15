@@ -71,6 +71,7 @@
 <script setup lang="ts">
 import { Share2, Link, Copy, Check, QrCode, ChevronDown, ChevronUp, Download } from 'lucide-vue-next'
 import QRCode from 'qrcode'
+import { saveText } from '~/utils/download'
 
 const props = defineProps<{ profile: any; profileUrl: string; modelValue: boolean; initialQr?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [boolean] }>()
@@ -117,7 +118,7 @@ const generateQRCode = async () => {
   }, 100)
 }
 
-const exportVCard = () => {
+const exportVCard = async () => {
   const vcard = `BEGIN:VCARD
 VERSION:3.0
 FN:${props.profile.display_name || props.profile.hna}
@@ -126,13 +127,7 @@ URL:${props.profileUrl}
 NOTE:Parahub Profile ID: ${props.profile.id}
 END:VCARD`
 
-  const blob = new Blob([vcard], { type: 'text/vcard' })
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${props.profile.hna}.vcf`
-  a.click()
-  window.URL.revokeObjectURL(url)
+  await saveText(vcard, `${props.profile.hna}.vcf`, 'text/vcard')
   toastStore.success(t('user_profile.vcard_exported'))
 }
 

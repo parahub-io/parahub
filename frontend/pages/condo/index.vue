@@ -74,11 +74,6 @@ definePageMeta({
   middleware: 'auth',
 })
 
-// Track onboarding: user has visited condo section
-if (import.meta.client) {
-  localStorage.setItem('onboarding:condo', '1')
-}
-
 const { t } = useI18n()
 const localePath = useLocalePath()
 const authStore = useAuthStore()

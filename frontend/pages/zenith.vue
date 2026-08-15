@@ -133,7 +133,7 @@
           <!-- Not enabled warning -->
           <UiAlert v-if="!settings.enabled && !showSettings" variant="warning" :title="$t('zenith.not_enabled')">
             <p class="mt-1">{{ $t('zenith.not_enabled_desc') }}</p>
-            <button @click="showSettings = true" class="text-sm text-primary hover:underline mt-2">
+            <button @click="showSettings = true" class="text-sm font-medium underline mt-2">
               {{ $t('zenith.open_settings') }}
             </button>
           </UiAlert>

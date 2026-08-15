@@ -97,6 +97,9 @@ def delete_file(request, post_id: str, file_id: str):
     return {'ok': True}
 
 ILLUSTRATION_ALLOWED_SLUG = 'parahub-associacao'
+# Keep this id in `services/ai_pricing.MODEL_PRICING` — an image model absent
+# from the table logs at zero and the spend silently disappears.
+ILLUSTRATION_MODEL = 'gemini-3-pro-image'
 
 class IllustrationInput(Schema):
     prompt: Optional[str] = None
@@ -144,28 +147,42 @@ def generate_illustration(request, post_id: str, payload: IllustrationInput = No
         )
 
     try:
+        import time
+
         from google import genai
         from google.genai import types as genai_types
-        from parahub.models import AISettings
+        from parahub.models import AISettings, AIUsageLog
+        from parahub.services import ai_usage
 
         ai_settings = AISettings.objects.first()
         if not ai_settings or not ai_settings.google_api_key:
             raise HttpError(500, "AI API key not configured")
 
         client = genai.Client(api_key=ai_settings.google_api_key)
+        started = time.monotonic()
         response = client.models.generate_content(
-            model='gemini-3-pro-image-preview',
+            model=ILLUSTRATION_MODEL,
             contents=[prompt],
             config=genai_types.GenerateContentConfig(
                 response_modalities=['IMAGE', 'TEXT'],
             ),
         )
+        elapsed_ms = int((time.monotonic() - started) * 1000)
 
         image_data = None
         for part in response.parts:
             if part.inline_data:
                 image_data = part.inline_data.data
                 break
+
+        # Logged before the empty-response check: a safety rejection still billed
+        # the prompt, so it belongs in the ledger like any other call.
+        ai_usage.record_gemini(
+            AIUsageLog.KIND_CMS_ILLUSTRATION, ILLUSTRATION_MODEL, response,
+            profile=profile, duration_ms=elapsed_ms, success=bool(image_data),
+            error='' if image_data else 'No image returned',
+            meta={'post_id': post.id, 'custom_prompt': bool(custom_prompt)},
+        )
 
         if not image_data:
             raise HttpError(500, "Image generation returned no image (safety filter?)")

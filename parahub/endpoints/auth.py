@@ -438,6 +438,35 @@ def logout(request, data: LogoutRequest = None):
     return {"message": "Logged out successfully"}
 
 
+@auth_router.get("/wallet-owner/", auth=None)
+@ratelimit(group='auth:wallet_owner', key=user_or_ip, rate='30/m')
+def wallet_owner(request):
+    """
+    Identity anchors for the client-side wallet-seed ownership check.
+
+    The seed lives in browser localStorage independently of the session, so
+    the wallet page must verify it belongs to the logged-in account before
+    opening it or syncing spark/ln addresses onto the profile. Returns the
+    account ULID (stable across username changes) plus the registered PGP
+    fingerprints of ALL the account's profiles — a seed-derived key may have
+    been registered under a pseudonym profile.
+    """
+    if not request.user.is_authenticated:
+        return {"authenticated": False}
+
+    from identity.models import Profile
+    fingerprints = list(
+        Profile.objects.filter(account=request.user)
+        .exclude(pgp_fingerprint='')
+        .values_list('pgp_fingerprint', flat=True)
+    )
+    return {
+        "authenticated": True,
+        "account_id": str(request.user.id),
+        "pgp_fingerprints": fingerprints,
+    }
+
+
 @auth_router.get("/session/", auth=None)
 @ratelimit(group='auth:session', key=user_or_ip, rate='60/m')
 def check_session(request):
@@ -450,6 +479,7 @@ def check_session(request):
     """
     if request.user.is_authenticated:
         from identity.models import Profile
+        from parahub.capabilities import platform_capabilities
 
         # Get primary profile
         primary_profile = request.user.profiles.filter(is_primary=True).first()
@@ -497,6 +527,13 @@ def check_session(request):
                 "email": request.user.email,
                 "is_active": request.user.is_active,
                 "is_staff": request.user.is_staff,  # Admin flag for UI
+                # Handing a capability out is the node owner's alone (staff hold
+                # all four, so staff granting them would be self-propagating).
+                "is_superuser": request.user.is_superuser,
+                # What this login may do on node-level surfaces. The frontend
+                # gates on these instead of is_staff, so a single surface can be
+                # delegated without handing out everything (parahub/capabilities.py).
+                "capabilities": sorted(platform_capabilities(request.user)),
                 "date_joined": request.user.date_joined.isoformat(),
                 "profile": profile_data
             }
@@ -843,6 +880,113 @@ def _check_username_available_in_matrix(username: str) -> bool:
         return True  # Assume available on error
 
 
+# A username is not just a handle: registration provisions a real @parahub.io mailbox
+# (identity/signals.py) and the Matrix localpart, so a squatted name reads as a
+# first-party sender everywhere. Keep this list wide.
+RESERVED_USERNAMES = {
+    # Platform identity
+    'parahub', 'parahub.io', 'para-hub', 'para.hub',
+    'para', 'parasos', 'parabarter', 'zenith',
+    # Platform surfaces (each is a live subdomain, or a route under a handle
+    # namespace: `/talk/live` is the face-to-face translator, and a member
+    # called "live" would have their own thread page shadowed by it)
+    'sos', 'mesh', 'sites', 'tiles', 'status', 'git', 'gitea', 'live',
+    'turn', 'jitsi', 'traccar', 'netdata', 'plausible', 'video', 'wx',
+    'boleias', 'condominios', 'contratos', 'democracia', 'directorio',
+    'energia', 'eventos', 'transporte', 'troca',
+    # Admin / authority
+    'admin', 'administrator', 'root', 'superuser', 'sysadmin',
+    'moderator', 'mod', 'operator',
+    # System roles
+    'system', 'daemon', 'service', 'server', 'localhost',
+    'nobody', 'null', 'undefined', 'anonymous', 'anon',
+    # Support / official
+    'support', 'help', 'helpdesk', 'contact', 'feedback',
+    'info', 'information', 'news', 'press', 'media',
+    'team', 'staff', 'official', 'verified',
+    # Support / official (PT + ES)
+    'suporte', 'apoio', 'ajuda', 'contacto', 'contato', 'atendimento',
+    'informacao', 'informacoes', 'noticias', 'equipa', 'oficial',
+    'soporte', 'ayuda',
+    # Common service accounts
+    'bot', 'chatbot', 'autobot', 'noreply', 'no-reply',
+    'mailer', 'postmaster', 'webmaster', 'hostmaster',
+    'abuse', 'security', 'billing', 'sales',
+    # Mail infrastructure and phishing-prone senders
+    'mailer-daemon', 'mail-daemon', 'bounce', 'bounces',
+    'dmarc', 'autoconfig', 'autodiscover', 'listserv', 'majordomo',
+    'usenet', 'uucp', 'noc', 'marketing', 'newsletter',
+    'notifications', 'notification', 'alerts', 'alert',
+    'account', 'accounts', 'verify', 'verification', 'confirm',
+    'password', 'passwords', 'login', 'signin', 'signup', 'register',
+    'invoice', 'invoices', 'payment', 'payments', 'refund', 'refunds',
+    'order', 'orders', 'legal', 'privacy', 'gdpr', 'rgpd', 'dpo',
+    'compliance', 'audit', 'notary', 'kyc',
+    # Well-known paths / protocols
+    'api', 'www', 'ftp', 'ssh', 'mail', 'smtp', 'imap',
+    'dns', 'cdn', 'proxy', 'gateway', 'nginx', 'apache',
+    # Testing
+    'test', 'testing', 'debug', 'demo', 'example', 'sample',
+    'dev', 'development', 'staging', 'production',
+    # Generic authority / impersonation
+    'ceo', 'founder', 'owner', 'manager', 'director',
+    'president', 'chairman',
+    # Public authority (PT) — a public body must never be impersonable
+    'camara', 'camaramunicipal', 'municipio', 'junta', 'freguesia',
+    'juntadefreguesia', 'prefeitura', 'governo', 'estado',
+    'policia', 'gnr', 'psp', 'bombeiros', 'protecaocivil', 'inem',
+    'sns', 'imt', 'financas', 'segurancasocial',
+    # Transport brands whose open data the app republishes
+    'carris', 'carrismetropolitana', 'metrolisboa', 'stcp', 'fertagus',
+    'transtejo', 'soflusa', 'mobicascais', 'tml', 'crtm',
+    'hsl', 'mbta', 'septa',
+    # Founder identity (impersonation defense)
+    'andrey', 'norn', 'francisco', 'liliana',
+    # Matrix / chat
+    'matrix', 'synapse', 'element', 'cinny',
+    # AI identities
+    'bots', 'robot', 'assistant', 'chatgpt', 'gpt',
+    'claude', 'gemini', 'openai', 'anthropic',
+    # Moderation
+    'censor', 'censorship', 'moderacao', 'moderador', 'moderadora',
+    # Finance / wallet
+    'wallet', 'bitcoin', 'lightning', 'satoshi',
+    # Offensive / placeholder
+    'fuck', 'shit', 'ass', 'dick', 'porn', 'sex',
+    'nigger', 'nigga', 'faggot',
+}
+
+# Substrings that must never appear anywhere inside a username
+RESERVED_USERNAME_SUBSTRINGS = (
+    'parahub', 'admin', 'support', 'suporte', 'moderator', 'moderad',
+    'official', 'oficial', 'censor',
+)
+
+
+def reserved_match(username: str) -> Optional[str]:
+    """'exact' | 'substring' | None — how the handle collides with the reserved
+    list.
+
+    One matcher for both callers, but they read it differently. The signup
+    validator refuses either kind (and words them differently). The public
+    profile page only treats 'exact' as a handle the platform holds: a
+    substring hit means "you may not register this", not "we own it" — a
+    member's own `parahub-fleet` must stay invisible, not be announced as a
+    platform name.
+    """
+    lower = (username or '').lower().strip()
+    if not lower:
+        return None
+    # Separator-stripped form, so 'a.d.m.i.n' and 'sup-port' cannot slip past
+    squashed = lower.replace('.', '').replace('_', '').replace('-', '')
+    if lower in RESERVED_USERNAMES or squashed in RESERVED_USERNAMES:
+        return 'exact'
+    for sub in RESERVED_USERNAME_SUBSTRINGS:
+        if (sub in lower or sub in squashed) and lower != sub:
+            return 'substring'
+    return None
+
+
 def _is_username_valid(username: str) -> tuple[bool, str]:
     """
     Validate username format.
@@ -864,55 +1008,11 @@ def _is_username_valid(username: str) -> tuple[bool, str]:
     if not re.match(r'^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$', username.lower()):
         return False, "Username can only contain letters, numbers, dots, underscores, and hyphens"
 
-    # Reserved usernames — exact match
-    reserved_exact = {
-        # Platform identity
-        'parahub', 'parahub.io', 'para-hub', 'para.hub',
-        # Admin / authority
-        'admin', 'administrator', 'root', 'superuser', 'sysadmin',
-        'moderator', 'mod', 'operator',
-        # System roles
-        'system', 'daemon', 'service', 'server', 'localhost',
-        'nobody', 'null', 'undefined', 'anonymous', 'anon',
-        # Support / official
-        'support', 'help', 'helpdesk', 'contact', 'feedback',
-        'info', 'information', 'news', 'press', 'media',
-        'team', 'staff', 'official', 'verified',
-        # Common service accounts
-        'bot', 'chatbot', 'autobot', 'noreply', 'no-reply',
-        'mailer', 'postmaster', 'webmaster', 'hostmaster',
-        'abuse', 'security', 'billing', 'sales',
-        # Well-known paths / protocols
-        'api', 'www', 'ftp', 'ssh', 'mail', 'smtp', 'imap',
-        'dns', 'cdn', 'proxy', 'gateway', 'nginx', 'apache',
-        # Testing
-        'test', 'testing', 'debug', 'demo', 'example', 'sample',
-        'dev', 'development', 'staging', 'production',
-        # Generic authority / impersonation
-        'ceo', 'founder', 'owner', 'manager', 'director',
-        'president', 'chairman',
-        # Founder identity (impersonation defense)
-        'andrey', 'norn', 'francisco', 'liliana',
-        # Matrix / chat
-        'matrix', 'synapse', 'element', 'cinny',
-        # Finance / wallet
-        'wallet', 'bitcoin', 'lightning', 'satoshi',
-        # Offensive / placeholder
-        'fuck', 'shit', 'ass', 'dick', 'porn', 'sex',
-        'nigger', 'nigga', 'faggot',
-    }
-    # Substrings that should never appear in a username
-    reserved_substrings = [
-        'parahub', 'admin', 'support', 'moderator', 'official',
-    ]
-
-    lower = username.lower()
-    if lower in reserved_exact:
+    match = reserved_match(username)
+    if match == 'exact':
         return False, "This username is reserved"
-
-    for sub in reserved_substrings:
-        if sub in lower and lower != sub:  # exact already checked above
-            return False, "This username contains a reserved word"
+    if match == 'substring':
+        return False, "This username contains a reserved word"
 
     return True, ""
 

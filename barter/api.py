@@ -63,7 +63,8 @@ def get_barter_opportunities(request, max_length: int = None, category_id: str =
 
     Query Params:
         max_length: Maximum chain length (capped by BARTER_MAX_CHAIN_LENGTH from admin settings)
-        category_id: Optional category filter
+        category_id: Optional category filter — only chains where at least one
+            swap is in this category (debt-clearing cycles are excluded)
     """
     from constance import config
     profile = request.auth
@@ -157,7 +158,7 @@ def get_exchange(request, exchange_cri: str):
             'created_at': exchange.created_at.isoformat(),
         }
     except Exchange.DoesNotExist:
-        return {'error': 'Exchange not found'}, 404
+        raise HttpError(404, 'Exchange not found')
 
 
 @router.post('/exchanges/{exchange_cri}/approve', auth=ProfileAuth())
@@ -181,7 +182,7 @@ def approve_exchange(request, exchange_cri: str, data: ApprovalRequest):
 
         # Check if user is a participant
         if profile.id not in exchange.participants:
-            return {'error': 'You are not a participant in this exchange'}, 403
+            raise HttpError(403, 'You are not a participant in this exchange')
 
         # Create or update approval
         approval, created = ExchangeApproval.objects.update_or_create(
@@ -204,7 +205,7 @@ def approve_exchange(request, exchange_cri: str, data: ApprovalRequest):
         }
 
     except Exchange.DoesNotExist:
-        return {'error': 'Exchange not found'}, 404
+        raise HttpError(404, 'Exchange not found')
 
 
 @router.get('/my-exchanges', auth=ProfileAuth())

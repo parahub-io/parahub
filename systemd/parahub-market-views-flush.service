@@ -1,0 +1,19 @@
+[Unit]
+Description=Flush Parahub market view counters from Redis to PostgreSQL
+After=network.target postgresql.service redis-server.service
+Requires=postgresql.service
+StartLimitIntervalSec=3600
+StartLimitBurst=6
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/parahub
+ExecStart=/opt/parahub/venv/bin/python manage.py flush_item_views
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=600
+
+[Install]
+WantedBy=multi-user.target

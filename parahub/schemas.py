@@ -418,9 +418,19 @@ class AdsProfileUpdate(BaseModel):
     ln_wallet_config: Optional[Dict[str, Any]] = Field(None, description="Wallet provider configuration")
 
 
+class AdPayoutReport(BaseModel):
+    """Advertiser's browser reporting the outcome of one queued payout"""
+    result: str = Field(..., pattern="^(sent|failed)$")
+    method: str = Field('spark', pattern="^(spark|lnurl)$", description="How the browser paid")
+    proof: Optional[str] = Field(None, description="BOLT11 preimage (lnurl) or Spark payment id (spark)")
+    error: Optional[str] = Field(None, description="Failure reason when result=failed")
+    stage: str = Field('pay', pattern="^(lnurl|pay)$", description="Failure stage: whose side broke")
+
+
 class WalletTestRequest(BaseModel):
     """Test wallet provider connection"""
-    provider: str = Field(..., description="Wallet provider: lnbits or alby")
+    provider: str = Field(..., description="Wallet provider: nwc, lnbits, alby or spark (browser-paid)")
+    connection_uri: Optional[str] = Field(None, description="NWC connection string")
     api_url: Optional[str] = Field(None, description="LNbits API URL")
     invoice_key: Optional[str] = Field(None, description="LNbits invoice key")
     admin_key: Optional[str] = Field(None, description="LNbits admin key")
@@ -442,6 +452,7 @@ class AdCampaignCreate(BaseModel):
         return v
     reward_sats: int = Field(..., ge=1, description="Satoshis per view")
     budget_sats: int = Field(..., ge=1, description="Total campaign budget")
+    source_lang: str = Field('en', pattern="^(en|ru|pt|es|de|fr)$", description="Language the ad text is written in")
     target_gender: str = Field("any", pattern="^(any|male|female)$")
     target_age_from: int = Field(18, ge=13, le=120)
     target_age_to: int = Field(65, ge=13, le=120)
@@ -457,6 +468,7 @@ class AdCampaignCreate(BaseModel):
     establishment_id: Optional[str] = Field(None, description="Post on behalf of this establishment (ULID)")
     linked_item_id: Optional[str] = Field(None, description="Link a marketplace item to promote")
     linked_establishment_id: Optional[str] = Field(None, description="Link an establishment to promote")
+    save_as_draft: bool = Field(False, description="Create as draft even when a wallet is configured")
 
 
 class AdCampaignUpdate(BaseModel):
@@ -472,7 +484,13 @@ class AdCampaignUpdate(BaseModel):
         if v is not None and v != '' and not v.startswith(('http://', 'https://')):
             raise ValueError('Link must be a valid HTTP or HTTPS URL')
         return v
-    status: Optional[str] = Field(None, pattern="^(draft|active|paused|completed)$")
+    status: Optional[str] = Field(None, pattern="^(draft|active|paused|completed|archived)$")
+    reward_sats: Optional[int] = Field(None, ge=1, description="Satoshis per view (only while the campaign has no views)")
+    budget_sats: Optional[int] = Field(None, ge=1, description="Total campaign budget (only while the campaign has no views)")
+    source_lang: Optional[str] = Field(None, pattern="^(en|ru|pt|es|de|fr)$", description="Correct the language the ad text is written in")
+    target_gender: Optional[str] = Field(None, pattern="^(any|male|female)$")
+    target_age_from: Optional[int] = Field(None, ge=13, le=120)
+    target_age_to: Optional[int] = Field(None, ge=13, le=120)
     target_interest_ids: Optional[List[str]] = None
     target_children_age_ids: Optional[List[str]] = None
     target_skill_ids: Optional[List[str]] = None
@@ -480,10 +498,11 @@ class AdCampaignUpdate(BaseModel):
     target_latitude: Optional[float] = Field(None, ge=-90, le=90)
     target_longitude: Optional[float] = Field(None, ge=-180, le=180)
     target_radius_km: Optional[float] = Field(None, ge=0, le=50)
+    clear_target_location: Optional[bool] = Field(None, description="Set true to remove geo targeting")
     include_self: Optional[bool] = None
     exclude_self: Optional[bool] = None
-    linked_item_id: Optional[str] = Field(None, description="Link a marketplace item (null to clear)")
-    linked_establishment_id: Optional[str] = Field(None, description="Link an establishment (null to clear)")
+    linked_item_id: Optional[str] = Field(None, description="Link a marketplace item (empty string to clear)")
+    linked_establishment_id: Optional[str] = Field(None, description="Link an establishment (empty string to clear)")
 
 
 class AdLinkedItemSchema(BaseModel):
@@ -510,6 +529,7 @@ class AdCampaignResponse(ULIDBase, TimestampedBase):
     name: str
     post_title: str
     post_content: str
+    source_lang: str = 'en'
     link: str
     image_url: Optional[str] = None
     reward_sats: int
@@ -549,9 +569,20 @@ class AdFeedItem(BaseModel):
     campaign_id: str
     post_title: str
     post_content: str
+    # Viewer-language text: None when the viewer should see the original.
+    # is_translated marks machine translation only — an advertiser-written
+    # translation is authoritative text and carries no badge.
+    source_lang: str = 'en'
+    translated_post_title: Optional[str] = None
+    translated_post_content: Optional[str] = None
+    is_translated: bool = False
     link: str
     image_url: Optional[str] = None
     reward_sats: int
+    # The campaign belongs to the viewer's own account (any of its profiles):
+    # shown as a preview — the claim path refuses self-claims, since the payout
+    # would be the advertiser's wallet paying itself.
+    is_own: bool = False
     advertiser_id: Optional[str] = None
     advertiser_name: Optional[str] = None
     advertiser_hna: Optional[str] = None
@@ -570,11 +601,16 @@ class AdFeedHistoryItem(BaseModel):
     campaign_id: str
     post_title: str
     post_content: str
+    source_lang: str = 'en'
+    translated_post_title: Optional[str] = None
+    translated_post_content: Optional[str] = None
+    is_translated: bool = False
     link: str
     image_url: Optional[str] = None
     reward_sats: int
     earned_sats: int
     payment_sent: bool = False
+    payment_status: str = 'pending'
     viewed_at: datetime
 
 

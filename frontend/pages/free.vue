@@ -12,7 +12,16 @@
     <div class="max-w-2xl mx-auto px-4 py-10 space-y-6">
       <!-- Network status -->
       <UiAlert v-if="network === 'guest'" variant="info" :icon="Wifi">
-        {{ $t('mesh.network_guest', { node: nodeHostname || 'Parahub' }) }}
+        <i18n-t keypath="mesh.network_guest" tag="span">
+          <template #node>
+            <NuxtLink
+              v-if="nodeId"
+              :to="localePath({ path: '/map', query: { device: `mesh:${nodeId}` } })"
+              class="font-medium underline"
+            >{{ nodeHostname || 'Parahub' }}</NuxtLink>
+            <template v-else>{{ nodeHostname || 'Parahub' }}</template>
+          </template>
+        </i18n-t>
       </UiAlert>
       <UiAlert v-else-if="network === 'private'" variant="success" :icon="Wifi">
         {{ $t('mesh.network_private') }}
@@ -28,7 +37,7 @@
           {{ $t('mesh.pass_intro', { n: passInfo?.max_devices ?? 5 }) }}
         </p>
         <p class="text-lg text-neutral-700 dark:text-neutral-300">
-          {{ $t('mesh.subscribe_price', { amount: formatNumber(passInfo?.price_sats ?? 50000), days: passInfo?.duration_days ?? 30 }) }}
+          {{ $t('mesh.subscribe_price', { amount: formatNumber(passInfo?.price_sats ?? 5000), days: passInfo?.duration_days ?? 30 }) }}
         </p>
       </div>
 
@@ -62,13 +71,26 @@
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">
                   {{ $t('mesh.pass_active_until', { date: formatDate(passInfo.expires_at!) }) }}
                 </p>
+                <p v-if="passInfo.from_hosting" class="text-sm text-neutral-500 dark:text-neutral-400">
+                  {{ $t('mesh.pass_from_hosting') }}
+                </p>
               </div>
             </div>
 
-            <!-- Bind this device -->
+            <!-- Bind this device. `thisDeviceBound` is a localStorage heuristic
+                 (per browser, and per-connection MAC randomization can defeat
+                 the MAC binding), so the action stays available as a demoted
+                 "re-activate" instead of disappearing. -->
             <div class="space-y-2">
+              <UiAlert
+                v-if="thisDeviceBound && network === 'guest' && !bindResult && !bindError"
+                variant="success"
+                :icon="Zap"
+              >
+                {{ $t('mesh.device_active_here') }}
+              </UiAlert>
               <UiButton
-                variant="primary"
+                :variant="thisDeviceBound ? 'outline' : 'primary'"
                 size="lg"
                 class="w-full"
                 :icon="Zap"
@@ -76,7 +98,7 @@
                 :disabled="network !== 'guest'"
                 @click="bindDevice"
               >
-                {{ $t('mesh.bind_button') }}
+                {{ thisDeviceBound ? $t('mesh.bind_again') : $t('mesh.bind_button') }}
               </UiButton>
               <p v-if="network === 'private'" class="text-sm text-center text-neutral-500 dark:text-neutral-400">
                 {{ $t('mesh.bind_err_private') }}
@@ -244,11 +266,13 @@ interface MeshPassInfo {
   price_sats: number
   duration_days: number
   payments_available: boolean
+  from_hosting: boolean
 }
 
 const network = ref<'guest' | 'private' | null>(null)
 const networkChecked = ref(false)
 const nodeHostname = ref<string | null>(null)
+const nodeId = ref<string | null>(null)
 
 const passInfo = ref<MeshPassInfo | null>(null)
 const passLoading = ref(false)
@@ -258,6 +282,8 @@ const binding = ref(false)
 const bindResult = ref<'activated' | 'pending' | null>(null)
 const bindError = ref('')
 const thisDeviceId = ref<string | null>(null)
+const thisDeviceBound = computed(() =>
+  !!thisDeviceId.value && !!passInfo.value?.devices.some(d => d.id === thisDeviceId.value))
 
 const payState = ref<'idle' | 'invoice'>('idle')
 const paying = ref(false)
@@ -275,9 +301,10 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 onMounted(async () => {
   thisDeviceId.value = localStorage.getItem('mesh_device_id')
   try {
-    const data = await $fetch<{ on_mesh: boolean; network: string | null; node_hostname: string | null }>('/api/v1/iot/mesh/network')
+    const data = await $fetch<{ on_mesh: boolean; network: string | null; node_hostname: string | null; node_id: string | null }>('/api/v1/iot/mesh/network')
     network.value = (data.network as 'guest' | 'private' | null) ?? null
     nodeHostname.value = data.node_hostname
+    nodeId.value = data.node_id
   } catch { /* network detection failed — treat as off-mesh */ }
   networkChecked.value = true
 
@@ -314,7 +341,9 @@ async function loadPass() {
 }
 
 function formatNumber(n: number): string {
-  return n.toLocaleString()
+  // Explicit locale: the bare call takes Node's default on SSR, so pt/ru readers
+  // got "5,000" — a decimal comma in those locales, i.e. five.
+  return n.toLocaleString(locale.value)
 }
 
 function formatDate(iso: string): string {

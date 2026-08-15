@@ -115,9 +115,19 @@
         },
         "not_collected": {
           "title": "Dados que NÃO recolhemos intencionalmente:",
-          "sensitive": "Não recolhemos dados pessoais sensíveis (origem racial ou étnica, opiniões políticas, crenças religiosas, dados de saúde, etc.) a menos que os inclua voluntária e explicitamente em partes públicas do seu perfil ou conteúdo.",
-          "location": "Os dados de localização são processados com ofuscação de privacidade (aproximação a um raio de 100m). A geolocalização precisa nunca é armazenada ou partilhada sem o seu consentimento explícito.",
+          "sensitive": "A utilização do Serviço não exige dados pessoais sensíveis (origem racial ou étnica, convicções religiosas, dados de saúde, etc.) e não inferimos esses dados a partir da sua atividade. As duas funcionalidades opcionais que tocam categorias especiais de dados são descritas abaixo.",
+          "location": "As localizações que associa a anúncios públicos são mostradas aos outros utilizadores com imprecisão numa grelha de cerca de 100 m. As funcionalidades cujo próprio propósito é partilhar a sua posição exata (presença no mapa em tempo real, modo de condutor, alertas SOS) só a transmitem enquanto as utiliza ativamente.",
           "crypto": "As chaves privadas criptográficas (PGP) são geradas e armazenadas exclusivamente no seu dispositivo. O servidor nunca tem acesso às suas chaves privadas — apenas as chaves públicas são armazenadas. Este é um princípio arquitetural fundamental, não uma escolha de política."
+        },
+        "special": {
+          "title": "Categorias especiais de dados (art. 9.º RGPD)",
+          "intro": "Três funcionalidades opcionais tratam dados que o RGPD considera de categoria especial. Todas funcionam apenas se optar por utilizá-las, com base no seu consentimento explícito (art. 9.º, n.º 2, alínea a) do RGPD):",
+          "civic_label": "Sondagens cívicas de opinião",
+          "civic": "Um boletim que submete pode exprimir uma opinião política. Os boletins de opinião são registados sob um pseudónimo unidirecional (hash com chave); o registo do boletim não contém qualquer ligação ao seu perfil, endereço IP ou chaves, os resultados publicados são agregados e o seu recibo permite-lhe verificar o seu próprio voto sem o revelar a ninguém. As votações abertas pela sua natureza (decisões de agregados familiares e condomínios, votos com delegação) são-lhe atribuídas — a página de votação indica-o antes de votar.",
+          "psy_label": "Perfil psicométrico",
+          "psy": "Se completar a autoavaliação opcional, as suas respostas são analisadas (com a ajuda de um modelo de IA — ver secção 6) para derivar uma breve caracterização. Apenas o resumo final de quatro palavras é mostrado publicamente; pode atualizá-lo ou pedir a sua eliminação a qualquer momento.",
+          "voice_label": "Clonagem de voz (mensagens de voz)",
+          "voice": "Se ativar a clonagem de voz, as gravações da sua própria fala são enviadas ao nosso fornecedor de voz (ElevenLabs) e é construída a partir delas uma impressão vocal — dados biométricos. Só são guardadas as suas próprias gravações, nunca as da outra pessoa; as amostras são eliminadas quando o clone fica pronto, o áudio das mensagens expira ao fim de 30 dias e eliminar a voz remove-a também no fornecedor. As mensagens de voz funcionam sem clone, numa voz padrão."
         }
       },
       "mesh": {
@@ -130,7 +140,7 @@
         "retention_label": "Conservação",
         "retention": "Os dados das atribuições são mantidos apenas como estado atual: cada heartbeat substitui o instantâneo anterior e nada é acumulado em histórico. Não registamos que sites os convidados visitam e o tráfego dos convidados não é inspecionado.",
         "egress_label": "Saída para a internet",
-        "egress": "O tráfego dos convidados sai por um túnel VPN, pelo que não chega à internet a partir do IP doméstico do proprietário do nó. A Associação opera a saída partilhada, cujo salto final é assegurado por um fornecedor de VPN comercial, e trata o mínimo de metadados de ligação necessários para a manter.",
+        "egress": "O tráfego dos convidados sai por um túnel VPN, pelo que não chega à internet a partir do IP doméstico do proprietário do nó. Os nós sem linha de internet própria (e os dispositivos dos seus proprietários atrás deles) chegam à internet da mesma forma, através da mesh e da saída VPN. A Associação opera a saída partilhada, cujo salto final é assegurado por um fornecedor de VPN comercial, e trata o mínimo de metadados de ligação necessários para a manter. As ligações de rádio entre nós são um meio partilhado da comunidade: como em qualquer WiFi aberto, a confidencialidade no ar vem da cifragem ponta-a-ponta (HTTPS) e do túnel VPN.",
         "basis_label": "Fundamento legal",
         "basis": "Execução do contrato (art. 6.º, n.º 1, al. b) do RGPD) para entregar o passe de velocidade plena ao teu dispositivo, e interesse legítimo (art. 6.º, n.º 1, al. f) do RGPD) na operação e proteção da rede. Os termos de peering entre proprietários de nós constam do Acordo de Peering da Mesh."
       },
@@ -152,7 +162,7 @@
           "Para autenticação e gestão de conta.",
           "Para facilitar a comunicação entre utilizadores (incluindo chats Matrix).",
           "Para o sistema de reputação e funcionalidade Web of Trust.",
-          "Para personalizar a sua experiência (se fornecer dados e configurações relevantes).",
+          "Para personalizar a sua experiência (se fornecer dados e definições relevantes).",
           "Para garantir a segurança e prevenir abusos.",
           "Para análise e estatísticas (preferencialmente de forma anónima).",
           "Para responder às suas questões e comunicar consigo."
@@ -165,12 +175,18 @@
         "matrix": "Se esta instância usar um servidor Matrix gerido por terceiros, ou se comunicar com utilizadores noutros servidores Matrix, os dados são transmitidos de acordo com o protocolo Matrix.",
         "legal_label": "Requisitos Legais",
         "legal": "Podemos divulgar os seus dados se exigido por lei ou em resposta a um pedido legal válido das autoridades (seguindo os procedimentos aplicáveis).",
-        "no_sale": "Não vendemos os seus dados pessoais."
+        "no_sale": "Não vendemos os seus dados pessoais.",
+        "ai_label": "Funcionalidades de IA",
+        "ai": "Algumas funcionalidades dependem de modelos de IA de terceiros: o assistente e a pesquisa na base de conhecimento, a análise de imagens para anúncios, o apoio por voz, as mensagens de voz e a autoavaliação psicométrica. Quando utiliza uma dessas funcionalidades, o conteúdo que lhe submete (texto, imagem ou áudio de voz) é enviado ao fornecedor configurado — atualmente a Google (Gemini) para o assistente, voz e análise de imagens, a OpenAI para a categorização de anúncios e a ElevenLabs para reconhecimento e síntese de voz — que atua como nosso subcontratante. Esses pedidos não incluem o seu nome nem identificadores da sua conta.",
+        "push_label": "Notificações push",
+        "push": "Se ativar as notificações push, a entrega passa pelo serviço de push da sua plataforma (Google Firebase Cloud Messaging no Android, Apple Push Notification service no iOS ou o serviço de push do seu navegador), que trata um token de entrega do seu dispositivo.",
+        "transfers_label": "Transferências internacionais",
+        "transfers": "Os fornecedores de IA e push acima podem tratar dados em servidores fora da UE, sobretudo nos Estados Unidos. Essas transferências assentam no EU–U.S. Data Privacy Framework (para fornecedores certificados) e/ou em cláusulas contratuais-tipo (art. 46.º RGPD). Tudo o resto — a sua conta, o seu conteúdo e todo o armazenamento primário — permanece nos nossos servidores na UE (ver secção 7)."
       },
       "storage": {
         "title": "Armazenamento e Segurança de Dados",
         "measures": "Implementamos medidas técnicas e organizacionais razoáveis para proteger os seus dados pessoais contra acesso não autorizado, modificação, divulgação ou destruição (por exemplo, HTTPS, encriptação de palavras-passe, atualizações regulares de software, acesso restrito aos dados para funcionários).",
-        "location": "Os dados são armazenados em servidores localizados na União Europeia.",
+        "location": "Os dados em repouso são armazenados nos nossos servidores na União Europeia (Alemanha e Portugal). Os únicos dados tratados fora da UE são os descritos na secção 6: conteúdo submetido a funcionalidades de IA e tokens de entrega de notificações push.",
         "retention": "Os períodos de retenção de dados são determinados pelo seu propósito e requisitos legais. Os dados não são armazenados por mais tempo do que o necessário para os fins para os quais foram recolhidos. Pode solicitar a eliminação dos seus dados (ver Os Seus Direitos)."
       },
       "rights": {
@@ -191,8 +207,9 @@
         "withdraw_label": "Direito de Retirar o Consentimento",
         "withdraw": "Se o processamento se basear no consentimento, pode retirá-lo a qualquer momento.",
         "complaint_label": "Direito de Reclamação",
-        "complaint": "Apresentar uma reclamação junto de uma autoridade supervisora de proteção de dados.",
-        "contact": "Para exercer estes direitos, contacte-nos através de {email}."
+        "complaint": "Apresentar reclamação junto de uma autoridade de controlo da proteção de dados. Em Portugal, é a Comissão Nacional de Proteção de Dados (CNPD, www.cnpd.pt).",
+        "contact": "Para exercer estes direitos, contacte-nos através de {email}.",
+        "erasure_limits": "O apagamento tem limites técnicos e legais (art. 17.º, n.º 3 do RGPD). Registos criptográficos de auditoria (selos temporais e provas agregadas de votações), registos de contratos assinados necessários à declaração ou defesa de direitos em processos judiciais e cópias de conteúdo público já replicadas noutras instâncias da federação ou em espelhos públicos nem sempre podem ser removidos unilateralmente por nós. Quando pede o apagamento, eliminamos tudo o que está sob o nosso controlo e dizemos-lhe o que permanece e porquê."
       },
       "cookies": {
         "title": "Cookies",
@@ -353,7 +370,6 @@
     }
   },
   "about": {
-    "android_app": "Android",
     "meta": {
       "description": "Parahub — plataforma federada de código aberto para cooperação P2P, comércio e comunicações. Sem taxas, sem intermediários, encriptação do lado do cliente."
     },
@@ -371,7 +387,7 @@
     "mission": {
       "intro": "Parahub opera na vanguarda da descentralização, abertura e proteção dos direitos digitais — resolvendo problemas que só vão se intensificar.",
       "success_depends": "O sucesso depende da capacidade de:",
-      "point1": "Tornar as tecnologias acessíveis aos usuários comuns",
+      "point1": "Tornar as tecnologias acessíveis aos utilizadores comuns",
       "point2": "Construir uma comunidade ativa",
       "point3": "Encontrar um modelo de financiamento sustentável",
       "point4": "Provar o valor prático das alternativas",
@@ -417,7 +433,7 @@
       },
       "mesh": {
         "title": "Rede Mesh",
-        "desc": "Configure um router e ele passa a fazer parte da rede. Wi-Fi gratuito para vizinhos, ganhe pelo tráfego."
+        "desc": "Configure um router e ele passa a fazer parte da rede. Wi-Fi gratuito para vizinhos, velocidade máxima para si enquanto o seu nó estiver ativo."
       },
       "arbitration": {
         "title": "Resolução de Litígios",
@@ -613,6 +629,34 @@
         }
       }
     },
+    "contractsSystem": {
+      "title": "Contratos",
+      "intro": "Acordos digitais entre pessoas, assinados com criptografia a sério. O documento nunca sai do seu dispositivo — a plataforma guarda apenas a sua impressão digital, e ambas as partes assinam com as suas chaves pessoais.",
+      "how": {
+        "title": "Como funciona",
+        "step1": "Quem cria escolhe o ficheiro do contrato. O ficheiro fica no seu dispositivo; o sistema calcula a sua impressão digital curta.",
+        "step2": "O parceiro recebe o contrato, verifica que a sua cópia do ficheiro corresponde à impressão digital e assina também.",
+        "step3": "Ambas as assinaturas são feitas com chaves PGP pessoais, no dispositivo de cada um — o servidor nunca vê o ficheiro nem as chaves.",
+        "step4": "O trabalho decorre nos termos acordados.",
+        "step5": "Cada parte marca o contrato como concluído de forma independente e avalia a outra. O contrato só fecha quando ambas confirmam."
+      },
+      "privacy": {
+        "title": "Os seus documentos continuam seus",
+        "text": "Guarda-se apenas uma impressão digital de 64 caracteres — suficiente para provar mais tarde que foi exatamente este ficheiro que se assinou, e nunca suficiente para o reconstruir. O conteúdo permanece privado e sob o seu controlo."
+      },
+      "linking": {
+        "title": "Ligado a negócios reais",
+        "text": "Um contrato pode ter como objeto um anúncio do mercado ou um imóvel. O botão Comprar em qualquer anúncio inicia um contrato com o vendedor e o artigo já preenchidos; quando o contrato conclui, o anúncio fecha automaticamente."
+      },
+      "proof": {
+        "title": "Prova pronta para tribunal",
+        "text": "Qualquer contrato exporta-se como um pacote com os seus dados, as duas assinaturas PGP, um selo temporal ancorado na Bitcoin e instruções de verificação — prova independente de que o acordo existiu e foi assinado naquele momento."
+      },
+      "disputes": {
+        "title": "Se algo correr mal",
+        "text": "Qualquer das partes pode iniciar arbitragem: um árbitro escolhido entra numa conversa privada com ambas, analisa as provas e emite um veredicto. Os árbitros têm perfis públicos com estatísticas transparentes, e casos por resolver podem escalar para um centro de arbitragem institucional e, em última instância, para tribunal."
+      }
+    },
     "wotSystem": {
       "title": "Web of Trust",
       "problem": {
@@ -636,6 +680,10 @@
         "wot1": "1+ verificação: criar anúncios, escambo, mensagens diretas",
         "wot2": "2+ verificações: catálogo de negócios, organizar eventos, publicidade P2P",
         "wot3": "3+ verificações: acesso total, possibilidade de ser árbitro"
+      },
+      "badge": {
+        "title": "Cartão Para-ID",
+        "text": "O seu cartão Para-ID imprimível recebe o selo Web of Trust quando 3+ membros o verificam. O selo no papel é um retrato do dia de emissão do cartão — o código QR que aponta para o seu perfil ao vivo é sempre a prova autoritativa."
       }
     },
     "adsSystem": {
@@ -672,20 +720,20 @@
       "title": "Rede Mesh",
       "what": {
         "title": "O princípio da torradeira",
-        "text": "Um router mesh Parahub funciona como uma torradeira — ligue e esqueça. Instale o firmware num router OpenWrt compatível e ele se configura sozinho, conecta-se aos nós próximos e atualiza-se de noite. Sem configuração manual."
+        "text": "Um router mesh Parahub funciona como uma torradeira — ligue e esqueça. Instale o firmware num router OpenWrt compatível e configura-se sozinho, liga-se aos nós próximos e atualiza-se de noite. Sem configuração manual."
       },
       "networks": {
         "title": "Duas redes num só router",
-        "public": "Rede aberta sem senha. Velocidade limitada a 512 kbps. O tráfego dos convidados passa por um túnel VPN: não é responsável pelas atividades deles na internet (princípio 'Mere Conduit').",
-        "private": "A sua rede privada WPA3 com velocidade total. Acesso a dispositivos domésticos, NAS, DLNA. Isolada dos convidados, partilha o mesmo canal mesh via VLAN separada."
+        "public": "Rede aberta sem palavra-passe. Velocidade limitada a 512 kbps. O tráfego dos convidados passa por um túnel VPN: não é responsável pelas atividades deles na internet (princípio 'Mere Conduit').",
+        "private": "A sua rede privada WPA3 com velocidade total. Acesso a dispositivos domésticos, NAS, DLNA. Local ao seu router e isolada dos convidados; os seus próprios nós ligam-se por um túnel cifrado, pelo que uma única rede privada pode abranger vários edifícios."
       },
       "earn": {
-        "title": "Ganhe com o tráfego dos convidados",
-        "text": "Os convidados têm acesso básico gratuito. Para mais velocidade, digitalizam um QR code e pagam satoshis via Lightning. O router levanta o limite instantaneamente. Recebe o pagamento sem qualquer intervenção."
+        "title": "Velocidade máxima para o anfitrião",
+        "text": "Os convidados têm acesso básico gratuito. Para mais velocidade, digitalizam um QR code e pagam satoshis via Lightning — o pagamento vai para a associação e é investido na rede. Enquanto o seu nó estiver online, os seus próprios dispositivos funcionam à velocidade máxima em qualquer nó Parahub, sem pagar."
       },
       "global": {
         "title": "Mesh local e global",
-        "text": "Nós próximos conectam-se automaticamente via Wi-Fi pelo batman-adv — roaming sem costuras, DLNA unificado. Nós em cidades diferentes conectam via Yggdrasil sobre a internet normal — automaticamente, sem reencaminhamento de portas."
+        "text": "Nós próximos conectam-se automaticamente via Wi-Fi pelo batman-adv — uma rede de convidados partilhada com roaming sem costuras, e os seus próprios nós mantêm entre si uma única rede privada. Nós em cidades diferentes conectam via Yggdrasil sobre a internet normal — automaticamente, sem reencaminhamento de portas."
       }
     },
     "condoSystem": {
@@ -809,6 +857,38 @@
         "text": "Todas as suas rotas, paragens e horários são continuamente exportados como dados GTFS padrão. Apps de transporte externas podem consumir as suas rotas sem trabalho manual."
       }
     },
+    "transitSystem": {
+      "title": "Transportes Públicos",
+      "intro": "Transportes públicos em direto num só lugar: veículos a mover-se no mapa em tempo real, estimativas de chegada em cada paragem, páginas de linha com horários e planeamento de viagens porta a porta. A cobertura abrange várias cidades e operadores — autocarro, elétrico, metro, comboio e barco.",
+      "live": {
+        "title": "Veículos em direto",
+        "text": "Cada veículo com GPS em direto move-se no mapa enquanto circula. Toque num para ver a linha e os detalhes; um rasto opcional mostra por onde acabou de passar."
+      },
+      "pages": {
+        "title": "Páginas de linhas e paragens",
+        "text": "Cada linha e cada paragem tem a sua página: chegadas em direto, horário completo, os dois sentidos desenhados no mapa e um horário para imprimir."
+      },
+      "eta": {
+        "title": "Chegadas honestas",
+        "text": "As estimativas de chegada aprendem com a forma como os veículos realmente percorrem cada troço da linha — não apenas com o horário impresso. Onde não há dados em direto, mostra-se o horário."
+      },
+      "planner": {
+        "title": "Planeamento de viagens",
+        "text": "Planeie uma viagem de A a B combinando caminhada e transportes de todos os operadores cobertos ao mesmo tempo — incluindo linhas sem localização em direto, para que comboios e barcos também apareçam nas ligações."
+      },
+      "waiting": {
+        "title": "À espera na paragem",
+        "text": "Na paragem, abra a página dela e marque a linha que espera — sem precisar de conta. Os outros passageiros veem quantas pessoas esperam a mesma linha, e o motorista vê o número ao aproximar-se. A marca limpa-se sozinha quando o veículo chega — e se nada aparecer durante algum tempo, a página sugere uma boleia partilhada, mostrando quantos mais estão presos consigo."
+      },
+      "opendata": {
+        "title": "Dados abertos",
+        "text": "Os dados de transportes recolhidos pela plataforma são republicados em formatos abertos padrão — qualquer pessoa pode construir as suas próprias ferramentas sobre eles."
+      },
+      "related": {
+        "title": "Relacionado"
+      },
+      "cta": "Abrir transportes"
+    },
     "ticketsSystem": {
       "title": "Bilhetes",
       "intro": "Compre bilhetes digitais para eventos e transportes com pagamentos Lightning instantâneos. Um sistema para concertos, encontros comunitários e viagens de autocarro — sem intermediários, sem taxas além do que o operador define.",
@@ -877,13 +957,68 @@
         "title": "Visível para passageiros",
         "text": "O seu veículo aparece no mapa público junto com os feeds oficiais. Os passageiros veem tempos estimados de chegada em cada paragem."
       },
+      "routeOverview": {
+        "title": "Visão da linha em direto",
+        "text": "Ative uma escada da linha no ecrã do condutor: ambas as direções lado a lado, cada veículo da linha, chegadas por direção e o seu próprio autocarro destacado — a distância para o autocarro da frente e de trás num relance."
+      },
+      "ticketScanning": {
+        "title": "Validação de bilhetes durante o turno",
+        "text": "Abra o leitor de bilhetes diretamente no ecrã do condutor para validar os QR dos passageiros — o turno continua ativo. Funciona offline e recusa um bilhete que o dispositivo já viu."
+      },
+      "waitingPassengers": {
+        "title": "Passageiros à espera",
+        "text": "Ao aproximar-se de uma paragem, o ecrã mostra quantos passageiros se marcaram ali à espera da sua linha."
+      },
       "shiftHistory": {
         "title": "Registo de turnos",
         "text": "Todos os turnos são registados com horários de início/fim e detalhes da rota. Útil para auditorias e folhas de vencimento."
       },
       "requirements": {
         "title": "Requisitos",
-        "text": "É necessário nível 2+ na Rede de Confiança para transmitir como condutor. Isto garante que apenas membros de confiança aparecem como veículos oficiais no mapa."
+        "text": "É necessário nível 3+ de Web of Trust para transmitir como condutor. Assim, apenas membros de confiança da comunidade podem aparecer como veículos oficiais no mapa."
+      }
+    },
+    "carpoolSystem": {
+      "title": "Boleias",
+      "intro": "Boleias de paragem a paragem, guiadas pelo passageiro. Peça uma boleia na sua paragem, receba ofertas de condutores e combinem tudo por chat encriptado — sem comissões nem intermediários.",
+      "howItWorks": {
+        "title": "Como funciona",
+        "step1": "Crie um pedido de boleia — escolha a paragem de origem e de destino, os lugares e o preço que oferece",
+        "step2": "Condutores por perto ou de passagem veem o pedido e enviam ofertas com a descrição do veículo",
+        "step3": "Aceite uma oferta — um chat Matrix encriptado com o condutor é criado automaticamente para a coordenação",
+        "step4": "No fim da viagem, ambos deixam uma avaliação — classificações mútuas de 1–5 estrelas constroem reputação na comunidade"
+      },
+      "stopBased": {
+        "title": "De paragem a paragem",
+        "text": "Todas as viagens começam e terminam em paragens de transporte público — pontos de encontro conhecidos e fáceis de encontrar, em vez de moradas arbitrárias."
+      },
+      "passengerDriven": {
+        "title": "Guiado pelo passageiro",
+        "text": "O passageiro publica o pedido e define o preço; os condutores respondem com ofertas concorrentes — o oposto de uma central de táxis."
+      },
+      "noFees": {
+        "title": "Sem taxas da plataforma",
+        "text": "O acordo é direto entre passageiro e condutor. A plataforma não cobra nada e nunca guarda o dinheiro."
+      },
+      "liveRequests": {
+        "title": "Pedidos em tempo real",
+        "text": "Os pedidos são para já, não por horário: expiram automaticamente, e os condutores só veem quem está mesmo à espera."
+      },
+      "routeSearch": {
+        "title": "Pesquisa ao longo da rota",
+        "text": "O condutor procura pedidos por perto ou ao longo da rota planeada — o desvio mantém-se pequeno."
+      },
+      "reputation": {
+        "title": "Reputação",
+        "text": "Avaliações mútuas após cada viagem concluída; a classificação aparece junto de cada pedido e oferta."
+      },
+      "stranded": {
+        "title": "Preso numa paragem?",
+        "text": "Quando não vem nada na sua linha, a página da paragem sugere uma boleia e mostra quantas pessoas estão à espera consigo — uma ponte do autocarro falhado para o carro de um vizinho."
+      },
+      "requirements": {
+        "title": "Requisitos",
+        "text": "É necessário um perfil verificado: pedidos e ofertas estão abertos a membros verificados pela rede de confiança. A forma de pagamento é combinada entre os dois."
       }
     },
     "walletSystem": {
@@ -977,7 +1112,60 @@
       "callout": {
         "title": "Um protocolo aberto, não um jardim murado",
         "text": "O Matrix é um padrão aberto e federado: as suas conversas não ficam presas ao Parahub, e aplicações Matrix comuns podem ligar-se à mesma conta."
+      },
+      "nativeApps": {
+        "title": "Use uma aplicação Matrix nativa",
+        "intro": "Prefere uma aplicação dedicada no telemóvel ou no computador? Funciona qualquer cliente Matrix com início de sessão através do navegador — por exemplo, Element X ou SchildiChat Next no telemóvel, ou Element no computador.",
+        "step1": "Instale a aplicação e escolha introduzir o endereço do servidor manualmente.",
+        "step2": "Indique parahub.io como servidor.",
+        "step3": "O navegador abre-se — inicie sessão com o seu email e palavra-passe habituais do Parahub e confirme. Pronto.",
+        "noPassword": {
+          "title": "Não existe palavra-passe separada para o chat",
+          "text": "O início de sessão passa sempre pelo navegador, com a sua conta Parahub habitual. Aplicações que só mostram um formulário de utilizador e palavra-passe não conseguem ligar-se — escolha uma com início de sessão pelo navegador."
+        },
+        "qr": {
+          "title": "Vai adicionar o telemóvel como segundo dispositivo?",
+          "text": "Num computador onde já tem sessão iniciada, abra o Element (parahub.io/element), vá a Definições → Sessões → «Associar novo dispositivo» e mostre o código QR; na aplicação do telemóvel escolha «Iniciar sessão com código QR» e digitalize o ecrã. Os dispositivos verificam-se automaticamente e o histórico encriptado continua legível."
+        }
       }
+    },
+    "eventsSystem": {
+      "title": "Eventos",
+      "intro": "Eventos e encontros da comunidade — de uma limpeza de bairro a uma oficina online. Cada evento publicado ganha a sua própria sala de conversa encriptada, onde os participantes se coordenam.",
+      "types": {
+        "offline": {
+          "title": "Presencial",
+          "text": "Um encontro num lugar real, mostrado no mapa."
+        },
+        "online": {
+          "title": "Online",
+          "text": "Um evento virtual com ligação para videochamada."
+        },
+        "hybrid": {
+          "title": "Híbrido",
+          "text": "Os dois ao mesmo tempo — venha em pessoa ou entre na chamada."
+        }
+      },
+      "flow": {
+        "title": "Da ideia ao evento",
+        "step1": "Escolha o formato e a categoria; defina título, descrição, data e hora.",
+        "step2": "Para eventos presenciais, escolha o lugar no mapa; para online, junte a ligação da chamada.",
+        "step3": "Se quiser, limite o número de participantes e adicione uma imagem de capa.",
+        "step4": "Publique — a sala de conversa cria-se automaticamente, e quem se junta ao evento entra também nela."
+      },
+      "participate": {
+        "title": "Participar",
+        "text": "Junte-se para reservar lugar e entrar na conversa; marque-se como vou ou talvez; pode sair a qualquer momento."
+      },
+      "discover": {
+        "title": "Encontrar eventos",
+        "text": "Percorra o que vem aí com filtros — formato, categoria, cidade, datas ou distância — ou repare nos eventos diretamente no mapa da comunidade. Os eventos passados continuam consultáveis."
+      },
+      "access": {
+        "title": "Quem pode fazer o quê",
+        "text": "Qualquer pessoa pode ver eventos e qualquer utilizador autenticado pode juntar-se. Criar eventos exige um perfil validado por outros membros — a proteção habitual da plataforma contra contas falsas. Editar ou cancelar é só para quem organiza."
+      },
+      "cta": "Ver eventos"
     },
     "cmsSystem": {
       "title": "Blogue e Mini-sites",
@@ -1146,6 +1334,18 @@
       "email": "Email:",
       "support": "Suporte por Voz"
     },
+    "app": {
+      "title": "Aplicação",
+      "intro": "A versão web funciona em qualquer navegador. A aplicação nativa Android acrescenta o que o navegador não consegue: sirene de emergência sobre o ecrã bloqueado e botão de pânico físico.",
+      "android": "Android",
+      "android_action": "Descarregar APK",
+      "android_note": "descarga direta, assinada com a nossa própria chave",
+      "play": "Google Play",
+      "play_action": "Abrir no Google Play",
+      "play_note": "versão da loja, atualizações através do Google Play",
+      "ios": "iOS",
+      "status_planned": "previsto"
+    },
     "energySystem": {
       "title": "Parahub Energy",
       "wip": "em desenvolvimento",
@@ -1288,6 +1488,7 @@
     "cryptoProofs": {
       "title": "Provas Criptográficas",
       "intro": "A Parahub âncora contratos, dívidas e verificações de identidade em provas criptográficas que existem independentemente da plataforma. Mesmo que os nossos servidores deixassem de existir, qualquer pessoa poderia verificar quando um documento foi assinado e por quem.",
+      "why": "Pense nisto como um notário digital: a assinatura PGP prova quem concordou e o carimbo temporal no Bitcoin prova quando existiu. Nenhum dos dois pode ser falsificado ou retrodatado — nem mesmo por nós.",
       "pgp": {
         "title": "Assinaturas PGP",
         "text": "Cada contrato recebe uma assinatura PGP criada com a chave privada do utilizador — que nunca abandona o seu dispositivo.",
@@ -1304,7 +1505,7 @@
       },
       "export": {
         "title": "Exportação para Tribunal",
-        "text": "Qualquer contrato ou dívida pode ser exportado como um arquivo ZIP com todas as provas incluídas.",
+        "text": "Qualquer contrato assinado ou dívida confirmada pode ser exportado como um pacote ZIP. As assinaturas e o carimbo Bitcoin do lote verificam-se offline com ferramentas open-source padrão — sem necessidade de conta Parahub.",
         "contains": "O arquivo contém:",
         "item1": "Ficheiro PDF do documento assinado",
         "item2": "Assinatura PGP (.sig)",
@@ -1321,7 +1522,8 @@
         "title": "Validade Jurídica",
         "text": "As provas criptográficas são aceites como prova em muitas jurisdições. As assinaturas PGP demonstram consentimento; os timestamps Bitcoin estabelecem anterioridade. Consulte um advogado para o seu caso específico."
       },
-      "short": "Verifique cada contrato, dívida e chave por si — ancorado no Bitcoin, espelhado em git público.",
+      "short": "Não pedimos que confie na nossa palavra. Os contratos e as dívidas são assinados com a sua própria chave, no seu dispositivo, e a sua existência fica ancorada na blockchain do Bitcoin — nada pode ser alterado ou retrodatado depois, nem mesmo por nós. Qualquer pessoa pode verificá-lo com ferramentas independentes.",
+      "aboutCta": "Como funciona e como verificar",
       "repo": {
         "title": "Repositório de auditoria público",
         "text": "O chaveiro PGP e cada prova OpenTimestamps são espelhados num repositório git público — sobrevivem mesmo que a parahub.io desapareça.",
@@ -1371,11 +1573,7 @@
       "supporters": "apoiantes"
     },
     "services": {
-      "title": "Serviços da Plataforma",
-      "video": "Vídeo",
-      "video_desc": "Hospedagem e streaming de vídeo",
-      "status": "Estado",
-      "status_desc": "Monitorização de disponibilidade"
+      "status": "Estado"
     },
     "subscriptionsSystem": {
       "title": "Apoio Recorrente",
@@ -1469,6 +1667,132 @@
         "text": "Explorar e pesquisar é aberto a todos, sem conta. Criar um local ou organização e escrever críticas exige um perfil verificado (rede de confiança). Só os donos e administradores podem editar um anúncio ou gerir membros."
       }
     },
+    "mapsSystem": {
+      "title": "Mapa",
+      "intro": "Um mapa vivo para toda a comunidade: lugares e organizações, transportes públicos, sensores, energia, rede mesh — tudo o que a plataforma sabe sobre o mundo físico, numa só vista. Toda a pilha cartográfica é auto-alojada: a pesquisa de moradas e o cálculo de rotas correm nos servidores da própria plataforma e nunca saem dela.",
+      "tools": {
+        "title": "Ferramentas",
+        "search": {
+          "title": "Pesquisa",
+          "text": "Uma única caixa de pesquisa para moradas e conteúdo da comunidade — lugares, anúncios, eventos. Resultados fora do ecrã assinalam-se a partir da borda do mapa, com a distância indicada."
+        },
+        "directions": {
+          "title": "Direções",
+          "text": "Rotas passo a passo de carro, a pé ou de bicicleta, e viagens porta a porta em transportes públicos."
+        },
+        "measure": {
+          "title": "Medições",
+          "text": "Meça distâncias e áreas diretamente no mapa, ou desenhe a zona alcançável num tempo de viagem à escolha."
+        },
+        "sun": {
+          "title": "Sol e lua",
+          "text": "Para qualquer ponto e momento: onde está o sol e onde está a lua, com a sua fase real e horas de nascer e pôr. Útil para avaliar luz e sombra — para uma casa, um painel solar ou uma esplanada."
+        },
+        "weather": {
+          "title": "Meteorologia",
+          "text": "Um painel compacto de meteorologia em direto acompanha o mapa enquanto navega."
+        },
+        "basemap": {
+          "title": "Mapas base",
+          "text": "Por omissão, um mapa de ruas auto-alojado; em Portugal pode ativar-se o ortofotomapa oficial para ler telhados e limites de parcelas."
+        }
+      },
+      "layers": {
+        "title": "Camadas",
+        "intro": "O botão Camadas liga e desliga qualquer combinação de camadas de dados:",
+        "transit": {
+          "title": "Transportes públicos",
+          "text": "Veículos a mover-se no mapa em tempo real."
+        },
+        "places": {
+          "title": "Lugares e organizações",
+          "text": "O diretório da comunidade: negócios, associações, edifícios públicos, igrejas."
+        },
+        "poi": {
+          "title": "Pontos de interesse",
+          "text": "Etiquetas de lugares conhecidas do OpenStreetMap."
+        },
+        "hubs": {
+          "title": "Pontos de encomendas",
+          "text": "Locais de entrega e recolha da rede de encomendas da comunidade."
+        },
+        "energy": {
+          "title": "Comunidades de energia",
+          "text": "Zonas onde vizinhos partilham energia solar produzida localmente."
+        },
+        "condos": {
+          "title": "Condomínios",
+          "text": "Edifícios geridos na plataforma."
+        },
+        "mesh": {
+          "title": "Rede mesh",
+          "text": "Nós e cobertura da rede mantida pela comunidade."
+        },
+        "stations": {
+          "title": "Meteo e ar",
+          "text": "Estações meteorológicas e sensores de qualidade do ar da comunidade, com leituras em direto ao lado."
+        },
+        "aerial": {
+          "title": "Imagens aéreas",
+          "text": "Fotografias aéreas recentes, voadas por pilotos de drones da comunidade e convertidas automaticamente em camadas do mapa — muitas vezes mais nítidas e mais frescas do que o satélite. Algumas zonas têm também vista 3D."
+        },
+        "devices": {
+          "title": "Os seus dispositivos",
+          "text": "Os seus localizadores GPS e dispositivos inteligentes, em direto no mapa."
+        }
+      },
+      "presence": {
+        "title": "Pessoas no mapa",
+        "text": "Com o mapa aberto, pode aparecer nele como uma pequena personagem animada — ver as outras, acenar, sentar-se ou dizer algo num balão de fala; um toque numa personagem abre o perfil do dono. Só se partilha a zona do mapa para onde está a olhar, nunca a sua localização física, e nada fica guardado: a personagem desaparece poucos minutos depois de o dono sair."
+      },
+      "cta": "Abrir o mapa"
+    },
+    "openskySystem": {
+      "title": "Imagens aéreas",
+      "intro": "Cartografia comunitária com drone. Um piloto sobrevoa um único quadrado do mapa e carrega as fotografias — poucas horas depois a área aparece no mapa como uma camada aérea nítida e, muitas vezes, como um modelo 3D, ao dispor de qualquer pessoa, incluindo quem nunca terá um drone.",
+      "flow": {
+        "title": "Como decorre um levantamento",
+        "step1": "Ative a grelha aérea no mapa. O mapa está dividido em quadrados fixos, com cerca de 250 metros em Portugal; os que já têm imagens estão sombreados e indicam a data do último voo.",
+        "step2": "Escolha um quadrado e verifique se consegue alcançá-lo a partir do ponto de descolagem previsto — o planeador responde a isso antes de sair de casa.",
+        "step3": "Um clique descarrega cinco planos de voo prontos para drones DJI: um levantamento na vertical e quatro oblíquos para as fachadas. Voe tantos quantos o terreno e as baterias justificarem.",
+        "step4": "Carregue as fotografias em JPG diretamente do cartão de memória. Vários voos, mesmo em dias diferentes, podem pertencer à mesma missão.",
+        "step5": "O processamento decorre sozinho — costura, georreferenciação, 3D. Acompanha o progresso no cartão da missão e o resultado passa a fazer parte do mapa público."
+      },
+      "checks": {
+        "title": "Antes de sair: dá para voar este quadrado?",
+        "range": {
+          "title": "Distância",
+          "text": "Um raio em linha reta a partir do ponto de descolagem — 500 m, 2 km ou 5 km. O drone voa a direito, por isso é um círculo e não uma distância por estrada."
+        },
+        "ceiling": {
+          "title": "Relevo pelo caminho",
+          "text": "A missão mantém uma altitude constante medida a partir do ponto de descolagem, sem seguir o terreno. Se o solo dentro do quadrado subir para perto dessa altitude, o quadrado fica marcado como bloqueado. O cursor de altitude para nos 120 metros, o tecto legal da categoria aberta."
+        },
+        "link": {
+          "title": "Alcance do comando",
+          "text": "Uma crista entre si e o quadrado pode cortar a ligação ao comando mesmo onde o drone passaria acima do relevo. Esses quadrados são assinalados à parte: chegar lá era possível, pilotar não."
+        },
+        "airspace": {
+          "title": "Espaço aéreo condicionado",
+          "text": "As geo-zonas oficiais podem ser mostradas como camada própria — em Portugal, o conjunto nacional da ANAC. Um quadrado dentro de uma proibição estrita à sua altitude de voo fica marcado como restrito; as zonas que apenas exigem autorização são desenhadas como contorno informativo, para o piloto avaliar."
+        }
+      },
+      "limits": {
+        "title": "Uma ajuda ao planeamento, não uma autorização",
+        "text": "Os dados de relevo conhecem as colinas, não os postes, os cabos, as árvores nem a aresta de um edifício, e a verificação de visibilidade é geometria e não um modelo de rádio. As restrições temporárias — NOTAM, eventos, encerramentos de última hora — não constam da camada de zonas. O vento e o frio também não são modelados: guarde reserva de bateria. O mapa poupa-lhe deslocações inúteis; verificar as regras em vigor e ter as autorizações necessárias continua a ser da responsabilidade do piloto."
+      },
+      "upload": {
+        "title": "O que o carregamento espera",
+        "rule1": "JPG diretamente do drone — o que coloca a missão no mapa é a posição que a câmara escreve em cada fotografia.",
+        "rule2": "Todas as fotografias de uma missão pertencem ao mesmo quadrado e pelo menos parte do voo tem de ser tirada na vertical: só com imagens oblíquas não sai um mapa utilizável.",
+        "rule3": "Um quadrado pode ter várias missões de datas diferentes — é isso que permite comparar o mesmo sítio entre estações do ano.",
+        "rule4": "As fotografias oblíquas podem ser acrescentadas mais tarde — a missão é refeita a partir de tudo o que voou."
+      },
+      "license": {
+        "title": "As suas fotografias passam a ser um bem comum",
+        "text": "As imagens que carrega, e os mapas e modelos 3D que delas resultam, são publicados sob licença Creative Commons BY-SA 4.0: qualquer pessoa as pode usar com atribuição, e o que delas derivar mantém-se igualmente aberto. Confirma isso no momento do carregamento. O que uma licença não resolve fica do lado do piloto: a privacidade quando há rostos, matrículas ou propriedade privada reconhecíveis, e as regras de voo do seu país."
+      }
+    },
     "marketplaceSystem": {
       "title": "Mercado",
       "intro": "O núcleo do Parahub: um lugar para oferecer ou procurar qualquer coisa — bens, serviços, competências ou ajuda. Sem comissão da plataforma, sem ordenação algorítmica, sem intermediário. Apenas pessoas a negociar diretamente, num mapa, na sua língua.",
@@ -1503,5 +1827,78 @@
     },
     "title": "Sobre o projeto — Parahub",
     "documents": "Documentos"
+  },
+  "childsafety": {
+    "title": "Normas de Proteção de Menores",
+    "intro": "Estas são as normas publicadas de {operator} contra o abuso e a exploração sexual de menores (CSAE) na plataforma Parahub. Aplicam-se a todas as áreas do serviço onde as pessoas publicam conteúdos ou interagem: perfis, anúncios do mercado, publicações, comentários, fotografias, vídeos, eventos, estabelecimentos e conversas.",
+    "commitment": {
+      "title": "O Nosso Compromisso",
+      "text": "Temos tolerância zero para o abuso e a exploração sexual de menores. O Parahub é uma plataforma comunitária concebida para adultos e dirigida a adultos. Qualquer conteúdo ou conduta que sexualize, explore ou coloque em perigo menores é proibido e conduz a ação imediata."
+    },
+    "prohibited": {
+      "title": "Conteúdos e Condutas Proibidos",
+      "intro": "É estritamente proibido, sem exceção:",
+      "item1": "Material de abuso sexual de menores (CSAM) sob qualquer forma, incluindo imagens desenhadas, animadas ou geradas por IA",
+      "item2": "Aliciamento (grooming): contactar ou aproximar-se de um menor com o objetivo de contacto sexual, online ou presencial",
+      "item3": "Sextorsão: ameaçar ou chantagear uma pessoa com base no acesso real ou alegado às suas imagens íntimas",
+      "item4": "Qualquer sexualização de menores, incluindo a partilha de ligações para esse material alojado noutros locais",
+      "item5": "Tráfico de menores ou publicitação de uma criança para exploração sexual comercial"
+    },
+    "reporting": {
+      "title": "Denúncias na Aplicação",
+      "text1": "Qualquer perfil e qualquer conteúdo criado por utilizadores no Parahub pode ser denunciado dentro da aplicação através do botão de denúncia. As denúncias incluem categorias como conteúdo sexual ou explícito e atividade ilegal, além de uma descrição em texto livre.",
+      "text2": "As denúncias entram numa fila de moderação revista pela nossa equipa. As denúncias que envolvam suspeitas de abuso ou exploração sexual de menores são tratadas com a máxima prioridade. Nas conversas, os participantes podem ainda denunciar mensagens e bloquear utilizadores."
+    },
+    "enforcement": {
+      "title": "Aplicação das Normas",
+      "intro": "Quando identificamos conteúdos ou condutas CSAE:",
+      "item1": "Removemos o conteúdo de imediato",
+      "item2": "Encerramos as contas envolvidas",
+      "item3": "Preservamos as provas para as autoridades",
+      "item4": "Denunciamos às autoridades competentes"
+    },
+    "authorities": {
+      "title": "Cooperação com as Autoridades",
+      "text": "Cumprimos a legislação aplicável de proteção de menores. O CSAM confirmado ou suspeito é comunicado às autoridades competentes — em Portugal, a Polícia Judiciária e a Linha Internet Segura (membro da rede INHOPE) — e cooperamos com pedidos legítimos das autoridades de outras jurisdições."
+    },
+    "contact": {
+      "title": "Contacto para Proteção de Menores",
+      "text": "O nosso ponto de contacto designado para a proteção de menores pode responder sobre as práticas de prevenção de CSAE e a conformidade do Parahub. Para denúncias e questões de utilizadores, autoridades e parceiros do setor:"
+    }
+  },
+  "sources": {
+    "title": "Fontes de dados",
+    "meta": "De onde vêm os dados do Parahub — feeds de transportes, mapas, meteorologia e dados abertos de Portugal, com licenças e atribuição.",
+    "lead": "Tudo o que vê no mapa e nos horários é reunido a partir de fontes abertas. Aqui está cada uma delas: o que alimenta, em que termos foi publicada e quando foi importada pela última vez.",
+    "license": "Licença",
+    "publisher_terms": "Termos do editor",
+    "basis": {
+      "title": "Como tratamos os dados de terceiros",
+      "text": "Espelhamos os dados abertos tal como são publicados e mostramos os termos do editor ao lado. Quando o editor não declarou licença, é isso que fica escrito — não inventamos nenhuma. Uma licença em branco é um facto sobre o editor, não uma afirmação nossa.",
+      "contact": "Se publica uma destas fontes e quer alterar a atribuição ou retirar os dados, escreva para {email} — tratamos disso."
+    },
+    "transit": {
+      "title": "Transportes públicos (GTFS)",
+      "counts": "Feeds: {feeds} · Operadores: {agencies} · Linhas: {routes} · Paragens: {stops}",
+      "lead": "Os horários são importados automaticamente; o ponto mostra o estado da última importação e a etiqueta assinala os feeds que trazem posições em tempo real.",
+      "unavailable": "O registo de fontes está temporariamente indisponível."
+    },
+    "groups": {
+      "map": "Mapa, pesquisa e rotas",
+      "weather": "Meteorologia",
+      "pt": "Portugal: território e urbanismo"
+    },
+    "items": {
+      "osm": "Mapa base, pesquisa de moradas, cálculo de rotas",
+      "geocoder_support": "Dados de referência para a pesquisa de moradas (Pelias)",
+      "open_meteo": "Meteorologia no mapa",
+      "dgt_ortho": "Camada de ortofotos de Portugal",
+      "dgt_caop": "Limites administrativos — distritos, concelhos, freguesias, códigos NUTS",
+      "caminha_pdm": "Camadas de ordenamento e condicionantes do PDM para a análise urbanística (piloto de Caminha)"
+    },
+    "members": {
+      "title": "Dados dos membros",
+      "text": "Os levantamentos aéreos, as estações ambientais e os routers mesh são publicados por quem os detém, e é o proprietário que decide o que fica visível. Os termos estão em {terms}."
+    }
   }
 }

@@ -17,10 +17,18 @@
         class="w-full h-[180px] object-cover"
         loading="lazy"
       />
+      <!-- Own campaign: preview marker instead of a claimable reward -->
+      <div
+        v-if="ad.is_own"
+        class="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-900/75 text-white flex-shrink-0"
+      >
+        <Megaphone class="w-3.5 h-3.5" />
+        <span class="text-xs font-medium">{{ $t('ads.feed.own_ad') }}</span>
+      </div>
       <!-- Reward badge floating on image -->
       <div
-        v-if="!isViewed"
-        class="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-black flex-shrink-0"
+        v-else-if="!isViewed"
+        class="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-neutral-900 flex-shrink-0"
       >
         <Zap class="w-3.5 h-3.5" />
         <span class="text-sm font-bold tabular-nums">{{ ad.reward_sats }}</span>
@@ -28,7 +36,7 @@
       </div>
       <!-- Viewed overlay -->
       <div v-if="isViewed" class="absolute inset-0 bg-black/30 flex items-center justify-center">
-        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-600/90 text-white text-sm font-medium">
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/90 text-white text-sm font-medium">
           <CheckCircle class="w-4 h-4" />
           <span v-if="earnedSats">+{{ earnedSats }} sat</span>
           <span v-else>{{ $t('ads.feed.viewed') }}</span>
@@ -50,7 +58,7 @@
           />
           <div class="min-w-0">
             <h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 leading-snug line-clamp-2">
-              {{ ad.post_title }}
+              {{ displayTitle }}
             </h3>
             <p v-if="ad.establishment_name || ad.advertiser_name" class="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
               {{ ad.establishment_name || ad.advertiser_name || ad.advertiser_hna }}
@@ -58,10 +66,18 @@
           </div>
         </div>
 
+        <!-- Own campaign badge (when no image) -->
+        <div
+          v-if="!ad.image_url && ad.is_own"
+          class="flex items-center gap-1 px-2 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 text-xs font-medium flex-shrink-0"
+        >
+          <Megaphone class="w-3.5 h-3.5" />
+          {{ $t('ads.feed.own_ad') }}
+        </div>
         <!-- Reward badge (when no image) -->
         <div
-          v-if="!ad.image_url && !isViewed"
-          class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-black flex-shrink-0"
+          v-else-if="!ad.image_url && !isViewed"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-neutral-900 flex-shrink-0"
         >
           <Zap class="w-3.5 h-3.5" />
           <span class="text-sm font-bold tabular-nums">{{ ad.reward_sats }}</span>
@@ -71,7 +87,7 @@
         <!-- Viewed badge (when no image) -->
         <div
           v-if="!ad.image_url && isViewed"
-          class="flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-medium flex-shrink-0"
+          class="flex items-center gap-1 px-2 py-1 rounded-full bg-success-100 dark:bg-success-900/30 text-success dark:text-success-400 text-xs font-medium flex-shrink-0"
         >
           <CheckCircle class="w-3.5 h-3.5" />
           <span v-if="earnedSats">+{{ earnedSats }}</span>
@@ -82,7 +98,7 @@
       <!-- Content preview (rich text) -->
       <div
         class="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed line-clamp-3 ads-feed-content"
-        v-html="ad.post_content"
+        v-html="displayContent"
       />
 
       <!-- Linked content card -->
@@ -107,8 +123,8 @@
         <ChevronRight class="w-4 h-4 text-neutral-400 flex-shrink-0" />
       </div>
 
-      <!-- Bottom row: link + sponsored label -->
-      <div v-if="ad.link || !isViewed" class="mt-3 flex items-center justify-between">
+      <!-- Bottom row: link + auto-translated marker + sponsored label -->
+      <div v-if="ad.link || !isViewed || ad.is_translated" class="mt-3 flex items-center justify-between gap-2">
         <a
           v-if="ad.link"
           :href="ad.link"
@@ -120,8 +136,18 @@
           {{ cleanUrl(ad.link) }}
         </a>
         <span v-else />
-        <span class="text-[10px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
-          {{ $t('ads.feed.sponsored') }}
+        <span class="flex items-center gap-2 flex-shrink-0">
+          <span
+            v-if="ad.is_translated"
+            class="flex items-center gap-1 text-[10px] text-neutral-400 dark:text-neutral-500"
+            :title="$t('ads.feed.auto_translated')"
+          >
+            <Languages class="w-3 h-3" />
+            {{ $t('ads.feed.auto_translated') }}
+          </span>
+          <span class="text-[10px] text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+            {{ $t('ads.feed.sponsored') }}
+          </span>
         </span>
       </div>
     </div>
@@ -130,7 +156,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Zap, CheckCircle, Package, Building2, ChevronRight } from 'lucide-vue-next'
+import { Zap, CheckCircle, Package, Building2, ChevronRight, Languages, Megaphone } from 'lucide-vue-next'
 
 const NuxtLink = resolveComponent('NuxtLink')
 const localePath = useLocalePath()
@@ -140,6 +166,11 @@ const props = defineProps<{
   isViewed?: boolean
   earnedSats?: number
 }>()
+
+// Viewer-language text when the server resolved one (advertiser-provided or
+// MT); the original otherwise. The card has no toggle — that lives on detail.
+const displayTitle = computed(() => props.ad.translated_post_title || props.ad.post_title)
+const displayContent = computed(() => props.ad.translated_post_content || props.ad.post_content)
 
 const linkedTitle = computed(() =>
   props.ad.linked_item?.title || props.ad.linked_establishment?.name || ''

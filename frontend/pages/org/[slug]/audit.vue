@@ -264,7 +264,7 @@
       <Teleport to="body">
         <div
           v-if="showExpenseModal"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
           @click.self="showExpenseModal = false"
         >
           <div class="bg-white dark:bg-neutral-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">

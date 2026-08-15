@@ -23,12 +23,14 @@
       <canvas ref="canvasRef" class="w-full h-full" />
       <!-- Scanline overlay -->
       <div class="absolute inset-0 pointer-events-none scanline-overlay" />
+      <div class="absolute inset-0 pointer-events-none scanline-sweep" />
     </template>
 
     <!-- POI icon blueprint (point features with class) -->
     <template v-else-if="poiClass">
       <canvas ref="poiCanvasRef" class="w-full h-full" />
       <div class="absolute inset-0 pointer-events-none scanline-overlay" />
+      <div class="absolute inset-0 pointer-events-none scanline-sweep" />
     </template>
 
     <!-- Empty placeholder with upload -->
@@ -75,6 +77,8 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const poiCanvasRef = ref<HTMLCanvasElement | null>(null)
 let animationFrame: number | null = null
 let angle = 0
+let lastFrameTs: number | null = null
+let lastDrawTs = 0
 
 const containerHeight = computed(() => {
   const w = props.containerWidth || 384
@@ -133,28 +137,55 @@ function fmtArea(m2: number): string {
 
 // ---- Building polygon rotation + rulers ----
 
-function drawBuildingFrame() {
-  const canvas = canvasRef.value
+// The spin is decorative: redraws are capped and the angle advances by
+// wall-clock time. An uncapped rAF loop re-rasterizes the full canvas at
+// display refresh rate (144-240fps on fast monitors), pinning a GPU-process
+// core, and makes the rotation speed depend on the monitor.
+const BLUEPRINT_FRAME_MS = 1000 / 30
+const ROTATION_RAD_PER_S = 0.18 // ≈ old 0.003 rad/frame at 60fps
+
+// Ruler margins: bottom 28px, left 28px
+const RULER_B = 28
+const RULER_L = 28
+const PAD_T = 24
+const PAD_R = 16
+
+// Static blueprint parts (background, grid, rulers, labels) are pre-rendered
+// once per geometry/size change; each frame only composites this layer and
+// draws the rotated polygon on top.
+let staticLayer: HTMLCanvasElement | null = null
+let staticW = 0
+let staticH = 0
+let staticDpr = 0
+let staticGeom: number[][][] | null = null
+let staticInfoKey = ''
+let layout: {
+  points: [number, number][]
+  polyH: number
+  centerX: number
+  centerY: number
+  infoLines: string[]
+} | null = null
+
+function currentInfoKey(): string {
+  return `${(props.infoLines || []).join('\n')}|${props.buildingLevels ?? ''}`
+}
+
+function buildStaticLayer(w: number, h: number, dpr: number) {
   const geom = props.buildingGeometry
-  if (!canvas || !geom || !geom[0]) return
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  const dpr = window.devicePixelRatio || 1
-  const w = canvas.clientWidth
-  const h = canvas.clientHeight
-  canvas.width = w * dpr
-  canvas.height = h * dpr
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-
+  if (!geom || !geom[0]) return
   const ring = geom[0]
-  const lngs = ring.map(c => c[0])
-  const lats = ring.map(c => c[1])
-  const minLng = Math.min(...lngs)
-  const maxLng = Math.max(...lngs)
-  const minLat = Math.min(...lats)
-  const maxLat = Math.max(...lats)
+
+  let minLng = Infinity
+  let maxLng = -Infinity
+  let minLat = Infinity
+  let maxLat = -Infinity
+  for (const c of ring) {
+    if (c[0] < minLng) minLng = c[0]
+    if (c[0] > maxLng) maxLng = c[0]
+    if (c[1] < minLat) minLat = c[1]
+    if (c[1] > maxLat) maxLat = c[1]
+  }
 
   // Real-world dimensions
   const widthM = haversineM(minLat, minLng, minLat, maxLng)
@@ -167,13 +198,8 @@ function drawBuildingFrame() {
   const spanLng = (maxLng - minLng) * cosLat
   const spanLat = maxLat - minLat
 
-  // Ruler margins: bottom 28px, left 28px
-  const rulerB = 28
-  const rulerL = 28
-  const padT = 24
-  const padR = 16
-  const availW = w - rulerL - padR
-  const availH = h - rulerB - padT
+  const availW = w - RULER_L - PAD_R
+  const availH = h - RULER_B - PAD_T
   const scale = Math.min(availW / (spanLng || 1e-6), availH / (spanLat || 1e-6))
 
   // Center of polygon in projected space
@@ -181,8 +207,8 @@ function drawBuildingFrame() {
   const cy = ((maxLat + minLat) / 2 - minLat) * scale
 
   // Drawing area center
-  const drawCenterX = rulerL + availW / 2
-  const drawCenterY = padT + availH / 2
+  const centerX = RULER_L + availW / 2
+  const centerY = PAD_T + availH / 2
 
   // Convert to canvas coords (centered in drawing area)
   const points = ring.map(c => {
@@ -195,25 +221,30 @@ function drawBuildingFrame() {
   const polyW = spanLng * scale
   const polyH = spanLat * scale
 
+  const cvs = document.createElement('canvas')
+  cvs.width = Math.round(w * dpr)
+  cvs.height = Math.round(h * dpr)
+  const ctx = cvs.getContext('2d')
+  if (!ctx) return
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
   // ---- Background ----
-  ctx.clearRect(0, 0, w, h)
   ctx.fillStyle = '#2A2A78' // secondary-800
   ctx.fillRect(0, 0, w, h)
 
   // ---- Grid ----
-  const GRID_COLOR = 'rgba(255, 193, 7, 0.06)'
   const gridStep = 24 // px between lines
-  ctx.strokeStyle = GRID_COLOR
+  ctx.strokeStyle = 'rgba(255, 193, 7, 0.06)'
   ctx.lineWidth = 0.5
-  for (let gx = rulerL; gx < w; gx += gridStep) {
+  for (let gx = RULER_L; gx < w; gx += gridStep) {
     ctx.beginPath()
-    ctx.moveTo(gx, padT)
-    ctx.lineTo(gx, h - rulerB)
+    ctx.moveTo(gx, PAD_T)
+    ctx.lineTo(gx, h - RULER_B)
     ctx.stroke()
   }
-  for (let gy = padT; gy < h - rulerB; gy += gridStep) {
+  for (let gy = PAD_T; gy < h - RULER_B; gy += gridStep) {
     ctx.beginPath()
-    ctx.moveTo(rulerL, gy)
+    ctx.moveTo(RULER_L, gy)
     ctx.lineTo(w, gy)
     ctx.stroke()
   }
@@ -227,9 +258,9 @@ function drawBuildingFrame() {
   ctx.lineWidth = 1
 
   // Bottom ruler (width)
-  const rulerY = h - rulerB + 10
-  const rulerXStart = drawCenterX - polyW / 2
-  const rulerXEnd = drawCenterX + polyW / 2
+  const rulerY = h - RULER_B + 10
+  const rulerXStart = centerX - polyW / 2
+  const rulerXEnd = centerX + polyW / 2
   // Line
   ctx.beginPath()
   ctx.moveTo(rulerXStart, rulerY)
@@ -250,9 +281,9 @@ function drawBuildingFrame() {
   ctx.fillText(fmtM(widthM), (rulerXStart + rulerXEnd) / 2, rulerY + TICK + 1)
 
   // Left ruler (height)
-  const rulerX = rulerL - 10
-  const rulerYStart = drawCenterY - polyH / 2
-  const rulerYEnd = drawCenterY + polyH / 2
+  const rulerX = RULER_L - 10
+  const rulerYStart = centerY - polyH / 2
+  const rulerYEnd = centerY + polyH / 2
   // Line
   ctx.beginPath()
   ctx.moveTo(rulerX, rulerYStart)
@@ -287,9 +318,66 @@ function drawBuildingFrame() {
   }
   ctx.fillText(cornerLines.join(' · '), w - 8, 8)
 
+  // Pre-truncate annotation lines so frames can fillText without measuring
+  const infoLines: string[] = []
+  if (props.infoLines?.length) {
+    ctx.font = '10px monospace'
+    const maxTextW = w - (RULER_L + 6) - 8
+    for (const line of props.infoLines.slice(0, 5)) {
+      let text = line
+      if (ctx.measureText(text).width > maxTextW) {
+        while (text.length > 1 && ctx.measureText(text + '…').width > maxTextW) text = text.slice(0, -1)
+        text += '…'
+      }
+      infoLines.push(text)
+    }
+  }
+
+  staticLayer = cvs
+  staticW = w
+  staticH = h
+  staticDpr = dpr
+  staticGeom = geom
+  staticInfoKey = currentInfoKey()
+  layout = { points, polyH, centerX, centerY, infoLines }
+}
+
+function renderBlueprint(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const dpr = window.devicePixelRatio || 1
+  const w = canvas.clientWidth
+  const h = canvas.clientHeight
+  if (!w || !h) return
+
+  // Resizing clears the canvas and reallocates its backing store — only do it
+  // when the size actually changed
+  const pxW = Math.round(w * dpr)
+  const pxH = Math.round(h * dpr)
+  if (canvas.width !== pxW || canvas.height !== pxH) {
+    canvas.width = pxW
+    canvas.height = pxH
+  }
+
+  if (
+    !staticLayer || !layout ||
+    staticW !== w || staticH !== h || staticDpr !== dpr ||
+    staticGeom !== props.buildingGeometry || staticInfoKey !== currentInfoKey()
+  ) {
+    buildStaticLayer(w, h, dpr)
+  }
+  const layer = staticLayer
+  if (!layer || !layout) return
+  const { points, polyH, centerX, centerY, infoLines } = layout
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.drawImage(layer, 0, 0)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
   // ---- Rotated polygon ----
   ctx.save()
-  ctx.translate(drawCenterX, drawCenterY)
+  ctx.translate(centerX, centerY)
   ctx.rotate(angle)
 
   // Fill
@@ -307,10 +395,10 @@ function drawBuildingFrame() {
   ctx.stroke()
 
   // Vertices
+  ctx.fillStyle = '#FFC107'
   points.forEach(([px, py]) => {
     ctx.beginPath()
     ctx.arc(px, py, 2.5, 0, Math.PI * 2)
-    ctx.fillStyle = '#FFC107'
     ctx.fill()
   })
 
@@ -324,27 +412,35 @@ function drawBuildingFrame() {
   ctx.restore()
 
   // ---- Annotation block: building facts (bottom-left corner) ----
-  if (props.infoLines?.length) {
+  if (infoLines.length) {
     const lineH = 14
-    const textX = rulerL + 6
-    const maxTextW = w - textX - 8
     ctx.font = '10px monospace'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'bottom'
     ctx.fillStyle = 'rgba(255, 255, 255, 0.75)'
-    const lines = props.infoLines.slice(0, 5)
-    lines.forEach((line, i) => {
-      let text = line
-      if (ctx.measureText(text).width > maxTextW) {
-        while (text.length > 1 && ctx.measureText(text + '…').width > maxTextW) text = text.slice(0, -1)
-        text += '…'
-      }
-      ctx.fillText(text, textX, h - rulerB - 6 - (lines.length - 1 - i) * lineH)
+    infoLines.forEach((text, i) => {
+      ctx.fillText(text, RULER_L + 6, h - RULER_B - 6 - (infoLines.length - 1 - i) * lineH)
     })
   }
+}
 
+function drawBuildingFrame(ts?: number) {
+  const canvas = canvasRef.value
+  const geom = props.buildingGeometry
+  if (!canvas || !geom || !geom[0]) {
+    animationFrame = null
+    return
+  }
+
+  const now = ts ?? performance.now()
   // Counter-clockwise
-  angle -= 0.003
+  if (lastFrameTs !== null) angle -= ((now - lastFrameTs) / 1000) * ROTATION_RAD_PER_S
+  lastFrameTs = now
+
+  if (now - lastDrawTs >= BLUEPRINT_FRAME_MS) {
+    lastDrawTs = now
+    renderBlueprint(canvas)
+  }
 
   animationFrame = requestAnimationFrame(drawBuildingFrame)
 }
@@ -496,6 +592,7 @@ watch(() => props.buildingGeometry, (geom) => {
       cancelAnimationFrame(animationFrame)
       animationFrame = null
     }
+    lastFrameTs = null
   }
 }, { immediate: false })
 
@@ -536,11 +633,13 @@ onUnmounted(() => {
   mix-blend-mode: overlay;
 }
 
-/* Slow vertical sweep — subtle CRT effect */
-.scanline-overlay::after {
-  content: '';
-  position: absolute;
-  inset: 0;
+/* Slow vertical sweep — subtle CRT effect. Lives in its own element outside
+   the blended stripes, and steps() instead of linear: a continuous compositor
+   animation makes the browser recomposite the full viewport (incl. the WebGL
+   map) at display refresh rate — on high-Hz monitors that pins a GPU-process
+   core. Discrete steps produce ~10 frames/s; the ~8px jumps are invisible on
+   this soft low-alpha gradient. */
+.scanline-sweep {
   background: linear-gradient(
     180deg,
     transparent 0%,
@@ -549,11 +648,16 @@ onUnmounted(() => {
     rgba(255, 193, 7, 0.03) 55%,
     transparent 100%
   );
-  animation: scanline-sweep 6s linear infinite;
+  animation: scanline-sweep 6s steps(60) infinite;
+  will-change: transform;
 }
 
 @keyframes scanline-sweep {
   0% { transform: translateY(-100%); }
   100% { transform: translateY(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanline-sweep { animation: none; }
 }
 </style>

@@ -36,7 +36,8 @@
     "event_ticket": "Billete de evento",
     "transit_ticket": "Billete de transporte",
     "camera_permission": "Se requiere acceso a la cámara para escanear",
-    "camera_denied": "Acceso a la cámara denegado",
+    "camera_denied": "Acceso a la cámara denegado — permite la cámara para Parahub en los ajustes del sistema",
+    "camera_unavailable": "Cámara no disponible",
     "staff_only": "Solo para personal / operadores",
     "error_purchase": "Error en la compra",
     "error_confirm": "Error en la confirmación del pago",
@@ -90,6 +91,8 @@
     "offline_unverified": "Sin conexión — escaneo en cola, no se pudo verificar",
     "offline_bad_signature": "Firma QR no válida",
     "offline_foreign_type": "Auténtico, pero no es tu tipo de billete",
+    "offline_already_scanned": "Ya escaneado en este dispositivo a las {time}",
+    "offline_window_ended": "La ventana de validez terminó a las {time}",
     "scan_result_offline": "Offline"
   }
 }

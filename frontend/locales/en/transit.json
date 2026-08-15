@@ -45,8 +45,6 @@
     "data_source": "Data source",
     "schedule_date": "Schedule date",
     "view_route": "View route",
-    "rideshare": "Rideshare",
-    "rideshare_desc": "Find or offer shared rides at transit stops",
     "cities": {
       "all_countries": "All",
       "stops": "{n} stops",
@@ -77,7 +75,11 @@
       "stops": "Stops",
       "trips": "Trips",
       "imported": "Imported",
-      "show_error": "Show error"
+      "show_error": "Show error",
+      "license": "Licence",
+      "license_missing": "No licence stated by the publisher",
+      "realtime": "Live",
+      "summary": "Feeds: {feeds} · Operators: {agencies}"
     },
     "route_types": {
       "0": "Tram",
@@ -133,8 +135,27 @@
       "positions_sent": "sent",
       "confirm_end": "End your current shift?",
       "shift_ended": "Shift ended",
-      "tts_label": "Stop announcements"
+      "tts_label": "Stop announcements",
+      "scan_tickets": "Scan tickets",
+      "route_ladder": "Route overview",
+      "your_vehicle": "Your vehicle",
+      "vehicles_on_route": "Vehicles in this direction",
+      "waiting_ahead": "{n} waiting for your line at this stop"
     },
-    "timetable_no_service": "No service on this day"
+    "timetable_no_service": "No service on this day",
+    "waiting": {
+      "title": "Waiting here",
+      "hint": "Tap the line you are waiting for — other passengers and the driver see it. It clears itself when your bus arrives.",
+      "im_here": "I'm waiting here for this line",
+      "im_here_cancel": "I'm no longer waiting here",
+      "count": "{n} waiting for this line here",
+      "dimmed_hint": "Marked earlier, screen since gone dark",
+      "error_throttled": "Too fast — wait a moment before moving your marker",
+      "error_ip_cap": "Too many anonymous markers from this connection",
+      "error_failed": "Could not update your waiting marker",
+      "stranded_title": "No bus is coming",
+      "stranded_desc": "You have been waiting {min} min and nothing is live on your line.",
+      "stranded_company": "Others stuck here: {n}."
+    }
   }
 }

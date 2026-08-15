@@ -273,6 +273,14 @@ TYPE_TO_CATEGORY = {
     'booking_cancelled': 'rental',
     'new_subscriber': 'subscriptions',
     'subscription_expiring': 'subscriptions',
+    'org_invite': 'social',
+    'org_invite_accepted': 'social',
+    'org_join_request': 'social',
+    'org_membership_changed': 'social',
+    # Its own category on purpose: somebody who silences social-graph chatter
+    # (partner adds, verifications) has not asked to stop hearing that a person
+    # sent them a message.
+    'voice_note': 'messages',
 }
 
 
@@ -656,7 +664,7 @@ def notify_partner_added(user, partner_profile):
 
     title = titles.get(lang, titles['en'])
     body = bodies.get(lang, bodies['en'])
-    url = f"/u/{partner_profile.id}"
+    url = f"/@{partner_profile.id}"
 
     return emit_notification(
         user,
@@ -702,7 +710,7 @@ def notify_verification_received(user, verifier_profile):
 
     title = titles.get(lang, titles['en'])
     body = bodies.get(lang, bodies['en'])
-    url = f"/u/{verifier_profile.id}"
+    url = f"/@{verifier_profile.id}"
 
     return emit_notification(
         user,
@@ -1108,7 +1116,7 @@ def notify_booking_cancelled(user, booking):
     )
 
 
-def notify_ad_payment_issue(user, *, campaign, amount_sats, error=None):
+def notify_ad_payment_issue(user, *, campaign, amount_sats, error=None, fault='viewer'):
     """Persistent alert when an ad-view reward did NOT reach the viewer.
 
     The claim screen only shows an ephemeral (~1.5s) toast, so a failed or
@@ -1116,7 +1124,13 @@ def notify_ad_payment_issue(user, *, campaign, amount_sats, error=None):
     believing they were paid. This is a money alert, so its ``type`` is kept
     out of ``TYPE_TO_CATEGORY`` on purpose: ``_should_notify`` returns True for
     unknown types, i.e. it can never be muted by a category preference. The
-    ``ads`` category is only carried for the feed icon."""
+    ``ads`` category is only carried for the feed icon.
+
+    ``fault`` decides what the viewer is told to do. Only ``'viewer'`` failures
+    (no/unreachable Lightning address) are theirs to fix; with ``'payer'`` the
+    advertiser's wallet refused, so telling them to check their own address
+    would send them chasing a problem they cannot see. Either way the reward
+    stays claimable, which is what the payer-side copy promises."""
     from identity.models import Profile
 
     recipient = Profile.objects.filter(account=user).first()
@@ -1131,14 +1145,26 @@ def notify_ad_payment_issue(user, *, campaign, amount_sats, error=None):
         'fr': "Récompense publicitaire non reçue",
         'de': "Werbe-Belohnung nicht erhalten",
     }
-    bodies = {
-        'en': f"You earned {amount_sats} sats for “{name}” but the payout didn't reach your wallet. Check your Lightning address.",
-        'ru': f"Вы заработали {amount_sats} сат за «{name}», но выплата не дошла до кошелька. Проверьте Lightning-адрес.",
-        'pt': f"Você ganhou {amount_sats} sats por “{name}”, mas o pagamento não chegou à sua carteira. Verifique o seu endereço Lightning.",
-        'es': f"Ganaste {amount_sats} sats por «{name}», pero el pago no llegó a tu billetera. Revisa tu dirección Lightning.",
-        'fr': f"Vous avez gagné {amount_sats} sats pour « {name} », mais le paiement n'est pas arrivé dans votre portefeuille. Vérifiez votre adresse Lightning.",
-        'de': f"Sie haben {amount_sats} Sats für „{name}“ verdient, aber die Auszahlung hat Ihre Wallet nicht erreicht. Prüfen Sie Ihre Lightning-Adresse.",
-    }
+    if fault == 'payer':
+        bodies = {
+            'en': f"The {amount_sats} sats for “{name}” could not be sent — the advertiser's wallet refused the payment. The ad is back in your feed, you can claim it again later.",
+            'ru': f"{amount_sats} сат за «{name}» отправить не удалось — кошелёк рекламодателя отклонил выплату. Объявление вернулось в ленту, забрать награду можно позже.",
+            'pt': f"Não foi possível enviar os {amount_sats} sats por “{name}” — a carteira do anunciante recusou o pagamento. O anúncio voltou ao seu feed, pode resgatá-lo mais tarde.",
+            'es': f"No se pudieron enviar los {amount_sats} sats por «{name}»: la billetera del anunciante rechazó el pago. El anuncio volvió a tu feed, puedes reclamarlo más tarde.",
+            'fr': f"Les {amount_sats} sats pour « {name} » n'ont pas pu être envoyés — le portefeuille de l'annonceur a refusé le paiement. L'annonce est de retour dans votre fil, vous pourrez la réclamer plus tard.",
+            'de': f"Die {amount_sats} Sats für „{name}“ konnten nicht gesendet werden — die Wallet des Werbenden hat die Zahlung abgelehnt. Die Anzeige ist zurück in Ihrem Feed, Sie können sie später erneut einlösen.",
+        }
+        url = '/ads'
+    else:
+        bodies = {
+            'en': f"The {amount_sats} sats for “{name}” could not reach your wallet. Check your Lightning address — the ad stays claimable until it works.",
+            'ru': f"{amount_sats} сат за «{name}» не дошли до кошелька. Проверьте Lightning-адрес — награду можно забрать снова, когда он заработает.",
+            'pt': f"Os {amount_sats} sats por “{name}” não chegaram à sua carteira. Verifique o seu endereço Lightning — o anúncio continua disponível para resgate.",
+            'es': f"Los {amount_sats} sats por «{name}» no llegaron a tu billetera. Revisa tu dirección Lightning: el anuncio sigue disponible para reclamar.",
+            'fr': f"Les {amount_sats} sats pour « {name} » ne sont pas arrivés dans votre portefeuille. Vérifiez votre adresse Lightning — l'annonce reste réclamable.",
+            'de': f"Die {amount_sats} Sats für „{name}“ haben Ihre Wallet nicht erreicht. Prüfen Sie Ihre Lightning-Adresse — die Anzeige bleibt einlösbar.",
+        }
+        url = '/profile#lightning'
     title = titles.get(lang, titles['en'])
     body = bodies.get(lang, bodies['en'])
     return emit_notification(
@@ -1147,8 +1173,139 @@ def notify_ad_payment_issue(user, *, campaign, amount_sats, error=None):
         title=title,
         body=body,
         category='ads',
-        data={'campaign_id': campaign.id, 'amount_sats': amount_sats, 'error': error or ''},
-        url='/profile#lightning',
+        data={
+            'campaign_id': campaign.id,
+            'amount_sats': amount_sats,
+            'error': error or '',
+            'fault': fault,
+        },
+        url=url,
+    )
+
+
+def notify_ad_campaign_unfunded(user, *, campaign, balance_sats):
+    """Persistent alert to the advertiser: the campaign wallet cannot pay.
+
+    ``budget_sats`` is a number in our DB; the sats are in the advertiser's own
+    wallet. When the wallet runs dry the campaign keeps being served and every
+    viewer hits a failed payout, and only the advertiser can fix it. Money
+    alert, so the ``type`` stays out of ``TYPE_TO_CATEGORY`` (never mutable)."""
+    from identity.models import Profile
+
+    recipient = Profile.objects.filter(account=user).first()
+    lang = recipient.preferred_language if recipient else 'en'
+    name = campaign.name
+    reward = campaign.reward_sats
+
+    titles = {
+        'en': "Ad campaign cannot pay out",
+        'ru': "Кампания не может платить",
+        'pt': "A campanha não consegue pagar",
+        'es': "La campaña no puede pagar",
+        'fr': "La campagne ne peut plus payer",
+        'de': "Kampagne kann nicht auszahlen",
+    }
+    bodies = {
+        'en': f"“{name}” pays {reward} sats per view but its wallet holds {balance_sats}. Viewers get nothing until you top it up or pause the campaign.",
+        'ru': f"«{name}» платит {reward} сат за просмотр, а на кошельке {balance_sats}. Пока не пополните или не поставите кампанию на паузу, зрители ничего не получат.",
+        'pt': f"“{name}” paga {reward} sats por visualização, mas a carteira tem {balance_sats}. Os espectadores não recebem nada até carregar a carteira ou pausar a campanha.",
+        'es': f"«{name}» paga {reward} sats por visualización, pero la billetera tiene {balance_sats}. Los espectadores no reciben nada hasta que la recargues o pauses la campaña.",
+        'fr': f"« {name} » paie {reward} sats par vue, mais son portefeuille contient {balance_sats}. Les spectateurs ne reçoivent rien tant que vous ne le rechargez pas ou ne mettez pas la campagne en pause.",
+        'de': f"„{name}“ zahlt {reward} Sats pro Ansicht, die Wallet enthält aber {balance_sats}. Zuschauer erhalten nichts, bis Sie aufladen oder die Kampagne pausieren.",
+    }
+    return emit_notification(
+        user,
+        type='ad_campaign_unfunded',
+        title=titles.get(lang, titles['en']),
+        body=bodies.get(lang, bodies['en']),
+        category='ads',
+        data={
+            'campaign_id': campaign.id,
+            'balance_sats': balance_sats,
+            'reward_sats': reward,
+        },
+        url='/ads/campaigns',
+    )
+
+
+def notify_ad_payment_queued(user, *, campaign, amount_sats):
+    """Tell the viewer their reward is queued for the advertiser's browser wallet.
+
+    On the browser-paid rail the sats arrive when the advertiser's own wallet
+    next comes online — anywhere from seconds to days. Said nowhere, that wait
+    reads as "I wasn't paid", so this is a money notification and its ``type``
+    stays out of ``TYPE_TO_CATEGORY`` (never muteable), like the other ad
+    payment alerts. The eventual success itself is NOT notified — the claim
+    screen flips live via WS and history shows the payout."""
+    from identity.models import Profile
+
+    recipient = Profile.objects.filter(account=user).first()
+    lang = recipient.preferred_language if recipient else 'en'
+    name = campaign.name
+
+    titles = {
+        'en': "Ad reward queued",
+        'ru': "Награда за рекламу в очереди",
+        'pt': "Recompensa de anúncio em fila",
+        'es': "Recompensa de anuncio en cola",
+        'fr': "Récompense publicitaire en attente",
+        'de': "Werbe-Belohnung in Warteschlange",
+    }
+    bodies = {
+        'en': f"Your {amount_sats} sats for “{name}” are queued: the advertiser pays straight from their own wallet and sends them the next time they're online. Nothing to do on your side.",
+        'ru': f"Ваши {amount_sats} сат за «{name}» в очереди: рекламодатель платит напрямую из своего кошелька и отправит их, как только снова будет в сети. Делать ничего не нужно.",
+        'pt': f"Os seus {amount_sats} sats por “{name}” estão na fila: o anunciante paga diretamente da própria carteira e envia-os assim que estiver online. Não precisa de fazer nada.",
+        'es': f"Tus {amount_sats} sats por «{name}» están en cola: el anunciante paga directamente desde su propia billetera y los enviará en cuanto vuelva a estar en línea. No tienes que hacer nada.",
+        'fr': f"Vos {amount_sats} sats pour « {name} » sont en file d'attente : l'annonceur paie directement depuis son propre portefeuille et les enverra dès qu'il sera de nouveau en ligne. Rien à faire de votre côté.",
+        'de': f"Ihre {amount_sats} Sats für „{name}“ sind in der Warteschlange: Der Werbende zahlt direkt aus der eigenen Wallet und sendet sie, sobald er wieder online ist. Sie müssen nichts tun.",
+    }
+    return emit_notification(
+        user,
+        type='ad_payment_queued',
+        title=titles.get(lang, titles['en']),
+        body=bodies.get(lang, bodies['en']),
+        category='ads',
+        data={'campaign_id': campaign.id, 'amount_sats': amount_sats},
+        url='/ads',
+    )
+
+
+def notify_ad_payouts_waiting(user, *, count, total_sats):
+    """Nudge an offline advertiser: queued rewards need their wallet online.
+
+    Only fires when no tab of theirs is connected (an online one pays by
+    itself within seconds) and at most once a day — the caller enforces both.
+    Money alert: ``type`` stays out of ``TYPE_TO_CATEGORY``, viewers are
+    literally waiting on this push being seen."""
+    from identity.models import Profile
+
+    recipient = Profile.objects.filter(account=user).first()
+    lang = recipient.preferred_language if recipient else 'en'
+
+    titles = {
+        'en': "Ad rewards waiting to be paid",
+        'ru': "Ожидают выплаты по рекламе",
+        'pt': "Recompensas de anúncios por pagar",
+        'es': "Recompensas de anuncios por pagar",
+        'fr': "Récompenses publicitaires à payer",
+        'de': "Werbe-Belohnungen warten auf Auszahlung",
+    }
+    bodies = {
+        'en': f"{count} ad views are waiting for payout — {total_sats} sats in total. Open Parahub and your wallet pays them out automatically.",
+        'ru': f"Выплат в очереди: {count}, всего {total_sats} сат. Откройте Parahub — кошелёк выплатит их автоматически.",
+        'pt': f"{count} visualizações aguardam pagamento — {total_sats} sats no total. Abra o Parahub e a sua carteira paga automaticamente.",
+        'es': f"{count} visualizaciones esperan pago: {total_sats} sats en total. Abre Parahub y tu billetera los pagará automáticamente.",
+        'fr': f"{count} vues attendent leur paiement — {total_sats} sats au total. Ouvrez Parahub : votre portefeuille les paie automatiquement.",
+        'de': f"{count} Aufrufe warten auf Auszahlung — insgesamt {total_sats} Sats. Öffnen Sie Parahub, Ihre Wallet zahlt sie automatisch aus.",
+    }
+    return emit_notification(
+        user,
+        type='ad_payouts_waiting',
+        title=titles.get(lang, titles['en']),
+        body=bodies.get(lang, bodies['en']),
+        category='ads',
+        data={'count': count, 'total_sats': total_sats},
+        url='/ads/campaigns',
     )
 
 
@@ -1182,7 +1339,7 @@ def notify_new_subscriber(user, subscriber_profile):
     }
     title = titles.get(lang, titles['en'])
     body = bodies.get(lang, bodies['en'])
-    url = f"/u/{subscriber_profile.local_name or subscriber_profile.id}"
+    url = f"/@{subscriber_profile.local_name or subscriber_profile.id}"
     return emit_notification(
         user,
         type='new_subscriber',
@@ -1222,7 +1379,7 @@ def notify_subscription_expiring(user, subscription, days_left: int):
     }
     title = titles.get(lang, titles['en'])
     body = bodies.get(lang, bodies['en'])
-    url = f"/u/{recipient.local_name or recipient.id}"
+    url = f"/@{recipient.local_name or recipient.id}"
     return emit_notification(
         user,
         type='subscription_expiring',
@@ -1230,4 +1387,84 @@ def notify_subscription_expiring(user, subscription, days_left: int):
         body=body,
         data={'subscription_id': subscription.id, 'recipient_id': recipient.id},
         url=url,
+    )
+
+
+def notify_mesh_host_pass(user, device):
+    """Tell a mesh node's owner that hosting just earned them a full-speed pass.
+
+    Fires once, when the pass first appears (`iot/api/mesh.py`). Nobody asked
+    for this entitlement, so without a nudge a host would only find it by
+    accident; later renewals are routine and stay silent.
+    """
+    if not _should_notify(user, 'mesh_host_pass'):
+        return 0, 0
+    from identity.models import Profile
+
+    recipient = Profile.objects.filter(account=user, is_primary=True).first()
+    lang = recipient.preferred_language if recipient else 'en'
+    name = device.name
+
+    titles = {
+        'en': "Full speed on the mesh",
+        'ru': "Полная скорость в меше",
+        'pt': "Velocidade total na mesh",
+        'es': "Velocidad completa en la mesh",
+        'fr': "Pleine vitesse sur le mesh",
+        'de': "Volle Geschwindigkeit im Mesh",
+    }
+    bodies = {
+        'en': f"Your node {name} earned you a mesh pass — full speed on every Parahub node, renewed while the node stays online. Open the guest portal to enable it on your devices.",
+        'ru': f"Твой узел {name} принёс тебе mesh-пропуск — полная скорость на любом узле Parahub, продлевается пока узел в сети. Открой гостевой портал, чтобы включить его на своих устройствах.",
+        'pt': f"O teu nó {name} deu-te um passe mesh — velocidade total em qualquer nó Parahub, renovado enquanto o nó estiver online. Abre o portal de convidados para o ativar nos teus dispositivos.",
+        'es': f"Tu nodo {name} te dio un pase mesh — velocidad completa en cualquier nodo de Parahub, renovado mientras el nodo siga en línea. Abre el portal de invitados para activarlo en tus dispositivos.",
+        'fr': f"Votre nœud {name} vous a valu un pass mesh — pleine vitesse sur chaque nœud Parahub, renouvelé tant que le nœud reste en ligne. Ouvrez le portail invité pour l'activer sur vos appareils.",
+        'de': f"Dein Knoten {name} hat dir einen Mesh-Pass eingebracht — volle Geschwindigkeit an jedem Parahub-Knoten, verlängert solange der Knoten online ist. Öffne das Gastportal, um ihn auf deinen Geräten zu aktivieren.",
+    }
+    return emit_notification(
+        user,
+        type='mesh_host_pass',
+        title=titles.get(lang, titles['en']),
+        body=bodies.get(lang, bodies['en']),
+        data={'device_id': device.id},
+        url='/free',
+    )
+
+
+def notify_voice_note(user, note):
+    """Tell someone a voice note arrived, in the language they will hear it in.
+
+    The body carries the translated text: a preview is what makes the alert
+    useful with the app closed, and it is already the recipient's own message in
+    their own language. The note row keeps the same text as the record, so this
+    duplicates nothing that was not being kept anyway.
+    """
+    if not _should_notify(user, 'voice_note'):
+        return 0, 0
+    from identity.models import Profile
+
+    recipient = Profile.objects.filter(account=user, is_primary=True).first()
+    lang = recipient.preferred_language if recipient else 'en'
+    sender = note.sender
+    name = sender.display_name or sender.local_name or sender.hna
+
+    titles = {
+        'en': f"Voice note from {name}",
+        'ru': f"Голосовое от {name}",
+        'pt': f"Mensagem de voz de {name}",
+        'es': f"Nota de voz de {name}",
+        'fr': f"Note vocale de {name}",
+        'de': f"Sprachnachricht von {name}",
+    }
+    preview = (note.target_text or '').strip()
+    if len(preview) > 160:
+        preview = preview[:159].rstrip() + '…'
+
+    return emit_notification(
+        user,
+        type='voice_note',
+        title=titles.get(lang, titles['en']),
+        body=preview,
+        data={'note_id': note.id, 'sender_id': sender.id},
+        url=f"/talk/{sender.local_name or sender.id}",
     )

@@ -15,6 +15,7 @@ import subprocess
 import shlex
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from constance import config
 from ninja import Schema
 from ninja.errors import HttpError
 from django.shortcuts import get_object_or_404
@@ -28,7 +29,7 @@ from django.conf import settings
 from datetime import timedelta
 from core.access import ROLE_MANAGER, accessible_q
 from ..models import IoTDevice, MeshPass, MeshPassCredit, MeshDevice
-from ..mesh_pass import grant_mesh_pass
+from ..mesh_pass import grant_mesh_pass, ensure_mesh_pass_floor
 from identity.models import Profile
 from ads.ln_wallet_service import LNbitsProvider
 
@@ -55,6 +56,12 @@ class MeshStatsIn(Schema):
     mem_avail: int = 0
 
 
+class MeshLinkIn(Schema):
+    o: str  # originator MAC
+    n: str  # nexthop MAC
+    t: float = 0  # BATMAN_V throughput estimate, Mbit/s
+
+
 class MeshHeartbeatIn(Schema):
     mac: str
     hostname: str
@@ -67,10 +74,22 @@ class MeshHeartbeatIn(Schema):
     mesh_ip: str = "unknown"
     wg_public_key: str = ""
     vpn_mode: str = "unknown"
+    # ph54+: whether this node actually broadcasts the private AP (firmware
+    # gates it on dual-band hardware, not on role — a dual-band bee has one).
+    # None = older firmware; callers fall back to the role heuristic.
+    private_ap: Optional[bool] = None
     # Mesh topology (ph37+): own mesh iface MACs + originator MACs seen via
     # batctl o. None = old firmware that doesn't report topology.
     mesh_macs: Optional[List[str]] = None
     mesh_originators: Optional[List[str]] = None
+    # Originator-table routes (ph50+): raw {originator, nexthop, throughput}
+    # rows from batctl o. A row whose nexthop belongs to the same node as the
+    # originator is a direct radio link — resolved backend-side against the
+    # fleet's mesh_macs (the topology graph). None = old firmware.
+    mesh_links: Optional[List[MeshLinkIn]] = None
+    # Every burned-in address of the box (ph45+), so claim-by-sticker can match
+    # whichever one is on the label. None = old firmware.
+    hw_macs: Optional[List[str]] = None
     # Guest DHCP leases (ph40+, guest-VLAN terminator only): the node's view of
     # MAC↔IP on its guest subnet. None = old firmware.
     guest_leases: Optional[List[GuestLease]] = None
@@ -92,6 +111,20 @@ class MeshRatesOut(Schema):
     guest_kbps: int = 512
     host_mbps: int = 10
 
+class BondPeerOut(Schema):
+    pubkey: str        # peer's WireGuard public key (same keypair as vps_gateway)
+    endpoint_ip: str   # peer's transit-VLAN address — the WG endpoint
+    bond_ip: str       # peer's WG-tunnel address — the GRETAP endpoint
+
+class BondConfigOut(Schema):
+    """Same-owner private-L2 bonding (ph55+): GRETAP over WireGuard over the
+    transit VLAN, hub-spoke within one mesh island. Restores the cross-building
+    L2 (DLNA/SSDP, seamless roaming) that leaving the mesh out of br-private
+    removed — scoped to one owner's nodes, keyed per pair."""
+    role: str          # 'hub' | 'spoke'
+    local_ip: str      # this node's WG-tunnel address
+    peers: List[BondPeerOut]  # spoke: exactly the hub; hub: every spoke
+
 class MeshHeartbeatOut(Schema):
     status: str = "ok"
     device_id: str
@@ -99,10 +132,15 @@ class MeshHeartbeatOut(Schema):
     ygg_allowed: List[str] = []
     vps_gateway: Optional[VpsGatewayConfig] = None
     guest_gateway: bool = False  # ph35: this bumblebee terminates the mesh guest VLAN
+    bond: Optional[BondConfigOut] = None  # ph55: same-owner L2 bonding
     # ph42: backend probes this node's ygg:22 and confirmed it dead — the node
     # should climb its self-heal ladder (yggdrasil restart -> reboot)
     ygg_inbound_dead: bool = False
     rates: Optional[MeshRatesOut] = None
+    # ph51: owner-set coordinates (already public via mesh/public-positions) so
+    # the node's guest status page can link the map centered on itself
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class WifiPasswordOut(Schema):
     wifi_password: str
@@ -261,6 +299,90 @@ def _compute_islands(devices: List[IoTDevice]) -> List[List[IoTDevice]]:
     for d in devices:
         groups.setdefault(find(d.device_id), []).append(d)
     return list(groups.values())
+
+# --- Same-owner L2 bonding (ph55+) -------------------------------------------
+# GRETAP over WireGuard over the transit VLAN, hub-spoke, one owner's
+# bumblebees within one mesh island. Deterministic hub (own-WAN preferred,
+# then lowest MAC) so configs stay stable without cache stickiness; the peer
+# LIST uses a generous freshness window so a briefly-offline node does not
+# tear the whole bond down, while the HUB must be recently alive (it carries
+# the L2 — a stale hub fails over to the next candidate).
+_BOND_MIN_BUILD = 55
+_BOND_PEER_MAX_AGE = timedelta(days=7)
+_BOND_HUB_FRESH = timedelta(minutes=15)
+
+def _mac_octets_45(mac: str) -> tuple:
+    """MAC octets 4,5 with the same 0/255 remap of octet 4 the firmware's
+    subnet generation applies (uci-defaults §2)."""
+    parts = mac.split(':')
+    o4, o5 = int(parts[3], 16), int(parts[4], 16)
+    if o4 == 0:
+        o4 = 1
+    if o4 == 255:
+        o4 = 254
+    return o4, o5
+
+def _transit_ip(mac: str) -> str:
+    o4, o5 = _mac_octets_45(mac)
+    return f'172.30.{o4}.{o5}'
+
+def _bond_ip(mac: str) -> str:
+    o4, o5 = _mac_octets_45(mac)
+    return f'172.31.{o4}.{o5}'
+
+def _has_own_wan(d: IoTDevice) -> bool:
+    """True when the node's latest telemetry shows a real WAN uplink (not the
+    mesh transit or the pre-ph54 flat-L2 fallback)."""
+    from ..models import MeshRouterStats
+    s = MeshRouterStats.objects.filter(device=d).order_by('-time').first()
+    return bool(s and s.uplink_dev and s.uplink_dev not in ('bat0', 'bat0.30', 'br-private'))
+
+def _bond_config(device: IoTDevice, payload, now) -> Optional[BondConfigOut]:
+    """Bond role/peers for this node, or None when there is nothing to bond."""
+    if payload.firmware_role != 'bumblebee':
+        return None
+    if _ph_build(payload.firmware_version) < _BOND_MIN_BUILD:
+        return None
+    cutoff = now - _BOND_PEER_MAX_AGE
+    fleet = [
+        d for d in IoTDevice.objects.filter(
+            device_type='MESH_ROUTER', owner_id=device.owner_id, last_seen__gte=cutoff)
+        if (d.connection_info or {}).get('firmware_role') == 'bumblebee'
+        and _ph_build((d.connection_info or {}).get('firmware_version', '')) >= _BOND_MIN_BUILD
+        and d.wg_public_key
+    ]
+    if len(fleet) < 2 or not any(d.device_id == device.device_id for d in fleet):
+        return None
+    # Same mesh island only — the transit VLAN is one radio L2. While any
+    # fleet member still runs topology-less firmware, treat the fleet as one
+    # island (mirrors the guest-gateway election's fallback).
+    if all('mesh_macs' in (d.connection_info or {}) for d in fleet):
+        islands = _compute_islands(fleet)
+        island = next(
+            (i for i in islands if any(d.device_id == device.device_id for d in i)), None)
+    else:
+        island = fleet
+    if not island or len(island) < 2:
+        return None
+    fresh_cut = now - _BOND_HUB_FRESH
+    hub_pool = [d for d in island if d.last_seen and d.last_seen >= fresh_cut] or island
+    hub = sorted(hub_pool, key=lambda d: (not _has_own_wan(d), d.device_id))[0]
+    if device.device_id == hub.device_id:
+        role, peer_devs = 'hub', [d for d in island if d.device_id != hub.device_id]
+    else:
+        role, peer_devs = 'spoke', [hub]
+    return BondConfigOut(
+        role=role,
+        local_ip=_bond_ip(device.device_id),
+        peers=[
+            BondPeerOut(
+                pubkey=d.wg_public_key,
+                endpoint_ip=_transit_ip(d.device_id),
+                bond_ip=_bond_ip(d.device_id),
+            )
+            for d in peer_devs
+        ],
+    )
 
 def _elect_guest_gateway(mac: str, now) -> Optional[str]:
     """Designated guest-VLAN terminator MAC for the island containing `mac`,
@@ -429,6 +551,48 @@ def _record_router_stats(device: IoTDevice, stats, uptime: int, connection_info:
         logger.warning(f"Mesh stats write failed for {device.id}: {e}")
 
 
+def _extend_host_pass(device):
+    """Hosting reciprocity: a live node keeps its owner's mesh pass covered.
+
+    What you get out of the mesh follows what you put into it — while the node
+    heartbeats, its owner's own devices ride at full speed on every node of
+    every island, without paying. Coverage lapses on its own once the node
+    stops reporting, so this needs no expiry job.
+
+    Devices still sitting in the unclaimed fleet pool are skipped: nobody has
+    proven possession of them yet.
+    """
+    if not settings.MESH_HOST_PASS_DAYS or not device.owner_id:
+        return
+    if device.owner_id == settings.MESH_DEFAULT_OWNER_PROFILE_ID:
+        return
+    try:
+        credit = ensure_mesh_pass_floor(
+            device.owner,
+            days=settings.MESH_HOST_PASS_DAYS,
+            renew_below_days=settings.MESH_HOST_PASS_RENEW_BELOW_DAYS,
+        )
+    except Exception as e:
+        # Entitlement bookkeeping must never fail node provisioning
+        logger.warning(f"Host pass renewal failed for {device.id}: {e}")
+        return
+    if credit is None:
+        return
+    logger.info(
+        f"Host pass renewed for profile {device.owner_id} "
+        f"(+{credit.days}d) from node {device.device_id}"
+    )
+    # Announce the entitlement once, when it first appears — nobody asked for
+    # this pass, so without a nudge a host would only find it by accident.
+    # Later renewals stay silent; an owner who already bought one knows.
+    try:
+        if credit.mesh_pass.credits.count() == 1:
+            from notifications.services import notify_mesh_host_pass
+            notify_mesh_host_pass(device.owner.account, device)
+    except Exception as e:
+        logger.warning(f"Host pass notification failed for {device.id}: {e}")
+
+
 @router.post("/mesh/heartbeat", response=MeshHeartbeatOut, auth=None)
 @ratelimit(group='mesh:heartbeat', key='ip', rate='30/m')
 def mesh_heartbeat(request: HttpRequest, payload: MeshHeartbeatIn):
@@ -459,6 +623,8 @@ def mesh_heartbeat(request: HttpRequest, payload: MeshHeartbeatIn):
         'mesh_ip': payload.mesh_ip,
         'vpn_mode': payload.vpn_mode,
     }
+    if payload.private_ap is not None:
+        connection_info['private_ap'] = payload.private_ap
 
     # Mesh topology (ph37+) for per-island guest-gateway election. Key presence
     # marks a topology-reporting node — old firmware omits the fields entirely,
@@ -471,6 +637,23 @@ def mesh_heartbeat(request: HttpRequest, payload: MeshHeartbeatIn):
         connection_info['mesh_originators'] = sorted(
             {m.lower().strip() for m in payload.mesh_originators if MAC_RE.match(m.lower().strip())}
         )[:512]
+    # Originator-table routes (ph50+) for the topology graph. Key presence
+    # marks a links-reporting node, same contract as mesh_macs above.
+    if payload.mesh_links is not None:
+        mesh_links = []
+        for link in payload.mesh_links[:256]:
+            lo, ln = link.o.lower().strip(), link.n.lower().strip()
+            if not (MAC_RE.match(lo) and MAC_RE.match(ln)):
+                continue
+            mesh_links.append({'o': lo, 'n': ln,
+                               't': round(max(0.0, min(float(link.t), 100000.0)), 1)})
+        connection_info['mesh_links'] = mesh_links
+    # Hardware MACs (ph45+): the claim-by-sticker match set. device_id alone is
+    # br-private's address, which need not be the one printed on the label.
+    if payload.hw_macs is not None:
+        connection_info['hw_macs'] = sorted(
+            {m.lower().strip() for m in payload.hw_macs if MAC_RE.match(m.lower().strip())}
+        )[:32]
 
     # Guest leases (ph40+): validated MAC↔IPv4 pairs from the terminator's
     # guest subnet — the ground truth for translating bound device MACs into
@@ -498,7 +681,10 @@ def mesh_heartbeat(request: HttpRequest, payload: MeshHeartbeatIn):
         raise HttpError(500, "Mesh owner profile not configured")
 
     # Check if device already exists (to avoid overwriting owner on update)
-    existing = IoTDevice.objects.filter(device_id=mac, device_type='MESH_ROUTER').first()
+    # owner joined in: _extend_host_pass needs it, and a join beats a second
+    # round trip on a path every node walks every 5 minutes.
+    existing = IoTDevice.objects.filter(
+        device_id=mac, device_type='MESH_ROUTER').select_related('owner').first()
 
     if existing:
         # Update only heartbeat fields, preserve owner, location and user-set name
@@ -522,6 +708,8 @@ def mesh_heartbeat(request: HttpRequest, payload: MeshHeartbeatIn):
 
     if payload.stats is not None:
         _record_router_stats(device, payload.stats, payload.uptime, connection_info, now)
+
+    _extend_host_pass(device)
 
     # VPS WireGuard gateway: store pubkey + allocate IP for bumblebees
     vps_gateway = None
@@ -590,11 +778,14 @@ def mesh_heartbeat(request: HttpRequest, payload: MeshHeartbeatIn):
         status="ok", device_id=device.id, paid_clients=active_ips,
         ygg_allowed=ygg_allowed, vps_gateway=vps_gateway,
         guest_gateway=guest_gateway,
+        bond=_bond_config(device, payload, now),
         ygg_inbound_dead=ygg_inbound_status(mac) is False,
         rates=MeshRatesOut(
             guest_kbps=device.mesh_guest_rate_kbps or 512,
             host_mbps=_island_host_rate(device, now),
         ),
+        latitude=device.latitude,
+        longitude=device.longitude,
     )
 
 # Validate Yggdrasil 300::/64 subnet address
@@ -866,13 +1057,24 @@ def update_wifi_config(request, device_id: str, payload: WifiConfigIn):
 
     # Collect target devices
     if payload.apply_to_all:
-        # All bumblebee routers this user manages (own + MANAGER grants);
-        # bee has no private AP
+        # All routers this user manages (own + MANAGER grants) that actually
+        # broadcast the private AP. The firmware gates the AP on dual-band
+        # hardware, not on role — a dual-band bee has one and must not fall
+        # out of a fleet-wide rotation. private_ap is reported by ph54+
+        # heartbeats; older nodes fall back to the role heuristic (their only
+        # bees are single-band, where skipping is correct).
+        def _has_private_ap(r: IoTDevice) -> bool:
+            ci = r.connection_info or {}
+            pap = ci.get('private_ap')
+            if pap is not None:
+                return bool(pap)
+            return ci.get('firmware_role') != 'bee'
+
         all_routers = list(IoTDevice.objects.filter(
             accessible_q(request.auth_profile, ROLE_MANAGER),
             device_type='MESH_ROUTER',
         ))
-        targets = [r for r in all_routers if (r.connection_info or {}).get('firmware_role') != 'bee']
+        targets = [r for r in all_routers if _has_private_ap(r)]
     else:
         targets = [device]
 
@@ -1016,6 +1218,9 @@ class MeshNetworkOut(Schema):
     on_mesh: bool
     network: Optional[str] = None  # 'guest' | 'private'
     node_hostname: Optional[str] = None
+    # Map deep-link target (/map?device=mesh:{id}); only set when the node has
+    # coordinates — a link to a node the map layer can't resolve goes nowhere.
+    node_id: Optional[str] = None
 
 class MeshDeviceOut(Schema):
     id: str
@@ -1033,6 +1238,7 @@ class MeshPassOut(Schema):
     price_sats: int
     duration_days: int
     payments_available: bool
+    from_hosting: bool = False  # pass is being kept alive by a node the caller hosts
 
 class MeshInvoiceOut(Schema):
     invoice: str
@@ -1177,9 +1383,11 @@ def mesh_network(request: HttpRequest):
         return MeshNetworkOut(on_mesh=False)
     node = _fresh_node_by_ygg(ip)
     if node:
+        has_position = node.latitude is not None and node.longitude is not None
         return MeshNetworkOut(
             on_mesh=True, network='guest',
             node_hostname=(node.connection_info or {}).get('hostname'),
+            node_id=node.id if has_position else None,
         )
     if ipaddress.IPv6Address(ip) in _YGG_PRIVATE_NET:
         return MeshNetworkOut(on_mesh=True, network='private')
@@ -1192,14 +1400,20 @@ def mesh_pass_status(request):
     now = timezone.now()
     mp = MeshPass.objects.filter(profile=profile).first()
     devices = list(mp.devices.order_by('created_at')) if mp else []
+    # A node quiet for a day no longer explains the pass — it keeps running on
+    # whatever coverage the last heartbeat bought, so stop crediting hosting.
+    from_hosting = bool(settings.MESH_HOST_PASS_DAYS) and IoTDevice.objects.filter(
+        owner=profile, device_type='MESH_ROUTER', last_seen__gt=now - timedelta(days=1),
+    ).exists()
     return MeshPassOut(
         active=bool(mp and mp.expires_at > now),
         expires_at=mp.expires_at if mp else None,
         max_devices=mp.max_devices if mp else settings.MESH_PASS_MAX_DEVICES,
         devices=[_device_out(d) for d in devices],
-        price_sats=settings.MESH_SUBSCRIPTION_PRICE_SATS,
-        duration_days=settings.MESH_SUBSCRIPTION_DURATION_DAYS,
+        price_sats=config.MESH_SUBSCRIPTION_PRICE_SATS,
+        duration_days=config.MESH_SUBSCRIPTION_DURATION_DAYS,
         payments_available=bool(settings.MESH_LNBITS_URL and settings.MESH_LNBITS_INVOICE_KEY),
+        from_hosting=from_hosting,
     )
 
 @router.post("/mesh/pass/invoice", response=MeshInvoiceOut, auth=ProfileAuth())
@@ -1208,8 +1422,8 @@ def mesh_pass_invoice(request):
     """Create a Lightning invoice extending the caller's mesh pass."""
     profile = request.auth_profile
     lnbits = _get_mesh_lnbits()
-    amount = settings.MESH_SUBSCRIPTION_PRICE_SATS
-    days = settings.MESH_SUBSCRIPTION_DURATION_DAYS
+    amount = config.MESH_SUBSCRIPTION_PRICE_SATS
+    days = config.MESH_SUBSCRIPTION_DURATION_DAYS
     try:
         invoice = lnbits.create_invoice(amount_sats=amount, memo=f"Parahub mesh pass ({days}d)")
     except Exception as e:
@@ -1381,3 +1595,195 @@ def mesh_unbind(request, mesh_device_id: str):
 
     device_row.delete()
     return {"status": "removed"}
+
+
+# --- Fleet topology graph (staff) ---------------------------------------------
+
+class MeshGraphNodeOut(Schema):
+    id: str                      # IoTDevice ULID (links to /iot)
+    mac: str                     # device_id (br-private MAC)
+    hostname: str
+    name: str = ""
+    role: str = "unknown"
+    firmware_version: str = "unknown"
+    vpn_mode: str = "unknown"
+    fresh: bool = False          # heartbeat within the election window
+    last_seen: Optional[datetime] = None
+    uptime: int = 0
+    island: int = 0              # index into the response's island grouping
+    is_terminator: bool = False  # elected guest-VLAN terminator
+    reports_links: bool = False  # ph50+ firmware, direct edges available
+    wifi_clients: Optional[int] = None
+    guest_clients: Optional[int] = None
+
+
+class MeshGraphEdgeOut(Schema):
+    source: str                    # node ULID
+    target: str                    # node ULID
+    tp_ab: Optional[float] = None  # Mbit/s, link as measured by source
+    tp_ba: Optional[float] = None  # Mbit/s, link as measured by target
+    inferred: bool = False         # same-island sight only (pre-ph50 endpoints)
+
+
+class MeshGraphOut(Schema):
+    nodes: List[MeshGraphNodeOut]
+    edges: List[MeshGraphEdgeOut]
+    islands: int
+    fresh_nodes: int
+
+
+_GRAPH_NODE_HORIZON = timedelta(days=7)
+_GRAPH_LINK_HORIZON = timedelta(hours=1)
+
+
+@router.get("/mesh/graph", response=MeshGraphOut, auth=ProfileAuth())
+@ratelimit(group='mesh:graph', key=user_or_ip, rate='30/m')
+def mesh_graph(request):
+    """Fleet mesh topology graph.
+
+    Staff only — the fleet-wide picture (heartbeat state, VPN modes, elected
+    terminators) is operator data; owners see their own devices on /iot.
+
+    Nodes: mesh routers seen within 7 days, plus any older device a live node
+    still routes to (mesh alive, heartbeat dead — the interesting diagnostic).
+    Direct edges come from ph50+ originator tables: a row whose nexthop
+    interface belongs to the same node as the originator is a direct radio
+    link, with BATMAN_V throughput per reporting side. Pairs where neither
+    endpoint reports links fall back to a dashed "sees in island" edge.
+    """
+    profile = request.auth_profile
+    if not profile.account.is_staff:
+        raise HttpError(403, "Staff only")
+
+    from ..models import MeshRouterStats
+
+    now = timezone.now()
+    all_routers = list(IoTDevice.objects.filter(device_type='MESH_ROUTER'))
+    iface_owner = {}
+    for d in all_routers:
+        for m in (d.connection_info or {}).get('mesh_macs') or []:
+            iface_owner[m] = d
+
+    horizon = now - _GRAPH_NODE_HORIZON
+    nodes = {d.device_id: d for d in all_routers
+             if d.last_seen and d.last_seen >= horizon}
+
+    # Direct links from recent reporters. Max throughput per direction — a
+    # node pair usually shares several radio paths (two bands x two ifaces).
+    link_cut = now - _GRAPH_LINK_HORIZON
+    reporters = [d for d in all_routers
+                 if d.last_seen and d.last_seen >= link_cut
+                 and 'mesh_links' in (d.connection_info or {})]
+    direct = {}  # (reporter_mac, neighbor_mac) -> max Mbit/s
+    for d in reporters:
+        for row in (d.connection_info or {}).get('mesh_links') or []:
+            neigh = iface_owner.get(row.get('o'))
+            if neigh is None or neigh.device_id == d.device_id:
+                continue
+            if iface_owner.get(row.get('n')) is not neigh:
+                continue  # route via a third node — not adjacency
+            key = (d.device_id, neigh.device_id)
+            tp = float(row.get('t') or 0)
+            if tp > direct.get(key, -1.0):
+                direct[key] = tp
+            # a live node routes to it: keep it on the graph even when its
+            # own heartbeat is long dead
+            nodes.setdefault(neigh.device_id, neigh)
+
+    edges = []
+    seen_pairs = set()
+    for (a_mac, b_mac) in list(direct.keys()):
+        pair = tuple(sorted((a_mac, b_mac)))
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
+        edges.append(MeshGraphEdgeOut(
+            source=nodes[pair[0]].id,
+            target=nodes[pair[1]].id,
+            tp_ab=direct.get((pair[0], pair[1])),
+            tp_ba=direct.get((pair[1], pair[0])),
+        ))
+
+    # Fallback sight edges — only when NEITHER endpoint reports links: a
+    # reporting endpoint's table decides adjacency for the whole pair, so its
+    # absence there means multi-hop, not a missing edge.
+    macs_of = {m: set((d.connection_info or {}).get('mesh_macs') or [])
+               for m, d in nodes.items()}
+    origs_of = {m: set((d.connection_info or {}).get('mesh_originators') or [])
+                for m, d in nodes.items()}
+    for a, b in combinations(nodes.values(), 2):
+        if ('mesh_links' in (a.connection_info or {})
+                or 'mesh_links' in (b.connection_info or {})):
+            continue
+        pair = tuple(sorted((a.device_id, b.device_id)))
+        if pair in seen_pairs:
+            continue
+        if (macs_of[a.device_id] & origs_of[b.device_id]
+                or macs_of[b.device_id] & origs_of[a.device_id]):
+            seen_pairs.add(pair)
+            edges.append(MeshGraphEdgeOut(
+                source=nodes[pair[0]].id, target=nodes[pair[1]].id,
+                inferred=True))
+
+    # Island indices over the graph population (bees included) — purely a
+    # display grouping, unrelated to the election's fresh-bumblebee islands.
+    island_idx = {}
+    groups = sorted(_compute_islands(list(nodes.values())),
+                    key=lambda g: min(d.device_id for d in g))
+    for idx, group in enumerate(groups):
+        for d in group:
+            island_idx[d.device_id] = idx
+
+    # Elected terminators: read the election's sticky cache without voting.
+    terminators = set()
+    bumblebees = _fresh_bumblebees(now)
+    if bumblebees and all('mesh_macs' in (d.connection_info or {}) for d in bumblebees):
+        for isl in _compute_islands(bumblebees):
+            mac = cache.get(f"mesh_guest_gateway:island:{min(d.device_id for d in isl)}")
+            if mac:
+                terminators.add(mac)
+    else:
+        mac = cache.get('mesh_guest_gateway')
+        if mac:
+            terminators.add(mac)
+    for d in nodes.values():
+        if d.guest_gateway_force and \
+                (d.connection_info or {}).get('vpn_mode') in ('vps', 'mullvad'):
+            terminators.add(d.device_id)
+
+    latest_stats = {
+        s.device_id: s for s in MeshRouterStats.objects.filter(
+            device_id__in=[d.id for d in nodes.values()],
+            time__gte=link_cut,
+        ).order_by('device_id', '-time').distinct('device_id')
+    }
+
+    fresh_cut = now - _GUEST_GW_FRESH
+    out_nodes = []
+    for d in sorted(nodes.values(), key=lambda x: (x.connection_info or {}).get('hostname') or x.device_id):
+        ci = d.connection_info or {}
+        st = latest_stats.get(d.id)
+        out_nodes.append(MeshGraphNodeOut(
+            id=d.id,
+            mac=d.device_id,
+            hostname=ci.get('hostname') or d.name or d.device_id,
+            name=d.name or "",
+            role=ci.get('firmware_role') or 'unknown',
+            firmware_version=ci.get('firmware_version') or 'unknown',
+            vpn_mode=ci.get('vpn_mode') or 'unknown',
+            fresh=bool(d.last_seen and d.last_seen >= fresh_cut),
+            last_seen=d.last_seen,
+            uptime=int(ci.get('uptime') or 0),
+            island=island_idx.get(d.device_id, 0),
+            is_terminator=d.device_id in terminators,
+            reports_links='mesh_links' in ci,
+            wifi_clients=st.wifi_clients if st else None,
+            guest_clients=st.guest_clients if st else None,
+        ))
+
+    return MeshGraphOut(
+        nodes=out_nodes,
+        edges=edges,
+        islands=len(groups),
+        fresh_nodes=sum(1 for n in out_nodes if n.fresh),
+    )

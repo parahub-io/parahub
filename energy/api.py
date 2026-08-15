@@ -65,8 +65,13 @@ class EnergyCellCreateIn(Schema):
 
 
 class EnergyCellUpdateIn(Schema):
+    name: Optional[str] = None
     description: Optional[str] = None
     current_price_eur: Optional[float] = None
+    radius_km: Optional[float] = None
+    transformer_id: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class JoinProducerIn(Schema):
@@ -175,10 +180,12 @@ def _check_wot3(profile: Profile):
 @ratelimit(group='energy:cells_map', key='ip', rate='60/m')
 def cells_map(request):
     """
-    Public GeoJSON-style list of all active energy cells for the map layer.
-    No auth required — cells are not sensitive.
+    Public GeoJSON-style list of all energy cells for the map layer and list page.
+    No auth required — cells are not sensitive. OFFLINE cells are included:
+    fresh cells start OFFLINE (no producers yet) and must stay discoverable
+    so neighbors can find and join them.
     """
-    cells = EnergyCell.objects.exclude(status=EnergyCell.Status.OFFLINE)
+    cells = EnergyCell.objects.all()
     return [_cell_to_map(c) for c in cells]
 
 
@@ -231,12 +238,41 @@ def cell_update(request, cell_id: str, payload: EnergyCellUpdateIn):
     cell = get_object_or_404(EnergyCell, id=cell_id)
     if cell.created_by_id != profile.id and not profile.account.is_superuser:
         raise HttpError(403, "Only cell creator can update settings")
+    if payload.name is not None:
+        name = payload.name.strip()
+        if not name:
+            raise HttpError(400, "Name cannot be empty")
+        cell.name = name
     if payload.description is not None:
         cell.description = payload.description
     if payload.current_price_eur is not None:
         cell.current_price_eur = Decimal(str(payload.current_price_eur))
+    if payload.radius_km is not None:
+        if payload.radius_km not in (2.0, 4.0):
+            raise HttpError(400, "radius_km must be 2 (LV) or 4 (MV)")
+        cell.radius_km = payload.radius_km
+    if payload.transformer_id is not None:
+        cell.transformer_id = payload.transformer_id.strip()
+    if (payload.latitude is None) != (payload.longitude is None):
+        raise HttpError(400, "latitude and longitude must be provided together")
+    if payload.latitude is not None:
+        cell.location = Point(payload.longitude, payload.latitude, srid=4326)
     cell.save()
     return _cell_to_detail(cell)
+
+
+@router.delete('/cells/{cell_id}/', response={200: dict, 400: dict, 403: dict}, auth=ProfileAuth())
+@ratelimit(group='energy:cell_delete', key=user_or_ip, rate='10/m', method='DELETE')
+def cell_delete(request, cell_id: str):
+    """Delete a cell. Only creator or admin, and only while it has no active members."""
+    profile: Profile = request.auth
+    cell = get_object_or_404(EnergyCell, id=cell_id)
+    if cell.created_by_id != profile.id and not profile.account.is_superuser:
+        raise HttpError(403, "Only cell creator can delete the cell")
+    if cell.producers.filter(is_active=True).exists() or cell.consumers.filter(is_active=True).exists():
+        raise HttpError(400, "Cell has active members — they must leave first")
+    cell.delete()
+    return 200, {'success': True}
 
 
 # ── Members ────────────────────────────────────────────────────────────────────

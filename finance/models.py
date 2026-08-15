@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from core.models import ULIDModel
-from identity.models import Profile
+from identity.models import Account, Profile
 
 
 class Payment(ULIDModel):
@@ -36,6 +36,8 @@ class Donation(ULIDModel):
         WALLET_SEND = 'WALLET_SEND', 'After wallet P2P send'
         ADS_CAMPAIGN = 'ADS_CAMPAIGN', 'Ads campaign listing fee'
         MANUAL = 'MANUAL', 'Manual donation'
+        PROFILE_TIP = 'PROFILE_TIP', 'After profile tip'
+        SUBSCRIPTION = 'SUBSCRIPTION', 'After P2P subscription payment'
 
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Pending'
@@ -60,6 +62,32 @@ class Donation(ULIDModel):
 
     def __str__(self):
         return f"Donation {self.donation_amount_sats} sats from {self.profile_id} ({self.source})"
+
+
+class WalletSyncBlob(ULIDModel):
+    """Opt-in encrypted cross-device sync of client-side wallet context.
+
+    Tip batches and payment annotations live in localStorage by design — the
+    server is never told who paid whom. This row lets a user who explicitly
+    opted in carry that context between their own devices: the client encrypts
+    the whole store with AES-256-GCM under a key derived from the wallet seed
+    (HKDF, client-side) and stores only the ciphertext here. The server cannot
+    read it; it learns only that an encrypted store exists, its size and update
+    times. Row existence IS the account-level "sync enabled" flag — disabling
+    sync deletes the row.
+    """
+
+    account = models.OneToOneField(
+        Account, on_delete=models.CASCADE, related_name='wallet_sync_blob',
+    )
+    # base64(iv || AES-256-GCM ciphertext), key never leaves the client.
+    ciphertext = models.TextField()
+
+    class Meta:
+        db_table = 'finance_wallet_sync_blob'
+
+    def __str__(self):
+        return f"WalletSyncBlob for account {self.account_id} ({len(self.ciphertext)} chars)"
 
 
 class Subscription(ULIDModel):

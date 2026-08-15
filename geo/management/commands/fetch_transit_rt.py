@@ -34,6 +34,105 @@ STATUS_MAP = {0: 'INCOMING_AT', 1: 'STOPPED_AT', 2: 'IN_TRANSIT_TO'}
 # Downsample: save at most 1 position per vehicle per minute
 HISTORY_MIN_INTERVAL_S = 60
 
+# TML's GO Hub publishes ONE combined GTFS-RT feed carrying every operator it
+# hosts (~1250 vehicles), each vehicle id bracketed with the operator's internal
+# GO agency id: "[7NTB1]14241". A source reading that feed must keep only its
+# own operator's vehicles, or every daemon ingests the foreign ones under its
+# own ds_id — duplicated map markers and a poisoned STT. Per-feed opt-in keyed
+# by TransitDataSource.slug (same shape as SYNTHESIZE_LINE_ID_FEEDS); the prefix
+# is stripped from the stored id so vehicle history keys stay stable if TML ever
+# renumbers plans. Values are TUPLES because one operator can span several GO
+# agency ids (CRTM is published as two: one plan per interurban lot).
+# See PK/gtfs-feed-quirks.md "GO Hub (TML)".
+RT_VEHICLE_PREFIX = {
+    'fertagus': ('[7NTB1]',),
+    'tcb-barreiro': ('[A3H3M]',),
+    'cascais-proxima': ('[HF16N]',),
+    'crtm-madrid': ('[G8N1G]', '[DFS5M]'),
+    # Live layer only — TTSL's static stays the operator's own feed, whose
+    # route_ids ("3_0") and stop_ids ("3") the GO Hub RT matches verbatim.
+    'transtejo-soflusa': ('[LTP61]',),
+    # cp-rail's static moved TO the GO Hub plan so these ids resolve; against
+    # CP's own export they did not (line-based SINTRA_1 vs O-D 21-94_…).
+    'cp-rail': ('[N18KL]',),
+}
+
+# GO Hub also publishes per-vehicle STATIC metadata (make/model/plate/
+# accessibility) as one combined JSON for all operators it hosts. Feeds that
+# opt in get it fetched on the 10-min config-refresh cadence — it is fleet
+# registry data, not telemetry, so it has no place in the 15s vehicle loop —
+# and joined onto parsed vehicles as '_meta', riding the existing CM pipeline
+# (stripped off in _poll_sources into transit:vmeta:* for the popup endpoint).
+# Join: records are matched by their GO agency_id (RT_VEHICLE_PREFIX minus
+# brackets) and keyed by vehicle_id after its '<gtfs agency id>-' prefix
+# ("21-1002" → "1002" = the RT vehicle id after OUR prefix strip). Coverage is
+# whatever TML has registered: today that resolves Cascais Próxima (~2/3 of its
+# live fleet); Fertagus's registry ids don't match its RT train numbers and
+# CP/TTSL/TCB/CRTM have no records yet — the join is simply empty there and
+# self-heals as TML registers fleets. See PK/gtfs-feed-quirks.md "GO Hub".
+GOHUB_VMETA_URL = 'https://go.tmlmobilidade.pt/hub/api/v1/realtime/vehicles/metadata'
+VMETA_REFRESH_S = 600
+
+
+def _gohub_meta_compact(rec):
+    """Map a GO Hub metadata record to the compact vmeta keys the popup
+    endpoint serves (same shapes as the CM JSON path: booleans for wc/bk,
+    strings for the rest). 'owner' is the operating company's display name
+    ("Martín SA") — same semantics as CM's 'ow'."""
+    meta = {}
+    for src, short in (('wheelchair', 'wc'), ('bicycles', 'bk'),
+                       ('propulsion', 'pr'), ('make', 'mk'),
+                       ('model', 'md'), ('license_plate', 'lp'),
+                       ('owner', 'ow')):
+        val = rec.get(src)
+        if val not in (None, ''):
+            meta[short] = val
+    return meta
+
+
+def build_gohub_vmeta_map(records, agency_ids):
+    """{rt_vehicle_id: compact_meta} for one feed from the combined registry.
+
+    Registry vehicle_ids are '<gtfs agency id>-<fleet id>' ("21-1002",
+    "16-C001"); the RT feed's ids (after our GO-prefix strip) are the bare
+    fleet id, so the join key drops everything up to the first dash.
+    """
+    vmap = {}
+    for rec in records or []:
+        if rec.get('agency_id') not in agency_ids:
+            continue
+        vid = rec.get('vehicle_id') or ''
+        if '-' in vid:
+            vid = vid.split('-', 1)[1]
+        meta = _gohub_meta_compact(rec)
+        if vid and meta:
+            vmap[vid] = meta
+    return vmap
+
+
+# Every combined-feed source reads the same registry — derived, not duplicated.
+RT_VEHICLE_META_URL = {slug: GOHUB_VMETA_URL for slug in RT_VEHICLE_PREFIX}
+
+
+# GTFS-RT timestamps are POSIX seconds, but GO Hub emits milliseconds. Read as
+# seconds, a ms value lands in the year 58k: it passes every freshness cutoff
+# forever (ghosts never expire), history rows get absurd times and the RT health
+# endpoint's freshest_age goes negative. 10**12 seconds is the year 33658, so
+# the magnitude alone separates the two for any real feed.
+_MS_TIMESTAMP_MIN = 10 ** 12
+
+
+def _rt_timestamp(raw):
+    """Normalize a feed timestamp to POSIX seconds, falling back to receive time.
+
+    The fallback matters on its own: protobuf's default 0 for a missing
+    timestamp would read as infinitely stale and silently blank the feed.
+    """
+    ts = int(raw or 0)
+    if ts > _MS_TIMESTAMP_MIN:
+        return ts // 1000
+    return ts or int(time.time())
+
 
 class Command(BaseCommand):
     help = 'Daemon: fetch GTFS-RT vehicle positions (async, per-source scaling)'
@@ -91,6 +190,10 @@ class Command(BaseCommand):
 
         timeout = aiohttp.ClientTimeout(total=15)
 
+        # Per-slug {rt_vehicle_id: compact_meta} from the combined registry
+        self._vmeta_maps: dict[str, dict] = {}
+        await self._refresh_vehicle_meta(sources, timeout)
+
         while True:
             now_m = time.monotonic()
 
@@ -99,6 +202,7 @@ class Command(BaseCommand):
                 sources = await self._load_sources(slugs)
                 ds_ids = [ds.id for ds in sources] if slugs else None
                 await route_cache.refresh(redis_conn=redis_pub, data_source_ids=ds_ids)
+                await self._refresh_vehicle_meta(sources, timeout)
 
             # Determine which sources are due for polling
             due = []
@@ -118,6 +222,39 @@ class Command(BaseCommand):
             # Smart sleep: wait until next source is due
             sleep_time = self._calc_sleep(sources, last_poll, override_interval)
             await asyncio.sleep(sleep_time)
+
+    async def _refresh_vehicle_meta(self, sources, timeout):
+        """Refresh the per-slug static-metadata join maps (10-min cadence).
+
+        A fetch failure keeps the previous map — registry data barely changes,
+        so serving a stale join beats blanking every popup for the cycle.
+        """
+        wanted = {}
+        for ds in sources:
+            url = RT_VEHICLE_META_URL.get(ds.slug)
+            if url:
+                wanted.setdefault(url, []).append(ds)
+        if not wanted:
+            return
+
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            for url, url_sources in wanted.items():
+                try:
+                    async with session.get(url) as resp:
+                        resp.raise_for_status()
+                        payload = await resp.json()
+                except Exception as e:
+                    logger.warning(f'Vehicle metadata fetch failed ({url}): {e}')
+                    continue
+                records = payload.get('data') if isinstance(payload, dict) else payload
+                for ds in url_sources:
+                    agency_ids = {p.strip('[]') for p in RT_VEHICLE_PREFIX.get(ds.slug, ())}
+                    self._vmeta_maps[ds.slug] = build_gohub_vmeta_map(records, agency_ids)
+                logger.info(
+                    'Vehicle metadata refreshed: '
+                    + ', '.join(f'{ds.slug}={len(self._vmeta_maps.get(ds.slug, {}))}'
+                                for ds in url_sources)
+                )
 
     async def _poll_sources(self, sources, route_cache, snapper, stt, redis_pub,
                             timeout, last_poll, last_saved):
@@ -139,6 +276,12 @@ class Command(BaseCommand):
         for ds, result in zip(sources, results):
             if isinstance(result, Exception):
                 logger.error(f'RT fetch failed for {ds.name}: {result}')
+                # Keep the in-memory copy in step with the row: the clear-on-success
+                # branch below tests `ds.last_error`, and `sources` is only re-read
+                # every 10 min — leaving it stale kept the DB flag set for up to that
+                # long after recovery, so anything reading it (feed-health sampler,
+                # RT health endpoint) reported an outage that had already ended.
+                ds.last_error = str(result)[:500]
                 await sync_to_async(
                     lambda ds_id=ds.id, err=str(result)[:500]:
                         TransitDataSource.objects.filter(id=ds_id).update(last_error=err)
@@ -165,6 +308,7 @@ class Command(BaseCommand):
 
             # Clear last_error on success
             if ds.last_error:
+                ds.last_error = ''
                 await sync_to_async(
                     lambda ds_id=ds.id:
                         TransitDataSource.objects.filter(id=ds_id).update(last_error='')
@@ -371,7 +515,7 @@ class Command(BaseCommand):
                 'rn': name,
                 'rt': rtype,
                 'st': v.get('current_status', ''),
-                't': v.get('timestamp') or int(time.time()),
+                't': _rt_timestamp(v.get('timestamp')),
                 'tid': v.get('trip_id', ''),
                 'sid': stop_id,
                 'd': direction_id,
@@ -402,9 +546,20 @@ class Command(BaseCommand):
         feed = gtfs_realtime_pb2.FeedMessage()
         feed.ParseFromString(data)
 
+        prefixes = RT_VEHICLE_PREFIX.get(ds.slug, ())
+        meta_map = getattr(self, '_vmeta_maps', {}).get(ds.slug, {})
+
         vehicles = []
         for entity in feed.entity:
             vp = entity.vehicle
+            vehicle_id = vp.vehicle.id or entity.id
+            # Combined multi-operator feed: drop foreign operators before any
+            # snapping work, then carry this source's bare vehicle id onward.
+            if prefixes:
+                match = next((p for p in prefixes if vehicle_id.startswith(p)), None)
+                if match is None:
+                    continue
+                vehicle_id = vehicle_id[len(match):]
             if not vp.position.latitude or not vp.position.longitude:
                 continue
             route_src = vp.trip.route_id
@@ -423,8 +578,8 @@ class Command(BaseCommand):
                 if snap_result:
                     stop_id = snap_result[0]
 
-            vehicles.append({
-                'v': vp.vehicle.id or entity.id,
+            veh = {
+                'v': vehicle_id,
                 'lat': vp.position.latitude,
                 'lon': vp.position.longitude,
                 # proto2 returns 0.0 for an unset bearing, indistinguishable from
@@ -437,17 +592,21 @@ class Command(BaseCommand):
                 'rn': name,
                 'rt': rtype,
                 'st': STATUS_MAP.get(vp.current_status, str(vp.current_status)),
-                # Fallback to receive time (mirrors the CM JSON path): protobuf
-                # default 0 for a missing timestamp would otherwise read as
-                # infinitely stale and silently blank the whole feed
-                't': vp.timestamp or int(time.time()),
+                't': _rt_timestamp(vp.timestamp),
                 'tid': vp.trip.trip_id,
                 'sid': stop_id,
                 'd': direction_id,
                 'hs': headsign,
                 'ps': place_slug,
                 'rs': route_slug,
-            })
+            }
+            # Registry-joined static metadata rides the same '_meta' side
+            # channel as the CM JSON path — stripped off in _poll_sources
+            # into transit:vmeta:* for the popup endpoint.
+            meta = meta_map.get(vehicle_id)
+            if meta:
+                veh['_meta'] = meta
+            vehicles.append(veh)
         return vehicles
 
     async def _insert_history(self, batch):

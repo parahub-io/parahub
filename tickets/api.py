@@ -32,34 +32,29 @@ router = Router(tags=["Tickets"])
 
 
 # ── Operator permissions ─────────────────────────────────────────────
-# Personal types: the operator profile. Establishment types: membership roles.
-
-MANAGE_ROLES = ('OWNER', 'ADMIN')
-VALIDATE_ROLES = ('OWNER', 'ADMIN', 'EMPLOYEE', 'CONTRACTOR')
-
-
-def _is_establishment_member(profile, establishment_id: str, roles) -> bool:
-    from geo.models import EstablishmentMembership
-    return EstablishmentMembership.objects.filter(
-        profile_id=profile.id, establishment_id=establishment_id, role__in=roles,
-    ).exists()
+# Personal types: the operator profile. Establishment types: capabilities, so
+# who counts as staff of the operator is decided in one place (geo/permissions).
 
 
 def _can_manage(tt: TicketType, profile) -> bool:
     """Edit/deactivate rights."""
+    from geo.permissions import has_capability
+
     if profile.account.is_staff:
         return True
     if tt.operator_establishment_id:
-        return _is_establishment_member(profile, tt.operator_establishment_id, MANAGE_ROLES)
+        return has_capability(profile, tt.operator_establishment_id, 'tickets.manage')
     return tt.operator_id == profile.id
 
 
 def _can_validate(tt: TicketType, profile) -> bool:
     """Scan/validate rights (also grants operator-side ticket detail view)."""
+    from geo.permissions import has_capability
+
     if profile.account.is_staff:
         return True
     if tt.operator_establishment_id:
-        return _is_establishment_member(profile, tt.operator_establishment_id, VALIDATE_ROLES)
+        return has_capability(profile, tt.operator_establishment_id, 'tickets.validate')
     return tt.operator_id == profile.id
 
 
@@ -361,8 +356,9 @@ def create_ticket_type(request, data: TicketTypeCreateReq):
             establishment = Establishment.objects.get(id=data.operator_establishment_id)
         except Establishment.DoesNotExist:
             raise HttpError(404, "Establishment not found")
-        if not profile.account.is_staff and not _is_establishment_member(
-            profile, establishment.id, MANAGE_ROLES,
+        from geo.permissions import has_capability
+        if not profile.account.is_staff and not has_capability(
+            profile, establishment, 'tickets.manage',
         ):
             raise HttpError(403, "Must be OWNER or ADMIN of the establishment")
         if not establishment.ln_address and not establishment.spark_address:
@@ -826,9 +822,11 @@ class OperatorStatsOut(Schema):
 
 def _operator_types(profile, establishment_id: Optional[str]):
     """TicketType queryset for an operator context. 403 if not allowed."""
+    from geo.permissions import has_capability
+
     if establishment_id:
-        if not profile.account.is_staff and not _is_establishment_member(
-            profile, establishment_id, MANAGE_ROLES,
+        if not profile.account.is_staff and not has_capability(
+            profile, establishment_id, 'tickets.manage',
         ):
             raise HttpError(403, "Not a manager of this establishment")
         return TicketType.objects.filter(operator_establishment_id=establishment_id)
@@ -854,7 +852,8 @@ def _target_name(route_name, agency_name, event_title):
 def operator_contexts(request):
     """Operator contexts for the dashboard: personal + managed establishments."""
     profile = request.auth_profile
-    from geo.models import EstablishmentMembership
+    from geo.models import Establishment
+    from geo.permissions import establishment_ids_with_capability
     out = [OperatorContextOut(
         establishment_id=None,
         name=profile.display_name,
@@ -862,15 +861,15 @@ def operator_contexts(request):
             operator=profile, operator_establishment__isnull=True,
         ).count(),
     )]
-    memberships = EstablishmentMembership.objects.filter(
-        profile=profile, role__in=MANAGE_ROLES,
-    ).select_related('establishment')
-    for m in memberships:
+    managed = Establishment.objects.filter(
+        id__in=establishment_ids_with_capability(profile, 'tickets.manage'),
+    ).order_by('name')
+    for est in managed:
         out.append(OperatorContextOut(
-            establishment_id=m.establishment_id,
-            name=m.establishment.name,
+            establishment_id=est.id,
+            name=est.name,
             types_count=TicketType.objects.filter(
-                operator_establishment_id=m.establishment_id,
+                operator_establishment_id=est.id,
             ).count(),
         ))
     return out
@@ -937,10 +936,8 @@ class ValidableTypeOut(Schema):
 def validable_types(request):
     """Active types the user may validate — cached by the scanner for offline mode."""
     profile = request.auth_profile
-    from geo.models import EstablishmentMembership
-    est_ids = list(EstablishmentMembership.objects.filter(
-        profile=profile, role__in=VALIDATE_ROLES,
-    ).values_list('establishment_id', flat=True))
+    from geo.permissions import establishment_ids_with_capability
+    est_ids = list(establishment_ids_with_capability(profile, 'tickets.validate'))
     qs = TicketType.objects.filter(
         db_models.Q(operator=profile, operator_establishment__isnull=True) |
         db_models.Q(operator_establishment_id__in=est_ids),

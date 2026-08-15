@@ -3,6 +3,7 @@
     "title": "Despacho",
     "page_title": "Despacho - Parahub",
     "subtitle": "Atribuição de veículos a rotas",
+    "assignments": "Atribuições",
     "staff_only": "Apenas para funcionários",
     "assign": "Atribuir",
     "stats_active": "Ativos",
@@ -35,6 +36,15 @@
     "notes_placeholder": "Notas opcionais...",
     "create_assignment": "Criar Atribuição",
     "error_create": "Falha ao criar atribuição",
-    "error_action": "Falha"
+    "error_action": "Falha",
+    "cancel_sure": "De certeza?",
+    "status": {
+      "ACTIVE": "Ativa",
+      "ASSIGNED": "Atribuída",
+      "COMPLETED": "Concluída",
+      "CANCELLED": "Cancelada"
+    },
+    "no_operator": "Sem operador",
+    "no_operator_hint": "O despacho é para operadores de transporte — ainda não gere nenhum. Peça a um operador para o adicionar, ou crie a sua própria agência."
   }
 }

@@ -1,0 +1,39 @@
+{
+  "moderation": {
+    "report": "Denunciar",
+    "report_title": "Denunciar contenido",
+    "report_intro": "Cuéntanos qué está mal con este contenido. Las denuncias las revisa el equipo de moderación.",
+    "report_reason_label": "Motivo",
+    "reasons": {
+      "spam": "Spam o engañoso",
+      "fraud": "Estafa o fraude",
+      "harassment": "Acoso u odio",
+      "sexual": "Contenido sexual o explícito",
+      "violence": "Violencia o actos peligrosos",
+      "illegal": "Bienes o actividades ilegales",
+      "other": "Otro"
+    },
+    "report_details_label": "Detalles (opcional)",
+    "report_details_placeholder": "Todo lo que nos ayude a entender el problema",
+    "report_submit": "Enviar denuncia",
+    "report_sent": "Denuncia enviada. Gracias — la revisaremos.",
+    "report_error": "No se pudo enviar la denuncia",
+    "error_codes": {
+      "report_already_pending": "Ya denunciaste este contenido — está pendiente de revisión",
+      "report_own_content": "No puedes denunciar tu propio contenido",
+      "report_target_not_found": "El contenido denunciado ya no existe",
+      "dm_blocked": "No puedes chatear con este usuario"
+    },
+    "block": "Bloquear",
+    "unblock": "Desbloquear",
+    "block_title": "¿Bloquear a este usuario?",
+    "block_message": "No verás sus anuncios, comentarios ni su avatar en el mapa, y los nuevos chats entre vosotros serán rechazados. No recibe notificación.",
+    "blocked_toast": "Usuario bloqueado",
+    "unblocked_toast": "Usuario desbloqueado",
+    "block_error": "No se pudo actualizar el bloqueo",
+    "blocked_badge": "Bloqueado",
+    "blocked_users": "Usuarios bloqueados",
+    "blocked_users_desc": "Personas que has bloqueado. Su contenido queda oculto para ti y los nuevos chats se rechazan.",
+    "blocked_empty": "No has bloqueado a nadie"
+  }
+}

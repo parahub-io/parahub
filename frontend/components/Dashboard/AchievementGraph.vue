@@ -33,7 +33,7 @@
 
       <!-- Grid lines from center to each point (straight lines) -->
       <line
-        v-for="(point, index) in pentagonPoints"
+        v-for="(point, index) in nodePoints"
         :key="`line-${index}`"
         :x1="center"
         :y1="center"
@@ -53,11 +53,11 @@
         class="transition-all duration-500"
       />
 
-      <!-- Pentagon points (achievement nodes) -->
+      <!-- Achievement nodes (one polygon vertex per category) -->
       <g v-for="(achievement, index) in achievements" :key="achievement.category">
         <circle
-          :cx="pentagonPoints[index].x"
-          :cy="pentagonPoints[index].y"
+          :cx="nodePoints[index].x"
+          :cy="nodePoints[index].y"
           :r="getNodeRadius(achievement.level)"
           :fill="getNodeColor(achievement.level)"
           :stroke="getNodeStrokeColor(achievement.level)"
@@ -73,8 +73,8 @@
 
         <!-- Level indicator (number inside node) -->
         <text
-          :x="pentagonPoints[index].x"
-          :y="pentagonPoints[index].y"
+          :x="nodePoints[index].x"
+          :y="nodePoints[index].y"
           text-anchor="middle"
           dominant-baseline="middle"
           class="text-xs font-bold fill-white pointer-events-none select-none"
@@ -96,8 +96,8 @@
         <g v-if="hoveredCategory === achievement.category">
           <!-- Tooltip background with subtle styling -->
           <rect
-            :x="pentagonPoints[index].x - 35"
-            :y="pentagonPoints[index].y - 50"
+            :x="nodePoints[index].x - 35"
+            :y="nodePoints[index].y - 50"
             width="70"
             height="24"
             rx="6"
@@ -108,8 +108,8 @@
           />
           <!-- Progress text -->
           <text
-            :x="pentagonPoints[index].x"
-            :y="pentagonPoints[index].y - 33"
+            :x="nodePoints[index].x"
+            :y="nodePoints[index].y - 33"
             text-anchor="middle"
             class="text-xs fill-secondary-700 font-semibold"
           >
@@ -143,45 +143,35 @@ const hoveredCategory = ref<string | null>(null)
 const center = computed(() => props.size / 2)
 const radius = computed(() => props.size * 0.32)
 
-// Calculate pentagon points (5 points in a circle)
-const pentagonPoints = computed(() => {
+// One polygon vertex per achievement category
+const nodeCount = computed(() => props.achievements.length)
+
+function ringPoints(ringRadius: number) {
   const points = []
   const angleOffset = -Math.PI / 2 // Start from top
 
-  for (let i = 0; i < 5; i++) {
-    const angle = angleOffset + (i * 2 * Math.PI / 5)
+  for (let i = 0; i < nodeCount.value; i++) {
+    const angle = angleOffset + (i * 2 * Math.PI / nodeCount.value)
     points.push({
-      x: center.value + radius.value * Math.cos(angle),
-      y: center.value + radius.value * Math.sin(angle)
+      x: center.value + ringRadius * Math.cos(angle),
+      y: center.value + ringRadius * Math.sin(angle)
     })
   }
 
   return points
-})
+}
 
-// Calculate label positions (further out from points)
-const labelPositions = computed(() => {
-  const labelRadius = radius.value * 1.30
-  const angleOffset = -Math.PI / 2
-  const points = []
+const nodePoints = computed(() => ringPoints(radius.value))
 
-  for (let i = 0; i < 5; i++) {
-    const angle = angleOffset + (i * 2 * Math.PI / 5)
-    points.push({
-      x: center.value + labelRadius * Math.cos(angle),
-      y: center.value + labelRadius * Math.sin(angle)
-    })
-  }
-
-  return points
-})
+// Label positions (further out from points)
+const labelPositions = computed(() => ringPoints(radius.value * 1.30))
 
 // Create achievement polygon points (simple, no curves)
 const achievementPolygonPoints = computed(() => {
   if (props.achievements.length === 0) return ''
 
   const points = props.achievements.map((achievement, index) => {
-    const point = pentagonPoints.value[index]
+    const point = nodePoints.value[index]
     const levelRatio = achievement.level / 2 // Max level is 2
     const x = center.value + (point.x - center.value) * levelRatio
     const y = center.value + (point.y - center.value) * levelRatio
@@ -235,7 +225,8 @@ function getCategoryLabel(category: string): string {
     goods_services: 'Goods',
     profile: 'Profile',
     ads: 'Ads',
-    verifications: 'Trust'
+    verifications: 'Trust',
+    ambassador: 'Invites'
   }
   return labels[category] || category
 }

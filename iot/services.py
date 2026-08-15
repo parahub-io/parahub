@@ -115,7 +115,11 @@ class TraccarService:
         """Import/sync devices from Traccar DB for a Parahub profile.
 
         Finds the Traccar user by matching email, then imports all their
-        devices as IoTDevice(type=TRACKER) records.
+        devices as IoTDevice(type=TRACKER) records. A device someone else
+        already owns here is mirrored as a shared-access grant rather than
+        imported again: Traccar permissions are many-to-many, so one physical
+        tracker reaches every user it is shared with. Traccar stays upstream —
+        unsharing has to happen there, or the next sync mirrors it back.
         Returns count of newly imported devices.
         """
         email = profile.account.email
@@ -158,50 +162,57 @@ class TraccarService:
         finally:
             conn.close()
 
-        # Already linked device IDs
-        existing_ids = set(
-            IoTDevice.objects.filter(
-                owner=profile,
-                traccar_device_id__isnull=False,
-            ).values_list('traccar_device_id', flat=True)
-        )
+        from core.models import ObjectAccess
+
+        # Rows already holding these Traccar devices, looked up across all
+        # owners rather than per owner: an owner-scoped check cannot see
+        # another profile's row for the same tracker, so every user the device
+        # is permitted to used to mint their own copy of it — each invisible
+        # to the others, since device lists filter by access.
+        known = {
+            d.traccar_device_id: d
+            for d in IoTDevice.objects.filter(
+                traccar_device_id__in=[td['id'] for td in traccar_devices],
+            )
+        }
 
         imported = 0
         for td in traccar_devices:
             td_id = td['id']
-            if td_id in existing_ids:
-                # Update name/status for existing devices
-                last_update = td['lastupdate']
-                if last_update and last_update.tzinfo is None:
-                    last_update = last_update.replace(tzinfo=pytz.UTC)
-                IoTDevice.objects.filter(
-                    owner=profile, traccar_device_id=td_id
-                ).update(
-                    name=td['name'],
-                    last_seen=last_update,
-                )
+            last_update = td['lastupdate']
+            if last_update and last_update.tzinfo is None:
+                last_update = last_update.replace(tzinfo=pytz.UTC)
+
+            existing = known.get(td_id)
+            if existing is not None:
+                if existing.owner_id == profile.id:
+                    IoTDevice.objects.filter(pk=existing.pk).update(
+                        name=td['name'],
+                        last_seen=last_update,
+                    )
+                else:
+                    # Shared in Traccar, owned by someone else here — mirror
+                    # the permission onto their device instead of copying it
+                    ObjectAccess.objects.get_or_create(
+                        object_id=existing.id,
+                        profile=profile,
+                        defaults={'role': ObjectAccess.Role.VIEWER},
+                    )
                 continue
 
-            # Check if device_id (uniqueId) already exists unlinked
-            existing = IoTDevice.objects.filter(
-                owner=profile, device_id=td['uniqueid'],
+            # Registered in Parahub first, waiting to be linked to Traccar
+            unlinked = IoTDevice.objects.filter(
+                owner=profile,
+                device_id=td['uniqueid'],
+                traccar_device_id__isnull=True,
             ).first()
 
-            if existing:
-                # Make datetime timezone-aware
-                last_update = td['lastupdate']
-                if last_update and last_update.tzinfo is None:
-                    last_update = last_update.replace(tzinfo=pytz.UTC)
-
-                existing.traccar_device_id = td_id
-                existing.name = td['name']
-                existing.last_seen = last_update
-                existing.save(update_fields=['traccar_device_id', 'name', 'last_seen'])
+            if unlinked:
+                unlinked.traccar_device_id = td_id
+                unlinked.name = td['name']
+                unlinked.last_seen = last_update
+                unlinked.save(update_fields=['traccar_device_id', 'name', 'last_seen'])
             else:
-                last_update = td['lastupdate']
-                if last_update and last_update.tzinfo is None:
-                    last_update = last_update.replace(tzinfo=pytz.UTC)
-
                 IoTDevice.objects.create(
                     owner=profile,
                     name=td['name'],

@@ -12,13 +12,16 @@ See PK/civic-polls-system.md.
 import hmac
 import hashlib
 import logging
+import math
 from collections import defaultdict
+from datetime import timedelta
 from typing import Optional, Tuple
 
 import redis
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from identity.models import Profile
@@ -931,3 +934,241 @@ def _freeze_and_purge_sliders(poll: Poll, rows) -> bool:
         r.delete(f"civic:{poll.id}:hist:{a.id}", f"civic:{poll.id}:hist_v:{a.id}")
     logger.info(f"Slider poll {poll.id[:8]} frozen and purged (n={n})")
     return True
+
+
+# ============================================================================
+# Citizen ideas → polls (PK/civic-polls-system.md § Ideas pipeline)
+#
+# An idea that gathers enough neighbours becomes a live opinion poll by itself.
+# No staff formulation step: citizens own the proposal text, the platform owns
+# the wording of the choice (a fixed neutral ballot), staff keep a post-hoc
+# takedown instead of a veto.
+# ============================================================================
+
+# Support floor per scope. The percentage rule dominates once a territory has a
+# real population on the platform; the floor is what keeps a three-neighbour
+# parish reachable while a country-wide ballot stays non-trivial to trigger.
+IDEA_SUPPORT_FLOOR = {
+    Territory.Level.PARISH: 3,
+    Territory.Level.MUNICIPALITY: 5,
+    Territory.Level.REGION: 10,
+    Territory.Level.COUNTRY: 25,
+    Territory.Level.EU: 50,
+    Territory.Level.PLANET: 50,
+}
+RESIDENT_COUNT_TTL = 600  # seconds; the count moves slowly, the threshold must not flicker
+
+# Fixed neutral ballot. Curated in all six project languages — machine
+# translation never touches the choice itself, only the citizen's own text.
+IDEA_BALLOT_OPTIONS = [
+    {'en': 'Yes', 'ru': 'Да', 'pt': 'Sim', 'es': 'Sí', 'de': 'Ja', 'fr': 'Oui'},
+    {'en': 'No', 'ru': 'Нет', 'pt': 'Não', 'es': 'No', 'de': 'Nein', 'fr': 'Non'},
+    {'en': 'Abstain', 'ru': 'Воздерживаюсь', 'pt': 'Abstenho-me',
+     'es': 'Me abstengo', 'de': 'Enthaltung', 'fr': 'Abstention'},
+]
+
+# Where the result goes. Honest by construction: nobody promised a citizen poll
+# a seat at the council table, so it claims exactly what it is.
+IDEA_DESTINATION_I18N = {
+    'en': 'Open address from the residents of {name}',
+    'ru': 'Открытое обращение жителей: {name}',
+    'pt': 'Apelo aberto dos residentes de {name}',
+    'es': 'Llamamiento abierto de los residentes de {name}',
+    'de': 'Offener Appell der Einwohner von {name}',
+    'fr': 'Appel ouvert des habitants de {name}',
+}
+
+
+def territory_subtree_ids(territory: Territory) -> list:
+    """[territory, ...every active descendant]. Depth is ≤5 by construction."""
+    ids = [territory.id]
+    frontier = [territory.id]
+    for _ in range(5):
+        children = list(Territory.objects.filter(
+            parent_id__in=frontier, is_active=True).values_list('id', flat=True))
+        if not children:
+            break
+        ids.extend(children)
+        frontier = children
+    return ids
+
+
+def territory_resident_count(territory: Territory) -> int:
+    """Platform residents of a territory, its whole subtree included.
+
+    Country/EU rows also count profiles that only declared a country_code —
+    the same fallback residency_chain() uses for eligibility. Test and bot
+    accounts never inflate a real threshold.
+    """
+    cache_key = f"civic:residents:{territory.id}"
+    r = None
+    try:
+        r = _redis()
+        cached = r.get(cache_key)
+        if cached is not None:
+            return int(cached)
+    except Exception:
+        pass
+
+    scope = Q(residency_territory_id__in=territory_subtree_ids(territory))
+    if territory.level in (Territory.Level.COUNTRY, Territory.Level.EU):
+        codes = [territory.code] if territory.level == Territory.Level.COUNTRY else list(
+            Territory.objects.filter(parent_id=territory.id, level=Territory.Level.COUNTRY)
+            .values_list('code', flat=True))
+        codes = [c for c in codes if c]
+        if codes:
+            scope |= Q(residency_territory__isnull=True,
+                       country_code__in=codes + [c.lower() for c in codes])
+    count = (Profile.objects.filter(scope)
+             .exclude(account__is_test=True)
+             .exclude(account__is_bot=True)
+             .count())
+
+    if r is not None:
+        try:
+            r.setex(cache_key, RESIDENT_COUNT_TTL, count)
+        except Exception:
+            pass
+    return count
+
+
+def idea_support_threshold(territory: Territory) -> int:
+    """Supporters an idea needs before it becomes a live poll in this territory.
+
+    Scaled to the audience: a flat constant is simultaneously unreachable in a
+    parish of six and trivial in a country of millions.
+    """
+    percent = getattr(settings, 'CIVIC_IDEA_SUPPORT_PERCENT', 5)
+    floor = IDEA_SUPPORT_FLOOR.get(territory.level, 5)
+    share = math.ceil(territory_resident_count(territory) * percent / 100)
+    return max(floor, share)
+
+
+def _i18n_seed(idea, field: str) -> dict:
+    """Whatever the idea's MT cache already holds, as a poll i18n map.
+
+    Machine output in a ballot's i18n map is a deliberate exception for
+    citizen-authored polls (flagged `attributes.citizen_authored`, shown with an
+    MT badge) — curated polls keep the never-machine-translated invariant.
+    governance_tick fills the locales missing here.
+    """
+    base = idea.title if field == 'title' else idea.body
+    out = {}
+    if idea.language:
+        out[idea.language] = base
+    for lang, entry in (idea.mt_cache or {}).items():
+        text = (entry or {}).get(field)
+        if text:
+            out[lang] = text
+    return out
+
+
+def promote_idea(idea) -> Poll:
+    """Turn a supported idea into a live territory opinion poll.
+
+    The proposal text stays verbatim (authentic source, machine-translated for
+    other locales); the ballot is the fixed neutral template above.
+    """
+    from parahub.services.translation import PROJECT_LANGS
+
+    base_lang = idea.language if idea.language in PROJECT_LANGS else 'en'
+    territory = idea.territory
+    now = timezone.now()
+    destination = {lang: tpl.format(name=territory.name)
+                   for lang, tpl in IDEA_DESTINATION_I18N.items()}
+
+    with transaction.atomic():
+        context = PollContext.objects.create(
+            context_type=PollContext.ContextType.TERRITORY,
+            context_id=territory.id,
+            created_by=idea.author,
+        )
+        poll = Poll.objects.create(
+            context=context,
+            title=idea.title[:200],
+            description=idea.body,
+            title_i18n=_i18n_seed(idea, 'title'),
+            description_i18n=_i18n_seed(idea, 'body'),
+            civic_destination=destination[base_lang],
+            civic_destination_i18n=destination,
+            poll_type=Poll.PollType.MULTIPLE_CHOICE,
+            poll_class=Poll.PollClass.OPINION,
+            ballot_mode=Poll.BallotMode.ANONYMOUS,
+            start_time=now,
+            end_time=now + timedelta(days=settings.CIVIC_IDEA_POLL_DAYS),
+            allow_delegation=False,  # territory opinion polls run on standing delegations
+            use_weights=False,
+            public_results=True,
+            topic=idea.topic,
+            status=Poll.Status.ACTIVE,
+            created_by=idea.author,
+            attributes={
+                'citizen_authored': True,      # UI: resident badge + machine-translation badge
+                'source_idea': idea.id,
+                'source_lang': idea.language,
+                'mt_pending': True,            # governance_tick backfills the other locales
+            },
+        )
+        for order, option in enumerate(IDEA_BALLOT_OPTIONS):
+            PollOption.objects.create(
+                poll=poll, text=option[base_lang], text_i18n=dict(option), order=order)
+
+        AuditService.create_log_entry(
+            poll=poll,
+            action='poll_created',
+            actor=idea.author,
+            payload={
+                'poll_id': poll.id,
+                'title': poll.title,
+                'options': [o[base_lang] for o in IDEA_BALLOT_OPTIONS],
+                'promoted_from_idea': idea.id,
+                'support_count': idea.support_count,
+            },
+            pgp_signature='SYSTEM_GENERATED',
+        )
+
+    logger.info(f"Idea {idea.id[:8]} promoted to poll {poll.id[:8]} "
+                f"({idea.support_count} supporters, {territory.level}:{territory.code})")
+    return poll
+
+
+def backfill_citizen_poll_i18n(limit: int = 5) -> int:
+    """Machine-translate citizen-authored poll text into the remaining locales.
+
+    Runs off the request path (governance_tick): promotion happens on a
+    supporter's click and must not wait on a translation provider. Until this
+    lands, such a poll simply shows its original language.
+    """
+    from parahub.services.translation import PROJECT_LANGS, TranslationService
+
+    filled = 0
+    polls = Poll.objects.filter(attributes__mt_pending=True)[:limit]
+    for poll in polls:
+        source_lang = (poll.attributes or {}).get('source_lang') or ''
+        if source_lang not in PROJECT_LANGS:
+            poll.attributes = {**(poll.attributes or {}), 'mt_pending': False}
+            poll.save(update_fields=['attributes'])
+            continue
+        titles = dict(poll.title_i18n or {})
+        bodies = dict(poll.description_i18n or {})
+        titles[source_lang] = poll.title
+        bodies[source_lang] = poll.description
+        for lang in PROJECT_LANGS:
+            if lang == source_lang:
+                continue
+            for target, text in ((titles, poll.title), (bodies, poll.description)):
+                if target.get(lang) or not text:
+                    continue
+                translated = TranslationService.translate(
+                    text, source_lang, lang,
+                    context={'object_type': 'poll', 'object_id': poll.id,
+                             'field_name': 'title' if target is titles else 'description'})
+                if translated:
+                    target[lang] = translated
+        complete = all(lang in titles for lang in PROJECT_LANGS)
+        poll.title_i18n = titles
+        poll.description_i18n = bodies
+        poll.attributes = {**(poll.attributes or {}), 'mt_pending': not complete}
+        poll.save(update_fields=['title_i18n', 'description_i18n', 'attributes'])
+        filled += 1
+    return filled

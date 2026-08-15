@@ -16,6 +16,12 @@ const advertiserWalletConfigured = ref(false)
 const walletProvider = ref('')
 const profileLoaded = ref(false)
 const feedCount = ref(0)
+// Claimable reward total behind the nav badge (sats across unviewed ads)
+const feedRewardSats = ref(0)
+// Bumped when a live (WS-driven) refetch raises the claimable total — the nav
+// badge listens to this to play its one-shot ping. Initial page-load fetches
+// don't bump it, so the badge only pings on genuinely new rewards.
+const feedRewardPulse = ref(0)
 const totalEarned = ref(0)
 
 export const useAdsState = () => {
@@ -44,24 +50,30 @@ export const useAdsState = () => {
     }
   }
 
-  async function loadFeedCount() {
+  async function loadFeedCount(opts: { live?: boolean } = {}) {
     try {
       await authStore.ensureToken()
-      const res = await $fetch<{ count: number }>('/api/v1/ads/feed/count/', {
+      const res = await $fetch<{ count: number; total_reward_sats: number }>('/api/v1/ads/feed/count/', {
         credentials: 'include',
         headers: { 'Authorization': `Bearer ${authStore.token}` }
       })
+      const prevSats = feedRewardSats.value
       feedCount.value = res.count
+      feedRewardSats.value = res.total_reward_sats || 0
+      if (opts.live && feedRewardSats.value > prevSats) feedRewardPulse.value++
     } catch {
       feedCount.value = 0
+      feedRewardSats.value = 0
     }
   }
 
   async function loadHistory(pageNum = 1, q = '') {
     try {
       await authStore.ensureToken()
+      const { $i18n } = useNuxtApp() as any
       const params: Record<string, any> = { page: pageNum }
       if (q) params.q = q
+      if ($i18n?.locale?.value) params.translate_to = $i18n.locale.value
       const response = await $fetch<any>('/api/v1/ads/feed/history/', {
         credentials: 'include',
         headers: { 'Authorization': `Bearer ${authStore.token}` },
@@ -84,6 +96,8 @@ export const useAdsState = () => {
     walletProvider,
     profileLoaded,
     feedCount,
+    feedRewardSats,
+    feedRewardPulse,
     totalEarned,
     feedItems,
     feedViewedIds,

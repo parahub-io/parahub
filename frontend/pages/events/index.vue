@@ -65,7 +65,8 @@
               v-if="showCategoryPicker"
               class="absolute left-0 top-full mt-1 w-72 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-xl z-50"
             >
-              <div class="p-2 max-h-80 overflow-y-auto">
+              <!-- No scroll container here: CategorySelect scrolls its own list -->
+              <div class="p-2">
                 <CategorySelect
                   v-model="selectedCategory"
                   mode="filter"
@@ -97,6 +98,7 @@
             v-for="event in events"
             :key="event.id"
             :event="event"
+            :category-labels="categoryLabelMap"
             @click="viewEvent(event)"
           />
         </div>
@@ -150,7 +152,7 @@ import EventCardSkeleton from '~/components/EventCardSkeleton.vue'
 
 definePageMeta({})
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const localePath = useLocalePath()
 const toastStore = useToastStore()
@@ -166,6 +168,21 @@ useSeoMeta({
   ogType: 'website',
   twitterCard: 'summary_large_image',
 })
+
+// Localized category labels for the cards. The API returns reference data in
+// English (category_name); translate by slug via the localized category tree.
+const { fetchCategories } = useCategories()
+const categoryLabelMap = ref({})
+const loadCategoryLabels = async () => {
+  try {
+    const cats = await fetchCategories({ domain: 'events' })
+    const map = {}
+    for (const c of cats) map[c.slug] = c.name
+    categoryLabelMap.value = map
+  } catch { /* keep the English category_name fallback */ }
+}
+onMounted(loadCategoryLabels)
+watch(locale, loadCategoryLabels)
 
 // Filters
 const searchInput = ref('')      // bound to the search field

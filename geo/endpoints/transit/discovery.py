@@ -282,7 +282,11 @@ def transit_search(request, q: str = "", city: str = None):
 @ratelimit(group='transit:feeds', key='ip', rate='120/m')
 def list_transit_feeds(request):
     """List all transit data sources with aggregated stats (raw SQL — data changes only on GTFS import)."""
-    cache_key = 'transit:feeds_list'
+    # The raw upstream error names an operator's broken endpoint and the RT URL can
+    # carry an API key, so neither leaves the building: everyone gets the status flag,
+    # staff get the text. Two cache entries, one per audience.
+    is_staff = bool(getattr(request.user, 'is_staff', False))
+    cache_key = 'transit:feeds_list:staff' if is_staff else 'transit:feeds_list'
     cached = cache.get(cache_key)
     if cached:
         return HttpResponse(cached, content_type='application/json')
@@ -291,7 +295,8 @@ def list_transit_feeds(request):
         # Feed base data
         cur.execute("""
             SELECT ds.id, ds.name, ds.url, ds.format, ds.is_active,
-                   ds.last_imported_at, ds.last_error, ds.rt_vehicles_url
+                   ds.last_imported_at, ds.last_error, ds.rt_vehicles_url,
+                   ds.license, ds.license_url, ds.attribution
             FROM geo_transitdatasource ds ORDER BY ds.name
         """)
         feed_rows = cur.fetchall()
@@ -326,7 +331,10 @@ def list_transit_feeds(request):
             'name': r[1], 'url': r[2], 'format': r[3],
             'is_active': r[4],
             'last_imported_at': r[5].isoformat().replace('+00:00', 'Z') if r[5] else None,
-            'last_error': r[6] or '', 'rt_vehicles_url': r[7] or '',
+            'has_error': bool(r[6]), 'last_error': (r[6] or '') if is_staff else '',
+            'has_realtime': bool(r[7]),
+            # Empty licence = the publisher states none; the UI says so out loud
+            'license': r[8] or '', 'license_url': r[9] or '', 'attribution': r[10] or '',
             'agencies': [a[1] for a in agencies],
             'routes_count': sum(routes_by_agency.get(aid, 0) for aid in agency_ids),
             'stops_count': sum(stops_by_agency.get(aid, 0) for aid in agency_ids),

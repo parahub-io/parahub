@@ -5,7 +5,9 @@
  * map → URL: buildMapQuery serialises position + selected feature (+ sticky
  * params like opensky_mission / returnTo), written back on debounced
  * moveend/zoomend and on targeted panel events (osmId resolution,
- * establishment selection).
+ * establishment selection). lat/lng track the camera centre; the selected
+ * feature carries its own anchor (fLat/fLng, from the click coordinates) so a
+ * shared link stays on the feature after the sharer pans or zooms away.
  *
  * URL → map: parseInitialQuery seeds the map position before the map exists
  * and stashes deep-link pendings on window (_pendingFeatureRestore /
@@ -53,7 +55,7 @@ export function useMapUrlSync(opts: {
   const { t } = useI18n()
   const mapStore = useMapStore()
   const {
-    mapCenter, mapZoom, selectedFeature,
+    mapCenter, mapZoom, selectedFeature, clickCoordinates,
     setMapCenter, setMapZoom,
     setSelectedFeature, setClickedFeatures, setClickCoordinates,
   } = useMapState()
@@ -67,6 +69,13 @@ export function useMapUrlSync(opts: {
     const query: any = { lat: lat.toFixed(6), lng: lng.toFixed(6), zoom: zoom.toFixed(2) }
     if (feature?.sourceLayer) query.layer = feature.sourceLayer
     if (feature?.id) query.featureId = feature.id
+    // The feature's own anchor: lat/lng follow the camera on every moveend, so
+    // without this a link shared after any pan/zoom (or the panel-padding ease)
+    // would resolve the feature at the map centre and open whatever sits there.
+    if (feature && clickCoordinates.value) {
+      query.fLat = clickCoordinates.value.lat.toFixed(6)
+      query.fLng = clickCoordinates.value.lng.toFixed(6)
+    }
     // Preserve osmId: from feature props, or keep existing URL value (set by handleOsmResolved)
     const osmId = feature?.properties?.osm_id || (feature ? route.query.osmId : undefined)
     if (osmId) query.osmId = String(osmId)
@@ -179,7 +188,11 @@ export function useMapUrlSync(opts: {
         ;(window as any)._pendingTransitMarker = { lat, lng, routeCity: route.query.routeCity as string, routeSlug: route.query.routeSlug as string }
       }
       if (route.query.layer || route.query.featureId || route.query.osmId || route.query.establishmentId) {
-        ;(window as any)._pendingFeatureRestore = { lat, lng, layer: route.query.layer, featureId: route.query.featureId, osmId: route.query.osmId, establishmentId: route.query.establishmentId }
+        // Anchor the restore on the feature's own coords when present; older
+        // links only carry the camera centre, keep it as the fallback.
+        const fLat = parseFloat(route.query.fLat as string)
+        const fLng = parseFloat(route.query.fLng as string)
+        ;(window as any)._pendingFeatureRestore = { lat: isNaN(fLat) ? lat : fLat, lng: isNaN(fLng) ? lng : fLng, layer: route.query.layer, featureId: route.query.featureId, osmId: route.query.osmId, establishmentId: route.query.establishmentId }
       }
     } else {
       // Directions deep-link (?dest_lat/dest_lng): start centered on the
@@ -309,8 +322,10 @@ export function useMapUrlSync(opts: {
           map.jumpTo({ center: [lng, lat], zoom: !isNaN(zoom) ? zoom : map.getZoom() })
         }
         if (wantsFeature) {
+          const fLat = parseFloat(route.query.fLat as string)
+          const fLng = parseFloat(route.query.fLng as string)
           ;(window as any)._pendingFeatureRestore = {
-            lat, lng,
+            lat: isNaN(fLat) ? lat : fLat, lng: isNaN(fLng) ? lng : fLng,
             layer: route.query.layer, featureId: route.query.featureId,
             osmId: route.query.osmId, establishmentId: route.query.establishmentId,
           }

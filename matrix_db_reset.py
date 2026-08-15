@@ -2,23 +2,42 @@
 """
 Matrix Database Reset Script
 
-Resets ONLY the Matrix Synapse PostgreSQL database and recreates the admin user.
+Resets ONLY the Matrix Synapse PostgreSQL database (and the MAS database when
+Matrix Authentication Service is deployed) and recreates the admin user.
 Does NOT touch other databases (main PostgreSQL, Neo4j, Redis).
 
 Usage:
     python3 matrix_db_reset.py [--dry-run]
 
-What it does:
+What it does (legacy mode, no MAS deployed):
 1. Stops Synapse container
 2. Drops and recreates Synapse database
 3. Starts Synapse container
-4. Creates admin user with standard credentials (see PK/matrix-admin-credentials.md)
+4. Creates admin user via shared-secret registration
 5. Uploads SSO icon to Matrix media repository and updates homeserver.yaml
 6. Updates SYNAPSE_ADMIN_TOKEN in settings.py
 7. Clears Redis Matrix session cache (prevents 401 errors from stale tokens)
 8. Restarts parahub-uvicorn service
 
+What it does (MAS mode, auto-detected via compose service):
+1. Stops Synapse + MAS containers
+2. Drops and recreates Synapse AND MAS databases
+3. Starts MAS (runs its own migrations + config sync), then Synapse
+4. Creates admin user via MAS Admin API (shared-secret registration is
+   disabled under MAS), sets the Synapse server-admin flag via SQL, and
+   mints a non-expiring personal-session access token as the admin token
+5. SSO icon step is skipped (idp_icon lived in the removed oidc_providers
+   block; login branding is served by MAS itself)
+6-8. Same as legacy mode
+
+Environment overrides (for rehearsal against a dev copy; defaults = prod):
+    COMPOSE_DIR, SYNAPSE_COMPOSE_SERVICE, MAS_COMPOSE_SERVICE,
+    SYNAPSE_BASE_URL, MAS_BASE_URL, SYNAPSE_DB_PORT, SETTINGS_PATH,
+    SKIP_REDIS_CLEAR=1, SKIP_BACKEND_RESTART=1
+
 Requires: Docker, PostgreSQL client (psql)
+MAS mode also requires: MAS_ADMIN_CLIENT_ID + MAS_ADMIN_CLIENT_SECRET in env
+(an OAuth2 client listed in MAS config `clients` + `policy.data.admin_clients`).
 """
 
 import os
@@ -35,18 +54,29 @@ from pathlib import Path
 ADMIN_USERNAME = os.environ['SYNAPSE_ADMIN_USER']
 ADMIN_PASSWORD = os.environ['SYNAPSE_ADMIN_PASSWORD']
 SYNAPSE_SHARED_SECRET = os.environ['SYNAPSE_REGISTRATION_SHARED_SECRET']
-SYNAPSE_BASE_URL = "http://localhost:8008"
+SYNAPSE_BASE_URL = os.environ.get('SYNAPSE_BASE_URL', 'http://localhost:8008')
+SERVER_NAME = "parahub.io"
 
-# Database credentials
+# MAS (Matrix Authentication Service) — web listener mounted under /mas
+MAS_BASE_URL = os.environ.get('MAS_BASE_URL', 'http://localhost:8081/mas')
+MAS_ADMIN_CLIENT_ID = os.environ.get('MAS_ADMIN_CLIENT_ID')
+MAS_ADMIN_CLIENT_SECRET = os.environ.get('MAS_ADMIN_CLIENT_SECRET')
+MAS_DB_NAME = "mas"
+
+# Database credentials (MAS shares the same PostgreSQL instance, separate DB)
 SYNAPSE_DB_HOST = "localhost"
-SYNAPSE_DB_PORT = "5434"  # Synapse PostgreSQL port
+SYNAPSE_DB_PORT = os.environ.get('SYNAPSE_DB_PORT', '5434')
 SYNAPSE_DB_NAME = "synapse"
 SYNAPSE_DB_USER = "synapse"
 SYNAPSE_DB_PASSWORD = os.environ['SYNAPSE_DB_PASSWORD']
 
-# Paths
-SETTINGS_PATH = Path("/opt/parahub/parahub/settings.py")
-DOCKER_COMPOSE_PATH = Path("/opt/parahub")
+# Paths / compose targets. The admin token lives in .env (settings.py reads it
+# via django-environ); SETTINGS_PATH may point at either an .env-style or a
+# settings.py-style file — update_settings handles both formats.
+SETTINGS_PATH = Path(os.environ.get('SETTINGS_PATH', "/opt/parahub/.env"))
+COMPOSE_DIR = Path(os.environ.get('COMPOSE_DIR', "/opt/parahub"))
+SYNAPSE_SERVICE = os.environ.get('SYNAPSE_COMPOSE_SERVICE', 'synapse')
+MAS_SERVICE = os.environ.get('MAS_COMPOSE_SERVICE', 'mas')
 
 
 def run_command(cmd, check=True, capture_output=False):
@@ -64,50 +94,78 @@ def run_command(cmd, check=True, capture_output=False):
     return result
 
 
-def stop_synapse():
-    """Stop Synapse container"""
-    print("\n[1/6] Stopping Synapse container...")
-    run_command("cd /opt/parahub && docker compose stop synapse")
+def mas_deployed() -> bool:
+    """MAS mode is active when the compose project defines the MAS service."""
+    result = run_command(
+        f"cd {COMPOSE_DIR} && docker compose config --services",
+        capture_output=True
+    )
+    return MAS_SERVICE in result.stdout.split()
 
 
-def reset_database():
-    """Drop and recreate Synapse database"""
-    print("\n[2/6] Resetting Synapse database...")
+def psql(db: str, sql: str, capture_output=False):
+    """Run a SQL statement against the Synapse PostgreSQL instance (no shell,
+    so the statement may safely contain any quoting)."""
+    print(f"  $ psql -p {SYNAPSE_DB_PORT} -d {db} -c {sql!r}")
+    env = dict(os.environ, PGPASSWORD=SYNAPSE_DB_PASSWORD)
+    result = subprocess.run(
+        ["psql", "-h", SYNAPSE_DB_HOST, "-p", SYNAPSE_DB_PORT,
+         "-U", SYNAPSE_DB_USER, "-d", db, "-c", sql],
+        check=True, capture_output=capture_output, text=True, env=env
+    )
+    if capture_output and result.stdout:
+        print(f"    {result.stdout.strip()}")
+    return result
 
-    # Drop database
-    print("  Dropping database...")
-    drop_cmd = f"PGPASSWORD={SYNAPSE_DB_PASSWORD} psql -h {SYNAPSE_DB_HOST} -p {SYNAPSE_DB_PORT} -U {SYNAPSE_DB_USER} -d postgres -c 'DROP DATABASE IF EXISTS {SYNAPSE_DB_NAME};'"
-    run_command(drop_cmd)
 
-    # Recreate database
-    print("  Creating database...")
-    create_cmd = f"PGPASSWORD={SYNAPSE_DB_PASSWORD} psql -h {SYNAPSE_DB_HOST} -p {SYNAPSE_DB_PORT} -U {SYNAPSE_DB_USER} -d postgres -c 'CREATE DATABASE {SYNAPSE_DB_NAME} OWNER {SYNAPSE_DB_USER} ENCODING UTF8 LC_COLLATE \"C\" LC_CTYPE \"C\" TEMPLATE template0;'"
-    run_command(create_cmd)
+def stop_services(with_mas: bool):
+    """Stop Synapse (and MAS) containers"""
+    print("\n[1/8] Stopping Matrix containers...")
+    services = f"{SYNAPSE_SERVICE} {MAS_SERVICE}" if with_mas else SYNAPSE_SERVICE
+    run_command(f"cd {COMPOSE_DIR} && docker compose stop {services}")
 
 
-def start_synapse():
-    """Start Synapse container and wait for it to be ready"""
-    print("\n[3/6] Starting Synapse container...")
-    run_command("cd /opt/parahub && docker compose start synapse")
+def reset_database(with_mas: bool):
+    """Drop and recreate Synapse (and MAS) databases"""
+    print("\n[2/8] Resetting Matrix databases...")
 
+    for db in ([SYNAPSE_DB_NAME, MAS_DB_NAME] if with_mas else [SYNAPSE_DB_NAME]):
+        print(f"  Recreating database {db}...")
+        psql("postgres", f'DROP DATABASE IF EXISTS {db};')
+        psql("postgres",
+             f'CREATE DATABASE {db} OWNER {SYNAPSE_DB_USER} ENCODING UTF8'
+             f' LC_COLLATE "C" LC_CTYPE "C" TEMPLATE template0;')
+
+
+def start_services(with_mas: bool):
+    """Start MAS first (Synapse validates its connection to it), then Synapse"""
+    print("\n[3/8] Starting Matrix containers...")
+
+    if with_mas:
+        run_command(f"cd {COMPOSE_DIR} && docker compose start {MAS_SERVICE}")
+        print("  Waiting for MAS to be ready (runs DB migrations + config sync)...")
+        _wait_http_ok(f"{MAS_BASE_URL}/.well-known/openid-configuration", "MAS")
+
+    run_command(f"cd {COMPOSE_DIR} && docker compose start {SYNAPSE_SERVICE}")
     print("  Waiting for Synapse to be ready...")
-    max_attempts = 30
+    _wait_http_ok(f"{SYNAPSE_BASE_URL}/_matrix/client/versions", "Synapse")
+    # Wait for DB schema creation (Synapse creates tables async after first start)
+    print("  Waiting for database schema initialization...")
+    time.sleep(8)
+
+
+def _wait_http_ok(url: str, name: str, max_attempts: int = 30):
     for attempt in range(max_attempts):
         try:
-            response = httpx.get(f"{SYNAPSE_BASE_URL}/_matrix/client/versions", timeout=2.0)
+            response = httpx.get(url, timeout=2.0)
             if response.status_code == 200:
-                print("  ✓ Synapse is ready")
-                # Wait for DB schema creation (Synapse creates tables async after first start)
-                print("  Waiting for database schema initialization...")
-                time.sleep(8)
+                print(f"  ✓ {name} is ready")
                 return
-        except:
+        except Exception:
             pass
-
         print(f"  Waiting... ({attempt + 1}/{max_attempts})")
         time.sleep(2)
-
-    print("  ✗ ERROR: Synapse did not become ready in time")
+    print(f"  ✗ ERROR: {name} did not become ready in time")
     sys.exit(1)
 
 
@@ -124,9 +182,9 @@ def generate_mac(shared_secret, nonce, user, password, admin=False):
     return mac.hexdigest()
 
 
-def create_admin_user():
-    """Create admin user and return access token"""
-    print("\n[4/7] Creating Matrix admin user...")
+def create_admin_user_legacy():
+    """Create admin user via shared-secret registration and return access token"""
+    print("\n[4/8] Creating Matrix admin user (shared-secret registration)...")
 
     with httpx.Client() as client:
         # Get nonce
@@ -160,9 +218,80 @@ def create_admin_user():
         return token
 
 
+def create_admin_user_mas():
+    """Create admin user via the MAS Admin API and return a personal-session token.
+
+    Shared-secret registration is disabled under MAS. Instead:
+    1. client_credentials grant with scope urn:mas:admin
+    2. POST /api/admin/v1/users — MAS provisions the user into Synapse
+    3. SQL: set the Synapse server-admin flag (separate from MAS can_request_admin)
+    4. POST /api/admin/v1/personal-sessions — non-expiring Matrix access token
+    """
+    print("\n[4/8] Creating Matrix admin user (MAS Admin API)...")
+
+    if not (MAS_ADMIN_CLIENT_ID and MAS_ADMIN_CLIENT_SECRET):
+        print("  ✗ ERROR: MAS_ADMIN_CLIENT_ID / MAS_ADMIN_CLIENT_SECRET not set in env")
+        sys.exit(1)
+
+    with httpx.Client(timeout=10.0) as client:
+        response = client.post(
+            f"{MAS_BASE_URL}/oauth2/token",
+            auth=(MAS_ADMIN_CLIENT_ID, MAS_ADMIN_CLIENT_SECRET),
+            data={"grant_type": "client_credentials", "scope": "urn:mas:admin"}
+        )
+        response.raise_for_status()
+        mas_token = response.json()["access_token"]
+        headers = {"Authorization": f"Bearer {mas_token}"}
+
+        response = client.post(
+            f"{MAS_BASE_URL}/api/admin/v1/users",
+            headers=headers,
+            json={"username": ADMIN_USERNAME}
+        )
+        response.raise_for_status()
+        user_ulid = response.json()["data"]["id"]
+        matrix_id = f"@{ADMIN_USERNAME}:{SERVER_NAME}"
+        print(f"  ✓ Admin user created via MAS: {matrix_id} (MAS id {user_ulid})")
+
+        # MAS-side admin attribute (can_request_admin)
+        response = client.post(
+            f"{MAS_BASE_URL}/api/admin/v1/users/{user_ulid}/set-admin",
+            headers=headers,
+            json={"admin": True}
+        )
+        response.raise_for_status()
+
+        # Admin power on the Synapse admin API is granted by the
+        # urn:synapse:admin:* scope on the token (OAuth-delegated mode), NOT by
+        # the users.admin DB flag. The flag is still set for any code path that
+        # reads it directly; Synapse caches user rows, hence the restart.
+        psql(SYNAPSE_DB_NAME,
+             f"UPDATE users SET admin = 1 WHERE name = '{matrix_id}';")
+        run_command(f"cd {COMPOSE_DIR} && docker compose restart {SYNAPSE_SERVICE}")
+        _wait_http_ok(f"{SYNAPSE_BASE_URL}/_matrix/client/versions", "Synapse")
+
+        response = client.post(
+            f"{MAS_BASE_URL}/api/admin/v1/personal-sessions",
+            headers=headers,
+            json={
+                "actor_user_id": user_ulid,
+                "human_name": "parahub-backend admin token (matrix_db_reset)",
+                "scope": "urn:matrix:org.matrix.msc2967.client:api:*"
+                         " urn:matrix:org.matrix.msc2967.client:device:PARAHUBADMIN"
+                         " urn:synapse:admin:*",
+                # no expires_in: token does not expire
+            }
+        )
+        response.raise_for_status()
+        token = response.json()["data"]["attributes"]["access_token"]
+        print(f"  ✓ Personal-session token minted: {token[:20]}...")
+
+        return token
+
+
 def upload_sso_icon(admin_token):
     """Upload SSO icon to Matrix media repository and update homeserver.yaml"""
-    print("\n[5/7] Uploading SSO icon to Matrix media repository...")
+    print("\n[5/8] Uploading SSO icon to Matrix media repository...")
 
     logo_path = Path("/opt/parahub/frontend/public/logo.svg")
 
@@ -214,8 +343,8 @@ def upload_sso_icon(admin_token):
 
 
 def update_settings(token):
-    """Update SYNAPSE_ADMIN_TOKEN in settings.py"""
-    print("\n[6/7] Updating settings.py...")
+    """Update SYNAPSE_ADMIN_TOKEN (in .env or a settings.py-style file)"""
+    print(f"\n[6/8] Updating {SETTINGS_PATH}...")
 
     if not SETTINGS_PATH.exists():
         print(f"  ✗ ERROR: {SETTINGS_PATH} not found")
@@ -223,22 +352,28 @@ def update_settings(token):
 
     content = SETTINGS_PATH.read_text()
 
-    # Replace token using regex
-    pattern = r"SYNAPSE_ADMIN_TOKEN\s*=\s*['\"].*?['\"]"
-    replacement = f"SYNAPSE_ADMIN_TOKEN = '{token}'"
+    env_pattern = r"(?m)^SYNAPSE_ADMIN_TOKEN=.*$"
+    py_pattern = r"SYNAPSE_ADMIN_TOKEN\s*=\s*['\"].*?['\"]"
 
-    if re.search(pattern, content):
-        new_content = re.sub(pattern, replacement, content)
-        SETTINGS_PATH.write_text(new_content)
-        print(f"  ✓ Updated SYNAPSE_ADMIN_TOKEN in {SETTINGS_PATH}")
+    if re.search(env_pattern, content):
+        new_content = re.sub(env_pattern, f"SYNAPSE_ADMIN_TOKEN={token}", content)
+    elif re.search(py_pattern, content):
+        new_content = re.sub(py_pattern, f"SYNAPSE_ADMIN_TOKEN = '{token}'", content)
     else:
-        print(f"  ✗ ERROR: Could not find SYNAPSE_ADMIN_TOKEN in settings.py")
+        print(f"  ✗ ERROR: Could not find SYNAPSE_ADMIN_TOKEN in {SETTINGS_PATH}")
         sys.exit(1)
+
+    SETTINGS_PATH.write_text(new_content)
+    print(f"  ✓ Updated SYNAPSE_ADMIN_TOKEN in {SETTINGS_PATH}")
 
 
 def clear_redis_cache():
     """Clear Matrix session cache from Redis DB 1"""
     print("\n[7/8] Clearing Redis Matrix session cache...")
+
+    if os.environ.get('SKIP_REDIS_CLEAR'):
+        print("  ⚠ Skipped (SKIP_REDIS_CLEAR set)")
+        return
 
     # Get all Matrix session keys from Redis DB 1
     result = run_command('redis-cli -n 1 KEYS "parahub:1:matrix_session_*"', capture_output=True)
@@ -260,33 +395,45 @@ def clear_redis_cache():
 def restart_backend():
     """Restart parahub-uvicorn service"""
     print("\n[8/8] Restarting backend service...")
+    if os.environ.get('SKIP_BACKEND_RESTART'):
+        print("  ⚠ Skipped (SKIP_BACKEND_RESTART set)")
+        return
     run_command("sudo systemctl restart parahub-uvicorn")
     print("  ✓ Backend restarted")
 
 
 def main():
     dry_run = "--dry-run" in sys.argv
+    with_mas = mas_deployed()
+    mode = "MAS" if with_mas else "legacy (no MAS)"
 
     print("=" * 80)
-    print("Matrix Database Reset Script")
+    print(f"Matrix Database Reset Script — mode: {mode}")
     print("=" * 80)
 
     if dry_run:
         print("\n⚠️  DRY RUN MODE - No changes will be made\n")
         print("Would perform:")
-        print("  1. Stop Synapse container")
-        print("  2. Drop and recreate Synapse database")
-        print("  3. Start Synapse container")
-        print("  4. Create admin user")
-        print("  5. Upload SSO icon and update homeserver.yaml")
+        print(f"  1. Stop containers: {SYNAPSE_SERVICE}" + (f" + {MAS_SERVICE}" if with_mas else ""))
+        print("  2. Drop and recreate databases: synapse" + (" + mas" if with_mas else ""))
+        print("  3. Start containers" + (" (MAS first, runs migrations + config sync)" if with_mas else ""))
+        if with_mas:
+            print("  4. Create admin user via MAS Admin API + SQL admin flag + personal-session token")
+            print("  5. Skip SSO icon (MAS serves login branding)")
+        else:
+            print("  4. Create admin user via shared-secret registration")
+            print("  5. Upload SSO icon and update homeserver.yaml")
         print("  6. Update SYNAPSE_ADMIN_TOKEN in settings.py")
-        print("  7. Restart parahub-uvicorn")
+        print("  7. Clear Redis Matrix session cache")
+        print("  8. Restart parahub-uvicorn")
         return
 
     # Confirm with user
     print("\n⚠️  WARNING: This will DELETE all Matrix data!")
     print("  - All rooms, messages, and user registrations will be lost")
-    print("  - This ONLY affects Matrix/Synapse database")
+    if with_mas:
+        print("  - MAS database (auth sessions, upstream links, devices) is reset too")
+    print("  - This ONLY affects Matrix/Synapse" + ("/MAS" if with_mas else "") + " databases")
     print("  - Main PostgreSQL, Neo4j, and Redis are NOT affected")
     print()
     response = input("Type 'YES' to continue: ")
@@ -296,11 +443,15 @@ def main():
         return
 
     try:
-        stop_synapse()
-        reset_database()
-        start_synapse()
-        token = create_admin_user()
-        mxc_uri = upload_sso_icon(token)
+        stop_services(with_mas)
+        reset_database(with_mas)
+        start_services(with_mas)
+        if with_mas:
+            token = create_admin_user_mas()
+            mxc_uri = None  # idp_icon lived in the removed oidc_providers block
+        else:
+            token = create_admin_user_legacy()
+            mxc_uri = upload_sso_icon(token)
         update_settings(token)
         clear_redis_cache()
         restart_backend()
@@ -310,8 +461,11 @@ def main():
         print("=" * 80)
         print(f"\nAdmin credentials (see PK/matrix-admin-credentials.md):")
         print(f"  Username: {ADMIN_USERNAME}")
-        print(f"  Password: {ADMIN_PASSWORD}")
-        print(f"  Matrix ID: @{ADMIN_USERNAME}:parahub.io")
+        if not with_mas:
+            print(f"  Password: {ADMIN_PASSWORD}")
+        else:
+            print("  Password: none (MAS mode — token-only admin; password login is disabled)")
+        print(f"  Matrix ID: @{ADMIN_USERNAME}:{SERVER_NAME}")
         print(f"  Token: {token[:30]}...")
         if mxc_uri:
             print(f"\nSSO Icon: {mxc_uri}")

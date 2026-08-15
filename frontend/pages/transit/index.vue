@@ -2,29 +2,7 @@
   <div class="max-w-2xl mx-auto px-4 py-2">
     <h1 class="sr-only">{{ $t('transit.title') }}</h1>
 
-    <!-- Quick links: Rideshare + Driver Mode -->
-    <div class="grid grid-cols-2 gap-2 mb-4">
-      <NuxtLink
-        :to="localePath('/transit/rides')"
-        class="flex items-center gap-2.5 p-3 rounded-lg hover:brightness-95 transition-all border border-success/60 dark:border-success/40 bg-success"
-      >
-        <Car class="w-5 h-5 text-white flex-shrink-0" />
-        <div class="min-w-0">
-          <div class="font-medium text-white text-sm">{{ $t('transit.rideshare') }}</div>
-          <div class="text-xs text-white/80 truncate">{{ $t('transit.rideshare_desc') }}</div>
-        </div>
-      </NuxtLink>
-      <NuxtLink
-        :to="localePath('/driver')"
-        class="flex items-center gap-2.5 p-3 rounded-lg hover:brightness-95 transition-all border border-secondary-500/60 dark:border-secondary-500/40 bg-secondary-600"
-      >
-        <Radio class="w-5 h-5 text-white flex-shrink-0" />
-        <div class="min-w-0">
-          <div class="font-medium text-white text-sm">{{ $t('transit.driver.title') }}</div>
-          <div class="text-xs text-white/80 truncate">{{ $t('transit.driver.nav_desc') }}</div>
-        </div>
-      </NuxtLink>
-    </div>
+    <UiRouteTabs :tabs="transitTabs" full-width class="mb-4" />
 
     <!-- Country + City Selector (collapsible) -->
     <div v-if="countries.length" class="mb-4">
@@ -261,71 +239,42 @@
       <span class="sr-only">{{ $t('common.loading') }}</span>
     </div>
 
-    <!-- Feeds Section -->
-    <div v-if="feeds.length" class="mt-8 border-t border-neutral-200 dark:border-neutral-700 pt-4">
-      <button
-        @click="feedsOpen = !feedsOpen"
-        class="flex items-center gap-2 text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-3 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
-      >
-        <Database class="w-4 h-4" />
-        {{ $t('transit.feeds.title') }}
-        <ChevronDown class="w-4 h-4 transition-transform" :class="feedsOpen ? 'rotate-180' : ''" />
-      </button>
-      <div v-if="feedsOpen" class="space-y-3">
-        <div
-          v-for="feed in feeds"
-          :key="feed.id"
-          class="p-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm"
-        >
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <a
-              :href="feed.url"
-              target="_blank"
-              rel="noopener"
-              class="font-medium text-link truncate"
-            >{{ feed.name }}</a>
-            <div class="flex items-center gap-1.5 flex-shrink-0">
-              <span
-                class="w-2 h-2 rounded-full"
-                :class="feed.is_active ? (feed.last_error ? 'bg-warning' : 'bg-success') : 'bg-neutral-400'"
-              />
-              <span class="text-xs text-neutral-500 dark:text-neutral-400">
-                {{ feed.is_active ? (feed.last_error ? $t('transit.feeds.error') : $t('transit.feeds.active')) : $t('transit.feeds.inactive') }}
-              </span>
-            </div>
-          </div>
-          <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600 dark:text-neutral-400">
-            <span>{{ $t('transit.feeds.routes') }}: <strong>{{ feed.routes_count }}</strong></span>
-            <span>{{ $t('transit.feeds.stops') }}: <strong>{{ feed.stops_count }}</strong></span>
-            <span>{{ $t('transit.feeds.trips') }}: <strong>{{ feed.trips_count }}</strong></span>
-            <span v-if="feed.last_imported_at">{{ $t('transit.feeds.imported') }}: {{ timeAgo(feed.last_imported_at) }}</span>
-          </div>
-          <div v-if="feed.agencies.length" class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            {{ feed.agencies.join(', ') }}
-          </div>
-          <div
-            v-if="feed.last_error && expandedError === feed.id"
-            class="mt-2 p-2 bg-error/10 dark:bg-error/20 text-error dark:text-red-300 rounded text-xs font-mono break-all"
-          >{{ feed.last_error }}</div>
-          <button
-            v-else-if="feed.last_error"
-            @click="expandedError = feed.id"
-            class="mt-1 text-xs text-error hover:underline"
-          >{{ $t('transit.feeds.show_error') }}</button>
-        </div>
+    <!-- Data sources: the registry lives on /about/sources with every other upstream,
+         where it can carry licences and attribution instead of hiding in an accordion -->
+    <NuxtLink
+      :to="localePath('/about/sources') + '#transit'"
+      class="mt-8 flex items-center gap-2.5 p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-primary transition-colors"
+    >
+      <Database class="w-4 h-4 flex-shrink-0 text-neutral-400" />
+      <div class="min-w-0">
+        <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ $t('transit.feeds.title') }}</div>
+        <div v-if="feeds.length" class="text-xs text-neutral-500 dark:text-neutral-400 truncate tabular-nums">{{ $t('transit.feeds.summary', feedSummary) }}</div>
       </div>
-    </div>
+    </NuxtLink>
+
+    <!-- Driver Mode: route drivers broadcast their own position (auth + WoT gated) -->
+    <NuxtLink
+      :to="localePath('/driver')"
+      class="mt-4 flex items-center gap-2.5 p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-primary transition-colors"
+    >
+      <Radio class="w-4 h-4 flex-shrink-0 text-neutral-400" />
+      <div class="min-w-0">
+        <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ $t('transit.driver.title') }}</div>
+        <div class="text-xs text-neutral-500 dark:text-neutral-400 truncate">{{ $t('transit.driver.nav_desc') }}</div>
+      </div>
+    </NuxtLink>
   </div>
 </template>
 
 <script setup lang="ts">
 const localePath = useLocalePath()
 import { ref, computed, onMounted } from 'vue'
-import { Search, LocateFixed, Car, Radio, Database, ChevronDown, MapPin, Moon } from 'lucide-vue-next'
+import { Search, LocateFixed, Radio, Database, ChevronDown, MapPin, Moon } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const { routeTypeIcon, routeTypeFallback, routeBadgeStyle } = useTransitHelpers()
+const transitTabs = useTransitTabs()
 
 useSeoMeta({
   title: () => t('transit.title') + ' - Parahub',
@@ -434,10 +383,14 @@ function toggleGroup(id: string) {
 const discover = ref<any>(null)
 const gpsError = ref('')
 
-// Feeds
+// Feeds — fetched for the /about/sources teaser counts only
 const feeds = ref<any[]>([])
-const feedsOpen = ref(false)
-const expandedError = ref<string | null>(null)
+
+const feedSummary = computed(() => {
+  const agencies = new Set<string>()
+  for (const f of feeds.value) for (const a of f.agencies || []) agencies.add(a)
+  return { feeds: feeds.value.length, agencies: agencies.size }
+})
 
 // Computed
 const discoverMixed = computed(() => {
@@ -608,15 +561,6 @@ async function loadDiscover() {
   } catch (e) {
     console.error('Discover failed:', e)
   }
-}
-
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 60) return `${mins}m`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h`
-  return `${Math.floor(hrs / 24)}d`
 }
 
 // Init

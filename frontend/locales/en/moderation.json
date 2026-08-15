@@ -1,0 +1,39 @@
+{
+  "moderation": {
+    "report": "Report",
+    "report_title": "Report content",
+    "report_intro": "Tell us what is wrong with this content. Reports are reviewed by the moderation team.",
+    "report_reason_label": "Reason",
+    "reasons": {
+      "spam": "Spam or misleading",
+      "fraud": "Scam or fraud",
+      "harassment": "Harassment or hate",
+      "sexual": "Sexual or explicit content",
+      "violence": "Violence or dangerous acts",
+      "illegal": "Illegal goods or activity",
+      "other": "Other"
+    },
+    "report_details_label": "Details (optional)",
+    "report_details_placeholder": "Anything that helps us understand the problem",
+    "report_submit": "Submit report",
+    "report_sent": "Report submitted. Thank you — we will review it.",
+    "report_error": "Failed to submit the report",
+    "error_codes": {
+      "report_already_pending": "You already reported this — it is pending review",
+      "report_own_content": "You cannot report your own content",
+      "report_target_not_found": "The reported content no longer exists",
+      "dm_blocked": "You cannot chat with this user"
+    },
+    "block": "Block",
+    "unblock": "Unblock",
+    "block_title": "Block this user?",
+    "block_message": "You will not see their listings, comments or map avatar, and new chats between you will be refused. They are not notified.",
+    "blocked_toast": "User blocked",
+    "unblocked_toast": "User unblocked",
+    "block_error": "Failed to update the block",
+    "blocked_badge": "Blocked",
+    "blocked_users": "Blocked users",
+    "blocked_users_desc": "People you blocked. Their content is hidden from you and new chats are refused.",
+    "blocked_empty": "You have not blocked anyone"
+  }
+}

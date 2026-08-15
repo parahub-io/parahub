@@ -36,18 +36,33 @@
       "history_empty_desc": "Ads you view will appear here",
       "viewed_on": "Viewed {date}",
       "payment_pending": "Payment pending",
+      "payment_failed_retry": "Reward couldn't be sent — the ad stays in your feed, you can claim it again later",
+      "not_paid": "Not paid",
       "earn": "Earn",
       "earned": "Earned",
       "by": "by",
       "view_ad": "View Ad",
-      "sponsored": "Sponsored"
+      "sponsored": "Sponsored",
+      "queued_title": "{sats} sats queued for payout",
+      "queued_desc": "The advertiser pays from their own wallet. If they're online, the sats arrive within seconds — otherwise on their next visit. You can safely leave this page.",
+      "queued_short": "Queued",
+      "auto_translated": "Automatically translated",
+      "show_original": "Show original",
+      "show_translation": "Show translation",
+      "own_ad": "Your ad",
+      "own_preview_title": "This is your campaign",
+      "own_preview_desc": "You're seeing it as your audience does. Rewards can't be claimed on your own ads.",
+      "own_manage_campaigns": "Manage campaigns"
     },
     "campaigns": {
       "my_campaigns": "My Campaigns",
       "create_new": "Create Campaign",
       "create_first": "Create First Campaign",
       "empty": "No campaigns yet",
-      "empty_desc": "Create your first advertising campaign to reach your target audience"
+      "empty_desc": "Create your first advertising campaign to reach your target audience",
+      "tab_active": "Active",
+      "tab_archived": "Archive",
+      "archived_empty": "No archived campaigns"
     },
     "profile": {
       "wallet_title": "Lightning Wallet",
@@ -83,6 +98,9 @@
       "advanced_config": "Advanced Wallet Configuration (Optional)",
       "wallet_provider": "Wallet Provider",
       "select_provider": "Select provider...",
+      "connection_uri": "Connection String",
+      "connection_uri_help": "Works with any wallet that speaks Nostr Wallet Connect. Your sats stay in your own wallet — we only hold permission to send the reward.",
+      "nwc_uri_required": "A connection string starting with nostr+walletconnect:// is required",
       "api_url": "API URL",
       "invoice_key": "Invoice/Read Key",
       "invoice_key_placeholder": "Paste your LNbits invoice key",
@@ -117,7 +135,12 @@
       "lnbits_fields_required": "API URL and Invoice Key are required for LNbits",
       "alby_token_required": "Access Token is required for Alby",
       "configured": "configured",
-      "provider_connected": "connected"
+      "provider_connected": "connected",
+      "provider_spark": "Parahub wallet (pays from your browser)",
+      "spark_help": "Rewards are paid straight from your Parahub Lightning wallet — no external account, no keys to paste. While any Parahub tab is open, queued rewards are paid out automatically.",
+      "spark_offline_note": "While you're offline, claims queue up and are paid on your next visit. Keep enough sats in the wallet to cover your campaign budgets.",
+      "fill_from_properties": "Fill from my properties",
+      "add_home_from": "Add “Home” from {name}"
     },
     "create_campaign": {
       "title": "Create Advertising Campaign",
@@ -201,12 +224,14 @@
       "breakdown_avg_age": "Avg. age",
       "breakdown_location": "Have location",
       "breakdown_children": "Have children",
-      "breakdown_skills": "Have skills"
+      "breakdown_skills": "Have skills",
+      "create_failed": "Failed to create campaign",
+      "image_language_hint": "Text on the banner image is not translated — viewers always see it exactly as uploaded."
     },
     "settings": {
       "about_you": "About You",
       "about_you_desc": "Help advertisers show you relevant ads by providing your demographics",
-      "locations_desc": "Add your locations for geo-targeted ads"
+      "locations_desc": "Places near which geo-targeted ads can reach you — more places, more matching ads to earn from. Your coordinates are never shown to anyone; matching happens on the server."
     },
     "campaign_detail": {
       "views": "Views",
@@ -217,7 +242,12 @@
       "resume": "Resume",
       "delete": "Delete",
       "reward": "Reward",
-      "budget": "Budget"
+      "budget": "Budget",
+      "delete_sure": "Sure?",
+      "edit": "Edit",
+      "duplicate": "Duplicate",
+      "archive": "Archive",
+      "unarchive": "Unarchive"
     },
     "campaign": {
       "insufficient_balance": "Insufficient wallet balance to activate campaign",
@@ -325,6 +355,16 @@
       "teen": "Teen (12-18 years)",
       "eighteen_plus": "18+",
       "no_children": "No children"
+    },
+    "payer": {
+      "paid_toast": "-{sats} sats · ad reward for “{name}”"
+    },
+    "edit_campaign": {
+      "title": "Edit campaign",
+      "save": "Save changes",
+      "immutable_hint": "Reward and budget are locked once the campaign has views",
+      "load_failed": "Failed to load campaign",
+      "save_failed": "Failed to save changes"
     }
   }
 }

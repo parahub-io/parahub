@@ -38,11 +38,26 @@ interface VehicleData {
 
 type Bbox = [number, number, number, number] // [west, south, east, north]
 
+/** A pole inside the viewport holding waiting passengers. `n` counts people,
+ *  not awaited lines — one human waiting for "the 13 or the 15" is one pin. */
+interface WaitingStop {
+  ds_id: string
+  stop_source_id: string
+  lat: number
+  lon: number
+  n: number
+  active: number
+}
+
 // Singleton state — shared across components (MapView is singleton anyway)
 const vehicles = new Map<string, VehicleData>()
+const waitingStops = new Map<string, WaitingStop>()
 const isConnected = ref(false)
 const updateCounter = ref(0)
 const listeners = new Set<() => void>()
+// Separate listener set: a marker appearing must not re-run the vehicle
+// animator's glide, and vice versa.
+const waitingListeners = new Set<() => void>()
 
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -80,6 +95,12 @@ function connect() {
         }
         updateCounter.value++
         listeners.forEach(fn => fn())
+      } else if (data.type === 'waiting_stops') {
+        waitingStops.clear()
+        for (const s of data.stops || []) {
+          waitingStops.set(`${s.ds_id}:${s.stop_source_id}`, s)
+        }
+        waitingListeners.forEach(fn => fn())
       }
     } catch {}
   }
@@ -108,8 +129,10 @@ function disconnect() {
     isConnected.value = false
   }
   vehicles.clear()
+  waitingStops.clear()
   currentBbox = null
   updateCounter.value++
+  waitingListeners.forEach(fn => fn())
 }
 
 function subscribeBbox(bbox: Bbox) {
@@ -163,9 +186,32 @@ function toGeoJSON(): GeoJSON.FeatureCollection {
   return { type: 'FeatureCollection', features }
 }
 
+function waitingToGeoJSON(): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = []
+  for (const s of waitingStops.values()) {
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
+      properties: {
+        ds_id: s.ds_id,
+        stop_source_id: s.stop_source_id,
+        n: s.n,
+        // 0 = every phone here has gone dark; still people, drawn faded.
+        active: s.active,
+      },
+    })
+  }
+  return { type: 'FeatureCollection', features }
+}
+
 function onUpdate(fn: () => void) {
   listeners.add(fn)
   return () => { listeners.delete(fn) }
+}
+
+function onWaitingUpdate(fn: () => void) {
+  waitingListeners.add(fn)
+  return () => { waitingListeners.delete(fn) }
 }
 
 export function useTransitVehicles() {
@@ -177,6 +223,8 @@ export function useTransitVehicles() {
     subscribeBbox,
     updateBbox,
     toGeoJSON,
+    waitingToGeoJSON,
     onUpdate,
+    onWaitingUpdate,
   }
 }

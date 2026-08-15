@@ -126,7 +126,9 @@
                 ]"
               >
                 <RefreshCw class="w-5 h-5 flex-shrink-0" />
-                <span class="text-sm font-semibold">{{ $t('mesh.sysupgrade') }}</span>
+                <span class="text-sm font-semibold">
+                  {{ factoryUrl(device) ? $t('mesh.sysupgrade') : $t('mesh.sysupgrade_install') }}
+                </span>
               </a>
             </div>
           </div>
@@ -244,6 +246,23 @@
             <span>{{ $t(step) }}</span>
           </li>
         </ol>
+
+        <!-- Paper companion for whoever physically installs the node -->
+        <a
+          href="/print/mesh.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="card flex items-center gap-3 p-4 mt-5 hover:border-primary transition-colors group"
+        >
+          <Printer class="w-5 h-5 text-neutral-400 group-hover:text-secondary flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 group-hover:text-secondary">
+              {{ $t('mesh.print_sheet') }}
+            </h3>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ $t('mesh.print_sheet_desc') }}</p>
+          </div>
+          <ExternalLink class="w-4 h-4 text-neutral-400 flex-shrink-0" />
+        </a>
       </div>
 
       <!-- Speed Upgrade CTA -->
@@ -306,7 +325,7 @@
 </template>
 
 <script setup lang="ts">
-import { Radio, Download, RefreshCw, Package, Check, Zap, HardDrive, Code, ExternalLink, BookOpen, Wifi, Shield, Globe, Settings, Coins, BatteryCharging, MapPin, Handshake } from 'lucide-vue-next'
+import { Radio, Download, RefreshCw, Package, Check, Zap, HardDrive, Code, ExternalLink, BookOpen, Wifi, Shield, Globe, Settings, Gauge, BatteryCharging, MapPin, Handshake, Printer } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -354,7 +373,7 @@ const benefits = [
   { icon: Shield, title: 'mesh.benefit_privacy', desc: 'mesh.benefit_privacy_desc' },
   { icon: Zap, title: 'mesh.benefit_zero_config', desc: 'mesh.benefit_zero_config_desc' },
   { icon: Settings, title: 'mesh.benefit_remote', desc: 'mesh.benefit_remote_desc' },
-  { icon: Coins, title: 'mesh.benefit_earn', desc: 'mesh.benefit_earn_desc' },
+  { icon: Gauge, title: 'mesh.benefit_earn', desc: 'mesh.benefit_earn_desc' },
 ]
 
 const devices = [
@@ -372,7 +391,9 @@ const devices = [
     buyUrl: 'https://www.gl-inet.com/products/gl-mt6000/',
     image: '/images/mesh/mt6000.webp',
     profile: 'glinet_gl-mt6000',
-    hasFactory: true,
+    // OpenWrt builds MT6000 factory.bin as a raw kernel+rootfs eMMC blob with no
+    // GL.iNet header — the web upload rejects it. sysupgrade.bin is the install path.
+    hasFactory: false,
   },
   {
     id: 'axt1800',

@@ -184,7 +184,7 @@ const registrationDisabled = ref(false)
 
 onMounted(async () => {
   if (authStore.isAuthenticated) {
-    await navigateTo(localePath('/'))
+    await navigateTo(localePath('/map'))
     return
   }
   // Check if registration is enabled by probing the challenge endpoint

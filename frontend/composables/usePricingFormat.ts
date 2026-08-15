@@ -79,9 +79,16 @@ export const usePricingFormat = () => {
   // Short label for the offer kind, used to disambiguate stacked options
   // (a listing can carry both a sale and a rent price). Free needs no label —
   // formatPricingOption already renders "Free".
-  const pricingTypeLabel = (opt: PricingOption | null | undefined): string => {
-    if (opt?.type === 'rent') return t('market.pricing.rent')
-    if (opt?.type === 'sale') return t('market.pricing.sale')
+  // Direction-aware: on a want listing (`DEBIT`) the amount is what the author
+  // is ready to PAY, so "Sale" would label it as the exact opposite of what the
+  // listing says ("Wanted … SALE 80 €"). Those read as a budget instead.
+  const pricingTypeLabel = (
+    opt: PricingOption | null | undefined,
+    itemType?: string | null,
+  ): string => {
+    const wanted = itemType === 'DEBIT'
+    if (opt?.type === 'rent') return t(wanted ? 'market.pricing.budget_rent' : 'market.pricing.rent')
+    if (opt?.type === 'sale') return t(wanted ? 'market.pricing.budget' : 'market.pricing.sale')
     return ''
   }
 

@@ -30,8 +30,11 @@ from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 from core.models import generate_ulid
 from geo.models import (
-    Agency, Stop, Route, RouteStop, Shape, Trip, StopTime, CalendarDate,
-    TransitDataSource, Place,
+    Agency, Establishment, Stop, Route, RouteStop, Shape, Trip, StopTime,
+    CalendarDate, TransitDataSource, Place,
+)
+from geo.permissions import (
+    agencies_for_capability, can_operate_agency, require_capability,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,21 +46,27 @@ VALHALLA_URL = "http://127.0.0.1:8002"
 # --- Permission helpers ---
 
 def _check_agency_access(request, agency):
-    """Check user is staff or agency owner."""
+    """Staff, the solo owner, or an organization member with `transit.manage`."""
     if request.user.is_staff:
         return request.auth_profile
     profile = request.auth_profile
-    if agency.owner_id and agency.owner_id == profile.id:
+    if can_operate_agency(profile, agency, 'transit.manage'):
         return profile
     raise HttpError(403, "No access to this agency")
+
+
+def _resolve_transit_establishment(request, establishment_id):
+    """Staff may attach any organization; everyone else needs `transit.manage`."""
+    if request.user.is_staff:
+        return get_object_or_404(Establishment, id=establishment_id, is_active=True)
+    return require_capability(establishment_id, request.auth_profile, 'transit.manage')
 
 
 def _get_managed_agencies(request):
     """Get agencies accessible to current user."""
     if request.user.is_staff:
         return Agency.objects.filter(is_managed=True)
-    profile = request.auth_profile
-    return Agency.objects.filter(is_managed=True, owner=profile)
+    return agencies_for_capability(request.auth_profile, 'transit.manage').filter(is_managed=True)
 
 
 # --- Schemas ---
@@ -67,6 +76,9 @@ class AgencyCreateIn(Schema):
     timezone: str = "Europe/Lisbon"
     lang: str = "pt"
     url: str = ""
+    # Set to run the agency as an organization: access then follows membership
+    # (`transit.manage`) instead of one personal account. One agency per org.
+    establishment_id: Optional[str] = None
 
 
 class AgencyOut(Schema):
@@ -81,6 +93,9 @@ class AgencyOut(Schema):
     is_managed: bool = True
     routes_count: int = 0
     stops_count: int = 0
+    # Set when an organization runs the agency (access follows membership)
+    establishment_id: Optional[str] = None
+    establishment_name: str = ""
 
 
 class StopCreateIn(Schema):
@@ -167,9 +182,17 @@ class ShapePreviewIn(Schema):
 @router.post("/agencies/", response=AgencyOut, auth=ProfileAuth())
 @ratelimit(group='transit_manage:create_agency', key=user_or_ip, rate='10/m', method='POST')
 def create_agency(request, payload: AgencyCreateIn):
-    """Create a managed transit agency."""
+    """Create a managed transit agency, for yourself or for an organization."""
     profile = request.auth_profile
-    if not request.user.is_staff:
+
+    establishment = None
+    if payload.establishment_id:
+        # Creating for an organization: the org must already trust you to manage
+        # its transit. Ownership stays with the org, not with whoever clicked.
+        establishment = _resolve_transit_establishment(request, payload.establishment_id)
+        if Agency.objects.filter(establishment=establishment).exists():
+            raise HttpError(400, "This organization already has an agency")
+    elif not request.user.is_staff:
         # Non-staff can create their own agencies
         existing = Agency.objects.filter(owner=profile, is_managed=True).count()
         if existing >= 3:
@@ -189,10 +212,15 @@ def create_agency(request, payload: AgencyCreateIn):
             format="managed",
             is_active=True,
             slug=slug,
+            # The operator publishes their own data through us — relaying it is the point
+            relay_allowed=True,
         )
         agency = Agency.objects.create(
             data_source=ds,
-            owner=profile,
+            establishment=establishment,
+            # An organization's agency has no personal owner on purpose: access
+            # must not follow the creator out of the door.
+            owner=None if establishment else profile,
             is_managed=True,
             source_id=str(ds.id)[:8],
             name=payload.name,
@@ -208,7 +236,7 @@ def create_agency(request, payload: AgencyCreateIn):
 @ratelimit(group='transit_manage:list_agencies', key=user_or_ip, rate='60/m')
 def list_agencies(request):
     """List managed agencies accessible to current user."""
-    agencies = _get_managed_agencies(request).select_related("data_source").annotate(
+    agencies = _get_managed_agencies(request).select_related("data_source", "establishment").annotate(
         routes_count=Count("routes"),
         stops_count=Count("stops"),
     )
@@ -218,15 +246,26 @@ def list_agencies(request):
 @router.patch("/agencies/{agency_id}/", response=AgencyOut, auth=ProfileAuth())
 @ratelimit(group='transit_manage:update_agency', key=user_or_ip, rate='30/m', method='PATCH')
 def update_agency(request, agency_id: str, payload: AgencyCreateIn):
-    """Update managed agency."""
+    """Update managed agency (including handing it over to an organization)."""
     agency = get_object_or_404(Agency, id=agency_id, is_managed=True)
     _check_agency_access(request, agency)
+
+    fields = ["name", "timezone", "lang", "url", "updated_at"]
+    if payload.establishment_id and payload.establishment_id != agency.establishment_id:
+        # Hand a solo agency over to an organization: from here access follows
+        # membership, so the personal owner link goes away with it.
+        establishment = _resolve_transit_establishment(request, payload.establishment_id)
+        if Agency.objects.filter(establishment=establishment).exclude(id=agency.id).exists():
+            raise HttpError(400, "This organization already has an agency")
+        agency.establishment = establishment
+        agency.owner = None
+        fields += ["establishment", "owner"]
 
     agency.name = payload.name
     agency.timezone = payload.timezone
     agency.lang = payload.lang
     agency.url = payload.url
-    agency.save(update_fields=["name", "timezone", "lang", "url", "updated_at"])
+    agency.save(update_fields=fields)
 
     if agency.data_source:
         agency.data_source.name = payload.name
@@ -253,6 +292,8 @@ def _agency_to_out(agency):
         is_managed=agency.is_managed,
         routes_count=rc,
         stops_count=sc,
+        establishment_id=agency.establishment_id,
+        establishment_name=agency.establishment.name if agency.establishment_id else "",
     )
 
 

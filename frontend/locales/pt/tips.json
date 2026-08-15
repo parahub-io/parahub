@@ -51,6 +51,8 @@
       "submit": "Criar e carregar",
       "funding": "A carregar o cupão {n} de {total}",
       "fundingHint": "Não feche este separador — cada cupão é carregado em separado.",
+      "elapsed": "{time} decorrido",
+      "remaining": "faltam ≈ {time}",
       "walletNeeded": "Abra primeiro a carteira: o lote é carregado a partir dela.",
       "insufficient": "A carteira não tem saldo para {sats} sats."
     },
@@ -97,6 +99,11 @@
       "remembered": "Preenchido com o endereço do seu último levantamento.",
       "forget": "Limpar",
       "tooSmall": "Esta nota é pequena demais para enviar por Lightning — a taxa custa mais do que ela tem. Experimente um endereço Spark."
+    },
+    "sync": {
+      "offHint": "Emitiu um lote noutro dispositivo? Os lotes ficam onde foram criados enquanto a sincronização da carteira estiver desligada.",
+      "settingsLink": "Ativar nas definições do perfil",
+      "keyMismatch": "A sincronização está ligada, mas a carteira neste dispositivo é diferente da que sincronizou. Restaure a mesma seed de 12 palavras para ver lotes de outros dispositivos."
     }
   }
 }

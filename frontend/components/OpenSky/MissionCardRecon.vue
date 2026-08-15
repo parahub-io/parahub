@@ -93,7 +93,7 @@
 
         <OpenSkyReadoutRow v-if="mission.pilot_name && mission.pilot_id" :label="$t('opensky.r_pilot', 'Pilot')">
           <NuxtLink
-            :to="localePath(`/u/${mission.pilot_hna?.split('@')[0] || mission.pilot_id}`)"
+            :to="localePath(`/@${mission.pilot_hna?.split('@')[0] || mission.pilot_id}`)"
             class="hover:text-secondary dark:hover:text-secondary-400 transition-colors"
           >{{ mission.pilot_name }}</NuxtLink>
         </OpenSkyReadoutRow>

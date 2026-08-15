@@ -33,7 +33,7 @@ def sitemap_urls(request):
         if p.establishment:
             loc = f'/org/{p.establishment.slug}/blog/{p.slug}'
         elif p.author:
-            loc = f'/u/{p.author.local_name}/blog/{p.slug}'
+            loc = f'/@{p.author.local_name}/blog/{p.slug}'
         else:
             loc = f'/blog/{p.slug}'
         urls.append({
@@ -50,7 +50,7 @@ def sitemap_urls(request):
         if site.establishment:
             loc = f'/org/{site.establishment.slug}/{sp.slug}'
         elif site.profile:
-            loc = f'/u/{site.profile.local_name}/{sp.slug}'
+            loc = f'/@{site.profile.local_name}/{sp.slug}'
         else:
             continue
         urls.append({
@@ -72,6 +72,6 @@ def sitemap_urls(request):
         .values_list('author__local_name', flat=True).distinct()
     )
     for name in author_names:
-        urls.append({'loc': f'/u/{name}/blog'})
+        urls.append({'loc': f'/@{name}/blog'})
 
     return urls

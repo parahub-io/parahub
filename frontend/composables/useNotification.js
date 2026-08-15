@@ -1,59 +1,28 @@
-import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useToastStore } from '~/stores/toast'
 
+/**
+ * Legacy toast API, kept for the components that still call it.
+ *
+ * It used to hold its own `ref([])` of notifications — a fresh, private list on
+ * every call — while the only renderer (`<Toast/>` in app.vue) reads the Pinia
+ * toast store. Every showSuccess/showError was therefore dropped on the floor,
+ * which turned failed actions into "the button does nothing". Delegate instead.
+ */
 export const useNotification = () => {
-  const notifications = ref([])
-  let notificationId = 0
+  const toastStore = useToastStore()
+  const { toasts } = storeToRefs(toastStore)
 
-  const showNotification = (message, type = 'info', duration = 3000) => {
-    const id = ++notificationId
-    const notification = {
-      id,
-      message,
-      type,
-      visible: true
-    }
-
-    notifications.value.push(notification)
-
-    if (duration > 0) {
-      setTimeout(() => {
-        removeNotification(id)
-      }, duration)
-    }
-
-    return id
-  }
-
-  const removeNotification = (id) => {
-    const index = notifications.value.findIndex(n => n.id === id)
-    if (index > -1) {
-      notifications.value.splice(index, 1)
-    }
-  }
-
-  const showSuccess = (message, duration = 3000) => {
-    return showNotification(message, 'success', duration)
-  }
-
-  const showError = (message, duration = 5000) => {
-    return showNotification(message, 'error', duration)
-  }
-
-  const showWarning = (message, duration = 4000) => {
-    return showNotification(message, 'warning', duration)
-  }
-
-  const showInfo = (message, duration = 3000) => {
-    return showNotification(message, 'info', duration)
-  }
+  const showNotification = (message, type = 'info', duration = 3000) =>
+    toastStore.addToast({ type, message, duration })
 
   return {
-    notifications,
+    notifications: toasts,
     showNotification,
-    removeNotification,
-    showSuccess,
-    showError,
-    showWarning,
-    showInfo
+    removeNotification: (id) => toastStore.removeToast(id),
+    showSuccess: (message, duration = 3000) => showNotification(message, 'success', duration),
+    showError: (message, duration = 5000) => showNotification(message, 'error', duration),
+    showWarning: (message, duration = 4000) => showNotification(message, 'warning', duration),
+    showInfo: (message, duration = 3000) => showNotification(message, 'info', duration),
   }
 }

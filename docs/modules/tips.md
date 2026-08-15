@@ -22,7 +22,7 @@ The last two points are the same promise bctip.org made from 2013 to 2024 ("uncl
 2. **Funding** -- each note's secret is generated in your browser and funded from your wallet, one payment per note. Nothing is sent to the server.
 3. **Give it away** -- either copy the note's link and send it (message, email, anything), or print the sheet: nine notes per A4 page with cut lines, each carrying a QR code and the same code in typeable form.
 4. **The recipient opens it** -- link or QR, they land on a page that needs no account and no wallet of their own.
-5. **Cash out** -- one tap unlocks the note into its own wallet, then the holder can send it anywhere: a Lightning invoice, a Lightning address, a Spark address, or an on-chain Bitcoin address. Leaving it unclaimed on paper is also fine -- the paper *is* the wallet.
+5. **Cash out** -- one tap unlocks the note into its own wallet, then the holder can send it anywhere: a Lightning invoice, a Lightning address, a Spark address, or an on-chain Bitcoin address. A receipt shows the amount, fee, and destination, and the payout address is remembered on the device, so someone given several notes types it once. Leaving it unclaimed on paper is also fine -- the paper *is* the wallet.
 
 ## Link or paper
 

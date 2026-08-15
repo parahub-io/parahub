@@ -10,9 +10,4 @@ definePageMeta({
   order: 2,
   keepalive: true
 })
-
-// Track onboarding: user has explored the map
-if (import.meta.client) {
-  localStorage.setItem('onboarding:map', '1')
-}
 </script>

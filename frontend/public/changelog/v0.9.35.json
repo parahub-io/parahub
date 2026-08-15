@@ -1,0 +1,78 @@
+{
+  "version": "v0.9.35",
+  "date": "2026-07-27",
+  "locales": {
+    "en": {
+      "title": "Saying exactly what the network does",
+      "summary": "A transparency pass over the community network's paperwork: the peering agreement and the privacy policy now describe precisely what data exists and what happens to it.",
+      "highlights": [
+        { "icon": "scale", "title": "Peering agreement corrected", "body": "The agreement names the actual internet exit, describes what really happens when a tunnel is down, and drops claims that didn't survive scrutiny." },
+        { "icon": "shield-check", "title": "Privacy policy v1.1", "body": "A new section covers node heartbeat data, guest devices, retention and legal basis. Guests see a plain-language notice on the free wifi page." }
+      ],
+      "notes": [
+        "All six languages updated.",
+        "The firmware repository carries the same wording."
+      ]
+    },
+    "ru": {
+      "title": "Сказать точно, что делает сеть",
+      "summary": "Проход прозрачности по документам сети сообщества: соглашение о пиринге и политика конфиденциальности теперь точно описывают, какие данные существуют и что с ними происходит.",
+      "highlights": [
+        { "icon": "scale", "title": "Исправлено соглашение о пиринге", "body": "Соглашение называет реальный выход в интернет, описывает, что на самом деле происходит при падении туннеля, и убирает утверждения, не выдержавшие проверки." },
+        { "icon": "shield-check", "title": "Политика конфиденциальности v1.1", "body": "Новый раздел покрывает данные пульса узлов, гостевые устройства, сроки хранения и правовое основание. Гости видят понятное уведомление на странице бесплатного wifi." }
+      ],
+      "notes": [
+        "Обновлены все шесть языков.",
+        "Репозиторий прошивки несёт те же формулировки."
+      ]
+    },
+    "pt": {
+      "title": "Dizer exatamente o que a rede faz",
+      "summary": "Uma passagem de transparência pela documentação da rede comunitária: o acordo de peering e a política de privacidade descrevem agora com precisão que dados existem e o que lhes acontece.",
+      "highlights": [
+        { "icon": "scale", "title": "Acordo de peering corrigido", "body": "O acordo nomeia a saída real para a internet, descreve o que realmente acontece quando um túnel cai, e abandona afirmações que não resistiram ao escrutínio." },
+        { "icon": "shield-check", "title": "Política de privacidade v1.1", "body": "Uma nova secção cobre os dados de pulso dos nós, os dispositivos de convidados, a retenção e a base legal. Os convidados veem um aviso em linguagem simples na página do wifi gratuito." }
+      ],
+      "notes": [
+        "As seis línguas foram atualizadas.",
+        "O repositório do firmware usa as mesmas formulações."
+      ]
+    },
+    "es": {
+      "title": "Decir exactamente qué hace la red",
+      "summary": "Una revisión de transparencia de los documentos de la red comunitaria: el acuerdo de interconexión y la política de privacidad describen ahora con precisión qué datos existen y qué pasa con ellos.",
+      "highlights": [
+        { "icon": "scale", "title": "Acuerdo de interconexión corregido", "body": "El acuerdo nombra la salida real a internet, describe lo que pasa de verdad cuando cae un túnel y retira afirmaciones que no resistieron el escrutinio." },
+        { "icon": "shield-check", "title": "Política de privacidad v1.1", "body": "Una nueva sección cubre los datos de latido de los nodos, los dispositivos de invitados, la retención y la base legal. Los invitados ven un aviso en lenguaje llano en la página del wifi gratuito." }
+      ],
+      "notes": [
+        "Actualizados los seis idiomas.",
+        "El repositorio del firmware lleva la misma redacción."
+      ]
+    },
+    "fr": {
+      "title": "Dire exactement ce que fait le réseau",
+      "summary": "Une passe de transparence sur les documents du réseau communautaire : l'accord de peering et la politique de confidentialité décrivent désormais précisément quelles données existent et ce qu'il en advient.",
+      "highlights": [
+        { "icon": "scale", "title": "Accord de peering corrigé", "body": "L'accord nomme la sortie internet réelle, décrit ce qui se passe vraiment quand un tunnel tombe, et retire les affirmations qui n'ont pas résisté à l'examen." },
+        { "icon": "shield-check", "title": "Politique de confidentialité v1.1", "body": "Une nouvelle section couvre les données de pouls des nœuds, les appareils invités, la rétention et la base légale. Les invités voient un avis en langage clair sur la page du wifi gratuit." }
+      ],
+      "notes": [
+        "Les six langues ont été mises à jour.",
+        "Le dépôt du firmware porte la même formulation."
+      ]
+    },
+    "de": {
+      "title": "Genau sagen, was das Netz tut",
+      "summary": "Ein Transparenz-Durchgang durch die Unterlagen des Gemeinschaftsnetzes: Die Peering-Vereinbarung und die Datenschutzerklärung beschreiben jetzt präzise, welche Daten existieren und was mit ihnen geschieht.",
+      "highlights": [
+        { "icon": "scale", "title": "Peering-Vereinbarung korrigiert", "body": "Die Vereinbarung nennt den tatsächlichen Internet-Ausgang, beschreibt, was wirklich geschieht, wenn ein Tunnel ausfällt, und streicht Behauptungen, die der Prüfung nicht standhielten." },
+        { "icon": "shield-check", "title": "Datenschutzerklärung v1.1", "body": "Ein neuer Abschnitt behandelt Heartbeat-Daten der Knoten, Gastgeräte, Aufbewahrung und Rechtsgrundlage. Gäste sehen einen klar formulierten Hinweis auf der Seite des freien WLANs." }
+      ],
+      "notes": [
+        "Alle sechs Sprachen aktualisiert.",
+        "Das Firmware-Repository trägt denselben Wortlaut."
+      ]
+    }
+  }
+}

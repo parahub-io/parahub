@@ -21,6 +21,11 @@
       <UpdateBanner />
     </ClientOnly>
 
+    <!-- Release notes for whoever was offline when the deploy happened -->
+    <ClientOnly>
+      <WhatsNewCard />
+    </ClientOnly>
+
     <!-- Native APK update banner (driven by capacitor.client.ts version check) -->
     <ClientOnly>
       <ApkUpdateBanner />

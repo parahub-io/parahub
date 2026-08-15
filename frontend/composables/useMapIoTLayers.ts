@@ -12,7 +12,7 @@ import {
   ZAP_GLYPH, LEAF_GLYPH, WIND_GLYPH, NAVIGATION_GLYPH,
 } from '~/composables/useMapToggleableLayer'
 import {
-  setEnsembleSegment, ensemblePlacement, onEnsembleChange, ENSEMBLE_ICON_SCALE,
+  setEnsembleSegment, setEnsembleScale, ensemblePlacement, onEnsembleChange, ENSEMBLE_ICON_SCALE,
   type EnsembleMemberInput, type EnsemblePlacement,
 } from '~/composables/useMapDeviceEnsembles'
 
@@ -27,6 +27,15 @@ function _geojsonCircle(lng: number, lat: number, radiusKm: number, steps = 64) 
   }
   return { type: 'Polygon' as const, coordinates: [coords] }
 }
+
+/** Energy cell status → fill color, shared by the GL layer, the map legend,
+ *  and card snapshot markers (PK/design-system.md § Map Markers). */
+export const ENERGY_STATUS_COLORS: Record<string, string> = {
+  GREEN: '#22c55e', YELLOW: '#eab308', RED: '#ef4444', OFFLINE: '#6b7280',
+}
+
+/** Env station fill when there is no AQI reading (weather-only / no data yet). */
+export const ENV_WEATHER_COLOR = '#38bdf8'
 
 export function useMapIoTLayers() {
   const authStore = useAuthStore()
@@ -90,50 +99,82 @@ export function useMapIoTLayers() {
   // ======== IoT Lock-on (persistent marker on selected device) ========
 
   let iotLockOnMarker: any = null
+  /** Ensemble member under the lock-on, so it can follow a regrouping. */
+  let iotLockOnRef: { segment: string, id: string } | null = null
 
   /**
    * offsetPx: constant screen-px fan-out of ensemble members (data-driven
    * `icon-offset`). Passed as the Marker's own px offset so the bracket stays
    * glued to the icon at every zoom — baking it into lngLat would fix it in
    * geo space and drift off the icon when the zoom changes.
+   * ref: the locked device's ensemble identity. Ensembles regroup with the
+   * map scale, so anchor+offset are only valid for the current grouping —
+   * without the ref the bracket is left behind the next time the lattice
+   * re-forms (see _resyncIoTLockOn).
    */
-  const showIoTLockOn = async (lat: number, lon: number, offsetPx?: [number, number] | null) => {
+  const showIoTLockOn = async (
+    lat: number, lon: number, offsetPx?: [number, number] | null,
+    ref?: { segment: string, id: string } | null,
+  ) => {
     hideIoTLockOn()
+    iotLockOnRef = ref || null
     const map = mapStore.mapInstance
     if (!map) return
+    // With a ref the current placement is authoritative — callers that only
+    // know the device (popover list, deep link) get the lattice slot for free
+    const pl = ref ? ensemblePlacement(ref.segment, ref.id) : undefined
+    const at: [number, number] = pl ? pl.anchor : [lon, lat]
+    const off = pl ? pl.offset : (offsetPx || null)
     if (!maplibreglCache) maplibreglCache = await import('maplibre-gl').then(m => m.default || m)
     const { createLockOnElement, flashCrosshair } = await import('~/utils/lockOnMarker')
     iotLockOnMarker = new maplibreglCache.Marker({
       element: createLockOnElement(),
       anchor: 'center',
-      ...(offsetPx ? { offset: offsetPx } : {}),
+      ...(off ? { offset: off } : {}),
     })
-      .setLngLat([lon, lat])
+      .setLngLat(at)
       .addTo(map)
     // Flash crosshair when lock-in animation finishes
     setTimeout(() => {
       if (!iotLockOnMarker) return // already hidden
-      const pt = map.project([lon, lat])
-      flashCrosshair(map.getContainer(), Math.round(pt.x + (offsetPx?.[0] || 0)), Math.round(pt.y + (offsetPx?.[1] || 0)))
+      const pt = map.project(at)
+      flashCrosshair(map.getContainer(), Math.round(pt.x + (off?.[0] || 0)), Math.round(pt.y + (off?.[1] || 0)))
     }, 450)
   }
 
   const hideIoTLockOn = () => {
     if (iotLockOnMarker) { iotLockOnMarker.remove(); iotLockOnMarker = null }
+    iotLockOnRef = null
   }
 
   /** Move existing lock-on marker without restarting animation. */
   const moveIoTLockOn = (lat: number, lon: number) => {
-    if (iotLockOnMarker) {
-      iotLockOnMarker.setLngLat([lon, lat])
-    }
+    if (!iotLockOnMarker) return
+    // A tracker that starts moving leaves the lattice — follow it to its true
+    // point and drop the slot offset with it (an ensemble member keeps both)
+    const pl = iotLockOnRef ? ensemblePlacement(iotLockOnRef.segment, iotLockOnRef.id) : undefined
+    iotLockOnMarker.setLngLat(pl ? pl.anchor : [lon, lat])
+    if (iotLockOnRef) iotLockOnMarker.setOffset(pl ? pl.offset : [0, 0])
+  }
+
+  /** Follow the locked device through an ensemble regrouping (zoom, toggle). */
+  const _resyncIoTLockOn = () => {
+    if (!iotLockOnMarker || !iotLockOnRef) return
+    const pl = ensemblePlacement(iotLockOnRef.segment, iotLockOnRef.id)
+    if (!pl) return
+    iotLockOnMarker.setLngLat(pl.anchor)
+    iotLockOnMarker.setOffset(pl.offset)
   }
 
   /** Remove + recreate lock-on to replay CSS animation. */
-  const replayIoTLockOn = async (lat: number, lon: number, offsetPx?: [number, number] | null) => {
+  const replayIoTLockOn = async (
+    lat: number, lon: number, offsetPx?: [number, number] | null,
+    ref?: { segment: string, id: string } | null,
+  ) => {
+    const keep = ref === undefined ? iotLockOnRef : ref
     hideIoTLockOn()
     await nextTick()
-    showIoTLockOn(lat, lon, offsetPx)
+    showIoTLockOn(lat, lon, offsetPx, keep)
   }
 
   // ======== IoT Preview (lock-on marker + edge indicator on hover) ========
@@ -217,18 +258,61 @@ export function useMapIoTLayers() {
   // Below this speed a parked tracker's GPS jitter reports arbitrary course values
   const TRACKER_MOVING_MIN_KMH = 3
 
-  const _trackerFeature = (p: any) => ({
-    type: 'Feature' as const,
-    properties: {
-      device_id: p.device_id,
-      name: p.name,
-      speed: p.speed ? `${Math.round(p.speed)} km/h` : '',
-      status: p.traccar_status || 'unknown',
-      heading: p.heading ?? 0,
-      moving: p.traccar_status === 'online' && (p.speed ?? 0) >= TRACKER_MOVING_MIN_KMH && p.heading != null,
-    },
-    geometry: { type: 'Point' as const, coordinates: [p.longitude, p.latitude] },
+  const _trackerMoving = (p: any) =>
+    p.traccar_status === 'online' && (p.speed ?? 0) >= TRACKER_MOVING_MIN_KMH
+
+  const _trackerFeature = (p: any) => {
+    const pl = ensemblePlacement('tracker', p.device_id)
+    return {
+      type: 'Feature' as const,
+      properties: {
+        device_id: p.device_id,
+        name: p.name,
+        speed: p.speed ? `${Math.round(p.speed)} km/h` : '',
+        status: p.traccar_status || 'unknown',
+        heading: p.heading ?? 0,
+        moving: _trackerMoving(p) && p.heading != null,
+        iconOffset: pl?.offset || [0, 0],
+        glIconOffset: pl?.glOffset || [0, 0],
+        ensemble: (pl?.groupSize || 1) > 1,
+        labelHidden: pl ? pl.labelPos === null : false,
+        // The label carries the member's slot offset itself (icon-offset moves
+        // the icon only) — see EnsemblePlacement.labelOffset
+        ...((pl?.groupSize || 1) > 1 && pl?.labelOffset
+          ? { labelOffset: pl.labelOffset, labelAnchor: pl.labelAnchor }
+          : {}),
+      },
+      geometry: { type: 'Point' as const, coordinates: pl?.anchor || [p.longitude, p.latitude] },
+    }
+  }
+
+  const _trackerGeoJSON = (positions: any[]) => ({
+    type: 'FeatureCollection' as const,
+    features: positions.map(_trackerFeature),
   })
+
+  /**
+   * A parked tracker is just another device standing at the house — it docks
+   * into the co-located ensemble so it stops landing on top of the routers.
+   * A moving one leaves the lattice: its marker is already travelling, and a
+   * slot offset would fight the motion (and re-slot the whole group on every
+   * position tick).
+   */
+  const _trackerMembers = (positions: any[]): EnsembleMemberInput[] =>
+    trackersEnabled.value
+      ? positions
+          .filter((p: any) => p.latitude != null && p.longitude != null && !_trackerMoving(p))
+          .map((p: any) => ({
+            id: p.device_id,
+            lat: p.latitude,
+            lon: p.longitude,
+            role: 'other' as const,
+            mobile: true,
+          }))
+      : []
+
+  const _publishTrackerMembers = () =>
+    setEnsembleSegment('tracker', _trackerMembers(trackerPositionsList.value))
 
   const loadTrackerPositions = async (): Promise<any[]> => {
     if (!authStore.isAuthenticated) return []
@@ -240,6 +324,7 @@ export function useMapIoTLayers() {
       })
       const positions = data || []
       trackerPositionsList.value = positions
+      _publishTrackerMembers()
       return positions
     } catch (e) {
       console.warn('[IoTLayers] Failed to fetch tracker positions:', e)
@@ -289,10 +374,7 @@ export function useMapIoTLayers() {
     if (!authStore.isAuthenticated) return
 
     const positions = await loadTrackerPositions()
-    const geojson = {
-      type: 'FeatureCollection' as const,
-      features: positions.map(_trackerFeature),
-    }
+    const geojson = _trackerGeoJSON(positions)
 
     if (map.getSource('trackers')) {
       ;(map.getSource('trackers') as any).setData(geojson)
@@ -334,6 +416,8 @@ export function useMapIoTLayers() {
           ['==', ['get', 'status'], 'unknown'], 'tracker-hex-unknown',
           'tracker-hex-offline',
         ],
+        'icon-offset': ['get', 'glIconOffset'],
+        'icon-size': ['case', ['get', 'ensemble'], ENSEMBLE_ICON_SCALE, 1],
         'icon-allow-overlap': true,
         visibility: trackersEnabled.value ? 'visible' : 'none',
       },
@@ -344,10 +428,10 @@ export function useMapIoTLayers() {
       type: 'symbol',
       source: 'trackers',
       layout: {
-        'text-field': ['get', 'name'],
+        'text-field': ['case', ['get', 'labelHidden'], '', ['get', 'name']],
         'text-size': 11,
-        'text-offset': [0, 1.5],
-        'text-anchor': 'top',
+        'text-offset': ['coalesce', ['get', 'labelOffset'], ['literal', [0, 1.5]]],
+        'text-anchor': ['coalesce', ['get', 'labelAnchor'], 'top'],
         'text-optional': true,
         visibility: trackersEnabled.value ? 'visible' : 'none',
       },
@@ -365,11 +449,7 @@ export function useMapIoTLayers() {
     const map = mapStore.mapInstance
     if (!map || !map.getSource('trackers')) return
     const positions = await loadTrackerPositions()
-    const geojson = {
-      type: 'FeatureCollection' as const,
-      features: positions.map(_trackerFeature),
-    }
-    ;(map.getSource('trackers') as any).setData(geojson)
+    ;(map.getSource('trackers') as any).setData(_trackerGeoJSON(positions))
   }
 
   const toggleTrackers = () => {
@@ -380,6 +460,10 @@ export function useMapIoTLayers() {
     if (map.getLayer('trackers-heading')) map.setLayoutProperty('trackers-heading', 'visibility', vis)
     if (map.getLayer('trackers-circle')) map.setLayoutProperty('trackers-circle', 'visibility', vis)
     if (map.getLayer('trackers-label')) map.setLayoutProperty('trackers-label', 'visibility', vis)
+
+    // Regroup the shared ensemble: trackers leave on hide, rejoin on show
+    // (the change listener re-renders this and every co-located layer)
+    _publishTrackerMembers()
 
     if (trackersEnabled.value && !trackerRefreshInterval) {
       trackerRefreshInterval = setInterval(refreshTrackerPositions, 30000)
@@ -437,10 +521,6 @@ export function useMapIoTLayers() {
 
   // ======== Energy Cells ========
 
-  const STATUS_COLORS: Record<string, string> = {
-    GREEN: '#22c55e', YELLOW: '#eab308', RED: '#ef4444', OFFLINE: '#6b7280',
-  }
-
   const loadEnergyCells = async (): Promise<any[]> => {
     try {
       const data = await $fetch<any[]>('/api/v1/energy/cells/map/')
@@ -468,7 +548,7 @@ export function useMapIoTLayers() {
     type: 'FeatureCollection' as const,
     features: cells.map((c: any) => ({
       type: 'Feature' as const,
-      properties: { id: c.id, name: c.name, status: c.status, price: c.current_price_eur, color: STATUS_COLORS[c.status] || '#6b7280' },
+      properties: { id: c.id, name: c.name, status: c.status, price: c.current_price_eur, color: ENERGY_STATUS_COLORS[c.status] || '#6b7280' },
       geometry: _geojsonCircle(c.longitude, c.latitude, c.radius_km),
     })),
   })
@@ -484,16 +564,16 @@ export function useMapIoTLayers() {
           name: c.name,
           status: c.status,
           price: c.current_price_eur,
-          color: STATUS_COLORS[c.status] || '#6b7280',
+          color: ENERGY_STATUS_COLORS[c.status] || '#6b7280',
           iconOffset: pl?.offset || [0, 0],
           glIconOffset: pl?.glOffset || [0, 0],
           ensemble: (pl?.groupSize || 1) > 1,
           labelHidden: pl ? pl.labelPos === null : false,
-          ...(pl?.labelPos === 'above'
-            ? { labelOffset: [0, -1.6], labelAnchor: 'bottom' }
-            : (pl?.groupSize || 1) > 1 && pl?.labelPos === 'below'
-              ? { labelOffset: [0, 1.6] }
-              : {}),
+          // The label carries the member's slot offset itself (icon-offset
+          // moves the icon only) — see EnsemblePlacement.labelOffset
+          ...((pl?.groupSize || 1) > 1 && pl?.labelOffset
+            ? { labelOffset: pl.labelOffset, labelAnchor: pl.labelAnchor }
+            : {}),
         },
         geometry: { type: 'Point' as const, coordinates: pl?.anchor || [c.longitude, c.latitude] },
       }
@@ -531,7 +611,7 @@ export function useMapIoTLayers() {
     })
 
     // Generate hex icons for each energy status
-    for (const [status, color] of Object.entries(STATUS_COLORS)) {
+    for (const [status, color] of Object.entries(ENERGY_STATUS_COLORS)) {
       _ensureHexIcon(map, `energy-hex-${status}`, color, ZAP_GLYPH)
     }
 
@@ -621,8 +701,6 @@ export function useMapIoTLayers() {
     very_unhealthy: '#a855f7',
     hazardous: '#7f1d1d',
   }
-  const ENV_WEATHER_COLOR = '#38bdf8'
-
   const _envColor = (latest: any): string =>
     (latest?.aqi_category && AQI_COLORS[latest.aqi_category]) || ENV_WEATHER_COLOR
 
@@ -743,6 +821,8 @@ export function useMapIoTLayers() {
   // hexagon stays the sole click/hover target. Hidden below ENV_HUD_MINZOOM
   // (container class, shared with the mesh routers' HUD markers).
   const ENV_HUD_MINZOOM = 12
+  /** Stations this close share a mast/wall — near enough for sensor rivalry. */
+  const CO_LOCATED_M = 25
   const envHudMarkers = new Map<string, { marker: any, update: (v: any) => void }>()
   let envHudHandlersBound = false
   let envHudLockDimId: string | null = null
@@ -771,18 +851,35 @@ export function useMapIoTLayers() {
     container.style.setProperty('--map-bearing-neg', `${-map.getBearing()}deg`)
   }
 
+  /**
+   * Feed the ensemble layout the map scale — devices dock into one honeycomb
+   * while they are closer than a lattice cell on screen, so the threshold has
+   * to follow the zoom. Measured off the projection at the viewport center
+   * rather than assumed from the zoom number (no tile-size constant).
+   */
+  const _syncEnsembleScale = (map: any) => {
+    const center = map.getCenter()
+    const p = map.project(center)
+    const a = map.unproject([p.x - 32, p.y])
+    const b = map.unproject([p.x + 32, p.y])
+    setEnsembleScale(a.distanceTo(b) / 64)
+  }
+
   /** Container-level zoom/bearing sync for ALL device HUDs (env + mesh). */
   const _bindHudViewSync = (map: any) => {
     if (!envHudHandlersBound) {
-      map.on('zoom', () => _envHudViewSync(map))
+      map.on('zoom', () => { _envHudViewSync(map); _syncEnsembleScale(map) })
       map.on('rotate', () => _envHudViewSync(map))
+      // Latitude changes the scale too — a long pan north or south moves it
+      map.on('moveend', () => _syncEnsembleScale(map))
       envHudHandlersBound = true
     }
     _envHudViewSync(map)
+    _syncEnsembleScale(map)
   }
 
   /** Instrument readout content for one station (+ its ensemble placement). */
-  const _envHudView = (s: any, pl?: EnsemblePlacement) => {
+  const _envHudView = (s: any, pl?: EnsemblePlacement, hideTemp = false) => {
     const latest = s.latest || {}
     const rows: Array<[string, string]> = []
     let primary = ''
@@ -792,7 +889,7 @@ export function useMapIoTLayers() {
       primary = `AQI ${latest.aqi}${cat ? ` · ${cat}` : ''}`
       if (latest.pm25 != null) rows.push(['PM2.5', String(Math.round(latest.pm25))])
       if (latest.co2 != null) rows.push(['CO2', String(Math.round(latest.co2))])
-      if (temp) rows.push(['TEMP', temp])
+      if (temp && !hideTemp) rows.push(['TEMP', temp])
     } else {
       primary = temp
       if (latest.wind_speed != null) {
@@ -828,6 +925,20 @@ export function useMapIoTLayers() {
     for (const [id, rec] of envHudMarkers) {
       if (!liveIds.has(id)) { rec.marker.remove(); envHudMarkers.delete(id) }
     }
+    // An air station's auxiliary TEMP loses to a co-located weather station's
+    // shielded sensor (self-heating bias) — the clashing pair reads as a
+    // contradiction, so only the weather column shows it. "Co-located" is
+    // metric on purpose: ensemble membership is screen-space and spans
+    // kilometres at low zoom, which says nothing about a shared shelter.
+    const weatherTempStations = visible.filter(
+      (s: any) => s.latest?.aqi == null && s.latest?.temperature != null,
+    )
+    const hasShieldedNeighbour = (s: any) => weatherTempStations.some((w: any) => {
+      if (w.id === s.id) return false
+      const dLat = (w.latitude - s.latitude) * 111320
+      const dLon = (w.longitude - s.longitude) * 111320 * Math.cos(s.latitude * Math.PI / 180)
+      return dLat * dLat + dLon * dLon <= CO_LOCATED_M * CO_LOCATED_M
+    })
     for (const s of visible) {
       const pl = ensemblePlacement('env', s.id)
       const lngLat = pl?.anchor || [s.longitude, s.latitude]
@@ -844,7 +955,8 @@ export function useMapIoTLayers() {
         rec.marker.setLngLat(lngLat)
         rec.marker.setOffset(pl?.offset || [0, 0])
       }
-      rec.update(_envHudView(s, pl))
+      const hideTemp = hasShieldedNeighbour(s)
+      rec.update(_envHudView(s, pl, hideTemp))
     }
     _bindHudViewSync(map)
   }
@@ -1023,6 +1135,9 @@ export function useMapIoTLayers() {
     }
     const energySrc = map.getSource('energy-cells-points')
     if (energySrc) (energySrc as any).setData(_energyPointFeatures(energyCellsList.value))
+    const trackerSrc = map.getSource('trackers')
+    if (trackerSrc) (trackerSrc as any).setData(_trackerGeoJSON(trackerPositionsList.value))
+    _resyncIoTLockOn()
   })
 
   function setupLayers(map: any) {
@@ -1085,22 +1200,12 @@ export function useMapIoTLayers() {
       entry.speed = speed
       entry.traccar_status = status
     }
+    // A tracker that started (or stopped) moving joins or leaves the ensemble;
+    // the change listener re-renders this source and the co-located layers
+    _publishTrackerMembers()
     // Update map source
     if (!map || !map.getSource('trackers')) return
-    const geojson = {
-      type: 'FeatureCollection' as const,
-      features: trackerPositionsList.value.map((p: any) => ({
-        type: 'Feature' as const,
-        properties: {
-          device_id: p.device_id,
-          name: p.name,
-          speed: p.speed ? `${Math.round(p.speed)} km/h` : '',
-          status: p.traccar_status || 'unknown',
-        },
-        geometry: { type: 'Point' as const, coordinates: [p.longitude, p.latitude] },
-      })),
-    }
-    ;(map.getSource('trackers') as any).setData(geojson)
+    ;(map.getSource('trackers') as any).setData(_trackerGeoJSON(trackerPositionsList.value))
   }
 
   function cleanup() {

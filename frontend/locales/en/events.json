@@ -77,7 +77,16 @@
       "max_participants_hint": "Leave empty if there's no limit",
       "cover_image": "Cover image",
       "cover_image_drop": "Click or drag image here",
-      "submit": "Create Event"
+      "submit": "Create Event",
+      "errors": {
+        "title_min": "Title must be at least 3 characters",
+        "description_min": "Description must be at least 10 characters",
+        "starts_required": "Start date and time is required",
+        "location_required": "Location is required for offline and hybrid events",
+        "online_url_required": "A join link is required for online and hybrid events",
+        "image_too_large": "Image must be smaller than 10 MB",
+        "failed": "Failed to create event"
+      }
     },
     "landing_title": "Community events",
     "landing_meta": "Organize and discover community events with built-in encrypted chat. In-person, online or hybrid. Free and open-source.",

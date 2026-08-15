@@ -45,8 +45,6 @@
     "data_source": "Fonte de dados",
     "schedule_date": "Data do horário",
     "view_route": "Ver linha",
-    "rideshare": "Boleias",
-    "rideshare_desc": "Encontre ou ofereça boleias nas paragens",
     "cities": {
       "all_countries": "Todos",
       "stops": "{n} paragens",
@@ -77,7 +75,11 @@
       "stops": "Paragens",
       "trips": "Viagens",
       "imported": "Importado",
-      "show_error": "Ver erro"
+      "show_error": "Ver erro",
+      "license": "Licença",
+      "license_missing": "O publicador não indica licença",
+      "realtime": "Em direto",
+      "summary": "Feeds: {feeds} · Operadores: {agencies}"
     },
     "route_types": {
       "0": "Elétrico",
@@ -133,8 +135,27 @@
       "positions_sent": "enviados",
       "confirm_end": "Terminar o turno atual?",
       "shift_ended": "Turno terminado",
-      "tts_label": "Anúncios de paragem"
+      "tts_label": "Anúncios de paragem",
+      "scan_tickets": "Validar bilhetes",
+      "route_ladder": "Esquema da linha",
+      "your_vehicle": "O seu veículo",
+      "vehicles_on_route": "Veículos neste sentido",
+      "waiting_ahead": "{n} à espera da sua linha nesta paragem"
     },
-    "timetable_no_service": "Sem serviço neste dia"
+    "timetable_no_service": "Sem serviço neste dia",
+    "waiting": {
+      "title": "À espera aqui",
+      "hint": "Toque na linha que espera — os outros passageiros e o motorista veem-no. Desaparece sozinho quando o autocarro chegar.",
+      "im_here": "Estou à espera desta linha aqui",
+      "im_here_cancel": "Já não estou à espera aqui",
+      "count": "{n} à espera desta linha aqui",
+      "dimmed_hint": "Marcado antes, ecrã entretanto apagado",
+      "error_throttled": "Demasiado rápido — aguarde um momento antes de mover a marca",
+      "error_ip_cap": "Demasiadas marcas anónimas desta ligação",
+      "error_failed": "Não foi possível atualizar a sua marca de espera",
+      "stranded_title": "Não vem autocarro",
+      "stranded_desc": "Está à espera há {min} min e não há nada em circulação na sua linha.",
+      "stranded_company": "Outros retidos aqui: {n}."
+    }
   }
 }

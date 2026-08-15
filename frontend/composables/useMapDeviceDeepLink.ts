@@ -50,7 +50,10 @@ export function useMapDeviceDeepLink(opts: {
     envStationsEnabled: Ref<boolean>
     toggleEnergyCells: () => void
     toggleEnvStations: () => void
-    showIoTLockOn: (lat: number, lon: number, offsetPx?: [number, number] | null) => void
+    showIoTLockOn: (
+      lat: number, lon: number, offsetPx?: [number, number] | null,
+      ref?: { segment: string, id: string } | null,
+    ) => void
     getPanelPadding: () => any
   }
   layers: {
@@ -120,6 +123,9 @@ export function useMapDeviceDeepLink(opts: {
    * out. Placements exist by the time the item shows up in its layer list —
    * every layer publishes its segment synchronously with setting the list.
    */
+  /** Deep-link kinds that are also ensemble segments. */
+  const ENSEMBLE_KINDS = new Set(['tracker', 'mesh', 'energy', 'env'])
+
   const placementLockOn = (segment: string, id: string): { anchor: [number, number] | null; offset: [number, number] | null } => {
     const pl = ensemblePlacement(segment, id)
     if (!pl) return { anchor: null, offset: null }
@@ -238,7 +244,10 @@ export function useMapDeviceDeepLink(opts: {
     const target = open(item)
     if (target.lockOn) {
       const a = target.lockOnAnchor || [target.lngLat.lng, target.lngLat.lat]
-      iot.showIoTLockOn(a[1], a[0], target.lockOnOffset || null)
+      // Deep-link kinds double as ensemble segments — the ref keeps the
+      // bracket on the device when the lattice regroups on zoom
+      const ref = ENSEMBLE_KINDS.has(kind) ? { segment: kind, id } : null
+      iot.showIoTLockOn(a[1], a[0], target.lockOnOffset || null, ref)
     }
     flyToDevice(target.lngLat.lng, target.lngLat.lat, target.zoom)
   }

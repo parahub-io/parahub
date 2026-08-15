@@ -30,6 +30,9 @@ export default defineSitemapEventHandler(async () => {
     fetchSource('/api/v1/cms/sitemap-urls/'),              // blog posts, mini-sites, org/user blog indexes
     fetchSource('/api/v1/geo/transit/sitemap-urls/'),      // canonical transit route pages (one per line)
     fetchSource('/api/v1/geo/transit/stop-sitemap-urls/'), // transit stop pages (one per physical boarding point)
+    fetchSource('/api/v1/core/sitemap/items/'),            // public, active marketplace listings
+    fetchSource('/api/v1/core/sitemap/events/'),           // published events still ahead
+    fetchSource('/api/v1/core/sitemap/orgs/'),             // establishments that carry content of their own
   ])
   return groups.flat()
 })

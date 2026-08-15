@@ -1,9 +1,11 @@
 <template>
-  <div class="max-w-2xl mx-auto px-4 py-6">
-    <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-6">{{ $t('rides.title') }}</h1>
+  <div class="max-w-2xl mx-auto px-4 py-2">
+    <h1 class="sr-only">{{ $t('rides.title') }}</h1>
 
-    <!-- Tabs -->
-    <UiTabs v-model="activeTab" :tabs="rideTabs" full-width class="mb-6">
+    <UiRouteTabs :tabs="transitTabs" full-width class="mb-4" />
+
+    <!-- Role toggle within rideshare (nested control → pills) -->
+    <UiTabs v-model="activeTab" :tabs="rideTabs" variant="pills" class="mb-6">
 
     <!-- Passenger Tab -->
     <div v-if="activeTab === 'passenger'">
@@ -239,6 +241,8 @@ useSeoMeta({
   ogType: 'website',
   twitterCard: 'summary_large_image',
 })
+
+const transitTabs = useTransitTabs()
 
 const activeTab = useTabSync(['passenger', 'driver'])
 const rideTabs = computed(() => [

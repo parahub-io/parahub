@@ -68,7 +68,7 @@ class Command(BaseCommand):
             'domain': domain,
             'name': name,
             'url': site_url,
-            'registry_git': f'https://gitea.{domain}/audit/parahub-registry.git',
+            'registry_git': f'https://git.{domain}/audit/parahub-registry.git',
             'ws_federation': f'wss://{domain}/ws/v1/federation/',
             'matrix_server': domain,
             'node_pgp_fingerprint': fingerprint,

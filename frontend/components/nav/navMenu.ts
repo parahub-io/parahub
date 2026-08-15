@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import {
   Wallet, Settings, Calendar, Book, Vote, Building,
-  Megaphone, FileText, PackageCheck, Cpu, Zap, Car,
+  Megaphone, FileText, PackageCheck, Cpu, Zap,
   Shield, Info, Bot, Bell,
 } from 'lucide-vue-next'
 
@@ -42,7 +42,7 @@ export const NAV_MENU: NavMenuEntry[] = [
   { path: '/transit', labelKey: 'nav.transit', hintKey: 'nav.hint.transit' },
 
   // Dropdown: profile row
-  { path: '/u/', hintKey: 'nav.hint.profile', inDropdown: true }, // dynamic — drag label resolved from display_name
+  { path: '/@', hintKey: 'nav.hint.profile', inDropdown: true }, // dynamic — drag label resolved from display_name
   { path: '/wallet', activeIcon: Wallet, labelKey: 'nav.wallet', hintKey: 'nav.hint.wallet', inDropdown: true },
   { path: '/profile', activeIcon: Settings, labelKey: 'zenith.settings', hintKey: 'nav.hint.settings', inDropdown: true },
 
@@ -65,8 +65,10 @@ export const NAV_MENU: NavMenuEntry[] = [
   { path: '/notifications', activeIcon: Bell, labelKey: 'nav.notifications', hintKey: 'nav.hint.notifications', inDropdown: true },
   { path: '/yellow-gate', activeIcon: Bot, inDropdown: true }, // "Hive" — no i18n key, not rendered in dropdown (Menu active-icon only)
 
-  // Subpath-only (no navbar link of its own — lights Menu icon when user is on /transit/rides)
-  { path: '/transit/rides', activeIcon: Car, labelKey: 'nav.rides', hintKey: 'nav.hint.rides' },
+  // Subpath-only: drag label/hint for the Transit navbar button when it
+  // targets the remembered rides section (no Menu active-icon — the navbar
+  // button itself swaps to the Car icon)
+  { path: '/transit/rides', labelKey: 'nav.rides', hintKey: 'nav.hint.rides' },
 ]
 
 /** Path-prefix → active-icon for Menu-button active-state display. */

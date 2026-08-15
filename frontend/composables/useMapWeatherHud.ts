@@ -1,6 +1,8 @@
 /**
- * Weather HUD orchestration over useMapWeather: visibility (hidden while any
- * panel is open), moveend-driven refresh, and the periodic re-poll timer.
+ * Weather HUD orchestration over useMapWeather: visibility (hidden while a
+ * bottom tool bar claims the HUD's band; on phones MapView's CSS additionally
+ * yields to bottom-sheet panels), moveend-driven refresh, and the periodic
+ * re-poll timer.
  *
  * Weather changes ~every 15 min, so a timer — not a WS stream — is the right
  * cadence. refresh() no-ops unless the cell's reading has aged past FRESH_MS,

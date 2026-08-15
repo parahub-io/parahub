@@ -8,16 +8,18 @@ from ninja.errors import HttpError
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Q, Count
-from typing import List, Optional
+from typing import Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from decimal import Decimal
 import logging
 
 from parahub.auth import ProfileAuth
+from parahub.capabilities import require_platform_capability
 from parahub.errors import LocalizedHttpError
 from parahub.ratelimit import ratelimit, user_or_ip
 from identity.models import Profile, Verification, ProfileVerificationPhoto
+from identity.visibility import account_is_synthetic
 from identity.reputation import calculate_reputation
 
 logger = logging.getLogger(__name__)
@@ -39,8 +41,13 @@ class VerificationInfo(BaseModel):
     id: str
     verifier_cri: str
     verifier_hna: Optional[str] = None
+    #: Faces for the public verifier strip. Avatars are public for everyone
+    #: (ProfilePublicResponse), display_name is NOT — it stays gated by
+    #: name_visible_to, so this payload carries hna + avatar and nothing else.
+    verifier_avatar_url: Optional[str] = None
     verified_user_id: Optional[str] = None
     verified_user_hna: Optional[str] = None
+    verified_user_avatar_url: Optional[str] = None
     verification_method: str
     verified_at: datetime
     has_signed: bool = True
@@ -57,15 +64,6 @@ class MyWoTStatusResponse(BaseModel):
     verify_blocked_reason: Optional[str] = None
     received_verifications: List[VerificationInfo]
     given_verifications: List[VerificationInfo]
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UserSearchResult(BaseModel):
-    id: str
-    hna: Optional[str] = None
-    reputation_score: float
-    trust_level: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -158,59 +156,11 @@ def get_my_wot_status(request):
         raise
 
 
-@wot_router.get("/search/", response=dict, auth=ProfileAuth())
-@ratelimit(group='wot:search', key=user_or_ip, rate='30/m')
-def search_users(request, q: str):
-    """
-    Search users by HNA, ULID, or email
-    Returns basic profile info for verification purposes
-    """
-    try:
-        if not q or len(q) < 2:
-            return {"results": []}
-
-        # Search by HNA (local_name), ULID, or associated account email
-        profiles = Profile.objects.filter(
-            Q(local_name__icontains=q) |
-            Q(id__icontains=q) |
-            Q(account__email__icontains=q)
-        ).exclude(
-            id=request.auth_profile.id  # Exclude self
-        ).select_related('account', 'instance').annotate(
-            _verification_count=Count(
-                'received_verifications',
-                filter=Q(received_verifications__is_active=True)
-            )
-        )[:20]
-
-        results = []
-        for profile in profiles:
-            # Calculate trust level
-            verification_count = profile._verification_count
-
-            if verification_count >= 10:
-                trust_level = "HIGH"
-            elif verification_count >= 5:
-                trust_level = "MEDIUM"
-            elif verification_count >= 3:
-                trust_level = "BASIC"
-            elif verification_count >= 1:
-                trust_level = "LOW"
-            else:
-                trust_level = "NONE"
-
-            results.append(UserSearchResult(
-                cri=profile.id,
-                hna=profile.hna,
-                reputation_score=float(profile.reputation_score),
-                trust_level=trust_level
-            ))
-
-        return {"results": results}
-
-    except Exception as e:
-        logger.error(f"Error searching users: {e}", exc_info=True)
-        return {"results": [], "error": str(e)}
+# People search lives in ONE place: GET /api/v1/profiles/search/. The WoT router
+# used to carry a second one, which matched account emails across every profile
+# with no visibility filter — an email → pseudonyms oracle for any signed-in
+# caller. Anything that needs to find a person goes through the profiles
+# endpoint (it hides synthetic profiles, honours blocks and gates display_name).
 
 
 # Distinct people whose photo one verifier may open per window. Sized for the
@@ -320,13 +270,24 @@ def create_verification(request, data: CreateVerificationRequest):
 
         # Get target profile
         try:
-            target_profile = Profile.objects.get(id=data.verified_user_id)
+            target_profile = Profile.objects.select_related('account').get(id=data.verified_user_id)
         except Profile.DoesNotExist:
             raise LocalizedHttpError(404, "target_not_found", "User not found")
 
         # Prevent self-verification
         if verifier.id == target_profile.id:
             raise LocalizedHttpError(400, "self_verification", "Cannot verify yourself")
+
+        # Synthetic-cluster isolation: seeded test users and AI bot accounts
+        # must never exchange verifications with real accounts. A single
+        # real→test edge is enough to push a synthetic profile over the WoT
+        # threshold, and its own verifications then look organic to Sybil
+        # audit. Inside the synthetic cluster (test↔bot) verification stays
+        # allowed — E2E and agent scenarios depend on it.
+        verifier_synthetic = account_is_synthetic(verifier.account)
+        target_synthetic = account_is_synthetic(target_profile.account)
+        if verifier_synthetic != target_synthetic:
+            raise LocalizedHttpError(400, "synthetic_boundary", "Verifications cannot cross between real accounts and test/bot accounts")
 
         # Target must have verification photo with valid face embedding
         try:
@@ -340,9 +301,10 @@ def create_verification(request, data: CreateVerificationRequest):
         if not ver_photo.face_embedding:
             raise LocalizedHttpError(400, "no_face_embedding", "Target user's verification photo has no face embedding. Please re-upload the photo.")
 
-        # Block if re-confirmation in progress and not enough confirmations
-        if ver_photo.reconfirmation_needed and ver_photo.reconfirmation_count < 3:
-            raise LocalizedHttpError(400, "reconfirmation_pending", "Target user's photo was recently changed. Awaiting re-confirmations (need 3).")
+        # A pending re-confirmation must not block verifying: a verification is
+        # the only thing that feeds the count, so refusing one here would make
+        # the round unwinnable. Verifying IS how a re-confirmation is cast.
+        reconfirming = ver_photo.reconfirmation_needed
 
         # Face dedup check
         from identity.services.face_dedup import check_duplicate
@@ -361,7 +323,16 @@ def create_verification(request, data: CreateVerificationRequest):
         ).first()
 
         if existing and existing.is_active:
-            raise LocalizedHttpError(400, "already_verified", "You have already verified this user")
+            # During a re-confirmation round an earlier verifier may sign again:
+            # their row is re-signed in place (the unique pair leaves no room for
+            # a second one) and counts once, because the count is verifications
+            # made after the face changed — not a tally of submissions.
+            already_confirmed_current_face = not reconfirming or (
+                ver_photo.reconfirmation_started_at is not None
+                and existing.verified_at >= ver_photo.reconfirmation_started_at
+            )
+            if already_confirmed_current_face:
+                raise LocalizedHttpError(400, "already_verified", "You have already verified this user")
 
         # Validate verification method
         valid_methods = ['IN_PERSON', 'VIDEO_CALL', 'DOCUMENTS', 'VOUCHED']
@@ -426,9 +397,10 @@ def create_verification(request, data: CreateVerificationRequest):
             from django.utils import timezone
             # post_save signal auto-updates is_verified_wot
             if existing:
-                # Re-affirm a previously revoked verification: the unique
-                # (verifier, verified_profile) constraint forbids a second row,
-                # so update the existing one with the new signed statement.
+                # Re-affirm an existing verification — previously revoked, or
+                # still active and being re-signed against a changed photo. The
+                # unique (verifier, verified_profile) constraint forbids a second
+                # row, so update this one with the new signed statement.
                 existing.verification_method = data.verification_method
                 existing.signature = data.signature
                 existing.is_active = True
@@ -444,17 +416,10 @@ def create_verification(request, data: CreateVerificationRequest):
                     is_active=True
                 )
 
-            # Count toward photo re-confirmation if needed
-            if ver_photo.reconfirmation_needed and ver_photo.reconfirmation_count < 3:
-                ver_photo.reconfirmation_count += 1
-                if ver_photo.reconfirmation_count >= 3:
-                    ver_photo.reconfirmation_needed = False
-                ver_photo.save(update_fields=['reconfirmation_count', 'reconfirmation_needed'])
-
-            # Recalculate reputation based on all dimensions
-            result = calculate_reputation(target_profile)
-            target_profile.reputation_score = result['total']
-            target_profile.save(update_fields=['reputation_score'])
+            # The photo's re-confirmation state is recomputed off the saved
+            # verification by the post_save signal (identity.signals), which also
+            # recalculates reputation for both parties on commit — the verified
+            # profile gains identity, the verifier gains contribution.
 
         verification_count = Verification.objects.filter(
             verified_profile=target_profile,
@@ -511,6 +476,7 @@ def get_profile_verifications(request, profile_id: str):
             id=v.id,
             verifier_cri=v.verifier.id,
             verifier_hna=v.verifier.hna,
+            verifier_avatar_url=v.verifier.avatar_url,
             verification_method=v.verification_method,
             verified_at=v.verified_at,
             has_signed=bool(v.signature),
@@ -527,8 +493,10 @@ def get_profile_verifications(request, profile_id: str):
             id=v.id,
             verifier_cri=v.verifier.id,
             verifier_hna=v.verifier.hna,
+            verifier_avatar_url=v.verifier.avatar_url,
             verified_user_id=v.verified_profile.id,
             verified_user_hna=v.verified_profile.hna,
+            verified_user_avatar_url=v.verified_profile.avatar_url,
             verification_method=v.verification_method,
             verified_at=v.verified_at,
             has_signed=bool(v.signature),
@@ -561,14 +529,10 @@ def revoke_verification(request, verification_cri: str):
         target_profile = verification.verified_profile
 
         with transaction.atomic():
-            # Mark as inactive (post_save signal auto-updates is_verified_wot)
+            # Mark as inactive. The post_save signal auto-updates is_verified_wot
+            # and recalculates reputation for both parties on commit.
             verification.is_active = False
             verification.save()
-
-            # Recalculate reputation based on all dimensions
-            result = calculate_reputation(target_profile)
-            target_profile.reputation_score = result['total']
-            target_profile.save(update_fields=['reputation_score'])
 
         remaining_count = Verification.objects.filter(
             verified_profile=target_profile,
@@ -597,6 +561,10 @@ class ReputationBreakdownResponse(BaseModel):
     reliability: Decimal
     total: Decimal
     active_dimensions: int
+    # False = no commitments yet, so the 5.0 is a neutral placeholder, not a rate
+    reliability_has_data: bool = True
+    # Dimension ceilings, so the UI never hardcodes its own denominators
+    maxima: Dict[str, int] = {}
 
 
 @wot_router.get("/reputation-breakdown/{profile_id}/", response=ReputationBreakdownResponse)
@@ -656,13 +624,11 @@ def get_wot_graph(request):
     """
     Full Web-of-Trust graph (nodes = profiles, edges = verifications).
 
-    Staff only — exposes the raw "who verified whom" edge list of the whole
+    Needs `moderation.review` — exposes the raw "who verified whom" edge list of the whole
     network, intended for Sybil-cluster / collusion-ring audit. Public surfaces
     only ever show per-profile verification counts, never the global graph.
     """
-    profile = request.auth_profile
-    if not profile.account.is_staff:
-        raise HttpError(403, "Staff only")
+    require_platform_capability(request, 'moderation.review')
 
     edges_qs = Verification.objects.filter(is_active=True).select_related(
         'verifier', 'verified_profile'

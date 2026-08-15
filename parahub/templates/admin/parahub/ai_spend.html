@@ -1,0 +1,110 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; AI Spend
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+  .aispend-range { margin: 0 0 1em; }
+  .aispend-range a { margin-right: .6em; }
+  .aispend-range a.current { font-weight: 700; text-decoration: none; }
+  table.aispend { width: 100%; border-collapse: collapse; }
+  table.aispend th, table.aispend td { padding: 6px 10px; border-bottom: 1px solid var(--hairline-color, #eee); }
+  table.aispend td.num, table.aispend th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.aispend tr.totals td { font-weight: 700; border-top: 2px solid var(--border-color, #ccc); }
+  table.aispend td.muted { color: var(--body-quiet-color, #888); }
+  .aispend-grand { font-size: 1.35em; margin: .2em 0 .8em; }
+  .aispend-note { margin-top: 2em; }
+  .aispend-note table { border-collapse: collapse; }
+  .aispend-note td { padding: 4px 12px 4px 0; }
+</style>
+
+<p class="aispend-range">
+  Range:
+  {% for option in day_options %}
+    <a href="?days={{ option }}" {% if option == days %}class="current"{% endif %}>{{ option }}d</a>
+  {% endfor %}
+</p>
+
+<p class="aispend-grand">
+  <strong>${{ grand.cost_str }}</strong>
+  over the last {{ days }} days —
+  {{ grand.calls }} call{{ grand.calls|pluralize }},
+  {{ grand.tin }} in / {{ grand.tout }} out tokens
+</p>
+
+<table class="aispend">
+  <thead>
+    <tr>
+      <th>Day</th>
+      {% for label in labels %}<th class="num">{{ label }}</th>{% endfor %}
+      <th class="num">Day total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in table %}
+    <tr>
+      <td>{{ row.day|date:"Y-m-d" }}</td>
+      {% for cell in row.cells %}
+        {% if cell %}
+          <td class="num" title="{{ cell.tin }} in / {{ cell.tout }} out tokens">
+            ${{ cell.cost_str }}<br>
+            <small>{{ cell.calls }} call{{ cell.calls|pluralize }}</small>
+          </td>
+        {% else %}
+          <td class="num muted">—</td>
+        {% endif %}
+      {% endfor %}
+      <td class="num"><strong>${{ row.cost_str }}</strong></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="{{ labels|length|add:2 }}">No AI calls recorded in this range.</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="totals">
+      <td>Total</td>
+      {% for total in totals %}
+        <td class="num">
+          ${{ total.cost_str }}<br>
+          <small>{{ total.calls }} call{{ total.calls|pluralize }} · {{ total.tin }}/{{ total.tout }} tok</small>
+        </td>
+      {% endfor %}
+      <td class="num">${{ grand.cost_str }}</td>
+    </tr>
+  </tfoot>
+</table>
+
+<div class="aispend-note">
+  {% if unmetered %}
+  <h2>Not counted here</h2>
+  <p>
+    These paths call a paid model but write no usage row, so their spend is
+    absent from the figures above. Treat the total as “metered AI spend”, not
+    “all AI spend”.
+  </p>
+  <table>
+    {% for name, where, why in unmetered %}
+    <tr><td><strong>{{ name }}</strong></td><td><code>{{ where }}</code></td><td class="muted">{{ why }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">
+    Every known paid call site writes a usage row, so this total is all AI spend.
+    A new one has to log to <code>AIUsageLog</code> (or its own ledger) to keep
+    that true — see <code>parahub/services/ai_usage.py</code>.
+  </p>
+  {% endif %}
+  <p>
+    Prices come from <code>parahub/services/ai_pricing.py</code>. A model missing
+    from that table is logged at zero cost with a warning — add its id in the
+    same change that starts using it.
+  </p>
+</div>
+{% endblock %}

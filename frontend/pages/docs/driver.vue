@@ -46,7 +46,7 @@ useSeoMeta({
 })
 useDocsBreadcrumb(t('about.driverMode.title'), '/docs/driver')
 
-const features = ['browserBased', 'stopAnnouncements', 'passengerVisibility', 'shiftHistory']
+const features = ['browserBased', 'stopAnnouncements', 'passengerVisibility', 'routeOverview', 'ticketScanning', 'waitingPassengers', 'shiftHistory']
 
 definePageMeta({ order: 2 })
 </script>

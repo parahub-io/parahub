@@ -75,7 +75,7 @@
             {{ $t('seed.alreadyHaveSeed') }}
             <NuxtLink
               :to="localePath('/seed-restore')"
-              class="text-primary hover:underline font-medium"
+              class="text-link font-medium"
             >
               {{ $t('seed.restoreFromSeed') }}
             </NuxtLink>
@@ -247,6 +247,7 @@ const verifyAndFinish = async () => {
 
     // Save seed (no encryption) — this is the critical step
     saveSeed(mnemonic.value)
+    await stampSeedOwnerFromSession()
   } catch (e: any) {
     console.error('Failed to save seed:', e)
     alert(t('seed.saveFailed'))

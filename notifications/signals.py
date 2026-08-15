@@ -87,7 +87,7 @@ def build_verification_activity(instance) -> dict:
     return dict(
         actor=actor.account, verb='verified', obj=instance, category='social',
         title=_title('verified', _pick_lang(actor)), body=name,
-        url=f'/u/{verified.id}',
+        url=f'/@{verified.id}',
         data={'verified_id': verified.id, 'method': instance.verification_method},
     )
 

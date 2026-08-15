@@ -187,10 +187,11 @@ function endCall() {
 /* Override default layout constraints */
 .call-container {
   position: fixed;
-  top: 80px; /* navbar height */
+  /* Fills the band between the chrome bars, wherever the nav bar is docked */
+  top: var(--nav-inset-top);
   left: 0;
   right: 0;
-  bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  bottom: var(--nav-inset-bottom);
   z-index: 40;
 }
 </style>

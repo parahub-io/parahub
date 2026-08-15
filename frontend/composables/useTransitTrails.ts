@@ -13,9 +13,13 @@
  * street rather than a straight chord. Points >SNAP_MAX_M off the shape
  * (detours, bad GPS) fall back to raw chords per segment.
  *
- * Rendering is two TripsLayers over shared data — a wide faint halo under a
- * narrow bright core — in the 'trails' group of the shared overlaid transit
- * canvas (utils/transitDeckOverlay), under the deck vehicle layers, so the
+ * Rendering is a single TripsLayer subclass whose fragment shader shapes the
+ * comet: the width envelope tapers to a point at the tail, a bright core
+ * rides inside a soft glow (replacing the old core+halo layer pair — one
+ * attribute upload and draw call instead of two), and the head is lifted
+ * toward white so the trail reads as emitted by the icon. It lives in the
+ * 'trails' group of the shared overlaid transit canvas
+ * (utils/transitDeckOverlay), under the deck vehicle layers, so the
  * per-frame animation never drags MapLibre into a full-scene repaint. The
  * loop is interval-throttled (TICK_MS) and paused on hidden tabs.
  */
@@ -175,8 +179,46 @@ function buildSnappedPath(g: RouteGeom, pts: TrailPoint[], outPath: LngLat[], ou
   }
 }
 
-// Shared with useMap3DTiles via Vite chunk dedup — same dynamic import.
-let TripsLayerCls: any = null
+/**
+ * Comet cross-section, replacing the stock TripsLayer linear fade (injected
+ * over its 'fs:DECKGL_FILTER_COLOR' hook; the time-window discard in
+ * 'fs:#main-start' is kept). geometry.uv carries the PathLayer transverse
+ * coordinate vPathPosition (x: -1..1 across the strip) — the varying itself
+ * is declared in the layer source, which the assembler appends AFTER hook
+ * functions, so only the geometry struct is usable here. The whole profile
+ * is per-fragment GPU work — no extra geometry or CPU cost:
+ *  - envelope width follows the fade → the tail converges to a point
+ *  - gaussian core-in-glow profile does in one pass what the old
+ *    core+halo layer pair did in two
+ *  - the head core is lifted toward white (hot-spark under the icon)
+ */
+const COMET_PROFILE_FS = `\
+float fade = clamp(1.0 - (trips.currentTime - vTime) / trips.trailLength, 0.0, 1.0);
+float envelope = mix(0.05, 1.0, pow(fade, 0.6));
+float across = abs(geometry.uv.x) / envelope;
+if (across > 1.0) discard;
+float core = exp(-across * across * 9.0);
+float glow = exp(-across * across * 2.5);
+float edge = 1.0 - smoothstep(0.75, 1.0, across);
+color.a *= pow(fade, 1.4) * min(1.0, 0.85 * core + 0.38 * glow) * edge;
+color.rgb = mix(color.rgb, vec3(1.0), 0.4 * core * smoothstep(0.72, 1.0, fade));
+`
+
+function makeCometTrailLayer(TripsLayer: any) {
+  class CometTrailLayer extends TripsLayer {
+    getShaders() {
+      const shaders = super.getShaders()
+      shaders.inject = { ...shaders.inject, 'fs:DECKGL_FILTER_COLOR': COMET_PROFILE_FS }
+      return shaders
+    }
+  }
+  ;(CometTrailLayer as any).layerName = 'CometTrailLayer'
+  return CometTrailLayer
+}
+
+// Built lazily from @deck.gl/geo-layers (chunk shared with useMap3DTiles via
+// Vite dedup — same dynamic import).
+let CometLayerCls: any = null
 
 export function useTransitTrails(ov: TransitDeckOverlay) {
   let timer: ReturnType<typeof setInterval> | null = null
@@ -274,7 +316,7 @@ export function useTransitTrails(ov: TransitDeckOverlay) {
   }
 
   function renderFrame() {
-    if (!ov.ready() || !TripsLayerCls) return
+    if (!ov.ready() || !CometLayerCls) return
     const t = nowS()
     const focused = !!routeFilter
     const g = focused && routeGeom && routeGeom.routeId === routeFilter ? routeGeom : null
@@ -321,25 +363,25 @@ export function useTransitTrails(ov: TransitDeckOverlay) {
         v++
       }
     }
-    const shared = {
-      data: {
-        length: trails.length,
-        startIndices,
-        attributes: {
-          getPath: { value: positions, size: 2 },
-          getTimestamps: { value: timestamps, size: 1 },
-          getColor: { value: colors, size: 3 },
-        },
-      },
-      _pathType: 'open' as const,
-      currentTime: t,
-      trailLength: focused ? TRAIL_FOCUS_S : TRAIL_GLOBAL_S,
-      capRounded: true,
-      jointRounded: true,
-    }
     ov.setGroup('trails', [
-      new TripsLayerCls({ ...shared, id: 'transit-trails-halo', widthMinPixels: 10, opacity: 0.25 }),
-      new TripsLayerCls({ ...shared, id: 'transit-trails-core', widthMinPixels: 3.5, opacity: 0.9 }),
+      new CometLayerCls({
+        id: 'transit-trails',
+        data: {
+          length: trails.length,
+          startIndices,
+          attributes: {
+            getPath: { value: positions, size: 2 },
+            getTimestamps: { value: timestamps, size: 1 },
+            getColor: { value: colors, size: 3 },
+          },
+        },
+        _pathType: 'open' as const,
+        currentTime: t,
+        trailLength: focused ? TRAIL_FOCUS_S : TRAIL_GLOBAL_S,
+        capRounded: true,
+        jointRounded: true,
+        widthMinPixels: 13,
+      }),
     ])
     // Idle gate: past the fade window since the last change, this frame has
     // already drawn everything fully faded (i.e. blank) — stop repainting.
@@ -370,9 +412,9 @@ export function useTransitTrails(ov: TransitDeckOverlay) {
     if (running) return
     running = true
     await ov.ensure(map)
-    if (!TripsLayerCls) {
+    if (!CometLayerCls) {
       const geoLayers = await import('@deck.gl/geo-layers')
-      TripsLayerCls = geoLayers.TripsLayer
+      CometLayerCls = makeCometTrailLayer(geoLayers.TripsLayer)
     }
     if (!running) return  // toggled off while the chunk was downloading
     startLoop()

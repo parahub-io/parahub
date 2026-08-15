@@ -645,19 +645,13 @@ function clearHistory() {
   margin: 0 auto;
   padding: 0 1rem;
   overflow: hidden;
-  /* sticky layout: fill viewport minus navbar */
+  /* sticky layout: fills the band between the chrome bars, wherever the nav
+     bar is docked */
   position: fixed;
-  top: 3.5rem;
-  bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  top: var(--nav-inset-top);
+  bottom: var(--nav-inset-bottom);
   left: 0;
   right: 0;
-}
-
-@media (min-width: 640px) {
-  .voice-page { top: 4rem; }
-}
-@media (min-width: 768px) {
-  .voice-page { top: 5rem; }
 }
 
 .voice-header {

@@ -1,5 +1,10 @@
 {
   "market": {
+    "translation": {
+      "auto_translated": "Traduit automatiquement",
+      "show_original": "Afficher l’original",
+      "show_translation": "Afficher la traduction"
+    },
     "title": "Marché",
     "meta_description": "Marketplace P2P de biens, services et échange direct",
     "search_placeholder": "Rechercher des articles...",
@@ -106,6 +111,8 @@
       "converted_from": "de {currency}",
       "sale": "Vente",
       "rent": "Location",
+      "budget": "Budget",
+      "budget_rent": "Budget de location",
       "unit_none": "Aucune unité",
       "unit_custom": "Autre…",
       "unit_custom_placeholder": "Unité (ex: kg, heure, pcs)",
@@ -328,7 +335,9 @@
       "status_hidden": "Masquée",
       "empty_title": "Aucune annonce pour le moment",
       "empty_description": "Créez votre première annonce",
-      "tab_barter": "Troc"
+      "tab_barter": "Troc",
+      "views_title": "Vues",
+      "views_24h": "+{count} en 24 h"
     },
     "error_codes": {
       "item_delete_forbidden": "Vous n'avez pas la permission de supprimer cette annonce",

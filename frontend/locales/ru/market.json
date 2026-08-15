@@ -1,5 +1,10 @@
 {
   "market": {
+    "translation": {
+      "auto_translated": "Переведено автоматически",
+      "show_original": "Показать оригинал",
+      "show_translation": "Показать перевод"
+    },
     "title": "Рынок",
     "meta_description": "P2P-маркетплейс товаров, услуг и бартерного обмена",
     "search_placeholder": "Поиск товаров...",
@@ -106,6 +111,8 @@
       "converted_from": "из {currency}",
       "sale": "Продажа",
       "rent": "Аренда",
+      "budget": "Бюджет",
+      "budget_rent": "Бюджет аренды",
       "unit_none": "Без единицы",
       "unit_custom": "Другое…",
       "unit_custom_placeholder": "Единица (напр.: кг, час, шт)",
@@ -328,7 +335,9 @@
       "status_hidden": "Скрыто",
       "empty_title": "У вас пока нет объявлений",
       "empty_description": "Создайте своё первое объявление",
-      "tab_barter": "Бартер"
+      "tab_barter": "Бартер",
+      "views_title": "Просмотры",
+      "views_24h": "+{count} за 24 ч"
     },
     "error_codes": {
       "item_delete_forbidden": "У вас нет прав на удаление этого объявления",

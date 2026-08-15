@@ -65,6 +65,9 @@ export function useSiteMenu(containerRef: Ref<HTMLElement | null>) {
   function handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'Escape' && isOpen.value) {
       isOpen.value = false
+      // Mark the key consumed so page-level Esc shortcuts (e.g. the market
+      // listing's "Esc = back to the list") don't also fire behind the menu.
+      event.preventDefault()
     }
   }
 

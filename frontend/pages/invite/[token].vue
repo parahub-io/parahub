@@ -91,15 +91,15 @@
                     <Loader2 class="w-4 h-4 animate-spin" />
                     {{ $t('invite.checking') }}
                   </span>
-                  <span v-else-if="customUsernameStatus === 'available'" class="text-green-600 flex items-center gap-1">
+                  <span v-else-if="customUsernameStatus === 'available'" class="text-success flex items-center gap-1">
                     <CheckCircle class="w-4 h-4" />
                     {{ $t('invite.username_available') }}
                   </span>
-                  <span v-else-if="customUsernameStatus === 'taken'" class="text-red-600 flex items-center gap-1">
+                  <span v-else-if="customUsernameStatus === 'taken'" class="text-error flex items-center gap-1">
                     <XCircle class="w-4 h-4" />
                     {{ customUsernameError || $t('invite.username_taken') }}
                   </span>
-                  <span v-else-if="customUsernameStatus === 'invalid'" class="text-red-600 flex items-center gap-1">
+                  <span v-else-if="customUsernameStatus === 'invalid'" class="text-error flex items-center gap-1">
                     <XCircle class="w-4 h-4" />
                     {{ customUsernameError }}
                   </span>
@@ -122,11 +122,19 @@
               {{ $t('invite.continue') }}
             </span>
           </button>
+
+          <!-- Escape hatch: an existing user who is signed out lands here too -->
+          <p class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+            {{ $t('invite.have_account') }}
+            <NuxtLink :to="localePath(`/login?redirect=/invite/${token}`)" class="text-link">
+              {{ $t('invite.log_in_instead') }}
+            </NuxtLink>
+          </p>
         </div>
 
         <!-- Success - New Account -->
         <div v-else-if="status === 'success' && accountCreated" class="text-center">
-          <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div class="w-16 h-16 bg-success rounded-full flex items-center justify-center mx-auto mb-4">
             <Check class="w-10 h-10 text-white" />
           </div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
@@ -200,7 +208,7 @@
             <NuxtLink :to="localePath('/profile')" class="btn-primary">
               {{ $t('invite.go_to_profile') }}
             </NuxtLink>
-            <NuxtLink :to="localePath('/directory?tab=users')" class="btn-secondary">
+            <NuxtLink :to="localePath('/directory?type=people&filter=partners')" class="btn-secondary">
               {{ $t('invite.view_partners') }}
             </NuxtLink>
           </div>
@@ -208,7 +216,7 @@
 
         <!-- Success - Existing User -->
         <div v-else-if="status === 'success' && !accountCreated" class="text-center">
-          <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div class="w-16 h-16 bg-success rounded-full flex items-center justify-center mx-auto mb-4">
             <Check class="w-10 h-10 text-white" />
           </div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
@@ -218,7 +226,7 @@
             {{ $t('invite.partner_added_message', { inviter: inviterName }) }}
           </p>
           <div class="flex gap-3 justify-center">
-            <NuxtLink :to="localePath('/directory?tab=users')" class="btn-primary">
+            <NuxtLink :to="localePath('/directory?type=people&filter=partners')" class="btn-primary">
               {{ $t('invite.view_partners') }}
             </NuxtLink>
             <NuxtLink :to="localePath('/profile')" class="btn-secondary">
@@ -229,7 +237,7 @@
 
         <!-- Error -->
         <div v-else-if="status === 'error'" class="text-center">
-          <div class="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div class="w-16 h-16 bg-error rounded-full flex items-center justify-center mx-auto mb-4">
             <X class="w-10 h-10 text-white" />
           </div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
@@ -261,7 +269,7 @@ import { Check, X, ClipboardCopy, User, RefreshCw, Loader2, CheckCircle, XCircle
 definePageMeta({
 })
 
-const { $t } = useNuxtApp()
+const { t } = useI18n()
 const route = useRoute()
 const localePath = useLocalePath()
 const authStore = useAuthStore()
@@ -345,19 +353,19 @@ const checkCustomUsername = () => {
   // Basic validation
   if (username.length < 3) {
     customUsernameStatus.value = 'invalid'
-    customUsernameError.value = $t('invite.username_too_short')
+    customUsernameError.value = t('invite.username_too_short')
     return
   }
 
   if (username.length > 30) {
     customUsernameStatus.value = 'invalid'
-    customUsernameError.value = $t('invite.username_too_long')
+    customUsernameError.value = t('invite.username_too_long')
     return
   }
 
   if (!/^[a-z0-9][a-z0-9._-]*[a-z0-9]$/.test(username) && !/^[a-z0-9]$/.test(username)) {
     customUsernameStatus.value = 'invalid'
-    customUsernameError.value = $t('invite.username_invalid_chars')
+    customUsernameError.value = t('invite.username_invalid_chars')
     return
   }
 
@@ -376,12 +384,12 @@ const checkCustomUsername = () => {
         customUsernameError.value = ''
       } else {
         customUsernameStatus.value = 'taken'
-        customUsernameError.value = response.reason || $t('invite.username_taken')
+        customUsernameError.value = response.reason || t('invite.username_taken')
       }
     } catch (error) {
       console.error('Failed to check username:', error)
       customUsernameStatus.value = 'invalid'
-      customUsernameError.value = $t('invite.check_failed')
+      customUsernameError.value = t('invite.check_failed')
     } finally {
       isCheckingUsername.value = false
     }
@@ -447,23 +455,23 @@ const quickSignup = async (selectedUsername?: string) => {
       const backendError = error.data.error
       switch (backendError) {
         case 'Invalid or inactive invite token':
-          errorMessage.value = $t('invite.error_invalid_token')
+          errorMessage.value = t('invite.error_invalid_token')
           break
         case 'Username already taken':
-          errorMessage.value = $t('invite.error_username_taken')
+          errorMessage.value = t('invite.error_username_taken')
           break
         case 'Username already taken in chat system':
-          errorMessage.value = $t('invite.error_username_taken_matrix')
+          errorMessage.value = t('invite.error_username_taken_matrix')
           break
         default:
-          errorMessage.value = `${$t('invite.error_server')}: ${backendError}`
+          errorMessage.value = `${t('invite.error_server')}: ${backendError}`
       }
     } else if (error.statusCode === 400) {
-      errorMessage.value = $t('invite.error_bad_request')
+      errorMessage.value = t('invite.error_bad_request')
     } else if (error.statusCode === 500) {
-      errorMessage.value = $t('invite.error_internal')
+      errorMessage.value = t('invite.error_internal')
     } else {
-      errorMessage.value = $t('invite.error_unknown')
+      errorMessage.value = t('invite.error_unknown')
     }
 
     console.error('Full error details:', error)
@@ -498,12 +506,12 @@ const acceptInviteForLoggedInUser = async () => {
 
     if (error.data?.error) {
       errorMessage.value = error.data.error === 'Invalid or inactive invite token'
-        ? $t('invite.error_invalid_token')
+        ? t('invite.error_invalid_token')
         : error.data.error === 'Already in your partners'
-        ? $t('invite.error_already_partner')
+        ? t('invite.error_already_partner')
         : error.data.error
     } else {
-      errorMessage.value = $t('invite.error_accept_failed')
+      errorMessage.value = t('invite.error_accept_failed')
     }
   }
 }
@@ -513,7 +521,7 @@ const copyText = async (event: any, text: string) => {
     await navigator.clipboard.writeText(text)
     const button = event.target.closest('button')
     const originalHTML = button.innerHTML
-    button.innerHTML = '<span class="text-green-600">✓</span>'
+    button.innerHTML = '<span class="text-success">✓</span>'
     setTimeout(() => {
       button.innerHTML = originalHTML
     }, 2000)

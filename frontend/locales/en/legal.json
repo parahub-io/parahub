@@ -115,9 +115,19 @@
         },
         "not_collected": {
           "title": "Data we do NOT intentionally collect:",
-          "sensitive": "We do not collect sensitive personal data (racial or ethnic origin, political views, religious beliefs, health data, etc.) unless you voluntarily and explicitly include it in public parts of your profile or content.",
-          "location": "Location data is processed with privacy fuzzing (approximate to 100m radius). Precise geolocation is never stored or shared without your explicit consent.",
+          "sensitive": "We do not require sensitive personal data (racial or ethnic origin, religious beliefs, health data, etc.) to use the Service, and we do not infer such data from your activity. The two optional features that do touch special categories of data are described below.",
+          "location": "Locations you attach to public listings are shown to other users fuzzed to a grid of roughly 100 m. Features whose very purpose is sharing your precise position (live map presence, driver mode, SOS alerts) transmit it only while you actively use them.",
           "crypto": "Cryptographic private keys (PGP) are generated and stored exclusively on your device. The server never has access to your private keys — only public keys are stored. This is a fundamental architectural principle, not a policy choice."
+        },
+        "special": {
+          "title": "Special categories of data (Art. 9 GDPR)",
+          "intro": "Three optional features process data that the GDPR treats as special-category. All of them operate only if you choose to use them, on the basis of your explicit consent (Art. 9(2)(a) GDPR):",
+          "civic_label": "Civic opinion polls",
+          "civic": "A ballot you cast may express a political opinion. Opinion ballots are recorded under a one-way pseudonym (keyed hash); the ballot record contains no link to your profile, IP address or keys, published results are aggregates, and your receipt lets you verify your own ballot without revealing it to anyone else. Votes that are open by their nature (household and condominium decisions, delegated governance votes) are attributed to you — the voting page states this before you vote.",
+          "psy_label": "Psychometric profile",
+          "psy": "If you complete the optional self-assessment, your answers are analyzed (with the help of an AI model — see Section 6) to derive a short characterization. Only the resulting four-word summary is shown publicly; you can update it or request its deletion at any time.",
+          "voice_label": "Voice cloning (voice notes)",
+          "voice": "If you turn on voice cloning, recordings of your own speech are sent to our speech provider (ElevenLabs) and a voiceprint is built from them — biometric data. Only your own recordings are kept, never the other person's; the samples are deleted once the clone is finished, note audio expires after 30 days, and deleting the voice removes it at the provider as well. Voice notes work without a clone, in a standard voice."
         }
       },
       "mesh": {
@@ -130,7 +140,7 @@
         "retention_label": "Retention",
         "retention": "Guest lease data is held as current state only: each heartbeat replaces the previous snapshot and nothing is accumulated into a history. We do not log which sites guests visit, and guest traffic is not inspected.",
         "egress_label": "Internet exit",
-        "egress": "Guest traffic leaves through a VPN tunnel, so it does not reach the internet from the node owner’s home IP address. The Association operates the shared exit, whose own final hop is carried by a commercial VPN provider, and processes the minimum connection metadata needed to run it.",
+        "egress": "Guest traffic leaves through a VPN tunnel, so it does not reach the internet from the node owner’s home IP address. Nodes without an internet line of their own (and their owners’ devices behind them) reach the internet the same way, across the mesh and out through the VPN exit. The Association operates the shared exit, whose own final hop is carried by a commercial VPN provider, and processes the minimum connection metadata needed to run it. The radio links between nodes are a shared community medium: as on any open WiFi network, confidentiality on the air comes from end-to-end encryption (HTTPS) and the VPN tunnel.",
         "basis_label": "Legal basis",
         "basis": "Contract (Art. 6(1)(b) GDPR) for delivering a full-speed pass to your device, and legitimate interest (Art. 6(1)(f) GDPR) in operating and protecting the network. The peering terms between node owners are set out in the Mesh Peering Agreement."
       },
@@ -165,12 +175,18 @@
         "matrix": "If this instance uses a Matrix server managed by a third party, or you communicate with users on other Matrix servers, data is transmitted according to the Matrix protocol.",
         "legal_label": "Legal Requirements",
         "legal": "We may disclose your data if required by law or in response to a valid legal request from law enforcement (following applicable procedures).",
-        "no_sale": "We do not sell your personal data."
+        "no_sale": "We do not sell your personal data.",
+        "ai_label": "AI features",
+        "ai": "Some features rely on third-party AI models: the assistant and knowledge search, image analysis for listings, voice support, voice notes, and the psychometric self-assessment. When you use such a feature, the content you submit to it (text, image or voice audio) is sent to the configured provider — currently Google (Gemini) for the assistant, voice and image analysis, OpenAI for listing categorization, and ElevenLabs for speech recognition and synthesis — acting as our processors. These requests do not include your name or account identifiers.",
+        "push_label": "Push notifications",
+        "push": "If you enable push notifications, delivery goes through your platform's push service (Google Firebase Cloud Messaging on Android, Apple Push Notification service on iOS, or your browser vendor's push service), which processes a delivery token for your device.",
+        "transfers_label": "International transfers",
+        "transfers": "The AI and push providers above may process data on servers outside the EU, primarily in the United States. Such transfers rely on the EU–U.S. Data Privacy Framework (for certified providers) and/or Standard Contractual Clauses (Art. 46 GDPR). Everything else — your account, your content and all primary storage — remains on our servers in the EU (see Section 7)."
       },
       "storage": {
         "title": "Data Storage and Security",
         "measures": "We implement reasonable technical and organizational measures to protect your personal data from unauthorized access, modification, disclosure, or destruction (e.g., HTTPS, password encryption, regular software updates, restricted data access for staff).",
-        "location": "Data is stored on servers located in the European Union.",
+        "location": "Data at rest is stored on our servers located in the European Union (Germany and Portugal). The only data processed outside the EU is what Section 6 describes: content submitted to AI-powered features and push delivery tokens.",
         "retention": "Data retention periods are determined by their purpose and legal requirements. Data is not stored longer than necessary for the purposes for which it was collected. You may request deletion of your data (see Your Rights)."
       },
       "rights": {
@@ -191,8 +207,9 @@
         "withdraw_label": "Right to Withdraw Consent",
         "withdraw": "If processing is based on consent, you may withdraw it at any time.",
         "complaint_label": "Right to Complaint",
-        "complaint": "Lodge a complaint with a data protection supervisory authority.",
-        "contact": "To exercise these rights, please contact us at {email}."
+        "complaint": "Lodge a complaint with a data protection supervisory authority. In Portugal this is the Comissão Nacional de Proteção de Dados (CNPD, www.cnpd.pt).",
+        "contact": "To exercise these rights, please contact us at {email}.",
+        "erasure_limits": "Erasure has technical and legal limits (Art. 17(3) GDPR). Cryptographic audit records (timestamps and aggregate voting proofs), signed contract records needed for the establishment or defence of legal claims, and copies of public content already replicated to other federation instances or public mirrors cannot always be removed by us unilaterally. When you request erasure, we delete everything under our control and tell you what remains and why."
       },
       "cookies": {
         "title": "Cookies",
@@ -353,7 +370,6 @@
     }
   },
   "about": {
-    "android_app": "Android App",
     "meta": {
       "description": "Parahub — open-source federated platform for P2P cooperation, trade and communications. No fees, no middlemen, client-side encryption."
     },
@@ -417,7 +433,7 @@
       },
       "mesh": {
         "title": "Mesh Network",
-        "desc": "Flash a router and it becomes part of the network. Free Wi-Fi for neighbors, earn on traffic."
+        "desc": "Flash a router and it becomes part of the network. Free Wi-Fi for neighbors, full speed for you while your node is up."
       },
       "arbitration": {
         "title": "Dispute Resolution",
@@ -613,6 +629,34 @@
         }
       }
     },
+    "contractsSystem": {
+      "title": "Contracts",
+      "intro": "Digital agreements between people, signed with real cryptography. The document itself never leaves your device — the platform keeps only its fingerprint, and both parties sign with their personal keys.",
+      "how": {
+        "title": "How it works",
+        "step1": "The creator picks the contract file. It stays on their device; the system computes its short digital fingerprint.",
+        "step2": "The partner receives the contract, checks that their copy of the file matches the fingerprint, and co-signs.",
+        "step3": "Both signatures are made with personal PGP keys, on each party's own device — the server never sees the file or the keys.",
+        "step4": "The work happens, on the agreed terms.",
+        "step5": "Each side independently marks the contract complete and reviews the other. The contract is finalized only when both have confirmed."
+      },
+      "privacy": {
+        "title": "Your documents stay yours",
+        "text": "Only a 64-character fingerprint is stored — enough to prove later that exactly this file was signed, and never enough to reconstruct it. The contents remain private and under your control."
+      },
+      "linking": {
+        "title": "Linked to real deals",
+        "text": "A contract can name a marketplace listing or a property as its subject. The Buy button on any listing starts a contract with the seller and the item already filled in; when the contract completes, the listing closes automatically."
+      },
+      "proof": {
+        "title": "Court-ready proof",
+        "text": "Any contract exports as a package with its details, both PGP signatures, a Bitcoin-anchored timestamp and verification instructions — independent evidence that the agreement existed and was signed at that moment."
+      },
+      "disputes": {
+        "title": "If something goes wrong",
+        "text": "Either party can start arbitration: a chosen arbiter joins a private chat with both sides, reviews the evidence and issues a verdict. Arbiters have public profiles with transparent statistics, and unresolved cases can escalate to an institutional arbitration centre and, ultimately, to court."
+      }
+    },
     "wotSystem": {
       "title": "Web of Trust",
       "problem": {
@@ -636,6 +680,10 @@
         "wot1": "1+ verification: create listings, barter, direct messages",
         "wot2": "2+ verifications: business directory, organize events, P2P advertising",
         "wot3": "3+ verifications: full access, ability to become an arbitrator"
+      },
+      "badge": {
+        "title": "Para-ID card",
+        "text": "Your printable Para-ID card carries a Web of Trust seal once 3+ members have verified you. The seal on paper is a snapshot from the day the card was issued — the QR code pointing to your live profile is always the authoritative proof."
       }
     },
     "adsSystem": {
@@ -677,15 +725,15 @@
       "networks": {
         "title": "Two networks from one router",
         "public": "Open network, no password. Speed capped at 512 kbps. Guest traffic routes through a VPN tunnel: you are not liable for their internet activity (Mere Conduit principle).",
-        "private": "Your private WPA3 network at full speed. Access to home devices, NAS, DLNA. Isolated from guests, shares the same mesh backhaul via a separate VLAN."
+        "private": "Your private WPA3 network at full speed. Access to home devices, NAS, DLNA. Local to your router and isolated from guests; your own nodes are linked by an encrypted tunnel, so one private network can span buildings."
       },
       "earn": {
-        "title": "Earn from guest traffic",
-        "text": "Guests get basic free access. Those wanting more speed scan a QR code and pay satoshis via Lightning. The router instantly lifts the throttle. You receive payment without any involvement."
+        "title": "Full speed for the host",
+        "text": "Guests get basic free access. Those wanting more speed scan a QR code and pay satoshis via Lightning — received by the association and spent on the network. While your node is online, your own devices run at full speed on every Parahub node, no payment needed."
       },
       "global": {
         "title": "Local and global mesh",
-        "text": "Nearby nodes connect automatically over Wi-Fi via batman-adv — seamless roaming, unified DLNA. Nodes in different cities connect via Yggdrasil over the regular internet — automatically, no port forwarding needed."
+        "text": "Nearby nodes connect automatically over Wi-Fi via batman-adv — one shared guest network with seamless roaming, and your own nodes keep a single private network between them. Nodes in different cities connect via Yggdrasil over the regular internet — automatically, no port forwarding needed."
       }
     },
     "condoSystem": {
@@ -809,6 +857,38 @@
         "text": "All your custom routes, stops, and schedules are continuously exported as standard GTFS data. External transit apps can consume your routes without any manual work."
       }
     },
+    "transitSystem": {
+      "title": "Public Transport",
+      "intro": "Live public transport in one place: vehicles moving on the map in real time, arrival estimates at every stop, route pages with timetables, and door-to-door journey planning. Coverage spans multiple cities and operators — bus, tram, metro, train and ferry.",
+      "live": {
+        "title": "Live vehicles",
+        "text": "Every vehicle with a live GPS feed moves on the map as it drives. Tap one to see its line and details; an optional trail shows where it has just been."
+      },
+      "pages": {
+        "title": "Route and stop pages",
+        "text": "Every route and stop has its own page: live arrivals, the full timetable, both directions drawn on the map, and a printable timetable to pin on a wall."
+      },
+      "eta": {
+        "title": "Honest arrivals",
+        "text": "Arrival estimates are learned from how vehicles have actually been moving along each stretch of the route — not just from the printed schedule. Where no live data exists, the schedule is shown instead."
+      },
+      "planner": {
+        "title": "Journey planning",
+        "text": "Plan a trip from A to B combining walking and public transport across all covered operators at once — including lines without live tracking, so trains and ferries still appear as connections."
+      },
+      "waiting": {
+        "title": "Waiting at the stop",
+        "text": "Standing at a stop, open its page and mark the line you are waiting for — no account needed. Fellow passengers see how many people wait for the same line, and the driver sees the count when approaching the stop. The mark clears itself when your vehicle arrives — and if nothing shows up for a while, the page suggests a rideshare, showing how many others are stuck with you."
+      },
+      "opendata": {
+        "title": "Open data",
+        "text": "The transit data the platform collects is re-published in standard open formats, so anyone can build their own tools on top of it."
+      },
+      "related": {
+        "title": "Related"
+      },
+      "cta": "Open transit"
+    },
     "ticketsSystem": {
       "title": "Tickets",
       "intro": "Buy digital tickets for events and transit with instant Lightning payments. One system for concerts, community meetups, and bus rides — no intermediaries, no fees beyond what the operator sets.",
@@ -877,13 +957,68 @@
         "title": "Visible to passengers",
         "text": "Your vehicle appears on the public map alongside official transit feeds. Passengers see estimated arrival times at each stop."
       },
+      "routeOverview": {
+        "title": "Live route overview",
+        "text": "Toggle a route ladder inside the driver screen: both directions side by side, every vehicle on the line, arrival times per direction, your own bus highlighted — headway to the bus ahead and behind at a glance."
+      },
+      "ticketScanning": {
+        "title": "Ticket scanning in the shift",
+        "text": "Open the ticket scanner right inside the driver screen to validate passengers' QR tickets — the shift keeps running. Works offline, and refuses a ticket it has already seen on the device."
+      },
+      "waitingPassengers": {
+        "title": "Waiting passengers",
+        "text": "As you approach a stop, the screen shows how many passengers have marked themselves waiting for your line there."
+      },
       "shiftHistory": {
         "title": "Shift records",
         "text": "All shifts are recorded with start/end times and route details. Useful for audit trails and payroll."
       },
       "requirements": {
         "title": "Requirements",
-        "text": "Web of Trust level 2+ is required to broadcast as a driver. This ensures only trusted community members can appear as official transit vehicles on the map."
+        "text": "Web of Trust level 3+ is required to broadcast as a driver. This ensures only trusted community members can appear as official transit vehicles on the map."
+      }
+    },
+    "carpoolSystem": {
+      "title": "Carpooling",
+      "intro": "Passenger-driven rideshare between public transit stops. Request a ride at your stop, get offers from drivers and coordinate everything in an encrypted chat — no commissions, no middlemen.",
+      "howItWorks": {
+        "title": "How it works",
+        "step1": "Create a ride request — choose your origin and destination stops, seats and the price you offer",
+        "step2": "Drivers nearby or on a matching route see the request and send offers with a vehicle description",
+        "step3": "Accept an offer — an encrypted Matrix chat with the driver is created automatically for coordination",
+        "step4": "After the ride, both of you leave a review — mutual 1–5 star ratings build community reputation"
+      },
+      "stopBased": {
+        "title": "Stop to stop",
+        "text": "All rides start and end at public transit stops — well-known, easy-to-find meeting points instead of arbitrary addresses."
+      },
+      "passengerDriven": {
+        "title": "Passenger-driven",
+        "text": "The passenger posts the request and sets the price; drivers respond with competing offers — the opposite of a taxi dispatcher."
+      },
+      "noFees": {
+        "title": "No platform fees",
+        "text": "The arrangement is direct between passenger and driver. The platform takes nothing and never holds the money."
+      },
+      "liveRequests": {
+        "title": "Live requests",
+        "text": "Requests are for right now, not a schedule: they expire automatically, so drivers only see people who are actually waiting."
+      },
+      "routeSearch": {
+        "title": "Search along the route",
+        "text": "Drivers find requests nearby or along their planned route — the detour stays small."
+      },
+      "reputation": {
+        "title": "Reputation",
+        "text": "Mutual reviews after each completed ride; the rating is shown with every request and offer."
+      },
+      "stranded": {
+        "title": "Stuck at a stop?",
+        "text": "When nothing is coming on your line, the stop page suggests a rideshare and shows how many others are waiting there with you — a bridge from a failed bus to a neighbour's car."
+      },
+      "requirements": {
+        "title": "Requirements",
+        "text": "A verified profile is required: requests and offers are open to members verified through the Web of Trust. Payment is agreed directly between the two of you."
       }
     },
     "walletSystem": {
@@ -977,7 +1112,60 @@
       "callout": {
         "title": "An open protocol, not a walled garden",
         "text": "Matrix is an open federated standard: your conversations aren't locked into Parahub, and standard Matrix apps can connect to the same account."
+      },
+      "nativeApps": {
+        "title": "Use a native Matrix app",
+        "intro": "Prefer a dedicated app on your phone or computer? Any Matrix client that signs in through the browser works — for example Element X or SchildiChat Next on mobile, or Element on desktop.",
+        "step1": "Install the app and choose to enter a server address manually.",
+        "step2": "Enter parahub.io as the server.",
+        "step3": "Your browser opens — sign in with your usual Parahub email and password and confirm. That's it.",
+        "noPassword": {
+          "title": "There is no separate chat password",
+          "text": "Signing in always goes through the browser with your normal Parahub account. Apps that only show a username-and-password form can't connect — pick one with browser sign-in."
+        },
+        "qr": {
+          "title": "Adding your phone as a second device?",
+          "text": "On a computer where you're already signed in, open Element (parahub.io/element), go to Settings → Sessions → \"Link new device\" and show the QR code, then choose \"Sign in with QR code\" in the phone app and scan the screen. The devices verify each other automatically, so your encrypted history stays readable."
+        }
       }
+    },
+    "eventsSystem": {
+      "title": "Events",
+      "intro": "Community events and meetups — from a neighbourhood cleanup to an online workshop. Every published event gets its own encrypted chat room where participants coordinate.",
+      "types": {
+        "offline": {
+          "title": "In person",
+          "text": "A meetup at a real place, shown on the map."
+        },
+        "online": {
+          "title": "Online",
+          "text": "A virtual event with a video-call link."
+        },
+        "hybrid": {
+          "title": "Hybrid",
+          "text": "Both at once — come in person or join the call."
+        }
+      },
+      "flow": {
+        "title": "From idea to event",
+        "step1": "Pick the format and category; set the title, description, date and time.",
+        "step2": "For in-person events choose the place on the map; for online ones add the call link.",
+        "step3": "Optionally cap the number of participants and add a cover image.",
+        "step4": "Publish — a group chat room is created automatically, and everyone who joins the event enters it too."
+      },
+      "participate": {
+        "title": "Taking part",
+        "text": "Join an event to reserve a spot and enter its chat, mark yourself as going or maybe, and leave again at any time."
+      },
+      "discover": {
+        "title": "Finding events",
+        "text": "Browse what's coming up with filters — format, category, city, dates or distance from you — or spot events right on the community map. Past events stay browsable."
+      },
+      "access": {
+        "title": "Who can do what",
+        "text": "Anyone can view events and any signed-in user can join one. Creating events requires a profile vouched for by other members — the platform's usual protection against fake accounts. Editing or cancelling is for the organizer only."
+      },
+      "cta": "Browse events"
     },
     "cmsSystem": {
       "title": "Blog & Mini-sites",
@@ -1146,6 +1334,18 @@
       "email": "Email:",
       "support": "Voice Support"
     },
+    "app": {
+      "title": "App",
+      "intro": "The web version runs in any browser. The native Android shell adds what a browser cannot do: an emergency siren over the lock screen and a hardware panic button.",
+      "android": "Android",
+      "android_action": "Download APK",
+      "android_note": "direct download, signed with our own key",
+      "play": "Google Play",
+      "play_action": "Open in Google Play",
+      "play_note": "store version, updates through Google Play",
+      "ios": "iOS",
+      "status_planned": "planned"
+    },
     "energySystem": {
       "title": "Parahub Energy",
       "wip": "in development",
@@ -1264,6 +1464,7 @@
     "cryptoProofs": {
       "title": "Cryptographic Proofs",
       "intro": "Every signed contract, debt confirmation and identity verification is cryptographically anchored. You don't need to trust the platform — you can verify the proofs yourself with standard open-source tools.",
+      "why": "Think of it as a digital notary: a PGP signature proves who agreed, and a Bitcoin timestamp proves when it existed. Neither can be forged or backdated — not even by us.",
       "pgp": {
         "title": "PGP Signatures",
         "text": "Every user can generate a PGP keypair directly in the browser. The private key never leaves the device. Contracts and debts are signed with this key before being submitted to the server.",
@@ -1280,7 +1481,7 @@
       },
       "export": {
         "title": "Export for Court",
-        "text": "Any signed contract or confirmed debt can be exported as a ZIP package. The archive is self-contained and verifiable without access to Parahub.",
+        "text": "Any signed contract or confirmed debt can be exported as a ZIP package. The signatures and the batch's Bitcoin timestamp verify offline with standard open-source tools — no Parahub account needed.",
         "contains": "The ZIP contains:",
         "item1": "Full contract JSON with both signatures",
         "item2": "OTS proof file (.ots) anchored in Bitcoin",
@@ -1297,7 +1498,8 @@
         "title": "Legal standing",
         "text": "PGP signatures qualify as Advanced Electronic Signatures (AES) under eIDAS Regulation (EU 910/2014). OpenTimestamps provides cryptographic proof of existence anchored in Bitcoin — accepted by Portuguese courts under Código Civil Art. 363º."
       },
-      "short": "Verify every contract, debt and key yourself — anchored in Bitcoin, mirrored in public git.",
+      "short": "We don't ask you to take our word for it. Contracts and debts are signed with your own key on your device, and the fact of their existence is anchored in the Bitcoin blockchain — nothing can be altered or backdated afterwards, not even by us. Anyone can check this with independent tools.",
+      "aboutCta": "How it works & how to verify",
       "repo": {
         "title": "Public audit repository",
         "text": "The PGP keyring and every OpenTimestamps batch proof are mirrored to a public git repository, so they survive even if parahub.io disappears.",
@@ -1371,11 +1573,7 @@
       "supporters": "supporters"
     },
     "services": {
-      "title": "Platform Services",
-      "video": "Video",
-      "video_desc": "Video hosting and streaming",
-      "status": "Status",
-      "status_desc": "Platform uptime monitoring"
+      "status": "Status"
     },
     "subscriptionsSystem": {
       "title": "Recurring Support",
@@ -1469,6 +1667,132 @@
         "text": "Browsing and search are open to everyone, no account needed. Creating a place or organization and writing reviews require a verified profile (Web of Trust). Only owners and admins can edit a listing or manage members."
       }
     },
+    "mapsSystem": {
+      "title": "Map",
+      "intro": "One live map for the whole community: places and organizations, public transport, sensors, energy, the mesh network — everything the platform knows about the physical world, in a single view. The entire map stack is self-hosted: address search and route calculations run on the platform's own servers and never leave it.",
+      "tools": {
+        "title": "Tools",
+        "search": {
+          "title": "Search",
+          "text": "One search box for addresses and community content — places, listings, events. Results outside the visible area point at themselves from the edge of the map, with the distance shown."
+        },
+        "directions": {
+          "title": "Directions",
+          "text": "Turn-by-turn routes by car, on foot or by bike, plus door-to-door public-transport journeys."
+        },
+        "measure": {
+          "title": "Measuring",
+          "text": "Measure distances and areas right on the map, or draw the area reachable within a chosen travel time."
+        },
+        "sun": {
+          "title": "Sun & moon",
+          "text": "For any spot and moment: where the sun stands and where the moon is, with its true current phase and rise and set times. Handy for judging light and shadow — for a home, a solar panel or a terrace."
+        },
+        "weather": {
+          "title": "Weather",
+          "text": "A compact live-weather readout follows the map as you move around."
+        },
+        "basemap": {
+          "title": "Basemaps",
+          "text": "The default view is a self-hosted street map; in Portugal an official aerial orthophoto can be switched on to read rooftops and plot boundaries."
+        }
+      },
+      "layers": {
+        "title": "Layers",
+        "intro": "The Layers button switches any mix of data layers on and off:",
+        "transit": {
+          "title": "Public transport",
+          "text": "Vehicles moving on the map in real time."
+        },
+        "places": {
+          "title": "Places & organizations",
+          "text": "The community directory: businesses, associations, public buildings, churches."
+        },
+        "poi": {
+          "title": "Points of interest",
+          "text": "Familiar place labels from OpenStreetMap."
+        },
+        "hubs": {
+          "title": "Parcel points",
+          "text": "Pick-up and drop-off locations of the community parcel network."
+        },
+        "energy": {
+          "title": "Energy communities",
+          "text": "Areas where neighbours share locally produced solar power."
+        },
+        "condos": {
+          "title": "Condominiums",
+          "text": "Buildings managed on the platform."
+        },
+        "mesh": {
+          "title": "Mesh network",
+          "text": "Nodes and coverage of the community-run network."
+        },
+        "stations": {
+          "title": "Weather & air",
+          "text": "Community weather and air-quality stations, with live readouts next to them."
+        },
+        "aerial": {
+          "title": "Aerial imagery",
+          "text": "Up-to-date aerial photos flown by community drone pilots and processed automatically into map layers — often sharper and fresher than satellite. Some areas also offer a 3D view."
+        },
+        "devices": {
+          "title": "Your devices",
+          "text": "Your own GPS trackers and smart devices, live on the map."
+        }
+      },
+      "presence": {
+        "title": "People on the map",
+        "text": "While the map is open you can appear on it as a small animated character — see others, wave at them, sit down or say something in a speech bubble; a tap on a character opens its owner's profile. Only the part of the map you are looking at is shared, never your physical location, and nothing is stored: a character disappears a few minutes after its owner leaves."
+      },
+      "cta": "Open the map"
+    },
+    "openskySystem": {
+      "title": "Aerial Imagery",
+      "intro": "Community drone mapping. A pilot flies one square of the map, uploads the photos, and a few hours later the area is on the map as a sharp aerial layer — often as a 3D model too — free for anyone to use, including everyone who will never own a drone.",
+      "flow": {
+        "title": "How a survey works",
+        "step1": "Switch on the aerial grid on the map. The map is split into fixed squares, about 250 metres across in Portugal; squares that already have imagery are shaded and carry the date they were last flown.",
+        "step2": "Pick a square and check that you can reach it from the take-off point you have in mind — the planner answers that before you drive anywhere.",
+        "step3": "One click downloads five ready-made flight plans for a DJI drone: one straight-down survey and four angled ones for facades. Fly as many as the terrain and your batteries justify.",
+        "step4": "Upload the photos as JPG straight off the memory card. Several flights, even on different days, can belong to the same mission.",
+        "step5": "Processing runs on its own — stitching, georeferencing, 3D. You follow the progress on the mission card, and the result joins the public map."
+      },
+      "checks": {
+        "title": "Before you drive out: is the square flyable?",
+        "range": {
+          "title": "Distance",
+          "text": "A straight-line radius around your take-off point — 500 m, 2 km or 5 km. A drone flies straight, so this is a circle, not a road distance."
+        },
+        "ceiling": {
+          "title": "Terrain in the way",
+          "text": "The mission holds a constant altitude measured from your take-off point, with no terrain following. Where the ground inside a square climbs close to that altitude, the square is marked blocked. The altitude slider stops at 120 metres, the legal ceiling for open-category flights."
+        },
+        "link": {
+          "title": "Radio line of sight",
+          "text": "A ridge between you and the square can cut the link to the controller even where the drone itself would clear the terrain. Those squares are marked separately: flying there would work, steering it would not."
+        },
+        "airspace": {
+          "title": "Restricted airspace",
+          "text": "Official geo-zones can be drawn as their own layer — for Portugal, the national ANAC dataset. A square inside a hard prohibition at your flight altitude is marked restricted; zones that merely need a permit are drawn as advisory outlines for you to judge."
+        }
+      },
+      "limits": {
+        "title": "A planning aid, not a clearance",
+        "text": "The terrain data knows hills, not masts, cables, trees or the edge of a building, and the line-of-sight check is geometry rather than a radio model. Temporary restrictions — NOTAMs, events, short-notice closures — are not in the zone layer at all. Wind and cold are not modelled either, so keep a battery reserve. The map saves you wasted drives; checking the current rules and holding the right permits stays with you as the pilot."
+      },
+      "upload": {
+        "title": "What the upload expects",
+        "rule1": "JPG straight from the drone — what places the mission on the map is the position the camera writes into every photo.",
+        "rule2": "All photos of one mission belong to one square, and at least part of the flight has to be shot straight down: angled photos alone cannot make a usable map.",
+        "rule3": "A square can hold several missions flown at different times, which is what makes it possible to compare the same place across seasons.",
+        "rule4": "Angled photos can be added later — the mission is rebuilt from everything you have flown."
+      },
+      "license": {
+        "title": "Your photos become a shared asset",
+        "text": "Imagery you upload, and the maps and 3D models built from it, are published under Creative Commons BY-SA 4.0: anyone may use them with attribution, and anything derived stays equally open. You confirm this when you upload. What a licence cannot settle stays with the pilot: privacy where faces, plates or private property are recognisable, and the flight rules of your country."
+      }
+    },
     "marketplaceSystem": {
       "title": "Marketplace",
       "intro": "Parahub's core: a place to offer or request anything — goods, services, skills, or help. No platform fees, no algorithmic ranking, no middleman. Just people trading directly, on a map, in their own language.",
@@ -1503,5 +1827,78 @@
     },
     "title": "About — Parahub",
     "documents": "Documents"
+  },
+  "childsafety": {
+    "title": "Child Safety Standards",
+    "intro": "These are the published standards of {operator} against child sexual abuse and exploitation (CSAE) on the Parahub platform. They apply to every part of the service where people publish content or interact: profiles, marketplace listings, posts, comments, photos, videos, events, establishments and chat.",
+    "commitment": {
+      "title": "Our Commitment",
+      "text": "We have zero tolerance for child sexual abuse and exploitation. Parahub is a community platform designed for and directed at adults. Any content or conduct that sexualizes, exploits or endangers minors is banned and leads to immediate action."
+    },
+    "prohibited": {
+      "title": "Prohibited Content and Conduct",
+      "intro": "The following are strictly prohibited, without exception:",
+      "item1": "Child sexual abuse material (CSAM) in any form, including drawn, animated or AI-generated imagery",
+      "item2": "Grooming: contacting or befriending a minor with the aim of sexual contact, online or offline",
+      "item3": "Sextortion: threatening or blackmailing a person using real or alleged access to their intimate images",
+      "item4": "Any sexualization of minors, including sharing links to such material hosted elsewhere",
+      "item5": "Trafficking of minors or advertising a child for commercial sexual exploitation"
+    },
+    "reporting": {
+      "title": "In-App Reporting",
+      "text1": "Every profile and every piece of user-generated content on Parahub can be reported from inside the app with the report button. Reports include categories such as sexual or explicit content and illegal activity, plus a free-text description.",
+      "text2": "Reports arrive in a moderation queue reviewed by our team. Reports involving suspected child sexual abuse or exploitation are handled with the highest priority. In chat, participants can additionally report messages and block users."
+    },
+    "enforcement": {
+      "title": "Enforcement",
+      "intro": "When we identify CSAE content or conduct, we:",
+      "item1": "Remove the content immediately",
+      "item2": "Terminate the accounts involved",
+      "item3": "Preserve the evidence for law enforcement",
+      "item4": "Report it to the competent authorities"
+    },
+    "authorities": {
+      "title": "Cooperation with Authorities",
+      "text": "We comply with applicable child safety laws. Confirmed or suspected CSAM is reported to the competent authorities — in Portugal, the Polícia Judiciária and the Linha Internet Segura hotline (a member of the INHOPE network) — and we cooperate with lawful requests from law enforcement in other jurisdictions."
+    },
+    "contact": {
+      "title": "Child Safety Contact",
+      "text": "Our designated child safety point of contact can speak to Parahub's CSAE prevention practices and compliance. For reports and questions from users, authorities and industry partners:"
+    }
+  },
+  "sources": {
+    "title": "Data sources",
+    "meta": "Where Parahub's data comes from — transit feeds, maps, weather and Portuguese open data, with licences and attribution.",
+    "lead": "Everything on the map and in the timetables is assembled from open sources. Every one of them is listed here: what it feeds, on what terms it was published, and when it was last imported.",
+    "license": "Licence",
+    "publisher_terms": "Publisher's terms",
+    "basis": {
+      "title": "How we handle other people's data",
+      "text": "We mirror open data verbatim and publish the publisher's terms next to it. Where a publisher has stated no licence, the entry says exactly that — we don't invent one. A blank licence is a fact about the publisher, not a claim of ours.",
+      "contact": "If you publish one of these sources and want the attribution changed or the data removed, write to {email} — we act on it."
+    },
+    "transit": {
+      "title": "Public transit (GTFS)",
+      "counts": "Feeds: {feeds} · Operators: {agencies} · Routes: {routes} · Stops: {stops}",
+      "lead": "Timetables are imported automatically; the dot shows the state of the last import, and the badge marks feeds that also carry live vehicle positions.",
+      "unavailable": "The source registry is temporarily unavailable."
+    },
+    "groups": {
+      "map": "Map, search and routing",
+      "weather": "Weather",
+      "pt": "Portugal: territory and urban planning"
+    },
+    "items": {
+      "osm": "Base map, address search, street routing",
+      "geocoder_support": "Reference data for the address search (Pelias)",
+      "open_meteo": "Weather on the map",
+      "dgt_ortho": "Aerial imagery layer for Portugal (ortophotos)",
+      "dgt_caop": "Administrative boundaries — districts, municipalities, parishes, NUTS codes",
+      "caminha_pdm": "PDM zoning and constraint layers for the urban analysis (Caminha pilot)"
+    },
+    "members": {
+      "title": "Data from members",
+      "text": "Aerial surveys, environmental stations and mesh routers are published by the people who own them, and the owner decides what stays visible. The terms are in the {terms}."
+    }
   }
 }

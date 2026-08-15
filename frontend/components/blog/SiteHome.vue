@@ -54,7 +54,7 @@ const siteName = computed(() =>
 
 const manageUrl = computed(() => {
   if (site.value?.establishment_slug) return `https://parahub.io/org/${site.value.establishment_slug}/manage`
-  if (site.value?.profile_local_name) return `https://parahub.io/u/${site.value.profile_local_name}/manage`
+  if (site.value?.profile_local_name) return `https://parahub.io/@${site.value.profile_local_name}/manage`
   return null
 })
 </script>

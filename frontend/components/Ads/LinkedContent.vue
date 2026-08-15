@@ -123,6 +123,8 @@ interface LinkedResult {
 const props = defineProps<{
   linkedItemId?: string | null
   linkedEstablishmentId?: string | null
+  initialItem?: LinkedResult | null
+  initialEstablishment?: LinkedResult | null
 }>()
 
 const emit = defineEmits<{
@@ -138,6 +140,20 @@ const results = ref<LinkedResult[]>([])
 const loading = ref(false)
 const linkedItem = ref<LinkedResult | null>(null)
 const linkedEstablishment = ref<LinkedResult | null>(null)
+
+// Prefill from an existing campaign (edit mode)
+watch(() => props.initialItem, (v) => {
+  if (v) {
+    linkedItem.value = v
+    linkedEstablishment.value = null
+  }
+}, { immediate: true })
+watch(() => props.initialEstablishment, (v) => {
+  if (v) {
+    linkedEstablishment.value = v
+    linkedItem.value = null
+  }
+}, { immediate: true })
 
 const linkedTitle = computed(() =>
   linkedItem.value?.title || linkedEstablishment.value?.name || ''

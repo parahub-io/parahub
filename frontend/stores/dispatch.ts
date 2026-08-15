@@ -45,6 +45,9 @@ export const useDispatchStore = defineStore('dispatch', {
     availableDevices: [] as AvailableDevice[],
     loading: false,
     error: null as string | null,
+    // A 403 from the API is the access answer: dispatch belongs to whoever runs
+    // an operator, and the session payload does not carry capabilities yet.
+    forbidden: false,
     selectedDate: new Date().toISOString().slice(0, 10),
   }),
 
@@ -78,7 +81,9 @@ export const useDispatchStore = defineStore('dispatch', {
         this.assignments = await $fetch<Assignment[]>(`/api/v1/iot/dispatch/assignments/?date=${this.selectedDate}`, {
           credentials: 'include', headers,
         })
+        this.forbidden = false
       } catch (e: any) {
+        this.forbidden = (e?.response?.status ?? e?.statusCode) === 403
         this.error = e.data?.detail || e.message || 'Failed to load assignments'
       } finally {
         this.loading = false

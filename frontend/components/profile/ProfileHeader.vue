@@ -187,8 +187,8 @@
       <!-- Avatar Edit Modal -->
       <div
         v-if="showAvatarModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-        @click="showAvatarModal = false"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+        @click="closeAvatarModal"
       >
         <div
           class="bg-white dark:bg-neutral-900 rounded-2xl p-6 max-w-sm w-full space-y-4"
@@ -198,54 +198,120 @@
             {{ $t('profile.photos.avatar_label', 'Avatar') }}
           </h3>
 
-          <!-- Current Avatar Preview -->
-          <div class="flex justify-center">
-            <div class="w-32 h-32 rounded-2xl overflow-hidden border-2 border-neutral-200 dark:border-neutral-700">
-              <img
-                v-if="avatarUrl"
-                :src="avatarUrl"
-                alt="Avatar"
-                class="w-full h-full object-cover"
-              />
-              <div v-else class="w-full h-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                <span class="text-5xl font-bold text-black">{{ userInitials }}</span>
+          <!-- AI stylize preview: current vs stylized, apply is explicit -->
+          <template v-if="stylizedPreview">
+            <div class="flex justify-center items-center gap-3">
+              <div class="w-28 h-28 rounded-2xl overflow-hidden border-2 border-neutral-200 dark:border-neutral-700 shrink-0">
+                <img v-if="stylizeSourceUrl || avatarUrl" :src="stylizeSourceUrl || avatarUrl" alt="" class="w-full h-full object-cover" />
+                <div v-else class="w-full h-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                  <span class="text-4xl font-bold text-black">{{ userInitials }}</span>
+                </div>
+              </div>
+              <div class="w-28 h-28 rounded-2xl overflow-hidden border-2 border-primary shrink-0">
+                <img :src="stylizedPreview" alt="" class="w-full h-full object-cover" />
               </div>
             </div>
-          </div>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400 text-center">
+              {{ $t('profile.photos.stylize_preview_hint', 'AI-redrawn in Parahub\'s watercolor style. Nothing changes until you apply.') }}
+            </p>
+            <div class="space-y-2">
+              <button
+                @click="applyStylized"
+                :disabled="stylizedApplying"
+                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium transition-colors"
+              >
+                <Loader2 v-if="stylizedApplying" class="w-5 h-5 animate-spin" />
+                {{ $t('profile.photos.stylize_apply', 'Use this avatar') }}
+              </button>
+              <button
+                @click="discardStylized"
+                :disabled="stylizedApplying"
+                class="w-full px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 font-medium transition-colors"
+              >
+                {{ $t('profile.photos.stylize_discard', 'Discard') }}
+              </button>
+            </div>
+          </template>
 
-          <!-- Actions -->
-          <div class="space-y-2">
-            <label class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium transition-colors cursor-pointer">
-              <Upload v-if="!avatarUploading" class="w-5 h-5" />
-              <Loader2 v-else class="w-5 h-5 animate-spin" />
-              {{ avatarUploading ? $t('profile.photos.uploading', 'Uploading...') : $t('profile.photos.upload', 'Upload photo') }}
-              <input
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="uploadAvatar"
-                :disabled="avatarUploading"
-              />
-            </label>
+          <template v-else>
+            <!-- Current Avatar Preview -->
+            <div class="flex justify-center">
+              <div class="w-32 h-32 rounded-2xl overflow-hidden border-2 border-neutral-200 dark:border-neutral-700">
+                <img
+                  v-if="avatarUrl"
+                  :src="avatarUrl"
+                  alt="Avatar"
+                  class="w-full h-full object-cover"
+                />
+                <div v-else class="w-full h-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                  <span class="text-5xl font-bold text-black">{{ userInitials }}</span>
+                </div>
+              </div>
+            </div>
 
-            <button
-              v-if="avatarUrl"
-              @click="deleteAvatar"
-              :disabled="avatarDeleting"
-              class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg text-red-700 dark:text-red-400 font-medium transition-colors"
-            >
-              <Trash2 v-if="!avatarDeleting" class="w-5 h-5" />
-              <Loader2 v-else class="w-5 h-5 animate-spin" />
-              {{ avatarDeleting ? '...' : $t('profile.photos.delete', 'Delete') }}
-            </button>
+            <!-- Actions -->
+            <div class="space-y-2">
+              <label class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium transition-colors cursor-pointer">
+                <Upload v-if="!avatarUploading" class="w-5 h-5" />
+                <Loader2 v-else class="w-5 h-5 animate-spin" />
+                {{ avatarUploading ? $t('profile.photos.uploading', 'Uploading...') : $t('profile.photos.upload', 'Upload photo') }}
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="uploadAvatar"
+                  :disabled="avatarUploading"
+                />
+              </label>
 
-            <button
-              @click="showAvatarModal = false"
-              class="w-full px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 font-medium transition-colors"
-            >
-              {{ $t('common.close', 'Close') }}
-            </button>
-          </div>
+              <button
+                v-if="avatarUrl || hasVerificationPhoto"
+                @click="stylizeAvatar"
+                :disabled="avatarStylizing"
+                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-secondary hover:bg-secondary/90 rounded-lg text-white font-medium transition-colors"
+              >
+                <Sparkles v-if="!avatarStylizing" class="w-5 h-5" />
+                <Loader2 v-else class="w-5 h-5 animate-spin" />
+                {{ avatarStylizing ? $t('profile.photos.stylizing', 'Painting...') : $t('profile.photos.stylize', 'AI watercolor avatar') }}
+              </button>
+              <label
+                v-else
+                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-secondary hover:bg-secondary/90 rounded-lg text-white font-medium transition-colors cursor-pointer"
+                :class="{ 'opacity-50 pointer-events-none': avatarStylizing }"
+              >
+                <Sparkles v-if="!avatarStylizing" class="w-5 h-5" />
+                <Loader2 v-else class="w-5 h-5 animate-spin" />
+                {{ avatarStylizing ? $t('profile.photos.stylizing', 'Painting...') : $t('profile.photos.stylize', 'AI watercolor avatar') }}
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="stylizeFromFile"
+                  :disabled="avatarStylizing"
+                />
+              </label>
+
+              <StylizePromptDisclosure />
+
+              <button
+                v-if="avatarUrl"
+                @click="deleteAvatar"
+                :disabled="avatarDeleting"
+                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg text-red-700 dark:text-red-400 font-medium transition-colors"
+              >
+                <Trash2 v-if="!avatarDeleting" class="w-5 h-5" />
+                <Loader2 v-else class="w-5 h-5 animate-spin" />
+                {{ avatarDeleting ? '...' : $t('profile.photos.delete', 'Delete') }}
+              </button>
+
+              <button
+                @click="closeAvatarModal"
+                class="w-full px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 font-medium transition-colors"
+              >
+                {{ $t('common.close', 'Close') }}
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </Teleport>
@@ -254,7 +320,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Upload, Loader2, Trash2, Camera } from 'lucide-vue-next'
+import { Upload, Loader2, Trash2, Camera, Sparkles } from 'lucide-vue-next'
+import StylizePromptDisclosure from './StylizePromptDisclosure.vue'
+import { dataUrlToBlob } from '~/utils/dataUrl'
 import { useAuthStore } from '~/stores/auth'
 import { useNotification } from '~/composables/useNotification'
 
@@ -475,6 +543,120 @@ const uploadAvatar = async (event: Event) => {
     avatarUploading.value = false
     input.value = ''
   }
+}
+
+// AI stylize (opt-in): backend redraws a source photo in the brand
+// editorial-watercolor style and returns a preview; nothing is applied until
+// the user accepts — accept re-uploads the preview through /me/avatar/.
+// Source: current avatar → WoT verification photo → a freshly picked file.
+const avatarStylizing = ref(false)
+const stylizedPreview = ref<string | null>(null)
+const stylizedApplying = ref(false)
+const stylizeSourceUrl = ref<string | null>(null)
+const hasVerificationPhoto = ref(false)
+
+watch(showAvatarModal, async (open) => {
+  if (!open) return
+  try {
+    await authStore.ensureToken()
+    const status = await $fetch<{ has_photo: boolean }>('/api/v1/profiles/me/verification-photo/status/', {
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    hasVerificationPhoto.value = !!status.has_photo
+  } catch {
+    hasVerificationPhoto.value = false
+  }
+})
+
+const clearStylizeSource = () => {
+  if (stylizeSourceUrl.value) {
+    URL.revokeObjectURL(stylizeSourceUrl.value)
+    stylizeSourceUrl.value = null
+  }
+}
+
+const requestStylize = async (body: FormData | undefined, source: string) => {
+  avatarStylizing.value = true
+  try {
+    await authStore.ensureToken()
+    const response = await $fetch<{ preview: string }>(`/api/v1/profiles/me/avatar/stylize/?source=${source}`, {
+      method: 'POST',
+      body,
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    stylizedPreview.value = response.preview
+  } catch (error: any) {
+    console.error('Avatar stylize error:', error)
+    if (error?.status === 429) {
+      showError(t('profile.photos.stylize_quota'))
+    } else {
+      showError(error.data?.error || t('profile.photos.stylize_failed'))
+    }
+  } finally {
+    avatarStylizing.value = false
+  }
+}
+
+const stylizeAvatar = () =>
+  requestStylize(undefined, avatarUrl.value ? 'avatar' : 'verification')
+
+// No avatar and no verification photo yet: pick a file and stylize it directly,
+// so the AI path works without first publishing the raw upload as the avatar
+const stylizeFromFile = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length) return
+  const file = input.files[0]
+  if (file.size > 10 * 1024 * 1024) {
+    showError(t('profile.photos.error_file_too_large'))
+    input.value = ''
+    return
+  }
+  clearStylizeSource()
+  stylizeSourceUrl.value = URL.createObjectURL(file)
+  const formData = new FormData()
+  formData.append('image', file)
+  await requestStylize(formData, 'upload')
+  input.value = ''
+}
+
+const discardStylized = () => {
+  stylizedPreview.value = null
+  clearStylizeSource()
+}
+
+const applyStylized = async () => {
+  if (!stylizedPreview.value) return
+  stylizedApplying.value = true
+  try {
+    await authStore.ensureToken()
+    const blob = dataUrlToBlob(stylizedPreview.value)
+    const formData = new FormData()
+    formData.append('image', new File([blob], 'stylized.jpg', { type: 'image/jpeg' }))
+    const response = await $fetch<{ url: string }>('/api/v1/profiles/me/avatar/', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    if (authStore.user?.profile) {
+      authStore.user.profile.avatar_url = response.url
+    }
+    discardStylized()
+    showAvatarModal.value = false
+    showSuccess(t('profile.photos.avatar_uploaded'))
+  } catch (error: any) {
+    console.error('Stylized avatar apply error:', error)
+    showError(error.data?.error || t('profile.photos.upload_failed'))
+  } finally {
+    stylizedApplying.value = false
+  }
+}
+
+const closeAvatarModal = () => {
+  showAvatarModal.value = false
+  discardStylized()
 }
 
 // Avatar delete

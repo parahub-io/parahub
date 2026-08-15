@@ -31,7 +31,7 @@ class IncomeConfigResponse(BaseModel):
 
 
 class DonationCreateRequest(BaseModel):
-    source: str  # WALLET_SEND, ADS_CAMPAIGN, MANUAL
+    source: str  # one of Donation.Source values
     # Optional: only meaningful when a donation was actually attempted. A SKIPPED
     # record carries no source amount (see record_donation).
     source_amount_sats: int = 0
@@ -106,7 +106,7 @@ def record_donation(request, data: DonationCreateRequest):
 
     if data.status not in ('COMPLETED', 'SKIPPED', 'FAILED'):
         raise HttpError(400, "Invalid status")
-    if data.source not in ('WALLET_SEND', 'ADS_CAMPAIGN', 'MANUAL'):
+    if data.source not in Donation.Source.values:
         raise HttpError(400, "Invalid source")
 
     # Data minimisation: the source amount only justifies the donation that was

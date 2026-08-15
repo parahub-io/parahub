@@ -23,6 +23,7 @@ from django.db.models import Q, F
 from django.utils import timezone
 
 from parahub.auth import ProfileAuth
+from identity.visibility import exclude_test_authors
 from parahub.ratelimit import ratelimit, user_or_ip
 
 logger = logging.getLogger(__name__)
@@ -291,7 +292,7 @@ def _format_alert_response(alert) -> AlertResponse:
     )
 
 
-def _create_group_matrix_room(group, creator_profile) -> Optional[str]:
+def _create_group_matrix_room(group, creator_account_id) -> Optional[str]:
     """Create Matrix chat room for safety group."""
     import httpx
     from django.conf import settings
@@ -303,7 +304,7 @@ def _create_group_matrix_room(group, creator_profile) -> Optional[str]:
             return None
 
         from parahub.endpoints.matrix_auth import _get_or_create_matrix_token
-        token = _get_or_create_matrix_token(creator_profile.account_id)
+        token = _get_or_create_matrix_token(creator_account_id)
         if not token:
             return None
 
@@ -332,41 +333,114 @@ def _create_group_matrix_room(group, creator_profile) -> Optional[str]:
     return None
 
 
-def _join_group_matrix_room(group, profile) -> bool:
-    """Invite + join user to the safety group's Matrix room.
+def _ensure_live_group_room(group, actor_profile):
+    """Return (room_id, joined_members) for a live group room, recreating it
+    when the current one is positively dead.
 
-    The room is invite-only, so the room creator's token issues the invite
-    first, then the joining user's token accepts it.
+    A room every local user has left can never be joined again (the join
+    falls through to federation and no other homeserver is in the room), so
+    the only recovery is a fresh room. Members are re-added in the background.
+    joined_members is None when current membership could not be determined.
+    """
+    from parahub.endpoints.matrix_auth import get_room_joined_members, purge_matrix_room
+    from parasos.models import SafetyGroup, SafetyGroupMember
+
+    old_room_id = group.matrix_room_id
+    if old_room_id:
+        members = get_room_joined_members(old_room_id)
+        if members is None or members:
+            return old_room_id, members
+
+    # Positively dead (or never created) — recreate, preferring the group
+    # creator as room owner so power levels stay with them
+    new_room_id = _create_group_matrix_room(group, group.created_by.account_id)
+    if not new_room_id and actor_profile is not None:
+        new_room_id = _create_group_matrix_room(group, actor_profile.account_id)
+    if not new_room_id:
+        return None, None
+
+    swapped = SafetyGroup.objects.filter(
+        id=group.id, matrix_room_id=old_room_id,
+    ).update(matrix_room_id=new_room_id)
+    if not swapped:
+        # Lost the race to a concurrent heal — abandon ours, adopt the winner's
+        purge_matrix_room(new_room_id)
+        group.refresh_from_db(fields=['matrix_room_id'])
+        return (group.matrix_room_id or None), None
+
+    group.matrix_room_id = new_room_id
+    SafetyGroupMember.objects.filter(group=group).update(joined_matrix_room=False)
+    logger.info(
+        f"Recreated Matrix room for safety group {group.id}: "
+        f"{old_room_id or '(none)'} -> {new_room_id}"
+    )
+
+    def _cleanup_and_readd():
+        if old_room_id:
+            purge_matrix_room(old_room_id)
+        _readd_group_members(group)
+
+    spawn(_cleanup_and_readd, label=f"parasos-room-heal-{group.id}")
+    return new_room_id, None
+
+
+def _invite_and_join_group_room(group, room_id, joined_members, profile) -> bool:
+    """Invite + join user into an invite-only group room.
+
+    The invite must come from someone actually joined: normally the creator,
+    otherwise any joined member (the backend can mint any local user's token).
+    Individual invite failures are tolerated — the join is the arbiter.
     """
     import httpx
     from django.conf import settings
-
-    if not group.matrix_room_id:
-        return False
+    from parahub.endpoints.matrix_auth import (
+        _get_or_create_matrix_token,
+        get_account_id_for_matrix_user,
+        get_matrix_user_id,
+    )
 
     try:
         SYNAPSE_BASE_URL = getattr(settings, 'SYNAPSE_INTERNAL_URL', 'http://localhost:8008')
-        from parahub.endpoints.matrix_auth import _get_or_create_matrix_token, get_matrix_user_id
         token = _get_or_create_matrix_token(profile.account_id)
         if not token:
             return False
 
+        user_mxid = get_matrix_user_id(profile.account_id)
+        creator_account_id = group.created_by.account_id
+        creator_mxid = get_matrix_user_id(creator_account_id)
+
+        inviter_account_ids = []
+        if joined_members is None or creator_mxid in joined_members:
+            inviter_account_ids.append(creator_account_id)
+        for mxid in joined_members or []:
+            if mxid in (creator_mxid, user_mxid):
+                continue
+            account_id = get_account_id_for_matrix_user(mxid)
+            if account_id:
+                inviter_account_ids.append(account_id)
+                break
+
         with httpx.Client(timeout=10) as client:
-            creator_token = _get_or_create_matrix_token(group.created_by.account_id)
-            if creator_token:
-                inv = client.post(
-                    f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{group.matrix_room_id}/invite",
-                    headers={"Authorization": f"Bearer {creator_token}"},
-                    json={"user_id": get_matrix_user_id(profile.account_id)},
-                )
-                # 403 "already in the room" is fine — proceed to join
-                if inv.status_code not in (200, 201, 403):
+            already_joined = user_mxid in (joined_members or [])
+            if not already_joined:
+                for inviter_account_id in inviter_account_ids:
+                    inviter_token = _get_or_create_matrix_token(inviter_account_id)
+                    if not inviter_token:
+                        continue
+                    inv = client.post(
+                        f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{room_id}/invite",
+                        headers={"Authorization": f"Bearer {inviter_token}"},
+                        json={"user_id": user_mxid},
+                    )
+                    # 403 usually means "already in the room" — the join decides
+                    if inv.status_code in (200, 201, 403):
+                        break
                     logger.warning(
                         f"Matrix invite failed for safety group {group.id}: {inv.text}"
                     )
 
             resp = client.post(
-                f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{group.matrix_room_id}/join",
+                f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{room_id}/join",
                 headers={"Authorization": f"Bearer {token}"},
                 json={},
             )
@@ -376,21 +450,131 @@ def _join_group_matrix_room(group, profile) -> bool:
     return False
 
 
-def _send_matrix_sos_notice(group, alert):
-    """Send SOS notice to group's Matrix room (async in thread)."""
+def _join_group_matrix_room(group, profile) -> bool:
+    """Add user to the group's Matrix room, healing a dead room first."""
+    room_id, joined_members = _ensure_live_group_room(group, profile)
+    if not room_id:
+        return False
+    return _invite_and_join_group_room(group, room_id, joined_members, profile)
+
+
+def _readd_group_members(group):
+    """Re-add current group members to a freshly recreated room.
+
+    Runs in a background thread — sequential HTTP per member. Members whose
+    Matrix user cannot be resolved keep joined_matrix_room=False.
+    """
+    from parasos.models import SafetyGroupMember
+
+    for member in SafetyGroupMember.objects.filter(group=group).select_related('profile'):
+        try:
+            if _invite_and_join_group_room(group, group.matrix_room_id, None, member.profile):
+                member.joined_matrix_room = True
+                member.save(update_fields=['joined_matrix_room'])
+        except Exception as e:
+            logger.warning(
+                f"Failed to re-add member {member.profile_id} to Matrix room "
+                f"of safety group {group.id}: {e}"
+            )
+
+
+def _leave_group_matrix_room(group, profile):
+    """Remove a departed group member from the invite-only Matrix room
+    (background thread) — ex-members must not keep receiving SOS notices
+    (locations, medical context).
+
+    Self-leave with the member's own token; falls back to a kick by the
+    creator (room admin) when the member's token cannot be minted.
+    """
     import httpx
     from django.conf import settings
 
-    if not group.matrix_room_id:
+    room_id = group.matrix_room_id
+    if not room_id:
         return
+
+    def _leave():
+        try:
+            from parahub.endpoints.matrix_auth import (
+                _get_or_create_matrix_token,
+                get_matrix_user_id,
+                get_room_joined_members,
+            )
+
+            user_mxid = get_matrix_user_id(profile.account_id)
+            joined_members = get_room_joined_members(room_id)
+            if joined_members is not None and user_mxid not in joined_members:
+                return  # never entered the chat (or already out)
+
+            SYNAPSE_BASE_URL = getattr(settings, 'SYNAPSE_INTERNAL_URL', 'http://localhost:8008')
+            with httpx.Client(timeout=10) as client:
+                token = _get_or_create_matrix_token(profile.account_id)
+                if token:
+                    resp = client.post(
+                        f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{room_id}/leave",
+                        headers={"Authorization": f"Bearer {token}"},
+                        json={},
+                    )
+                    if resp.status_code in (200, 201):
+                        return
+
+                creator_token = _get_or_create_matrix_token(group.created_by.account_id)
+                if not creator_token:
+                    logger.warning(
+                        f"Could not remove {user_mxid} from Matrix room of "
+                        f"safety group {group.id}: no usable token"
+                    )
+                    return
+                resp = client.post(
+                    f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{room_id}/kick",
+                    headers={"Authorization": f"Bearer {creator_token}"},
+                    json={"user_id": user_mxid, "reason": "Left the safety group"},
+                )
+                if resp.status_code not in (200, 201):
+                    logger.warning(
+                        f"Matrix kick failed for safety group {group.id} "
+                        f"({resp.status_code}): {resp.text[:200]}"
+                    )
+        except Exception as e:
+            logger.warning(
+                f"Failed to remove member from Matrix room of safety group {group.id}: {e}"
+            )
+
+    spawn(_leave, label=f"parasos-room-leave-{group.id}")
+
+
+def _send_matrix_sos_notice(group, alert):
+    """Send SOS notice to group's Matrix room (async in thread).
+
+    Sent as the alert sender \u2014 a room member. Synapse rejects sends from
+    non-members, and the admin user is in no group room, so an admin-token
+    send would silently fail.
+    """
+    import httpx
+    from django.conf import settings
 
     def _send():
         try:
-            base_url = getattr(settings, 'SYNAPSE_INTERNAL_URL', 'http://localhost:8008')
-            admin_token = getattr(settings, 'SYNAPSE_ADMIN_TOKEN', None)
-            if not admin_token:
+            from parahub.endpoints.matrix_auth import (
+                _get_or_create_matrix_token,
+                get_matrix_user_id,
+            )
+
+            room_id, joined_members = _ensure_live_group_room(group, alert.sender)
+            if not room_id:
+                logger.warning(f"No Matrix room for SOS notice, safety group {group.id}")
                 return
 
+            sender_mxid = get_matrix_user_id(alert.sender.account_id)
+            if joined_members is not None and sender_mxid not in joined_members:
+                _invite_and_join_group_room(group, room_id, joined_members, alert.sender)
+
+            token = _get_or_create_matrix_token(alert.sender.account_id)
+            if not token:
+                logger.warning(f"No Matrix token for SOS sender {alert.sender_id}")
+                return
+
+            base_url = getattr(settings, 'SYNAPSE_INTERNAL_URL', 'http://localhost:8008')
             level_emoji = {"INFO": "\u2139\ufe0f", "WARNING": "\u26a0\ufe0f", "EMERGENCY": "\U0001f6a8"}
             emoji = level_emoji.get(alert.level, "")
             sender_name = alert.sender.display_name or alert.sender.hna or "Someone"
@@ -402,11 +586,15 @@ def _send_matrix_sos_notice(group, alert):
 
             import uuid
             with httpx.Client(timeout=10) as client:
-                client.put(
-                    f"{base_url}/_matrix/client/r0/rooms/{group.matrix_room_id}/send/m.room.message/{uuid.uuid4()}",
-                    headers={"Authorization": f"Bearer {admin_token}"},
+                resp = client.put(
+                    f"{base_url}/_matrix/client/r0/rooms/{room_id}/send/m.room.message/{uuid.uuid4()}",
+                    headers={"Authorization": f"Bearer {token}"},
                     json={"msgtype": "m.notice", "body": body},
                 )
+                if resp.status_code not in (200, 201):
+                    logger.warning(
+                        f"Matrix SOS notice send failed ({resp.status_code}): {resp.text[:200]}"
+                    )
         except Exception as e:
             logger.warning(f"Failed to send Matrix SOS notice: {e}")
 
@@ -586,7 +774,7 @@ def create_group(request, payload: GroupCreateInput):
         group.save(update_fields=['members_count'])
 
         # Create Matrix room
-        room_id = _create_group_matrix_room(group, profile)
+        room_id = _create_group_matrix_room(group, profile.account_id)
         if room_id:
             group.matrix_room_id = room_id
             group.save(update_fields=['matrix_room_id'])
@@ -713,13 +901,8 @@ def list_groups(
     # Public listing shows only PUBLIC groups
     qs = qs.filter(visibility='PUBLIC')
 
-    # Hide groups created by test/bot accounts from regular users
-    user = getattr(request, 'user', None)
-    if user and getattr(user, 'is_authenticated', False):
-        if not getattr(user, 'is_staff', False) and not getattr(user, 'is_test', False):
-            qs = qs.exclude(created_by__account__is_test=True).exclude(created_by__account__is_bot=True)
-    else:
-        qs = qs.exclude(created_by__account__is_test=True).exclude(created_by__account__is_bot=True)
+    # Hide groups created by test/bot accounts unless the viewer is exempt
+    qs = exclude_test_authors(qs, request, field='created_by')
 
     if search:
         qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
@@ -786,11 +969,11 @@ def join_group(request, group_id: str, payload: JoinGroupInput):
             invite.uses_count = F('uses_count') + 1
             invite.save(update_fields=['uses_count'])
 
-        # Join Matrix room
-        if group.matrix_room_id:
-            if _join_group_matrix_room(group, profile):
-                member.joined_matrix_room = True
-                member.save(update_fields=['joined_matrix_room'])
+    # Join Matrix room after the transaction — Matrix HTTP must not run while
+    # holding the group row lock, and a dead-room heal takes several calls
+    if _join_group_matrix_room(group, profile):
+        member.joined_matrix_room = True
+        member.save(update_fields=['joined_matrix_room'])
 
     return {"success": True, "members_count": group.members_count}
 
@@ -823,6 +1006,9 @@ def leave_group(request, group_id: str):
         member.delete()
         group.members_count = group.members.count()
         group.save(update_fields=['members_count'])
+
+    # Privacy: ex-members must not keep receiving SOS notices in the room
+    _leave_group_matrix_room(group, request.auth)
 
     return {"success": True, "members_count": group.members_count}
 

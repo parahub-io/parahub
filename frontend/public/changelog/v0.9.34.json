@@ -1,0 +1,102 @@
+{
+  "version": "v0.9.34",
+  "date": "2026-07-27",
+  "locales": {
+    "en": {
+      "title": "Bitcoin you can hand to someone",
+      "summary": "Tip notes are here: bearer bitcoin you can give as a link or on paper. If a note is never claimed, the money returns to you by itself.",
+      "highlights": [
+        { "icon": "gift", "title": "Tip notes", "body": "Each note is a single secret: whoever holds it can claim the money — nobody else, not even the server, which never sees it. Unclaimed notes come back on their own after expiry." },
+        { "icon": "printer", "title": "Print a sheet of notes", "body": "Nine notes per A4 page, rendered entirely in your browser. Or skip paper and share a note as a link — one tap copies them all." },
+        { "icon": "eye", "title": "Accountability for verification photos", "body": "Every view of a verification photo is logged, the person in it is notified, and per-viewer quotas make mass browsing slow and visible." },
+        { "icon": "wifi", "title": "Sharing budgets for the network", "body": "Node owners set their own free tier and host budget for guests instead of fixed firmware constants." }
+      ],
+      "notes": [
+        "The claim page shows a full cash-out receipt and remembers your payout address.",
+        "Aerial mission planning is now a public map tool.",
+        "A live wind compass appears in environmental station panels.",
+        "Owner attribution on public map panels is opt-in, default off."
+      ]
+    },
+    "ru": {
+      "title": "Биткоин, который можно вручить",
+      "summary": "Появились чаевые-записки: биткоин на предъявителя, который можно подарить ссылкой или на бумаге. Если записку так и не заберут, деньги вернутся к вам сами.",
+      "highlights": [
+        { "icon": "gift", "title": "Чаевые-записки", "body": "Каждая записка — один секрет: забрать деньги может только тот, кто ею владеет, — и никто больше, даже сервер, который секрета не видит. Невостребованные записки возвращаются сами по истечении срока." },
+        { "icon": "printer", "title": "Печать листа записок", "body": "Девять записок на странице A4, отрисованных целиком в вашем браузере. Или без бумаги — поделитесь запиской как ссылкой, одно нажатие копирует их все." },
+        { "icon": "eye", "title": "Подотчётность фотографий верификации", "body": "Каждый просмотр фотографии верификации записывается, человек на ней получает уведомление, а квоты на просмотры делают массовый перебор медленным и заметным." },
+        { "icon": "wifi", "title": "Бюджеты обмена для сети", "body": "Владельцы узлов сами задают бесплатный уровень и бюджет хозяина для гостей вместо фиксированных констант прошивки." }
+      ],
+      "notes": [
+        "Страница получения показывает полную квитанцию вывода и запоминает ваш адрес выплаты.",
+        "Планирование аэросъёмки стало публичным инструментом карты.",
+        "В панелях экологических станций появился живой компас ветра.",
+        "Указание владельца на публичных панелях карты — по желанию, по умолчанию выключено."
+      ]
+    },
+    "pt": {
+      "title": "Bitcoin que se entrega em mão",
+      "summary": "Chegaram as notas de gorjeta: bitcoin ao portador que pode oferecer como ligação ou em papel. Se uma nota nunca for levantada, o dinheiro volta para si sozinho.",
+      "highlights": [
+        { "icon": "gift", "title": "Notas de gorjeta", "body": "Cada nota é um único segredo: quem a tiver pode levantar o dinheiro — mais ninguém, nem sequer o servidor, que nunca o vê. As notas não levantadas regressam sozinhas após o prazo." },
+        { "icon": "printer", "title": "Imprima uma folha de notas", "body": "Nove notas por página A4, geradas inteiramente no seu navegador. Ou dispense o papel e partilhe uma nota como ligação — um toque copia todas." },
+        { "icon": "eye", "title": "Responsabilização nas fotos de verificação", "body": "Cada visualização de uma foto de verificação fica registada, a pessoa retratada é notificada, e quotas por visualizador tornam a consulta em massa lenta e visível." },
+        { "icon": "wifi", "title": "Orçamentos de partilha para a rede", "body": "Os donos dos nós definem o seu próprio nível gratuito e orçamento de anfitrião para os convidados, em vez de constantes fixas do firmware." }
+      ],
+      "notes": [
+        "A página de levantamento mostra um recibo completo e memoriza o seu endereço de pagamento.",
+        "O planeamento de missões aéreas é agora uma ferramenta pública do mapa.",
+        "Um compasso de vento ao vivo aparece nos painéis das estações ambientais.",
+        "A atribuição do proprietário nos painéis públicos do mapa é opcional, desligada por omissão."
+      ]
+    },
+    "es": {
+      "title": "Bitcoin que puedes entregar en mano",
+      "summary": "Llegaron las notas de propina: bitcoin al portador que puedes regalar como enlace o en papel. Si una nota nunca se reclama, el dinero vuelve a ti por sí solo.",
+      "highlights": [
+        { "icon": "gift", "title": "Notas de propina", "body": "Cada nota es un único secreto: quien la tenga puede reclamar el dinero — nadie más, ni siquiera el servidor, que nunca lo ve. Las notas sin reclamar vuelven solas al vencer el plazo." },
+        { "icon": "printer", "title": "Imprime una hoja de notas", "body": "Nueve notas por página A4, generadas por completo en tu navegador. O salta el papel y comparte una nota como enlace — un toque las copia todas." },
+        { "icon": "eye", "title": "Responsabilidad en las fotos de verificación", "body": "Cada vista de una foto de verificación queda registrada, la persona retratada recibe un aviso, y las cuotas por visitante hacen que el repaso masivo sea lento y visible." },
+        { "icon": "wifi", "title": "Presupuestos de compartición para la red", "body": "Los dueños de nodos fijan su propio nivel gratuito y presupuesto de anfitrión para invitados, en lugar de constantes fijas del firmware." }
+      ],
+      "notes": [
+        "La página de cobro muestra un recibo completo y recuerda tu dirección de pago.",
+        "La planificación de misiones aéreas ya es una herramienta pública del mapa.",
+        "Una brújula de viento en vivo aparece en los paneles de estaciones ambientales.",
+        "La atribución del propietario en paneles públicos del mapa es opcional y viene desactivada."
+      ]
+    },
+    "fr": {
+      "title": "Du bitcoin à remettre en main propre",
+      "summary": "Les billets de pourboire arrivent : du bitcoin au porteur à offrir en lien ou sur papier. Si un billet n'est jamais réclamé, l'argent vous revient de lui-même.",
+      "highlights": [
+        { "icon": "gift", "title": "Billets de pourboire", "body": "Chaque billet est un secret unique : celui qui le détient peut réclamer l'argent — personne d'autre, pas même le serveur, qui ne le voit jamais. Les billets non réclamés reviennent seuls à l'échéance." },
+        { "icon": "printer", "title": "Imprimez une feuille de billets", "body": "Neuf billets par page A4, générés entièrement dans votre navigateur. Ou sans papier : partagez un billet comme lien — un appui les copie tous." },
+        { "icon": "eye", "title": "Responsabilité des photos de vérification", "body": "Chaque consultation d'une photo de vérification est journalisée, la personne photographiée est prévenue, et des quotas par visiteur rendent la consultation de masse lente et visible." },
+        { "icon": "wifi", "title": "Budgets de partage pour le réseau", "body": "Les propriétaires de nœuds fixent eux-mêmes le palier gratuit et le budget d'hôte pour les invités, au lieu de constantes figées du firmware." }
+      ],
+      "notes": [
+        "La page d'encaissement affiche un reçu complet et retient votre adresse de paiement.",
+        "La planification des missions aériennes est désormais un outil public de la carte.",
+        "Une boussole de vent en direct apparaît dans les panneaux des stations environnementales.",
+        "L'attribution du propriétaire sur les panneaux publics de la carte est facultative, désactivée par défaut."
+      ]
+    },
+    "de": {
+      "title": "Bitcoin zum Überreichen",
+      "summary": "Die Trinkgeld-Scheine sind da: Bitcoin auf den Inhaber, zu verschenken als Link oder auf Papier. Wird ein Schein nie eingelöst, kommt das Geld von selbst zu Ihnen zurück.",
+      "highlights": [
+        { "icon": "gift", "title": "Trinkgeld-Scheine", "body": "Jeder Schein ist ein einziges Geheimnis: Nur wer ihn besitzt, kann das Geld einlösen — niemand sonst, nicht einmal der Server, der es nie sieht. Nicht eingelöste Scheine kehren nach Ablauf von selbst zurück." },
+        { "icon": "printer", "title": "Ein Blatt Scheine drucken", "body": "Neun Scheine pro A4-Seite, vollständig in Ihrem Browser erzeugt. Oder ohne Papier: Teilen Sie einen Schein als Link — ein Tipp kopiert alle." },
+        { "icon": "eye", "title": "Rechenschaft bei Verifikationsfotos", "body": "Jeder Aufruf eines Verifikationsfotos wird protokolliert, die abgebildete Person wird benachrichtigt, und Kontingente pro Betrachter machen massenhaftes Durchsehen langsam und sichtbar." },
+        { "icon": "wifi", "title": "Teil-Budgets für das Netz", "body": "Knoten-Besitzer legen ihr eigenes Gratis-Kontingent und Gastgeber-Budget für Gäste fest, statt fester Firmware-Konstanten." }
+      ],
+      "notes": [
+        "Die Einlöseseite zeigt eine vollständige Auszahlungsquittung und merkt sich Ihre Auszahlungsadresse.",
+        "Die Planung von Luftbildmissionen ist jetzt ein öffentliches Kartenwerkzeug.",
+        "Ein Live-Windkompass erscheint in den Panels der Umweltstationen.",
+        "Die Besitzerangabe auf öffentlichen Kartenpanels ist freiwillig und standardmäßig aus."
+      ]
+    }
+  }
+}

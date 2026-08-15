@@ -31,22 +31,7 @@
 
       <!-- Amount input -->
       <div v-else-if="sendStep === 'input'" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            {{ t('user_profile.amount_sats') }}
-          </label>
-          <input
-            v-model="sendAmount"
-            type="number"
-            min="1"
-            :placeholder="t('user_profile.enter_amount')"
-            class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            @keyup.enter="initSendLightning"
-          />
-          <p v-if="sendFiatEquivalent" class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            {{ sendFiatEquivalent }}
-          </p>
-        </div>
+        <WalletAmountInput v-model:sats="sendAmountSats" @submit="initSendLightning" />
         <div v-if="!profile.spark_address">
           <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
             {{ t('user_profile.payment_note_optional') }}
@@ -90,7 +75,7 @@
           </div>
           <div class="flex justify-between text-sm">
             <span class="text-neutral-600 dark:text-neutral-400">{{ t('user_profile.ln_amount') }}</span>
-            <span class="font-medium">{{ lightning.formatSats(parseInt(sendAmount)) }} sats</span>
+            <span class="font-medium">{{ lightning.formatSats(sendAmountSats) }} sats</span>
           </div>
           <div v-if="confirmFeeSats > 0" class="flex justify-between text-sm">
             <span class="text-neutral-600 dark:text-neutral-400">{{ t('user_profile.ln_fee') }}</span>
@@ -98,12 +83,13 @@
           </div>
           <div class="border-t border-neutral-300 dark:border-neutral-600 pt-2 flex justify-between text-sm font-semibold">
             <span>{{ t('user_profile.ln_total') }}</span>
-            <span>{{ lightning.formatSats(parseInt(sendAmount) + confirmFeeSats) }} sats</span>
+            <span>{{ lightning.formatSats(sendAmountSats + confirmFeeSats) }} sats</span>
           </div>
         </div>
         <p v-if="sendFiatEquivalent" class="text-xs text-center text-neutral-500 dark:text-neutral-400">
           {{ sendFiatEquivalent }}
         </p>
+        <DonationPrompt :source-amount-sats="sendAmountSats" />
       </div>
 
       <!-- Executing -->
@@ -119,7 +105,7 @@
           {{ isSubscribe ? t('subscriptions.success_title', { name: profile.display_name || profile.hna }) : t('user_profile.ln_sent_success') }}
         </p>
         <p class="text-sm text-neutral-600 dark:text-neutral-400">
-          {{ lightning.formatSats(parseInt(sendAmount)) }} sats → {{ profile.display_name || profile.hna }}
+          {{ lightning.formatSats(sendAmountSats) }} sats → {{ profile.display_name || profile.hna }}
         </p>
         <p v-if="isSubscribe" class="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
           {{ t('subscriptions.success_hint') }}
@@ -141,7 +127,7 @@
         </UiButton>
         <UiButton
           :variant="isSubscribe ? 'primary' : 'warning'"
-          :disabled="!sendAmount || parseInt(sendAmount) < 1"
+          :disabled="sendAmountSats < 1"
           @click="initSendLightning"
         >
           {{ t('user_profile.ln_continue') }}
@@ -167,6 +153,7 @@
 <script setup lang="ts">
 const localePath = useLocalePath()
 import { Zap, AlertTriangle, Loader2, CheckCircle, Heart, Info } from 'lucide-vue-next'
+import { annotateTx } from '~/composables/useTxAnnotations'
 
 const props = withDefaults(defineProps<{
   profile: any
@@ -184,6 +171,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const lightning = useLightning()
 const { satsToFiat, formatFiat, fetchBtcPrice } = useBtcPrice()
+const donation = useDonation()
 
 const isSubscribe = computed(() => props.mode === 'subscribe')
 const modalTitle = computed(() => isSubscribe.value
@@ -198,7 +186,7 @@ const visible = computed({
 // State
 type SendStep = 'input' | 'resolving' | 'confirm' | 'executing' | 'success' | 'no_ln' | 'no_wallet' | 'sdk_error' | 'error'
 const sendStep = ref<SendStep>('input')
-const sendAmount = ref('')
+const sendAmountSats = ref(0)
 const sendComment = ref('')
 const sendError = ref('')
 const sendParsed = ref<any>(null)
@@ -207,9 +195,8 @@ const sendResult = ref<any>(null)
 const sendViaSpark = ref(false)
 
 const sendFiatEquivalent = computed(() => {
-  const sats = parseInt(sendAmount.value)
-  if (!sats || isNaN(sats)) return ''
-  const fiat = satsToFiat(sats)
+  if (sendAmountSats.value < 1) return ''
+  const fiat = satsToFiat(sendAmountSats.value)
   return fiat !== null ? `≈ ${formatFiat(fiat)}` : ''
 })
 
@@ -227,7 +214,7 @@ const confirmFeeSats = computed(() => {
 
 const resetSendState = () => {
   sendStep.value = (props.profile?.ln_address || props.profile?.spark_address) ? 'input' : 'no_ln'
-  sendAmount.value = props.presetAmount > 0 ? String(props.presetAmount) : ''
+  sendAmountSats.value = props.presetAmount > 0 ? props.presetAmount : 0
   sendComment.value = ''
   sendError.value = ''
   sendParsed.value = null
@@ -237,7 +224,7 @@ const resetSendState = () => {
 }
 
 const initSendLightning = async () => {
-  if (!sendAmount.value || parseInt(sendAmount.value) < 1) return
+  if (sendAmountSats.value < 1) return
 
   sendStep.value = 'resolving'
   sendError.value = ''
@@ -257,7 +244,7 @@ const initSendLightning = async () => {
       return
     }
 
-    const amountSats = parseInt(sendAmount.value)
+    const amountSats = sendAmountSats.value
 
     // Prefer Spark address for direct P2P (cheaper, no LNURL overhead)
     if (props.profile?.spark_address) {
@@ -283,17 +270,20 @@ const initSendLightning = async () => {
     }
 
     const parsed = await lightning.parseInput(props.profile.ln_address)
-    if (parsed.type !== 'lnUrlPay') {
+    const payRequest = parsed.type === 'lightningAddress' ? parsed.payRequest
+      : parsed.type === 'lnurlPay' ? parsed
+      : null
+    if (!payRequest) {
       sendStep.value = 'error'
       sendError.value = 'Invalid Lightning address'
       return
     }
 
-    sendParsed.value = parsed
+    sendParsed.value = payRequest
 
     const prepared = await lightning.prepareLnurlPay(
       amountSats,
-      parsed.lnurlPayRequestDetails,
+      payRequest as any,
       sendComment.value || undefined
     )
 
@@ -321,10 +311,23 @@ const executeSendLightning = async () => {
     }
     sendResult.value = payment
     sendStep.value = 'success'
+    if (payment?.id) {
+      annotateTx(payment.id, {
+        kind: isSubscribe.value ? 'subscription' : 'profile',
+        name: props.profile.display_name || props.profile.hna,
+        slug: props.profile?.hna?.split('@')[0] || undefined,
+      })
+    }
     // Best-effort payment hash for idempotent server-side recording (subscriptions).
     const hash = payment?.paymentHash || payment?.payment?.paymentHash
       || payment?.details?.paymentHash || ''
-    emit('paid', { amountSats: parseInt(sendAmount.value), paymentHash: hash })
+    emit('paid', { amountSats: sendAmountSats.value, paymentHash: hash })
+    // Association donation rides along; runs after success is shown so the
+    // main payment is never held up by it. executeDonation never throws.
+    void donation.executeDonation({
+      source: isSubscribe.value ? 'SUBSCRIPTION' : 'PROFILE_TIP',
+      sourceAmountSats: sendAmountSats.value,
+    })
   } catch (e: any) {
     console.error('Execute payment error:', e)
     sendStep.value = 'error'

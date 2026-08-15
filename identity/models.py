@@ -401,7 +401,16 @@ class ProfileVerificationPhoto(ULIDModel):
     Photo is NEVER publicly displayed — only shown to verifiers during
     active WoT verification. Face embedding used for deduplication
     against all verified profiles (GDPR Art.9 explicit consent required).
+
+    Replacing the photo with a different-enough face opens a re-confirmation
+    round: the older verifications were made against a face that is no longer
+    on file, so the profile is shown as pending until RECONFIRMATIONS_REQUIRED
+    verifiers confirm the new one. Pending never revokes anything — it is a
+    visible state, not a lock.
     """
+
+    RECONFIRMATIONS_REQUIRED = 3
+
     profile = models.OneToOneField(
         Profile, on_delete=models.CASCADE,
         related_name='verification_photo'
@@ -425,13 +434,19 @@ class ProfileVerificationPhoto(ULIDModel):
         null=True, blank=True,
         help_text="Timestamp of biometric consent"
     )
+    reconfirmation_started_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When the stored face last stopped matching what the existing verifiers "
+                  "signed off on. Verifications made after it count as re-confirmations."
+    )
     reconfirmation_needed = models.BooleanField(
         default=False,
-        help_text="True if photo changed significantly — 3 re-confirmations required"
+        help_text="Materialized: fewer than RECONFIRMATIONS_REQUIRED verifiers have confirmed "
+                  "the current face. Recomputed by refresh_reconfirmation()"
     )
     reconfirmation_count = models.SmallIntegerField(
         default=0,
-        help_text="Re-confirmations received after significant photo change"
+        help_text="Materialized count of active verifications made after reconfirmation_started_at"
     )
     photo_hash = models.CharField(
         max_length=64,
@@ -447,6 +462,61 @@ class ProfileVerificationPhoto(ULIDModel):
 
     def __str__(self):
         return f"VerificationPhoto({self.profile.hna})"
+
+    def mark_face_changed(self, when=None):
+        """Open a re-confirmation round. Caller saves the row.
+
+        Moves the cutoff to now, so confirmations collected for a previous face
+        stop counting — a member cannot bank confirmations and then swap in a
+        different face.
+        """
+        from django.utils import timezone
+        self.reconfirmation_started_at = when or timezone.now()
+        self.reconfirmation_needed = True
+        self.reconfirmation_count = 0
+
+    def clear_reconfirmation(self):
+        """Close an open round. Caller saves the row.
+
+        For a signed upload: the signature establishes exactly what the round was
+        opened to establish — that the key holder is the one replacing the photo —
+        so making them collect three confirmations on top would be asking the
+        community to re-derive an answer we already have.
+        """
+        self.reconfirmation_started_at = None
+        self.reconfirmation_needed = False
+        self.reconfirmation_count = 0
+
+    def confirmations_since_change(self):
+        """Active verifications made after the face last changed."""
+        if not self.reconfirmation_started_at:
+            return 0
+        return Verification.objects.filter(
+            verified_profile_id=self.profile_id,
+            is_active=True,
+            verified_at__gte=self.reconfirmation_started_at,
+        ).count()
+
+    def refresh_reconfirmation(self):
+        """Recompute the pending state from the verifications themselves.
+
+        Counted, never incremented: one verifier re-signing three times must not
+        satisfy a three-verifier requirement, and a revoke afterwards has to put
+        the profile back into pending on its own. `reconfirmation_started_at` is
+        never cleared — it stays as the moment the stored face stopped being the
+        one the older verifications were made against.
+
+        Returns the resulting pending state.
+        """
+        count = self.confirmations_since_change()
+        needed = bool(self.reconfirmation_started_at) and count < self.RECONFIRMATIONS_REQUIRED
+
+        if count != self.reconfirmation_count or needed != self.reconfirmation_needed:
+            self.reconfirmation_count = count
+            self.reconfirmation_needed = needed
+            self.save(update_fields=['reconfirmation_count', 'reconfirmation_needed', 'updated_at'])
+
+        return needed
 
 
 class VerificationPhotoAccess(ULIDModel):
@@ -480,6 +550,43 @@ class VerificationPhotoAccess(ULIDModel):
 
     def __str__(self):
         return f"{self.viewer_id} viewed {self.target_profile_id} @ {self.created_at}"
+
+
+class IdPhotoAccess(ULIDModel):
+    """One row per time someone opened another member's Para-ID photo.
+
+    Same shape as VerificationPhotoAccess and for the same reason: the photo is
+    served to *any* WoT-verified member, with no pairing between viewer and
+    subject to gate on, so the control is a trail the subject can read back
+    (GDPR Art.15(1)(c) recipients) rather than a wall.
+
+    No notification is emitted off these rows, unlike the biometric photo's. This
+    is a portrait the member put on a card they hand out; a push for every look
+    would be noise, and noise is what teaches people to ignore the notice that
+    does matter.
+
+    Rows survive the photo's deletion on purpose — the subject's record of who saw
+    it must outlive the data they erased.
+    """
+    viewer = models.ForeignKey(
+        Profile, on_delete=models.CASCADE, related_name='id_photo_views',
+        help_text="Member who fetched the photo"
+    )
+    target_profile = models.ForeignKey(
+        Profile, on_delete=models.CASCADE, related_name='id_photo_accesses',
+        help_text="Profile whose Para-ID photo was fetched"
+    )
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['viewer', 'created_at']),
+            models.Index(fields=['target_profile', 'created_at']),
+        ]
+        verbose_name_plural = "ID photo accesses"
+
+    def __str__(self):
+        return f"{self.viewer_id} viewed ID photo of {self.target_profile_id} @ {self.created_at}"
 
 
 class SocialRecovery(ULIDModel):
@@ -694,3 +801,41 @@ class ProfileNote(ULIDModel):
 
     def __str__(self):
         return f"{self.owner.hna}'s note about {self.about.hna}"
+
+
+class ProfileBlock(ULIDModel):
+    """One profile blocking another (Play UGC policy: in-app user blocking).
+
+    Deliberately profile-to-profile, NOT account-level on the blocked side:
+    hiding all profiles of the blocked account would reveal which pseudonymous
+    profiles share an account. Enforcement on the blocker side spans all of the
+    viewer's own profiles (the viewer already knows their own linkage) — see
+    ``identity.services.blocks``.
+    """
+
+    blocker = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name='blocks_made',
+        help_text="Profile that created the block"
+    )
+    blocked = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name='blocks_received',
+        help_text="Profile being blocked"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['blocker', 'blocked'],
+                name='unique_block_per_profile'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['blocked']),
+        ]
+
+    def __str__(self):
+        return f"{self.blocker.hna} blocks {self.blocked.hna}"

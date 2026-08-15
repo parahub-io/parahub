@@ -674,7 +674,8 @@
       "history": "History",
       "range_24h": "24h",
       "range_7d": "7d",
-      "export_csv": "Download CSV (raw data, 30 days)"
+      "export_csv": "Download CSV (raw data, 30 days)",
+      "calm": "calm"
     }
   }
 }

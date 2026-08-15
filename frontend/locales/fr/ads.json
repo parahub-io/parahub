@@ -32,6 +32,8 @@
       "history_empty_desc": "Les annonces que vous visionnez apparaîtront ici",
       "viewed_on": "Vu le {date}",
       "payment_pending": "Paiement en attente",
+      "payment_failed_retry": "La récompense n'a pas pu être envoyée — l'annonce reste dans votre fil, vous pourrez la réclamer plus tard",
+      "not_paid": "Non payé",
       "col_reward": "Récompense",
       "col_title": "Annonce",
       "sort_high_low": "Plus élevé d'abord",
@@ -40,14 +42,27 @@
       "earn": "Gagner",
       "earned": "Gagné",
       "sponsored": "Sponsorisé",
-      "view_ad": "Voir l'annonce"
+      "view_ad": "Voir l'annonce",
+      "queued_title": "{sats} sats en file d'attente de paiement",
+      "queued_desc": "L'annonceur paie depuis son propre portefeuille. S'il est en ligne, les sats arrivent en quelques secondes — sinon à sa prochaine visite. Vous pouvez quitter cette page.",
+      "queued_short": "En attente",
+      "auto_translated": "Traduit automatiquement",
+      "show_original": "Afficher l’original",
+      "show_translation": "Afficher la traduction",
+      "own_ad": "Votre annonce",
+      "own_preview_title": "Ceci est votre campagne",
+      "own_preview_desc": "Vous la voyez comme votre audience. Impossible de réclamer une récompense pour vos propres annonces.",
+      "own_manage_campaigns": "Gérer les campagnes"
     },
     "campaigns": {
       "my_campaigns": "Mes Campagnes",
       "create_new": "Créer une Campagne",
       "create_first": "Créer votre Première Campagne",
       "empty": "Aucune campagne pour le moment",
-      "empty_desc": "Créez votre première campagne publicitaire pour atteindre votre public cible"
+      "empty_desc": "Créez votre première campagne publicitaire pour atteindre votre public cible",
+      "tab_active": "Actives",
+      "tab_archived": "Archives",
+      "archived_empty": "Aucune campagne archivée"
     },
     "profile": {
       "wallet_title": "Portefeuille Lightning",
@@ -83,6 +98,9 @@
       "advanced_config": "Configuration Avancée du Portefeuille (Optionnelle)",
       "wallet_provider": "Fournisseur de Portefeuille",
       "select_provider": "Sélectionner un fournisseur...",
+      "connection_uri": "Chaîne de connexion",
+      "connection_uri_help": "Fonctionne avec tout portefeuille compatible Nostr Wallet Connect. Vos sats restent dans votre portefeuille — nous avons seulement l'autorisation d'envoyer la récompense.",
+      "nwc_uri_required": "Une chaîne de connexion commençant par nostr+walletconnect:// est requise",
       "api_url": "URL de l'API",
       "invoice_key": "Clé de Facturation/Lecture",
       "invoice_key_placeholder": "Collez votre clé de facturation LNbits",
@@ -117,7 +135,12 @@
       "lnbits_fields_required": "L'URL de l'API et la clé de facture sont requises pour LNbits",
       "alby_token_required": "Le jeton d'accès est requis pour Alby",
       "configured": "configuré",
-      "provider_connected": "connecté"
+      "provider_connected": "connecté",
+      "provider_spark": "Portefeuille Parahub (paie depuis votre navigateur)",
+      "spark_help": "Les récompenses sont payées directement depuis votre portefeuille Lightning Parahub — sans compte externe ni clés. Tant qu'un onglet Parahub est ouvert, les récompenses en attente sont payées automatiquement.",
+      "spark_offline_note": "Hors ligne, les demandes s'accumulent et sont payées à votre prochaine visite. Gardez assez de sats dans le portefeuille pour couvrir les budgets de vos campagnes.",
+      "fill_from_properties": "Remplir depuis mes propriétés",
+      "add_home_from": "Ajouter « Domicile » depuis {name}"
     },
     "create_campaign": {
       "title": "Créer une Campagne Publicitaire",
@@ -201,12 +224,14 @@
       "preview_section": "Aperçu",
       "search_establishments": "Rechercher des commerces...",
       "search_items": "Rechercher vos articles...",
-      "unlink": "Supprimer le lien"
+      "unlink": "Supprimer le lien",
+      "create_failed": "Échec de la création de la campagne",
+      "image_language_hint": "Le texte de l’image de la bannière n’est pas traduit — les spectateurs le voient toujours exactement tel qu’il a été téléversé."
     },
     "settings": {
       "about_you": "A propos de vous",
       "about_you_desc": "Renseignez vos informations pour recevoir des publicités pertinentes",
-      "locations_desc": "Ajoutez vos emplacements pour les publicités géolocalisées"
+      "locations_desc": "Lieux à proximité desquels vous pouvez recevoir des publicités géociblées : plus de lieux, plus de publicités correspondantes et de gains. Vos coordonnées ne sont jamais montrées à personne ; la correspondance est calculée côté serveur."
     },
     "campaign_detail": {
       "views": "Vues",
@@ -217,7 +242,12 @@
       "resume": "Reprendre",
       "delete": "Supprimer",
       "reward": "Récompense",
-      "budget": "Budget"
+      "budget": "Budget",
+      "delete_sure": "Sûr ?",
+      "edit": "Modifier",
+      "duplicate": "Dupliquer",
+      "archive": "Archiver",
+      "unarchive": "Désarchiver"
     },
     "campaign": {
       "insufficient_balance": "Solde du portefeuille insuffisant pour activer la campagne",
@@ -325,6 +355,16 @@
       "teen": "Adolescent (12-18 ans)",
       "eighteen_plus": "18+",
       "no_children": "Pas d'enfants"
+    },
+    "payer": {
+      "paid_toast": "-{sats} sats · récompense publicitaire pour « {name} »"
+    },
+    "edit_campaign": {
+      "title": "Modifier la campagne",
+      "save": "Enregistrer les modifications",
+      "immutable_hint": "La récompense et le budget sont verrouillés dès les premières vues",
+      "load_failed": "Impossible de charger la campagne",
+      "save_failed": "Impossible d'enregistrer les modifications"
     }
   }
 }

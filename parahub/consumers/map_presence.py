@@ -20,6 +20,7 @@ from django.conf import settings
 
 from parahub.services.map_presence import MapPresenceService
 from identity.models import Profile
+from .base import refuse_connection
 from .feed_pubsub import FeedPubSubManager
 
 logger = logging.getLogger(__name__)
@@ -75,12 +76,14 @@ class MapPresenceConsumer(AsyncWebsocketConsumer):
 
         if not self.user or not self.user.is_authenticated:
             logger.warning("Unauthenticated map presence connection attempt")
-            await self.close(code=4001)
+            await refuse_connection(
+                self, 4001, 'unauthenticated', "Sign in to appear on the map")
             return
 
         if not self.profile:
             logger.warning(f"No profile found for user {self.user.id}")
-            await self.close(code=4004)
+            await refuse_connection(
+                self, 4004, 'no_profile', "This account has no profile")
             return
 
         self.profile_id = self.profile.id
@@ -94,6 +97,19 @@ class MapPresenceConsumer(AsyncWebsocketConsumer):
                 return '', ''
 
         self.profile_hna, self.profile_name = await get_profile_info(self.profile_id)
+
+        # Profiles the viewer blocked: their avatars are filtered from nearby
+        # lists and tile events. Snapshot at connect time (blocks made
+        # mid-session apply on the next connect).
+        @database_sync_to_async
+        def get_blocked_ids(account_id):
+            try:
+                from identity.services.blocks import blocked_profile_ids
+                return set(blocked_profile_ids(account_id))
+            except Exception:
+                return set()
+
+        self.blocked_ids = await get_blocked_ids(self.user.id)
 
         # Current subscribed tiles (will be updated on position_update)
         self.subscribed_tiles: set[str] = set()
@@ -268,6 +284,9 @@ class MapPresenceConsumer(AsyncWebsocketConsumer):
         nearby_users = await sync_to_async(MapPresenceService.get_nearby_users)(
             lat=lat, lon=lon, radius_km=5.0, limit=100
         )
+        if self.blocked_ids:
+            nearby_users = [u for u in nearby_users
+                            if u.get('profile_id') not in self.blocked_ids]
 
         await self.send(text_data=orjson.dumps({
             'type': 'nearby_avatars',
@@ -345,6 +364,11 @@ class MapPresenceConsumer(AsyncWebsocketConsumer):
 
         # Self-exclusion for position updates (avoid duplicates from 3x3 grid)
         if update_type in ('position', 'leave') and data.get('sender') == self.profile_id:
+            return
+
+        # Blocked profiles never reach the viewer's map (leave events pass so
+        # a just-blocked avatar can still be removed from the client)
+        if update_type != 'leave' and data.get('profile_id') in self.blocked_ids:
             return
 
         if update_type == 'leave':

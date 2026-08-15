@@ -159,6 +159,7 @@ const validateAndRestore = async () => {
   try {
     // Save seed (no encryption) — this is the critical step
     saveSeed(words)
+    await stampSeedOwnerFromSession()
   } catch (e: any) {
     console.error('Failed to save seed:', e)
     toast.error(t('seedRestore.restoreFailed'))

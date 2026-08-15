@@ -13,7 +13,7 @@
         :class="[
           'p-1.5 rounded transition-colors',
           btn.isActive?.()
-            ? 'bg-primary/20 text-primary'
+            ? 'bg-primary/20 text-neutral-900 dark:text-neutral-100'
             : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700',
         ]"
         :title="btn.title"
@@ -31,7 +31,7 @@
         :class="[
           'p-1.5 rounded transition-colors',
           editor.isActive('link')
-            ? 'bg-primary/20 text-primary'
+            ? 'bg-primary/20 text-neutral-900 dark:text-neutral-100'
             : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700',
         ]"
         title="Link"

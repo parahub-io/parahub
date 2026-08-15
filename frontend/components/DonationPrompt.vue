@@ -3,7 +3,7 @@
     <!-- First-time onboarding blurb -->
     <p v-if="!donation.isOnboarded.value" class="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
       {{ $t('income.onboarding_blurb') }}
-      <button class="underline text-primary" @click="donation.markOnboarded()">{{ $t('common.ok') }}</button>
+      <button class="underline text-link" @click="donation.markOnboarded()">{{ $t('common.ok') }}</button>
     </p>
 
     <div class="flex items-center justify-between gap-2">

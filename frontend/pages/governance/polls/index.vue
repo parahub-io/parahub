@@ -28,9 +28,20 @@
         </button>
       </div>
 
+      <!-- Single-organization view: reached from the org page, one click back to everything -->
+      <div v-if="orgFilter" class="-mt-1 mb-4 flex flex-wrap items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary-50 dark:bg-secondary-900/20 border border-secondary-200 dark:border-secondary-800 text-sm text-neutral-900 dark:text-neutral-100">
+          <Users class="w-4 h-4 text-secondary dark:text-secondary-400" aria-hidden="true" />
+          {{ orgName || $t('civic.level.groups') }}
+        </span>
+        <NuxtLink :to="localePath('/governance/polls')" class="text-link text-sm">
+          {{ $t('civic.feed.allPolls') }}
+        </NuxtLink>
+      </div>
+
       <!-- Voting identity: current residency + one-click switch to property-derived parishes -->
       <div
-        v-if="authStore.isAuthenticated && residencyName"
+        v-if="!orgFilter && authStore.isAuthenticated && residencyName"
         class="card p-4 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2"
       >
         <MapPin class="w-5 h-5 text-secondary dark:text-secondary-400 shrink-0" aria-hidden="true" />
@@ -60,7 +71,7 @@
 
       <!-- No residency yet: suggest parishes derived from the user's properties -->
       <div
-        v-else-if="authStore.isAuthenticated && !residencyName && candidateRows.length && !loading"
+        v-else-if="!orgFilter && authStore.isAuthenticated && !residencyName && candidateRows.length && !loading"
         class="card p-4 mb-4 border-secondary/40"
       >
         <div class="flex items-center gap-2 mb-1">
@@ -91,7 +102,7 @@
 
       <!-- Residency CTA (no residency and nothing derivable) -->
       <div
-        v-else-if="needsResidencyCta && !loading"
+        v-else-if="!orgFilter && needsResidencyCta && !loading"
         class="card p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3 border-secondary/40"
       >
         <MapPin class="w-6 h-6 text-secondary dark:text-secondary-400 shrink-0" aria-hidden="true" />
@@ -105,7 +116,7 @@
         >
           {{ $t('civic.feed.needResidencyAction') }}
         </UiButton>
-        <UiButton v-else variant="secondary" size="sm" :to="localePath('/auth/login')">
+        <UiButton v-else variant="secondary" size="sm" :to="localePath('/login')">
           {{ $t('civic.vote.loginCta') }}
         </UiButton>
       </div>
@@ -122,7 +133,7 @@
         <h3 class="text-xl font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
           {{ $t('civic.feed.emptyScope') }}
         </h3>
-        <p class="text-neutral-600 dark:text-neutral-400">
+        <p v-if="!orgFilter" class="text-neutral-600 dark:text-neutral-400">
           {{ $t('civic.feed.emptyScopeHint') }}
         </p>
       </div>
@@ -147,6 +158,43 @@
             @click="expanded[sec.key] = true"
           >
             {{ $t('civic.feed.showAll', { n: filteredItems(sec).length }) }}
+          </UiButton>
+
+          <!-- Proposals from neighbours: not ballots yet, so they sit under them -->
+          <div v-if="filteredIdeas(sec).length" class="mt-4">
+            <h3 class="flex items-center gap-2 mb-2 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+              <Lightbulb class="w-4 h-4" aria-hidden="true" />
+              {{ $t('civic.ideas.sectionTitle') }}
+            </h3>
+            <div class="space-y-3">
+              <CivicIdeaCard
+                v-for="idea in visibleIdeas(sec)"
+                :key="idea.id"
+                :idea="idea"
+                dense
+                @update="replaceIdea($event)"
+                @changed="loadFeed"
+              />
+            </div>
+            <UiButton
+              v-if="filteredIdeas(sec).length > IDEA_PREVIEW && !ideasExpanded[sec.key]"
+              variant="ghost" size="sm" class="mt-2"
+              @click="ideasExpanded[sec.key] = true"
+            >
+              {{ $t('civic.feed.showAll', { n: filteredIdeas(sec).length }) }}
+            </UiButton>
+          </div>
+        </section>
+
+        <!-- The proposal funnel lives where the eyes are, not on a side page -->
+        <section v-if="!orgFilter && authStore.isAuthenticated && !needsResidencyCta" class="card p-5 flex flex-col sm:flex-row sm:items-center gap-3 border-secondary/40">
+          <Lightbulb class="w-6 h-6 text-secondary dark:text-secondary-400 shrink-0" aria-hidden="true" />
+          <div class="flex-1">
+            <h3 class="font-medium text-neutral-900 dark:text-neutral-100">{{ $t('civic.ideas.ctaTitle') }}</h3>
+            <p class="text-sm text-neutral-600 dark:text-neutral-400">{{ $t('civic.ideas.ctaHint') }}</p>
+          </div>
+          <UiButton variant="secondary" size="sm" :to="localePath('/governance/ideas?new=1')">
+            {{ $t('civic.ideas.create') }}
           </UiButton>
         </section>
 
@@ -196,17 +244,25 @@ useSeoMeta({
 })
 
 const SECTION_PREVIEW = 3
+const IDEA_PREVIEW = 2
 const LEVEL_ORDER = ['household', 'condominium', 'parish', 'municipality', 'region', 'country', 'eu', 'groups']
 const LEVEL_ICONS: Record<string, any> = {
   household: Home, condominium: Building2, parish: Church, municipality: Landmark,
   region: MapIcon, country: Flag, eu: Euro, groups: Users,
 }
 
+// ?org=<establishment ULID> narrows the feed to one organization's polls —
+// the transparency link from an org page lands here
+const orgFilter = computed(() => String(route.query.org || ''))
+const orgName = ref('')
+
 const civicItems = ref<any[]>([])
 const groupItems = ref<any[]>([])
+const ideaItems = ref<any[]>([])
 const loading = ref(true)
 const hideVoted = useLocalPref('civic:hideVoted', false)
 const expanded = reactive<Record<string, boolean>>({})
+const ideasExpanded = reactive<Record<string, boolean>>({})
 const historyOpen = ref(false)
 
 const HISTORY_STATUSES = new Set(['ended', 'cancelled'])
@@ -272,6 +328,7 @@ interface Section {
   title: string
   caption: string
   items: any[]
+  ideas: any[]
   actionable: number
 }
 
@@ -284,13 +341,17 @@ const historyItems = computed(() =>
 
 const sections = computed<Section[]>(() => {
   const map = new Map<string, Section>()
-  const add = (key: string, level: string, title: string, caption: string, item: any) => {
-    if (HISTORY_STATUSES.has(item.status)) return
+  const ensure = (key: string, level: string, title: string, caption: string): Section => {
     let sec = map.get(key)
     if (!sec) {
-      sec = { key, level, title, caption, items: [], actionable: 0 }
+      sec = { key, level, title, caption, items: [], ideas: [], actionable: 0 }
       map.set(key, sec)
     }
+    return sec
+  }
+  const add = (key: string, level: string, title: string, caption: string, item: any) => {
+    if (HISTORY_STATUSES.has(item.status)) return
+    const sec = ensure(key, level, title, caption)
     sec.items.push(item)
     if (item.status === 'active' && !item.has_voted) sec.actionable++
   }
@@ -307,7 +368,18 @@ const sections = computed<Section[]>(() => {
     }
   }
   for (const g of groupItems.value) {
-    add('groups', 'groups', $t('civic.level.groups'), '', g)
+    add('groups', 'groups', orgName.value || $t('civic.level.groups'), '', g)
+  }
+  // Ideas land in the same territory sections — a proposal waiting for support
+  // is something to act on, exactly like an unvoted ballot
+  for (const idea of ideaItems.value) {
+    const level = idea.territory_level
+    const key = level === 'eu' ? 'eu' : `${level}-${idea.territory_id}`
+    const sec = ensure(key, level,
+      level === 'eu' ? $t('civic.level.eu') : shortName(idea.territory_name),
+      level === 'eu' ? '' : $t(`civic.level.${level}`))
+    sec.ideas.push(idea)
+    if (!idea.supported_by_me) sec.actionable++
   }
 
   const rank = (i: any) => (i.status === 'active' ? (i.has_voted ? 1 : 0) : 2)
@@ -320,7 +392,7 @@ const sections = computed<Section[]>(() => {
   }
 
   return [...map.values()]
-    .filter(sec => filteredItems(sec).length > 0)
+    .filter(sec => filteredItems(sec).length > 0 || filteredIdeas(sec).length > 0)
     .sort((a, b) => {
       const d = LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level)
       if (d !== 0) return d
@@ -335,6 +407,21 @@ function filteredItems(sec: Section): any[] {
 function visibleItems(sec: Section): any[] {
   const items = filteredItems(sec)
   return expanded[sec.key] ? items : items.slice(0, SECTION_PREVIEW)
+}
+
+// "Hide voted" reads as "hide what I already acted on" — a supported idea qualifies
+function filteredIdeas(sec: Section): any[] {
+  return hideVoted.value ? sec.ideas.filter(i => !i.supported_by_me) : sec.ideas
+}
+
+function visibleIdeas(sec: Section): any[] {
+  const ideas = filteredIdeas(sec)
+  return ideasExpanded[sec.key] ? ideas : ideas.slice(0, IDEA_PREVIEW)
+}
+
+function replaceIdea(updated: any) {
+  const index = ideaItems.value.findIndex(i => i.id === updated.id)
+  if (index >= 0) ideaItems.value[index] = updated
 }
 
 async function authedHeaders(): Promise<Record<string, string>> {
@@ -367,13 +454,33 @@ async function fetchGroups() {
   try {
     // Send auth so staff/test viewers still see demo polls (hidden from the public)
     const headers = await authedHeaders()
+    const query: Record<string, string | number> = { page: 1 }
+    if (orgFilter.value) query.context_id = orgFilter.value
     const res: any = await $fetch('/api/v1/governance/polls/', {
-      credentials: 'include', headers, query: { page: 1 },
+      credentials: 'include', headers, query,
     })
     const items = res?.items || res || []
     return items.map((i: any) => ({
       ...i, kind: 'group', has_voted: i.has_voted ?? false, comments_enabled: false,
     }))
+  } catch {
+    return []
+  }
+}
+
+async function fetchIdeas() {
+  try {
+    const headers = await authedHeaders()
+    const query: Record<string, string> = { translate_to: locale.value, page_size: '50' }
+    if (!authStore.isAuthenticated) {
+      const guess = (navigator.language?.split('-')[1] || '').toUpperCase()
+      if (guess) query.country = guess
+    }
+    const items: any[] = await $fetch('/api/v1/governance/civic/ideas/', {
+      credentials: 'include', headers, query,
+    })
+    // Promoted ideas are already in the feed as their own poll — no double row
+    return items.filter(i => i.status === 'open' || i.status === 'review')
   } catch {
     return []
   }
@@ -423,14 +530,37 @@ async function confirmResidency(t: any) {
   }
 }
 
+async function fetchOrgName() {
+  if (!orgFilter.value) return
+  try {
+    const est: any = await $fetch(`/api/v1/geo/establishments/${orgFilter.value}/`)
+    orgName.value = est?.name || ''
+  } catch {
+    orgName.value = ''
+  }
+}
+
 async function loadFeed() {
-  const [civic, groups] = await Promise.all([fetchCivic(), fetchGroups()])
+  // Org view is about that organization only — territory ballots and ideas stay out
+  if (orgFilter.value) {
+    civicItems.value = []
+    ideaItems.value = []
+    groupItems.value = await fetchGroups()
+    loading.value = false
+    return
+  }
+  const [civic, groups, ideas] = await Promise.all([fetchCivic(), fetchGroups(), fetchIdeas()])
   civicItems.value = civic
   groupItems.value = groups
+  ideaItems.value = ideas
   loading.value = false
 }
 
 onMounted(async () => {
+  if (orgFilter.value) {
+    await Promise.all([loadFeed(), fetchOrgName()])
+    return
+  }
   await Promise.all([loadFeed(), fetchResidency(), fetchCandidates()])
   // Legacy deep links (?tab=household etc.) land on the matching section
   const tab = String(route.query.tab || '')

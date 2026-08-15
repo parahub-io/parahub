@@ -38,7 +38,7 @@ const owner = computed(() => board.value?.owner || null)
 // Back-link to the owner's full profile (org page or person profile).
 const ownerLink = computed(() => {
   const slug = owner.value?.slug || ownerRef.value
-  return localePath(isPerson.value ? `/u/${slug}` : `/org/${slug}`)
+  return localePath(isPerson.value ? `/@${slug}` : `/org/${slug}`)
 })
 // Address → full map, centered on the org with its native panel open
 // (mirrors EstablishmentDetail.openInMap). Establishment-only; empty otherwise.
@@ -240,7 +240,7 @@ onUnmounted(() => {
                   Online
                 </span>
                 <span v-if="owner?.rating_count > 0" class="inline-flex items-center gap-1">
-                  <Star class="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                  <Star class="w-4 h-4 star-on" />
                   <span class="font-medium text-neutral-700 dark:text-neutral-300">{{ Number(owner.rating_avg).toFixed(1) }}</span>
                   <span class="text-neutral-400">({{ owner.rating_count }})</span>
                 </span>
@@ -256,7 +256,7 @@ onUnmounted(() => {
               <template v-else>
                 <span v-if="owner?.hna" class="font-mono text-xs">{{ owner.hna }}</span>
                 <span v-if="owner?.reputation_score > 0" class="inline-flex items-center gap-1">
-                  <Star class="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                  <Star class="w-4 h-4 text-secondary dark:text-secondary-400" />
                   <span class="font-medium text-neutral-700 dark:text-neutral-300">{{ Number(owner.reputation_score).toFixed(1) }}</span>
                 </span>
               </template>

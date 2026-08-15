@@ -9,6 +9,7 @@ Bidirectional:
   DOWN: {"type": "stop_announcement", "stop_name": ..., "next_stop_name": ...}
         {"type": "position_ack", "seq": N, "stop_id": ...}
         {"type": "shift_confirmed", ...}
+        {"type": "waiting", "stops": {stop_source_id: {"n": 2, "active": 1}}}
         {"type": "error", "message": ...}
 """
 
@@ -18,11 +19,17 @@ import logging
 import time
 
 import redis.asyncio as aioredis
+from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings
 
+from .base import refuse_connection
 from .feed_pubsub import FeedPubSubManager
+from .push_floor import TrailingFloor
+from parahub.services.transit_waiting import (
+    WaitingService, channel_route, decode_route_hash, key_route, key_stop,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +46,12 @@ _MAX_CACHED_SOURCES = 8  # safety valve; concurrent driver feeds are ~1-2
 
 POSITION_INTERVAL_MIN_S = 5  # Reject positions faster than 5s apart
 HEARTBEAT_TTL = 45  # Redis heartbeat key TTL
+# Floor on tap-driven waiting pushes to the HUD. Tighter than the passenger
+# boards': this is the number a driver decides to stop on, and there are a
+# handful of drivers on a line against every passenger reading it. Still floored,
+# because a marker walking down the line republishes to the whole route, and a
+# driver cannot act on a count that changes twice a second anyway.
+WAITING_HUD_MIN_INTERVAL = 1.0
 
 
 async def _ensure_route_cache(ds_id: str):
@@ -72,7 +85,8 @@ class DriverConsumer(AsyncWebsocketConsumer):
         self.profile = self.scope.get('profile')
 
         if not self.user or not self.user.is_authenticated or not self.profile:
-            await self.close(code=4001)
+            await refuse_connection(
+                self, 4001, 'unauthenticated', "Sign in to broadcast a shift")
             return
 
         self._shift = None
@@ -87,6 +101,10 @@ class DriverConsumer(AsyncWebsocketConsumer):
         self._last_stop_id = ''
         self._pos_count = 0
         self._last_pos_time = 0.0
+        self._waiting_channel = None
+        self._waiting_floor = TrailingFloor(
+            WAITING_HUD_MIN_INTERVAL, self._send_waiting, 'driver waiting push',
+        )
         self._feed = FeedPubSubManager.get()
         await self._feed.ensure_running()
 
@@ -98,14 +116,26 @@ class DriverConsumer(AsyncWebsocketConsumer):
         logger.info(f"Driver WS connected: {self.user.username}")
 
     async def disconnect(self, close_code):
+        # A refused connection was accepted just long enough to be told why, so
+        # this runs — but none of the shift state below was ever built.
+        if getattr(self, '_connection_refused', False):
+            return
         if self._shift:
             await self._cleanup_redis()
             await self._end_shift_db()
+        if self._waiting_channel:
+            await self._feed.unsubscribe(self._waiting_channel, self._on_waiting)
+            self._waiting_channel = None
+        self._waiting_floor.cancel()
         try:
             await self._redis.close()
         except Exception:
             pass
-        logger.info(f"Driver WS disconnected: {getattr(self, 'user', '?')} (code: {close_code})")
+        # The username, not the account: `Account.__str__` reaches through to
+        # `instance.domain`, which the WS middleware never selects — so
+        # formatting the model here loads a FK from async context and raises.
+        username = getattr(getattr(self, 'user', None), 'username', '?')
+        logger.info(f"Driver WS disconnected: {username} (code: {close_code})")
 
     async def receive(self, text_data):
         try:
@@ -174,7 +204,51 @@ class DriverConsumer(AsyncWebsocketConsumer):
                 for s in self._stop_seq
             ] if len(self._stop_seq) <= 200 else [],
         }).decode())
+
+        # Passengers who marked themselves waiting for THIS line in THIS
+        # direction. Filtered to the driver's own route and direction on purpose:
+        # a count that mixes in people waiting for another line is worse than no
+        # count, because it is the number a driver would act on.
+        self._waiting_channel = channel_route(self._ds_id, self._route_source_id)
+        await self._feed.subscribe(self._waiting_channel, self._on_waiting)
+        await self._send_waiting()
+
         logger.info(f"Driver shift started: {self._vehicle_id} on route {self._route_name}")
+
+    async def _on_waiting(self, channel: str, data):
+        # Floored — a marker moving down this line republishes to the whole route.
+        # The direct calls (shift start, stop change) stay immediate: they answer
+        # the driver's own action, not somebody else's tap.
+        await self._waiting_floor.nudge()
+
+    async def _retire_waiting_at(self, stop_source_id):
+        """Drop markers for this line at a stop the bus just reached."""
+        try:
+            if not await self._redis.exists(key_stop(self._ds_id, stop_source_id)):
+                return
+            await sync_to_async(WaitingService.clear_on_arrival, thread_sensitive=False)(
+                self._ds_id, stop_source_id,
+                [(self._route_source_id, self._direction_id)],
+            )
+        except Exception as e:
+            logger.debug(f'Driver waiting retire failed: {e}')
+
+    async def _send_waiting(self):
+        """Push per-stop waiting counts for the driver's direction to the HUD."""
+        if not (self._ds_id and self._route_source_id):
+            return
+        key = key_route(self._ds_id, self._route_source_id)
+        try:
+            counts, stale = decode_route_hash(await self._redis.hgetall(key))
+            if stale:
+                await self._redis.hdel(key, *stale)
+        except Exception as e:
+            logger.debug(f'Driver waiting read failed: {e}')
+            return
+        await self.send(text_data=orjson.dumps({
+            'type': 'waiting',
+            'stops': counts.get(str(self._direction_id), {}),
+        }).decode())
 
     async def _handle_position(self, data):
         """Process GPS position from driver's browser."""
@@ -249,6 +323,9 @@ class DriverConsumer(AsyncWebsocketConsumer):
         announcement = None
         if stop_id and stop_id != self._last_stop_id:
             self._last_stop_id = stop_id
+            # A driver-mode bus writes straight to Redis and never passes through
+            # the RT daemon's STT, so its arrivals retire waiting markers here.
+            await self._retire_waiting_at(stop_id)
             stop_name = self._get_stop_name(stop_id)
             next_stop = self._get_next_stop(stop_id)
             next_stop_id = next_stop[0] if next_stop else ''
@@ -316,6 +393,10 @@ class DriverConsumer(AsyncWebsocketConsumer):
                 for s in self._stop_seq
             ] if len(self._stop_seq) <= 200 else [],
         }).decode())
+
+        # The counts are per-direction; the other side's passengers are not this
+        # driver's any more.
+        await self._send_waiting()
 
     @database_sync_to_async
     def _get_tts_names(self, source_ids):

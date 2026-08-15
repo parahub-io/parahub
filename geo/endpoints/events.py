@@ -18,6 +18,7 @@ from django.utils import timezone
 from datetime import datetime
 
 from parahub.auth import ProfileAuth
+from identity.visibility import exclude_test_authors
 from parahub.ratelimit import ratelimit, user_or_ip
 from geo.endpoints.buildings import BuildingResponse, LocationInput
 
@@ -63,6 +64,7 @@ class EventResponse(BaseModel):
     description: str
     category_id: Optional[str]
     category_name: Optional[str]
+    category_slug: Optional[str] = None  # key for the localized category tree
     category_icon: Optional[str]
     event_type: str
     starts_at: datetime
@@ -100,6 +102,7 @@ class EventListItem(BaseModel):
     organizer_display_name: Optional[str] = None
     organizer_avatar_url: Optional[str]
     category_name: Optional[str]
+    category_slug: Optional[str] = None  # key for the localized category tree
     category_icon: Optional[str]
     event_type: str
     starts_at: datetime
@@ -199,6 +202,7 @@ def _format_event_response(event, current_profile=None) -> EventResponse:
         description=event.description,
         category_id=event.category_id,
         category_name=event.category.name if event.category else None,
+        category_slug=event.category.slug if event.category else None,
         category_icon=event.category.icon if event.category else None,
         event_type=event.event_type,
         starts_at=event.starts_at,
@@ -250,6 +254,7 @@ def _format_event_list_item(event, viewer=None) -> EventListItem:
         organizer_display_name=event.organizer.display_name if event.organizer and event.organizer.name_visible_to(viewer) else None,
         organizer_avatar_url=event.organizer.avatar_url if event.organizer else None,
         category_name=event.category.name if event.category else None,
+        category_slug=event.category.slug if event.category else None,
         category_icon=event.category.icon if event.category else None,
         event_type=event.event_type,
         starts_at=event.starts_at,
@@ -317,13 +322,10 @@ def _create_event_matrix_room(event, organizer_profile) -> Optional[str]:
         return None
 
 
-def _join_event_matrix_room(event, profile) -> bool:
-    """Join user to event's Matrix room. Returns True on success."""
+def _join_event_room_plain(room_id, profile) -> bool:
+    """Plain join into an event room (public_chat preset — no invite needed)."""
     import httpx
     from django.conf import settings
-
-    if not event.matrix_room_id:
-        return False
 
     try:
         SYNAPSE_BASE_URL = getattr(settings, 'SYNAPSE_INTERNAL_URL', 'http://localhost:8008')
@@ -337,21 +339,102 @@ def _join_event_matrix_room(event, profile) -> bool:
 
         with httpx.Client(timeout=10) as client:
             join_response = client.post(
-                f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{event.matrix_room_id}/join",
+                f"{SYNAPSE_BASE_URL}/_matrix/client/r0/rooms/{room_id}/join",
                 headers={"Authorization": f"Bearer {user_token}"},
                 json={}
             )
 
             if join_response.status_code in (200, 201):
-                logger.info(f"User {profile.id} joined Matrix room {event.matrix_room_id}")
+                logger.info(f"User {profile.id} joined Matrix room {room_id}")
                 return True
             else:
                 logger.error(f"Failed to join Matrix room: {join_response.text}")
                 return False
 
     except Exception as e:
-        logger.error(f"Error joining Matrix room for event {event.id}: {e}")
+        logger.error(f"Error joining Matrix room {room_id}: {e}")
         return False
+
+
+def _ensure_live_event_room(event):
+    """Return a live Matrix room id for the event, recreating a positively
+    dead one.
+
+    A room every local user has left can never be joined again (the join
+    falls through to federation and no other homeserver is in the room), so
+    the only recovery is a fresh room. Previous chat participants are
+    re-joined in the background.
+    """
+    from parahub.endpoints.matrix_auth import get_room_joined_members, purge_matrix_room
+    from geo.models import Event, EventParticipant
+
+    old_room_id = event.matrix_room_id
+    if old_room_id:
+        members = get_room_joined_members(old_room_id)
+        # None = liveness unknown — behave as before, never recreate on doubt
+        if members is None or members:
+            return old_room_id
+
+    new_room_id = _create_event_matrix_room(event, event.organizer)
+    if not new_room_id:
+        return None
+
+    swapped = Event.objects.filter(
+        id=event.id, matrix_room_id=old_room_id,
+    ).update(matrix_room_id=new_room_id)
+    if not swapped:
+        # Lost the race to a concurrent heal — abandon ours, adopt the winner's
+        purge_matrix_room(new_room_id)
+        event.refresh_from_db(fields=['matrix_room_id'])
+        return event.matrix_room_id or None
+
+    event.matrix_room_id = new_room_id
+    rejoin_profile_ids = list(
+        EventParticipant.objects.filter(event=event, joined_matrix_room=True)
+        .values_list('profile_id', flat=True)
+    )
+    EventParticipant.objects.filter(event=event).update(joined_matrix_room=False)
+    logger.info(
+        f"Recreated Matrix room for event {event.id}: "
+        f"{old_room_id or '(none)'} -> {new_room_id}"
+    )
+
+    from parahub.background import spawn
+
+    def _cleanup_and_rejoin():
+        if old_room_id:
+            purge_matrix_room(old_room_id)
+        _rejoin_event_participants(event, rejoin_profile_ids)
+
+    spawn(_cleanup_and_rejoin, label=f"event-room-heal-{event.id}")
+    return new_room_id
+
+
+def _rejoin_event_participants(event, profile_ids):
+    """Re-join previous chat participants into a recreated event room
+    (background thread — sequential HTTP per participant)."""
+    from geo.models import EventParticipant
+    from identity.models import Profile
+
+    for profile in Profile.objects.filter(id__in=profile_ids):
+        try:
+            if _join_event_room_plain(event.matrix_room_id, profile):
+                EventParticipant.objects.filter(
+                    event=event, profile=profile,
+                ).update(joined_matrix_room=True)
+        except Exception as e:
+            logger.warning(
+                f"Failed to re-add participant {profile.id} to Matrix room "
+                f"of event {event.id}: {e}"
+            )
+
+
+def _join_event_matrix_room(event, profile) -> bool:
+    """Join user to event's Matrix room, healing a dead room first."""
+    room_id = _ensure_live_event_room(event)
+    if not room_id:
+        return False
+    return _join_event_room_plain(room_id, profile)
 
 
 # ===== Endpoints =====
@@ -554,13 +637,8 @@ def list_events(
 
     qs = Event.objects.select_related('organizer', 'organizer__instance', 'world_object', 'category', 'establishment')
 
-    # Hide events from test/bot accounts for non-staff/non-test users
-    user = getattr(request, 'user', None)
-    if user and getattr(user, 'is_authenticated', False):
-        if not getattr(user, 'is_staff', False) and not getattr(user, 'is_test', False):
-            qs = qs.exclude(organizer__account__is_test=True).exclude(organizer__account__is_bot=True)
-    else:
-        qs = qs.exclude(organizer__account__is_test=True).exclude(organizer__account__is_bot=True)
+    # Hide events from test/bot accounts unless the viewer is exempt
+    qs = exclude_test_authors(qs, request, field='organizer')
 
     # Status filter
     if status == 'DRAFT':
@@ -745,26 +823,43 @@ def cancel_event(request, event_id: str):
     event.status = Event.Status.CANCELLED
     event.save(update_fields=['status'])
 
-    # Notify participants via Matrix room
+    # Notify participants via Matrix room. Sent as the organizer — a room
+    # member; Synapse rejects sends from non-members and the admin user is in
+    # no event room, so an admin-token send would silently fail.
     if event.matrix_room_id:
         from parahub.background import spawn
+        organizer_account_id = event.organizer.account_id
+
         def _send_cancel_notice(room_id, event_title):
             try:
                 from django.conf import settings
                 import httpx
+                from parahub.endpoints.matrix_auth import _get_or_create_matrix_token
+
                 base_url = getattr(settings, 'SYNAPSE_INTERNAL_URL', 'http://localhost:8008')
-                admin_token = getattr(settings, 'SYNAPSE_ADMIN_TOKEN', None)
-                if not admin_token:
+                token = _get_or_create_matrix_token(organizer_account_id)
+                if not token:
+                    logger.warning(f"No Matrix token for organizer, cancel notice skipped: {room_id}")
                     return
                 with httpx.Client(timeout=10) as client:
-                    client.put(
+                    # Organizer may have left the room — public preset, plain rejoin
+                    client.post(
+                        f"{base_url}/_matrix/client/r0/rooms/{room_id}/join",
+                        headers={"Authorization": f"Bearer {token}"},
+                        json={},
+                    )
+                    resp = client.put(
                         f"{base_url}/_matrix/client/r0/rooms/{room_id}/send/m.room.message/{__import__('uuid').uuid4()}",
-                        headers={"Authorization": f"Bearer {admin_token}"},
+                        headers={"Authorization": f"Bearer {token}"},
                         json={
                             "msgtype": "m.notice",
                             "body": f"⚠️ Event \"{event_title}\" has been cancelled by the organizer."
                         }
                     )
+                    if resp.status_code not in (200, 201):
+                        logger.warning(
+                            f"Matrix cancel notice send failed ({resp.status_code}): {resp.text[:200]}"
+                        )
             except Exception as e:
                 logger.warning(f"Failed to send Matrix cancellation notice: {e}")
         spawn(_send_cancel_notice, event.matrix_room_id, event.title)
@@ -802,11 +897,12 @@ def join_event(request, event_id: str, payload: JoinEventInput):
         ).count()
         event.save(update_fields=['participants_count'])
 
-        # Join Matrix room if not already joined
-        if event.matrix_room_id and not participant.joined_matrix_room:
-            if _join_event_matrix_room(event, request.auth):
-                participant.joined_matrix_room = True
-                participant.save(update_fields=['joined_matrix_room'])
+    # Join Matrix room after the transaction — Matrix HTTP must not run
+    # inside it, and a dead-room heal takes several calls
+    if not participant.joined_matrix_room:
+        if _join_event_matrix_room(event, request.auth):
+            participant.joined_matrix_room = True
+            participant.save(update_fields=['joined_matrix_room'])
 
     return {
         "success": True,

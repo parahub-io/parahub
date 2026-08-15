@@ -49,7 +49,7 @@
                 ></textarea>
                 <button
                   @click="copyPublicKey"
-                  class="mt-2 text-sm text-primary hover:underline"
+                  class="mt-2 text-sm text-link"
                 >
                   Copy to clipboard
                 </button>
@@ -141,7 +141,8 @@
 
     <!-- Delete confirmation modal -->
     
-      <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 overflow-y-auto">
+    <Teleport to="body">
+      <div v-if="showDeleteConfirm" class="fixed inset-0 z-[60] overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
           <div @click="showDeleteConfirm = false" class="fixed inset-0 bg-neutral-900 bg-opacity-75" aria-hidden="true"></div>
 
@@ -180,6 +181,7 @@
           </div>
         </div>
       </div>
+    </Teleport>
     
   </div>
 </template>

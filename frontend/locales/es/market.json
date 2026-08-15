@@ -1,5 +1,10 @@
 {
   "market": {
+    "translation": {
+      "auto_translated": "Traducido automáticamente",
+      "show_original": "Mostrar original",
+      "show_translation": "Mostrar traducción"
+    },
     "title": "Mercado",
     "meta_description": "Marketplace P2P de bienes, servicios e intercambio directo",
     "search_placeholder": "Buscar artículos...",
@@ -106,6 +111,8 @@
       "converted_from": "de {currency}",
       "sale": "Venta",
       "rent": "Alquiler",
+      "budget": "Presupuesto",
+      "budget_rent": "Presupuesto de alquiler",
       "unit_none": "Sin unidad",
       "unit_custom": "Otra…",
       "unit_custom_placeholder": "Unidad (ej: kg, hora, unid)",
@@ -328,7 +335,9 @@
       "status_hidden": "Oculto",
       "empty_title": "Aún no tienes anuncios",
       "empty_description": "Crea tu primer anuncio en el mercado",
-      "tab_barter": "Trueque"
+      "tab_barter": "Trueque",
+      "views_title": "Visualizaciones",
+      "views_24h": "+{count} en 24 h"
     },
     "error_codes": {
       "item_delete_forbidden": "No tienes permiso para eliminar este anuncio",

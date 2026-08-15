@@ -659,7 +659,8 @@
       "history": "Verlauf",
       "range_24h": "24h",
       "range_7d": "7T",
-      "export_csv": "CSV herunterladen (Rohdaten, 30 Tage)"
+      "export_csv": "CSV herunterladen (Rohdaten, 30 Tage)",
+      "calm": "Windstille"
     }
   }
 }

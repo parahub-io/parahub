@@ -41,6 +41,29 @@ Manage your listings at /market/my.
 
 ---
 
+## Barter (Multi-party Exchange Chains)
+
+Trade goods, services, and skills without money. When a direct swap doesn't exist, the platform finds exchange chains — loops of 2 to 5 people where everyone gives what they offer and receives what they need.
+
+- Example: you offer a bike and need a guitar; Anna offers a guitar and needs repair work; Boris offers repairs and needs a bike — the chain closes and everyone gets what they wanted
+- Matching is automatic, based on your marketplace listings: what you have (Credit) and what you need (Debit)
+- Your offer only enters barter matching once you also post what you're looking for
+- Matches happen within the same category and are not limited to your city
+- P2P debts join the same matching: if Bob owes Alice, Alice owes Carl, and Carl owes Bob, the smallest amount is cancelled for all three at once — debts can also mix with goods in one chain
+- Free — no fees, no money involved
+
+**How to barter:**
+1. Post what you offer at /market/create
+2. Post what you need the same way
+3. Open the Barter tab at /market/my — discovered chains appear there automatically
+4. Click "Propose exchange" — an encrypted group chat with all participants opens to arrange the swap
+
+Full guide at /docs/barter.
+
+**Requirements:** Registered account.
+
+---
+
 ## Rentals & Booking
 
 Rent things by the day or by the slot — bikes, rooms, tools, equipment, studio time. Any item listed for rent can be booked from a live availability calendar that can never be double-booked.
@@ -62,7 +85,7 @@ The platform holds no funds and no deposit — payment is arranged directly with
 Buy digital tickets for events and public transport, paid over Lightning directly to the operator — no escrow.
 
 - Each ticket has a unique QR code; the operator scans it once to validate
-- Works even offline — the QR is cryptographically signed
+- Works even offline — the QR is cryptographically signed, and the scanner refuses a ticket it has already seen on that device
 - Optionally PGP-sign your ticket as proof it's yours
 - Concession fares (student, senior, child) and network-wide transit passes
 - Prices can be shown in euros with a live conversion at purchase
@@ -79,6 +102,7 @@ Decentralized identity verification based on real relationships, not government 
 - Portable reputation that follows you
 - No KYC required — use anonymously until you want verified status
 - Social recovery: trusted contacts can help you regain access
+- Your verification photo is protected: you can always see who opened it, you get a notification when someone does, and verifiers can only look up a limited number of people per day
 
 **Trust levels:**
 - Anonymous: browse only
@@ -137,6 +161,15 @@ End-to-end encrypted messaging built into every interaction.
 3. Chat history persists
 
 Go to /chat for all your conversations.
+
+**Using a native Matrix app (Element X, SchildiChat Next, Element and others):**
+1. Install the app and choose to enter a server address manually
+2. Enter parahub.io as the server
+3. A browser window opens — sign in with your usual Parahub email and password and confirm
+
+There is no separate chat password — signing in always goes through the browser with your normal Parahub account. Apps that only show a username-and-password form cannot connect.
+
+To add your phone as a second device: on a computer where you are already signed in, open Element at /element, go to Settings, then Sessions, choose "Link new device" and show the QR code, then pick "Sign in with QR code" in the phone app and scan the screen. Full guide at /docs/communication.
 
 ---
 
@@ -197,7 +230,11 @@ Coverage: multiple cities worldwide with real-time GPS tracking. Check available
 
 Browse routes and schedules at /transit.
 
-**Driver Mode:** Verified drivers (WoT 3+) can broadcast their GPS position so passengers see them on the map like official transit. Activate at /driver.
+**Waiting at the stop:** on a stop page, tap the line you are waiting for — other passengers and the driver see how many people are waiting. The marker clears itself when your bus arrives. If nothing comes for a while, the page offers a rideshare option instead and shows how many others are stuck with you. Works without an account.
+
+**Rideshare:** ask for or offer a ride between transit stops — the Rideshare tab at /transit. Drivers make offers, you pick one, and a private chat opens to arrange it. Requests are for right now and expire after about an hour, so post when you are ready to go. Both asking and offering require a verified profile (Web of Trust).
+
+**Driver Mode:** Verified drivers (WoT 3+) can broadcast their GPS position so passengers see them on the map like official transit. Activate at /driver. The driver screen shows a live overview of the whole route and can scan tickets without leaving the shift.
 
 ---
 
@@ -253,6 +290,14 @@ Non-custodial Bitcoin Lightning wallet in your browser. You hold your own keys.
 2. Open wallet at /wallet
 3. Receive: share Lightning invoice or Spark address
 4. Send: paste invoice or scan QR code
+
+**Debts (tab in the wallet):**
+Track personal debts between people — in any currency, no Bitcoin or wallet setup required.
+- "I owe you" records become active immediately; "you owe me" records wait for the debtor's confirmation
+- The creditor records repayments — the remaining amount updates instantly for both sides
+- Debts are PGP-signed when you have a key, so both parties hold cryptographic proof
+- Debts join barter matching: a loop of debts (or debts mixed with goods) is cleared automatically by the smallest amount in the loop
+- Views: Owed to Me, I Owe, Pending Confirmation — at /wallet/debts
 
 ---
 
@@ -399,8 +444,16 @@ Browse and manage at /ads.
 Upload drone photos — system creates orthomosaic maps and 3D models.
 
 - Automatic stitching and georeferencing
-- Flight plan generation for drones
+- Ready-made flight plans: switch on the aerial grid on the map, click a square, and you get the mission files for your DJI drone. Squares already surveyed are shaded, so you can see what still needs flying
+- Before you drive out, the map can check whether a square is actually reachable from your launch point — distance, hills blocking the flight altitude, ridges blocking the radio link, and restricted airspace
+- Official no-fly zones can be shown as a map layer. It covers permanent zones only, not temporary ones, so it is a planning aid — checking the current rules and getting any permits is still up to the pilot
 - Compare same area across seasons
+
+**Uploading:** photos as JPG straight from the drone, with the location data the camera writes. All photos in one mission must belong to the same map square, and at least some must be taken pointing straight down. You can add more photos to a finished mission later.
+
+**Requirements:** a registered account to upload. Anyone can look at the imagery, no account needed.
+
+**License:** photos you upload, and the maps and 3D models made from them, are published under Creative Commons BY-SA 4.0 — free for anyone to use with attribution. You confirm this when uploading. Privacy rules and drone regulations (ANAC in Portugal) remain your responsibility as the pilot.
 
 Access at /opensky.
 
@@ -410,7 +463,8 @@ Access at /opensky.
 
 Community-owned WiFi using mesh routers.
 
-- Free tier (512 kbps) or paid full-speed via Lightning
+- Free tier (512 kbps) or paid full-speed via Lightning — payments go to the association and are spent on the network
+- Host a node and your own full-speed pass stays active for free while the node is online
 - Resilient local network
 - Monitor coverage at /mesh
 

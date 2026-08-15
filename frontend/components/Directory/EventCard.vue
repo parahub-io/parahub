@@ -26,16 +26,14 @@
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 min-w-0">
           <span v-if="event.category_icon" class="text-sm flex-shrink-0">{{ event.category_icon }}</span>
-          <span class="truncate">{{ event.category_name }}</span>
+          <span class="truncate">{{ categoryLabel }}</span>
         </div>
         <div class="flex items-center gap-1 flex-shrink-0">
           <DemoBadge :is-demo="event.is_demo" />
-          <span
-            :class="eventTypeBadgeClass"
-            class="px-2 py-0.5 rounded-full text-xs font-medium"
-          >
+          <UiBadge :variant="eventTypeBadgeVariant" type="soft" size="sm" class="gap-1">
+            <component :is="eventTypeIcon" :size="12" aria-hidden="true" />
             {{ eventTypeLabel }}
-          </span>
+          </UiBadge>
         </div>
       </div>
 
@@ -65,13 +63,18 @@
       <!-- Footer -->
       <div class="flex items-center justify-between pt-2.5 border-t border-neutral-100 dark:border-neutral-700">
         <div v-if="event.organizer_hna" class="flex items-center gap-1.5 min-w-0">
+          <!-- Act-as: the establishment is credited, the organizer stays visible next to it -->
           <img
-            v-if="event.organizer_avatar_url"
-            :src="event.organizer_avatar_url"
-            :alt="event.organizer_display_name || event.organizer_hna"
-            class="w-5 h-5 rounded-full flex-shrink-0"
+            v-if="event.establishment_logo_url || event.organizer_avatar_url"
+            :src="event.establishment_logo_url || event.organizer_avatar_url"
+            :alt="event.establishment_name || event.organizer_display_name || event.organizer_hna"
+            class="w-5 h-5 rounded-full object-cover flex-shrink-0"
           />
-          <User v-else :size="14" class="text-neutral-400 flex-shrink-0" />
+          <component :is="event.establishment_name ? Building2 : User" v-else :size="14" class="text-neutral-400 flex-shrink-0" />
+          <span v-if="event.establishment_name" class="text-xs text-neutral-700 dark:text-neutral-200 font-medium truncate">
+            {{ event.establishment_name }}
+          </span>
+          <span v-if="event.establishment_name" class="text-xs text-neutral-400 flex-shrink-0">·</span>
           <span class="text-xs text-neutral-500 truncate">{{ event.organizer_display_name || event.organizer_hna?.split('@')[0] }}</span>
         </div>
 
@@ -99,7 +102,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Calendar, CalendarDays, MapPin, Users, Video, User } from 'lucide-vue-next'
+import { Building2, Calendar, CalendarDays, MapPin, Users, Video, Layers, User } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
 
@@ -107,10 +110,20 @@ const props = defineProps({
   event: {
     type: Object,
     required: true
+  },
+  // slug -> localized name, built once by the list page from the category tree
+  categoryLabels: {
+    type: Object,
+    default: () => ({})
   }
 })
 
 defineEmits(['click'])
+
+// Reference data arrives in English; the localized name comes from the tree.
+const categoryLabel = computed(() =>
+  props.categoryLabels[props.event.category_slug] || props.event.category_name || ''
+)
 
 const eventTypeLabel = computed(() => {
   const labels = {
@@ -121,13 +134,16 @@ const eventTypeLabel = computed(() => {
   return labels[props.event.event_type] || props.event.event_type
 })
 
-const eventTypeBadgeClass = computed(() => {
-  const classes = {
-    OFFLINE: 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400',
-    ONLINE: 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-700 dark:text-secondary-400',
-    HYBRID: 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-400'
-  }
-  return classes[props.event.event_type] || 'bg-neutral-100 text-neutral-700'
+// Same categorical tokens as the detail page (pages/events/[id].vue) — glyph
+// carries the meaning, colour only groups.
+const eventTypeBadgeVariant = computed(() => {
+  const variants = { OFFLINE: 'success', ONLINE: 'info', HYBRID: 'neutral' }
+  return variants[props.event.event_type] || 'neutral'
+})
+
+const eventTypeIcon = computed(() => {
+  const icons = { OFFLINE: MapPin, ONLINE: Video, HYBRID: Layers }
+  return icons[props.event.event_type] || Calendar
 })
 
 const formattedDate = computed(() => {

@@ -55,8 +55,9 @@
 import {
   Compass, LayoutGrid, ArrowLeftRight, Scale, Cpu, ScrollText, ChevronRight,
   ShieldCheck, Shield, Zap, Wifi, Vote, Rocket, KeyRound, Megaphone, HandCoins, Globe, Landmark,
-  Package, Ticket, Bus, Navigation, Store, CalendarCheck, HeartHandshake, Building2,
+  Package, Ticket, Bus, Navigation, Car, Store, CalendarCheck, HeartHandshake, Building2,
   Wallet, MessageCircle, Newspaper, Plug, Home, Printer, Wind,
+  Map, BusFront, FileSignature, CalendarDays, Plane,
 } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -88,6 +89,7 @@ const rawGroups = [
     items: [
       { to: '/docs/wot', icon: ShieldCheck, titleKey: 'about.wotSystem.title', descKey: 'docs.wot_desc' },
       { to: '/docs/crypto', icon: KeyRound, titleKey: 'about.cryptoProofs.title', descKey: 'docs.crypto_desc' },
+      { to: '/docs/contracts', icon: FileSignature, titleKey: 'about.contractsSystem.title', descKey: 'docs.contracts_desc' },
       { to: '/docs/arbitration', icon: Scale, titleKey: 'about.arbitration.title', descKey: 'docs.arbitration_desc' },
       { to: '/docs/conduct', icon: ScrollText, titleKey: 'footer.code_of_conduct', descKey: 'docs.conduct_desc' },
       { to: '/docs/sos', icon: Shield, titleKey: 'parasos.title', descKey: 'docs.parasos_desc' },
@@ -115,6 +117,7 @@ const rawGroups = [
       { to: '/docs/governance', icon: Vote, titleKey: 'about.governanceSystem.title', descKey: 'docs.governance_desc' },
       { to: '/docs/transparency', icon: HandCoins, titleKey: 'about.transparency.title', descKey: 'docs.transparency_desc' },
       { to: '/docs/communication', icon: MessageCircle, titleKey: 'about.communicationSystem.title', descKey: 'docs.communication_desc' },
+      { to: '/docs/events', icon: CalendarDays, titleKey: 'about.eventsSystem.title', descKey: 'docs.events_desc' },
       { to: '/docs/blog', icon: Newspaper, titleKey: 'about.cmsSystem.title', descKey: 'docs.blog_desc' },
       { to: '/docs/condo', icon: Landmark, titleKey: 'about.condoSystem.title', descKey: 'docs.condo_desc', wip: true },
     ],
@@ -123,9 +126,13 @@ const rawGroups = [
     id: 'city',
     labelKey: 'docs.group_city',
     items: [
+      { to: '/docs/maps', icon: Map, titleKey: 'about.mapsSystem.title', descKey: 'docs.maps_desc' },
+      { to: '/docs/opensky', icon: Plane, titleKey: 'about.openskySystem.title', descKey: 'docs.opensky_desc' },
+      { to: '/docs/transit', icon: BusFront, titleKey: 'about.transitSystem.title', descKey: 'docs.transit_desc' },
       { to: '/docs/directory', icon: Building2, titleKey: 'about.directorySystem.title', descKey: 'docs.directory_desc' },
       { to: '/docs/transit-ops', icon: Bus, titleKey: 'about.transitOps.title', descKey: 'docs.transit_ops_desc' },
       { to: '/docs/driver', icon: Navigation, titleKey: 'about.driverMode.title', descKey: 'docs.driver_desc' },
+      { to: '/docs/carpool', icon: Car, titleKey: 'about.carpoolSystem.title', descKey: 'docs.carpool_desc', wip: true },
     ],
   },
   {

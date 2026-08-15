@@ -105,7 +105,8 @@ const localePath = useLocalePath()
 // open-redirect), e.g. a shared rental link sends anonymous bookers here and back.
 const redirectTarget = computed(() => {
   const r = route.query.redirect
-  return typeof r === 'string' && r.startsWith('/') ? r : localePath('/')
+  // Default target is the map — the authenticated home screen
+  return typeof r === 'string' && r.startsWith('/') ? r : localePath('/map')
 })
 
 const username = ref('')
@@ -205,7 +206,7 @@ const loginWithGoogleNative = async () => {
           if (result.is_new_user) {
             await navigateTo(localePath('/choose-username'))
           } else {
-            await navigateTo(localePath('/'))
+            await navigateTo(localePath('/map'))
           }
         }
       } catch (err) {

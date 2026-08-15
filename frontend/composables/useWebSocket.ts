@@ -7,6 +7,8 @@
 
 import { ref, onUnmounted } from 'vue'
 
+import { buildWsUrl, clearWsAuthCookie, setWsAuthCookie, shouldRetryWithToken } from '~/utils/wsAuth'
+
 export interface WebSocketOptions {
   /** URL path (e.g., '/ws/v1/items/updates') */
   path: string
@@ -41,6 +43,7 @@ export const useWebSocket = (options: WebSocketOptions) => {
   const isConnected = ref(false)
   const reconnectTimeout = ref<NodeJS.Timeout | null>(null)
   let reconnectAttempts = 0
+  let tokenInUrl = false
 
   const {
     path,
@@ -64,10 +67,9 @@ export const useWebSocket = (options: WebSocketOptions) => {
       return false
     }
 
-    // Set ws_token cookie
-    // Note: We don't use HttpOnly here because we need to set it from JS
-    // The token itself is already validated on the backend
-    document.cookie = `ws_token=${token}; path=/; SameSite=Strict; Secure`
+    // Not HttpOnly — it has to be set from JS. See `utils/wsAuth` for why the
+    // cookie is `Lax` and what happens when the WebView drops it anyway.
+    setWsAuthCookie(token)
     return true
   }
 
@@ -75,7 +77,7 @@ export const useWebSocket = (options: WebSocketOptions) => {
    * Remove auth cookie after disconnect
    */
   const clearAuthCookie = () => {
-    document.cookie = 'ws_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    clearWsAuthCookie()
   }
 
   /**
@@ -101,14 +103,9 @@ export const useWebSocket = (options: WebSocketOptions) => {
     }
 
     try {
-      // Determine protocol (ws or wss)
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const host = window.location.host
-
-      // Build WebSocket URL WITHOUT token in query params (security fix)
-      const wsUrl = `${protocol}//${host}${path}`
-
-      ws.value = new WebSocket(wsUrl)
+      // The token stays out of the URL unless a native client has already been
+      // refused once with it in the cookie alone (see `utils/wsAuth`).
+      ws.value = new WebSocket(buildWsUrl(path, authStore.token, tokenInUrl))
 
       // Handle connection open
       ws.value.onopen = () => {
@@ -136,6 +133,14 @@ export const useWebSocket = (options: WebSocketOptions) => {
 
         // Clear auth cookie
         clearAuthCookie()
+
+        // Refused for want of a token on a native build: the cookie did not
+        // reach the handshake, so come back once with it in the query string.
+        if (shouldRetryWithToken(event.code, tokenInUrl)) {
+          tokenInUrl = true
+          reconnectTimeout.value = setTimeout(() => connect(), 200)
+          return
+        }
 
         // Auto-reconnect if enabled and not a normal closure
         if (autoReconnect && event.code !== 1000) {

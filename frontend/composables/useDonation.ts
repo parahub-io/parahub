@@ -2,6 +2,7 @@
  * Association donation composable — manages donation prompt state and execution.
  * Singleton module-level state (same pattern as useAdsState).
  */
+import { annotateTx } from '~/composables/useTxAnnotations'
 
 // Module-level state (shared across all component instances)
 const associationSparkAddress = ref('')
@@ -14,6 +15,9 @@ const ONBOARDED_KEY = 'parahub_donation_onboarded'
 export function useDonation() {
   const authStore = useAuthStore()
   const { satsToFiat, formatFiat, userCurrency } = useBtcPrice()
+  // Captured in setup context — executeDonation runs after awaits, where
+  // calling composables is no longer guaranteed to work.
+  const lightning = useLightning()
 
   // Support level: from localStorage (sticky), fallback to profile, fallback to 0.1
   const supportLevel = ref<number>(0.1)
@@ -72,7 +76,7 @@ export function useDonation() {
 
   // Record donation on server
   const recordDonation = async (params: {
-    source: 'WALLET_SEND' | 'ADS_CAMPAIGN' | 'MANUAL'
+    source: 'WALLET_SEND' | 'ADS_CAMPAIGN' | 'MANUAL' | 'PROFILE_TIP' | 'SUBSCRIPTION'
     // Omit for SKIPPED — nothing was donated, so the underlying transfer amount
     // is not ours to keep. The server zeroes it for SKIPPED regardless.
     sourceAmountSats?: number
@@ -105,6 +109,60 @@ export function useDonation() {
     !!(associationSparkAddress.value || associationLnAddress.value)
   )
 
+  // Execute the association donation riding along a successful main payment,
+  // then record it. Never throws — a donation failure must not break the
+  // caller's payment flow. Records SKIPPED when the level is 0% or no
+  // association address is configured.
+  const executeDonation = async (params: {
+    source: 'WALLET_SEND' | 'PROFILE_TIP' | 'SUBSCRIPTION'
+    sourceAmountSats: number
+  }) => {
+    const donationSats = calcDonationSats(params.sourceAmountSats)
+    if (donationSats <= 0 || !hasAssociationAddress.value) {
+      await recordDonation({
+        source: params.source,
+        donationAmountSats: 0,
+        supportLevelAtTime: supportLevel.value,
+        status: 'SKIPPED',
+      })
+      return
+    }
+    try {
+      let paymentHash = ''
+      if (associationSparkAddress.value) {
+        const prep = await lightning.prepareSend(associationSparkAddress.value, BigInt(donationSats))
+        const result = await lightning.executeSend(prep)
+        paymentHash = (result as any)?.id || ''
+      } else {
+        const parsed = await lightning.parseInput(associationLnAddress.value)
+        const payRequest = parsed.type === 'lightningAddress' ? parsed.payRequest
+          : parsed.type === 'lnurlPay' ? parsed
+          : null
+        if (!payRequest) throw new Error('Unsupported association address')
+        const prep = await lightning.prepareLnurlPay(donationSats, payRequest as any)
+        const payment = await lightning.executeLnurlPay(prep)
+        paymentHash = (payment as any)?.id || ''
+      }
+      if (paymentHash) annotateTx(paymentHash, { kind: 'donation' })
+      await recordDonation({
+        source: params.source,
+        sourceAmountSats: params.sourceAmountSats,
+        donationAmountSats: donationSats,
+        supportLevelAtTime: supportLevel.value,
+        lnPaymentHash: paymentHash,
+        status: 'COMPLETED',
+      })
+    } catch {
+      await recordDonation({
+        source: params.source,
+        sourceAmountSats: params.sourceAmountSats,
+        donationAmountSats: donationSats,
+        supportLevelAtTime: supportLevel.value,
+        status: 'FAILED',
+      })
+    }
+  }
+
   return {
     supportLevel,
     associationSparkAddress,
@@ -119,5 +177,6 @@ export function useDonation() {
     formatDonationFiat,
     loadConfig,
     recordDonation,
+    executeDonation,
   }
 }

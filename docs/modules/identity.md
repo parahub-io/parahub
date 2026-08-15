@@ -48,6 +48,9 @@ New accounts start unverified with limited permissions. To get verified:
 ### Sybil Defense
 If a verified account is proven fake, **all verifiers who vouched for it are automatically banned**. This makes false verification personally costly and creates social pressure for honest verification.
 
+### Verification Photo Accountability
+The verification photo is biometric data, so access to it is accountable rather than invisible: every view by a verifier is recorded (and the record outlives the photo), the owner sees the full "who opened this photo" list under their own photo and is notified on each new viewer (a notification that cannot be muted), and each verifier is limited to a quota of distinct people per hour and per day. Re-opening the same person is free, so real verification sessions are unaffected while bulk sweeps are slow, capped, and visible. See [Security](../security.md).
+
 ### Trust Levels
 
 10 roles evaluated dynamically by combining authentication state, profile existence, profile type, WoT verification count, and association membership:
@@ -121,7 +124,7 @@ See [Federation module](federation.md) for full details.
 
 ## Technical Details
 
-- **Models**: `identity/models.py` -- Account, Profile, Partner, Verification, Contract, ContractReview, ArbiterProfile, ArbitrationVerdict, SocialRecovery, PsychProfile, PGPKeyHistory, ProfileNote, ProfileVerificationPhoto (128-d face embedding for dedup)
+- **Models**: `identity/models.py` -- Account, Profile, Partner, Verification, Contract, ContractReview, ArbiterProfile, ArbitrationVerdict, SocialRecovery, PsychProfile, PGPKeyHistory, ProfileNote, ProfileVerificationPhoto (128-d face embedding for dedup), VerificationPhotoAccess (photo access trail)
 - **API**: `parahub/endpoints/profiles.py`, `parahub/endpoints/partners.py`, `parahub/endpoints/contracts.py`, `parahub/endpoints/wot.py`
 - **Auth**: `parahub/auth.py` -- ProfileAuth, GlobalAuth, OptionalProfileAuth
 - **OIDC**: `oidc_provider/` -- OAuth/OIDC provider for Matrix, Traccar, Gitea SSO

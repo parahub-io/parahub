@@ -2,7 +2,7 @@
   <transition :name="animationsEnabled ? 'slide' : ''" :duration="animationsEnabled ? 300 : 0">
     <div
       v-if="feature || contentType === 'own_avatar' || contentType === 'other_avatar' || contentType === 'vehicle' || contentType === 'iot_device' || contentType === 'env_station' || contentType === 'condominium' || contentType === 'hub' || contentType === 'establishment' || (contentType === 'urban' && urbanResult) || (contentType === 'opensky' && openskyActive)"
-      class="fixed bottom-0 left-0 right-0 w-full md:absolute md:top-0 md:bottom-0 md:right-auto md:left-0 md:h-full md:w-96 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 max-md:border-t md:border-r z-50 flex flex-col rounded-t-2xl md:rounded-none"
+      class="fixed bottom-[var(--nav-inset-bottom)] left-0 right-0 w-full md:absolute md:top-0 md:bottom-0 md:right-auto md:left-0 md:h-full md:w-96 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 max-md:border-t md:border-r z-50 flex flex-col rounded-t-2xl md:rounded-none"
       :style="isMobile ? sheetStyle : {}"
     >
       <!-- Mobile drag handle -->

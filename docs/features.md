@@ -13,7 +13,7 @@ One account, up to 7 profiles (1 primary + 6 additional). Profile types: persona
 A profile's real name is private by default -- the public sees only the `@handle`, while the real name is revealed to the owner and to Web-of-Trust-verified viewers. The legal name is only needed at the moment of commitment (a signed contract), not while browsing. A single "show my name publicly" toggle opts out, and the gate applies consistently across listings, events, reviews, comments, contracts, condominium and treasury pages, and chat and video calls.
 
 ### Web of Trust (WoT)
-Decentralized identity verification. 3+ confirmations from verified users required. 10 hierarchical trust levels (Anonymous → Authenticated → Has Profile → Personal/Pseudonymous → Verified → Apoiante → Efetivo → Fundador → Administrator) with a granular permission matrix. Fake account verified = all 3 verifiers auto-banned.
+Decentralized identity verification. 3+ confirmations from verified users required. 10 hierarchical trust levels (Anonymous → Authenticated → Has Profile → Personal/Pseudonymous → Verified → Apoiante → Efetivo → Fundador → Administrator) with a granular permission matrix. Fake account verified = all 3 verifiers auto-banned. Verification-photo access is accountable: every view by a verifier is recorded, the owner sees who opened the photo and gets an un-mutable notification, and verifiers are quota-limited on distinct people per hour and day.
 
 ### PGP Cryptography
 Client-side key generation and signing via OpenPGP.js. Server stores only public keys. Critical operations require PGP signatures: contracts, governance votes, debt records, treasury allocations. PGP key history tracked. Optional: derive PGP keypair from BIP39 seed phrase.
@@ -90,6 +90,9 @@ Segment travel time tracking with rolling observations (robust median estimates)
 
 ### Timetables and Interchanges
 Branded, printable PDF timetables per route, with seasonal services shown as separate columns. Static-only rail and ferry feeds (e.g. CP, Transtejo) appear as interchanges on multimodal routes, and nearby rail, bus, and ferry stops that share a location are grouped into a single interchange point. Route and stop pages are indexed for search.
+
+### Waiting at the Stop
+Anyone at a stop -- signed in or not -- can mark the line and direction they are waiting for. Other passengers see the count on the stop and route pages, the driver sees it in the HUD when approaching, and occupied stops carry a waiting badge on the map. Markers clear themselves when the awaited vehicle arrives. If nothing is live on the line for long enough, the stop page suggests the rideshare option, showing how many others are stuck there. Minute-by-minute occupancy snapshots build the demand picture a municipality can act on.
 
 ### GTFS Relay
 Public endpoints serve cached GTFS static ZIPs and GTFS-RT protobuf/JSON by feed slug. Third-party apps can consume Parahub's transit data without accessing upstream feeds directly.
@@ -177,7 +180,7 @@ P2P advertising system. Advertisers pay users directly via Lightning micropaymen
 
 ## Mesh Networking
 
-OpenWrt 25.x firmware. Two profiles: Bumblebee (L3 gateway, full stack) and Bee (L2 relay, minimal). Supported devices: AXT1800, MT3000, MT6000, AX53U, Cudy AP3000 Outdoor V1 (Bumblebee); AR300M16, CPE710 (Bee). batman-adv mesh + Yggdrasil overlay + WireGuard VPS gateway. Private WiFi with 802.11r/k/v roaming. Free WiFi with speed control (512 kbps per guest by default, owner-adjustable; full speed paid via Lightning). Yggdrasil inbound ACL for secure IPv6 access. Anycast gateway for reliable node discovery. OTA auto-updates with SHA256 verification. Heartbeat API. Coverage map. Separate repository (`parahub-mesh/`).
+OpenWrt 25.x firmware. Two profiles: Bumblebee (L3 gateway, full stack) and Bee (L2 relay, minimal). Supported devices: AXT1800, MT3000, MT6000, AX53U, Cudy AP3000 Outdoor V1 (Bumblebee); AR300M16, CPE710 (Bee). batman-adv mesh + Yggdrasil overlay + WireGuard VPS gateway. Private WiFi with 802.11r/k/v roaming. Free WiFi with speed control (512 kbps per guest by default, owner-adjustable; full speed via a Lightning-paid pass, received by the association and spent on the network). Hosting reciprocity: keeping a node online keeps the host's own full-speed pass active across the whole network -- hosts are deliberately not paid a share of guest payments. Yggdrasil inbound ACL for secure IPv6 access. Anycast gateway for reliable node discovery. OTA auto-updates with SHA256 verification. Heartbeat API. Coverage map. Separate repository (`parahub-mesh/`).
 
 ---
 
@@ -201,7 +204,7 @@ P2P solar energy distribution via ACC groups (Decreto-Lei 15/2022, Portugal). En
 
 ## Aerial Imagery (OpenSky)
 
-Community drone mapping protocol. JPG-only upload (batch up to 50 files / 500MB) with ODM (OpenDroneMap) processing. ZIP upload was removed. Automatic tile generation with auto-alignment to existing missions. 3D mesh generation with Draco compression and WebP textures (typical 12x size reduction). GLB download and fullscreen three.js viewer. KMZ flight plan generator for DJI drones (snake pattern, 80% overlap for the nadir pass, 70% for obliques). Mission management and season comparison via web dashboard.
+Community drone mapping protocol. JPG upload (batches up to 50 files / 500MB) with ODM (OpenDroneMap) processing. Automatic tile generation, aligned first against satellite imagery for absolute position and then against neighbouring missions to remove seams. 3D mesh generation with Draco compression and WebP textures (typical 12x size reduction). GLB download and fullscreen three.js viewer. KMZ flight plan generator for DJI drones (snake pattern, 80% overlap for the nadir pass, 70% for obliques), driven by a map grid that shades already-surveyed cells. Pre-flight reachability planner: range, terrain ceiling above the launch point, controller line of sight, and regulatory zones. Official UAS geo-zone overlay (ANAC ED-269 for Portugal) — static zones only, NOTAMs excluded, a planning aid rather than clearance. Uploaded imagery and all derived products are published under CC BY-SA 4.0 with explicit consent at upload. Mission management and season comparison via web dashboard.
 
 ---
 
@@ -223,13 +226,13 @@ Form 5 "Deep Self-Analysis Questionnaire" -- voluntary self-analysis questionnai
 Ticketing for events and transit. Lightning payment directly from buyer to operator (**no escrow**). QR code validation. PGP-signed tickets for cryptographic proof. Purchase flow: Breez SDK pay -> server verifies SHA256(preimage) -> ticket activated. Camera-based QR scanner for operators.
 
 ### Operator Tools and Fares
-Establishment operators (not just staff) sell and validate tickets. EUR pricing with a live sats quote at purchase. Concession fares (student, senior, child) and validity windows (single-use, time-limited). Network-wide agency tickets valid across every route, not just one line. Offline validation via signed QR -- a ticket verifies without a live server check. Refunds for unused tickets issued directly back to the buyer. Operator sales dashboard with tickets sold, revenue, and validations in real time.
+Establishment operators (not just staff) sell and validate tickets. EUR pricing with a live sats quote at purchase. Concession fares (student, senior, child) and validity windows (single-use, time-limited). Network-wide agency tickets valid across every route, not just one line. Offline validation via signed QR -- a ticket verifies without a live server check, and the scanner refuses repeats it has already seen on the device: a single-use ticket scanned twice, or a time-limited one past its window, is turned away in red even with no connectivity. Refunds for unused tickets issued directly back to the buyer. Operator sales dashboard with tickets sold, revenue, and validations in real time.
 
 ---
 
 ## Driver Mode
 
-Browser-based GPS broadcasting for transit vehicles. Verified drivers (WoT 3+) select a route and broadcast their position to the transit real-time pipeline. Passengers see driver vehicles on the map alongside official GTFS-RT feeds. Wake lock prevents screen sleep. TTS announces upcoming stops.
+Browser-based GPS broadcasting for transit vehicles. Verified drivers (WoT 3+) select a route and broadcast their position to the transit real-time pipeline. Passengers see driver vehicles on the map alongside official GTFS-RT feeds. Wake lock prevents screen sleep. TTS announces upcoming stops. The HUD includes a live route overview -- both directions side by side, every vehicle on the line, per-direction arrival times, the driver's own bus highlighted -- an embedded ticket scanner so validating passengers never interrupts the shift, and a per-stop count of passengers waiting for the driver's line.
 
 ---
 
@@ -276,7 +279,7 @@ Any trusted user (WoT 1+) can offer to carry a shipment between hubs. Sender sel
 
 ## Carpool
 
-Passenger-driven rideshare at transit stops. Ride requests, competitive driver offers, post-ride reviews. Matrix DM on booking acceptance. Route-based search via Valhalla routing.
+Passenger-driven rideshare at transit stops. Ride requests, competitive driver offers, post-ride reviews. Matrix DM on booking acceptance. Route-based search via Valhalla routing. Lives as the Rideshare tab on `/transit`, and a stop page where someone has been waiting with nothing live on their line suggests it automatically, showing how many others are stranded there.
 
 ---
 

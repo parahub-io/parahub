@@ -4,7 +4,8 @@ Parahub Django Admin
 
 from django.contrib import admin
 from django.utils.html import format_html
-from parahub.models import AISettings, AIAnalysisLog, QuotaUsageLog, ZenithSettings, ZenithQueryLog
+from parahub.models import (AISettings, AIAnalysisLog, QuotaUsageLog, ZenithSettings,
+                            ZenithQueryLog, TranslationLog, AIUsageLog, AISpend)
 
 
 @admin.register(AISettings)
@@ -29,6 +30,19 @@ class AISettingsAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         })
     )
+
+    def formfield_for_choice_field(self, db_field, request, **kwargs):
+        """Label each provider tier with the model id and rate it really bills.
+
+        The choices themselves carry no numbers (see AISettings.Provider) — they
+        are read from the price table here, so repointing a tier or a price
+        change updates the dropdown instead of leaving it advertising an old one.
+        """
+        if db_field.name in ('provider', 'categorization_provider'):
+            from parahub.services.ai_pricing import tier_label
+            kwargs['choices'] = [(value, tier_label(label, value))
+                                 for value, label in db_field.choices]
+        return super().formfield_for_choice_field(db_field, request, **kwargs)
 
     def has_add_permission(self, request):
         # Singleton - only one instance allowed
@@ -108,7 +122,7 @@ class AIAnalysisLogAdmin(admin.ModelAdmin):
 
     def profile_link(self, obj):
         if obj.profile:
-            return format_html('<a href="/u/{}">{}</a>', obj.profile.id, obj.profile.hna)
+            return format_html('<a href="/@{}">{}</a>', obj.profile.id, obj.profile.hna)
         return '-'
     profile_link.short_description = 'Profile'
 
@@ -371,3 +385,250 @@ class ZenithQueryLogAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(TranslationLog)
+class TranslationLogAdmin(admin.ModelAdmin):
+    """Read-only ledger of machine-translation spend.
+
+    The changelist header carries the running total for the current filter, so
+    "what has translation cost me" is answerable without exporting anything.
+    """
+    list_display = ('id', 'created_at', 'langs', 'target_object', 'model_name',
+                    'source_chars', 'input_tokens', 'output_tokens', 'cost',
+                    'duration_ms', 'success')
+    list_display_links = ('id', 'created_at')
+    list_filter = ('success', 'target_lang', 'source_lang', 'model_name', 'object_type', 'created_at')
+    search_fields = ('object_id', 'error_message')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'model_name', 'source_lang', 'target_lang',
+                       'object_type', 'object_id', 'field_name', 'source_chars',
+                       'is_html', 'input_tokens', 'output_tokens', 'cost_usd',
+                       'duration_ms', 'success', 'error_message')
+
+    @admin.display(description='Direction', ordering='target_lang')
+    def langs(self, obj):
+        return f"{obj.source_lang} → {obj.target_lang}"
+
+    @admin.display(description='Cost USD', ordering='cost_usd')
+    def cost(self, obj):
+        # See AIUsageLogAdmin.cost — the admin localises decimals, and a decimal
+        # comma on a USD figure reads as a thousands separator.
+        return f"${obj.cost_usd:.6f}"
+
+    @admin.display(description='Translated')
+    def target_object(self, obj):
+        if not obj.object_type:
+            return '—'
+        return f"{obj.object_type}.{obj.field_name} {obj.object_id}"
+
+    def changelist_view(self, request, extra_context=None):
+        """Totals for whatever the current filter selects."""
+        from django.db.models import Sum
+        response = super().changelist_view(request, extra_context)
+        try:
+            qs = response.context_data['cl'].queryset
+        except (AttributeError, KeyError):
+            return response
+        totals = qs.aggregate(cost=Sum('cost_usd'), tin=Sum('input_tokens'),
+                              tout=Sum('output_tokens'))
+        response.context_data['title'] = (
+            f"Translation Logs — ${totals['cost'] or 0:.4f} "
+            f"({totals['tin'] or 0} in / {totals['tout'] or 0} out tokens)")
+        return response
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AIUsageLog)
+class AIUsageLogAdmin(admin.ModelAdmin):
+    """Read-only ledger for the paths without one of their own — image
+    generation, the ID-photo validator, the voice bot.
+
+    The changelist header carries the running total for the current filter, so
+    "what has the illustration button cost me" is one filter away.
+    """
+    # Cost sits early: with the filter sidebar open the tail of a wide changelist
+    # scrolls out of view, and cost is the column this page exists for.
+    list_display = ('id', 'created_at', 'kind', 'model_name', 'cost',
+                    'billed_units', 'input_tokens', 'output_tokens', 'image_tokens',
+                    'success', 'profile')
+    list_display_links = ('id', 'created_at')
+    list_filter = ('kind', 'success', 'model_name', 'created_at')
+    # `hna` is a computed property, not a column — search the stored name.
+    search_fields = ('error_message', 'profile__local_name')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'kind', 'model_name', 'profile', 'input_tokens',
+                       'output_tokens', 'image_tokens', 'units', 'unit_kind', 'cost_usd',
+                       'duration_ms', 'success', 'error_message', 'meta')
+
+    @admin.display(description='Units', ordering='units')
+    def billed_units(self, obj):
+        if not obj.unit_kind:
+            return '—'
+        return f"{obj.units:g} {obj.unit_kind}"
+
+    @admin.display(description='Cost USD', ordering='cost_usd')
+    def cost(self, obj):
+        # Formatted here rather than left to the field: the admin localises
+        # decimals, and a ru/pt session renders $0.010526 as "0,010526" — a
+        # decimal comma that reads as a thousands separator on a USD figure.
+        return f"${obj.cost_usd:.6f}"
+
+    def changelist_view(self, request, extra_context=None):
+        """Totals for whatever the current filter selects."""
+        from django.db.models import Count, Sum
+        response = super().changelist_view(request, extra_context)
+        try:
+            qs = response.context_data['cl'].queryset
+        except (AttributeError, KeyError):
+            return response
+        totals = qs.aggregate(cost=Sum('cost_usd'), calls=Count('id'))
+        response.context_data['title'] = (
+            f"AI Usage Logs — ${totals['cost'] or 0:.4f} over {totals['calls'] or 0} calls")
+        return response
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+# Every path that can spend money on a model without writing a ledger row. Empty
+# is the correct state: a new paid call site writes to `AIUsageLog` instead of
+# being listed here. Anything that does land here is named on the dashboard so
+# its total is never read as "all AI spend".
+_UNMETERED_AI_PATHS = []
+
+
+@admin.register(AISpend)
+class AISpendAdmin(admin.ModelAdmin):
+    """Daily AI spend across every metered path, in one table.
+
+    Replaces the changelist wholesale — the proxy's own rows are irrelevant here;
+    the page is an aggregate over three unrelated ledgers.
+    """
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        from collections import OrderedDict
+        from datetime import timedelta
+        from decimal import Decimal
+        from django.db.models import Sum, Count, DecimalField, IntegerField, Value
+        from django.db.models.functions import Coalesce, TruncDate
+        from django.template.response import TemplateResponse
+        from django.utils import timezone
+
+        try:
+            days = max(1, min(365, int(request.GET.get('days', 30))))
+        except (TypeError, ValueError):
+            days = 30
+        since = timezone.now() - timedelta(days=days)
+
+        money = DecimalField(max_digits=14, decimal_places=6)
+        zero_money = Value(Decimal('0'), output_field=money)
+        zero_int = Value(0, output_field=IntegerField())
+
+        def by_day(qs, cost_expr, in_expr, out_expr):
+            return (qs.filter(created_at__gte=since)
+                      .annotate(day=TruncDate('created_at'))
+                      .values('day')
+                      .annotate(calls=Count('id'), cost=Sum(cost_expr),
+                                tin=Sum(in_expr), tout=Sum(out_expr))
+                      .order_by())
+
+        # An analysis bills two models (vision + categorization), so a row's cost
+        # is the pair. Rows written before that split carry only the legacy
+        # `estimated_cost_usd`/`input_tokens` fields — fall back to those rather
+        # than reporting the old rows as free.
+        sources = OrderedDict()
+        sources['Vision + categorization'] = by_day(
+            AIAnalysisLog.objects.all(),
+            Coalesce('vision_cost_usd', 'estimated_cost_usd', zero_money)
+            + Coalesce('categorization_cost_usd', zero_money),
+            Coalesce('vision_input_tokens', 'input_tokens', zero_int)
+            + Coalesce('categorization_input_tokens', zero_int),
+            Coalesce('vision_output_tokens', 'output_tokens', zero_int)
+            + Coalesce('categorization_output_tokens', zero_int),
+        )
+        sources['Zenith'] = by_day(
+            ZenithQueryLog.objects.all(),
+            Coalesce('estimated_cost_usd', zero_money),
+            Coalesce('input_tokens', zero_int), Coalesce('output_tokens', zero_int))
+        sources['Translation'] = by_day(
+            TranslationLog.objects.all(),
+            Coalesce('cost_usd', zero_money),
+            Coalesce('input_tokens', zero_int), Coalesce('output_tokens', zero_int))
+        # Everything without a ledger of its own: image generation, the ID-photo
+        # validator, the voice bot. Image output tokens are counted in the "out"
+        # column so a generated illustration is visibly not a text call.
+        sources['Images, photo & voice'] = by_day(
+            AIUsageLog.objects.all(),
+            Coalesce('cost_usd', zero_money),
+            Coalesce('input_tokens', zero_int),
+            Coalesce('output_tokens', zero_int) + Coalesce('image_tokens', zero_int))
+
+        labels = list(sources)
+        rows = {}
+        totals = {label: {'calls': 0, 'cost': Decimal('0'), 'tin': 0, 'tout': 0} for label in labels}
+        for label, agg in sources.items():
+            for entry in agg:
+                cell = rows.setdefault(entry['day'], {l: None for l in labels})
+                cost = entry['cost'] or Decimal('0')
+                # Money is formatted here, not in the template: `floatformat`
+                # localises, so a ru/pt admin renders "$0,3057" — a decimal
+                # comma that reads as a thousands separator on a USD figure.
+                value = {'calls': entry['calls'], 'cost': cost, 'cost_str': f'{cost:.4f}',
+                         'tin': entry['tin'] or 0, 'tout': entry['tout'] or 0}
+                cell[label] = value
+                totals[label]['calls'] += value['calls']
+                totals[label]['tin'] += value['tin']
+                totals[label]['tout'] += value['tout']
+                totals[label]['cost'] += value['cost']
+
+        table = []
+        for day in sorted(rows, reverse=True):
+            cells = rows[day]
+            day_cost = sum((c['cost'] for c in cells.values() if c), Decimal('0'))
+            table.append({
+                'day': day,
+                'cells': [cells[label] for label in labels],
+                'cost_str': f'{day_cost:.4f}',
+                'calls': sum((c['calls'] for c in cells.values() if c), 0),
+            })
+
+        grand_cost = sum((t['cost'] for t in totals.values()), Decimal('0'))
+        grand = {
+            'cost_str': f'{grand_cost:.4f}',
+            'calls': sum(t['calls'] for t in totals.values()),
+            'tin': sum(t['tin'] for t in totals.values()),
+            'tout': sum(t['tout'] for t in totals.values()),
+        }
+
+        context = {
+            **self.admin_site.each_context(request),
+            'title': f'AI Spend — last {days} days',
+            'opts': self.model._meta,
+            'labels': labels,
+            'table': table,
+            'totals': [{**totals[label], 'cost_str': f"{totals[label]['cost']:.4f}"}
+                       for label in labels],
+            'grand': grand,
+            'days': days,
+            'day_options': [7, 30, 90, 365],
+            'unmetered': _UNMETERED_AI_PATHS,
+        }
+        return TemplateResponse(request, 'admin/parahub/ai_spend.html', context)

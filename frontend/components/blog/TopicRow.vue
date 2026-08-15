@@ -86,7 +86,7 @@ function langBadgeVariant(lang: string): 'info' | 'default' {
       <!-- Title + language chips + meta -->
       <div class="flex-1 min-w-0">
         <div class="flex items-start gap-2 mb-2">
-          <Star v-if="isNextRecommended" class="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <Star v-if="isNextRecommended" class="w-4 h-4 text-secondary dark:text-secondary-400 shrink-0 mt-0.5" />
           <Pin v-if="isPinned" class="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" :title="t('cms.pinned') || 'Pinned'" />
           <span
             v-if="group.order != null"
@@ -135,7 +135,7 @@ function langBadgeVariant(lang: string): 'info' | 'default' {
           <span v-if="section === 'published' && publishedAt" class="text-xs text-neutral-500 ml-2">
             · {{ publishedAt }}
           </span>
-          <span v-if="isNextRecommended" class="text-xs text-primary font-medium ml-2">
+          <span v-if="isNextRecommended" class="text-xs text-secondary dark:text-secondary-400 font-medium ml-2">
             · {{ t('cms.manage.nextRecommended') }}
           </span>
           <span v-if="lastUpdated" class="text-xs text-neutral-400 ml-2" :title="t('cms.manage.lastUpdated')">

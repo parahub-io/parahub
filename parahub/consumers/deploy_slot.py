@@ -15,3 +15,11 @@ def get_deploy_slot(scope: dict) -> str:
     """Derive deployment slot from ASGI scope server port."""
     port = (scope.get('server') or (None, None))[1]
     return _PORT_SLOT_MAP.get(port, 'prod')
+
+
+def get_deploy_slot_from_request(request) -> str:
+    """Same port→slot mapping for sync HTTP views (uvicorn sets SERVER_PORT)."""
+    try:
+        return _PORT_SLOT_MAP.get(int(request.META.get('SERVER_PORT', 0)), 'prod')
+    except (TypeError, ValueError):
+        return 'prod'

@@ -61,6 +61,11 @@ class BuildItemsChainQueryTest(SimpleTestCase):
             self.assertEqual(credit_count, length, f"length={length}: expected {length} CREDIT matches")
             self.assertEqual(debit_count, length, f"length={length}: expected {length} DEBIT matches")
 
+    def test_category_filter_clause_present(self):
+        for length in range(2, 6):
+            q = self.svc._build_items_chain_query(length)
+            self.assertIn("WHERE $category_id IS NULL OR $category_id IN categories", q)
+
 
 class BuildDebtChainQueryTest(SimpleTestCase):
     def setUp(self):
@@ -155,6 +160,31 @@ class FindBarterChainsCypherTest(SimpleTestCase):
             self.svc.find_barter_chains(user_id='abc-123', max_length=3)
         params = self.svc.client.execute_read.call_args[0][1]
         self.assertEqual(params['user_id'], 'abc-123')
+
+    def test_category_filter_excludes_debt_blocks(self):
+        with patch('constance.config') as mock_cfg:
+            mock_cfg.BARTER_MAX_CHAIN_LENGTH = 5
+            self.svc.find_barter_chains(user_id='user-1', max_length=3, category_id='cat-1')
+        q = self.svc.client.execute_read.call_args[0][0]
+        # Debt cycles carry no category — only items blocks remain
+        self.assertNotIn("Debt cycle", q)
+        self.assertIn("Items cycle length 2", q)
+        self.assertIn("Items cycle length 3", q)
+        self.assertEqual(q.count("UNION ALL"), 1)
+
+    def test_category_param_passed(self):
+        with patch('constance.config') as mock_cfg:
+            mock_cfg.BARTER_MAX_CHAIN_LENGTH = 3
+            self.svc.find_barter_chains(user_id='user-1', max_length=2, category_id='cat-xyz')
+        params = self.svc.client.execute_read.call_args[0][1]
+        self.assertEqual(params['category_id'], 'cat-xyz')
+
+    def test_no_category_passes_null_param(self):
+        with patch('constance.config') as mock_cfg:
+            mock_cfg.BARTER_MAX_CHAIN_LENGTH = 2
+            self.svc.find_barter_chains(user_id='user-1', max_length=2)
+        params = self.svc.client.execute_read.call_args[0][1]
+        self.assertIsNone(params['category_id'])
 
 
 # ---------------------------------------------------------------------------
@@ -376,9 +406,9 @@ class ExchangeDetailEndpointTest(TestCase):
     def test_get_exchange_not_found(self):
         from barter.api import get_exchange
         request = _make_auth_request(self.factory, self.account, self.profile)
-        result = get_exchange(request, 'nonexistent-id')
-        # Returns tuple (body, status_code) for 404
-        self.assertEqual(result, ({'error': 'Exchange not found'}, 404))
+        with self.assertRaises(HttpError) as ctx:
+            get_exchange(request, 'nonexistent-id')
+        self.assertEqual(ctx.exception.status_code, 404)
 
     def test_get_exchange_shows_approvals(self):
         from barter.api import get_exchange
@@ -440,15 +470,17 @@ class ApproveExchangeEndpointTest(TestCase):
         charlie = _create_profile(charlie_account, self.instance, 'charlie')
         data = ApprovalRequest(approved=True)
         request = _make_auth_request(self.factory, charlie_account, charlie, 'post')
-        result = approve_exchange(request, self.exchange.id, data)
-        self.assertEqual(result, ({'error': 'You are not a participant in this exchange'}, 403))
+        with self.assertRaises(HttpError) as ctx:
+            approve_exchange(request, self.exchange.id, data)
+        self.assertEqual(ctx.exception.status_code, 403)
 
     def test_approve_nonexistent_exchange_404(self):
         from barter.api import approve_exchange, ApprovalRequest
         data = ApprovalRequest(approved=True)
         request = _make_auth_request(self.factory, self.alice_account, self.alice, 'post')
-        result = approve_exchange(request, 'fake-id', data)
-        self.assertEqual(result, ({'error': 'Exchange not found'}, 404))
+        with self.assertRaises(HttpError) as ctx:
+            approve_exchange(request, 'fake-id', data)
+        self.assertEqual(ctx.exception.status_code, 404)
 
     def test_all_approve_sets_status_approved(self):
         """When all participants approve, exchange status becomes APPROVED."""

@@ -5,12 +5,23 @@
  */
 import type { Ref } from 'vue'
 
+/** Panel device type → ensemble segment (useMapDeviceEnsembles). */
+const ENSEMBLE_SEGMENT_BY_DEVICE_TYPE: Record<string, string> = {
+  tracker: 'tracker',
+  mesh_router: 'mesh',
+  energy_cell: 'energy',
+  env_station: 'env',
+}
+
 export function useMapIoTBridge(opts: {
   selectedIoTDevice: Ref<any>
   clearEntityPanels: () => void
   iot: {
     iotPopoverOpen: Ref<boolean>
-    showIoTLockOn: (lat: number, lon: number, offsetPx?: [number, number] | null) => void
+    showIoTLockOn: (
+      lat: number, lon: number, offsetPx?: [number, number] | null,
+      ref?: { segment: string, id: string } | null,
+    ) => void
     replayIoTLockOn: (lat: number, lon: number, offsetPx?: [number, number] | null) => void
     hideIoTPreview: () => void
     flyToTracker: (lat: number, lon: number, name: string) => void
@@ -41,8 +52,15 @@ export function useMapIoTBridge(opts: {
       lngLat: data.latitude != null ? { lat: data.latitude, lng: data.longitude } : null,
       last_update: data.last_update || null,
     }
-    // Show lock-on animation
-    if (data.latitude != null) iot.showIoTLockOn(data.latitude, data.longitude)
+    // Show lock-on animation. The ensemble ref lets it land on the device's
+    // lattice slot instead of its bare coordinates (useMapDeviceEnsembles)
+    const segment = ENSEMBLE_SEGMENT_BY_DEVICE_TYPE[deviceType]
+    if (data.latitude != null) {
+      iot.showIoTLockOn(
+        data.latitude, data.longitude, null,
+        segment ? { segment, id: data.device_id || data.id || '' } : null,
+      )
+    }
   }
 
   const selectAndFlyToTracker = (t: any) => {

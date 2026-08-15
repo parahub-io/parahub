@@ -15,8 +15,13 @@ logger = logging.getLogger(__name__)
 # Euclidean distance threshold: < 0.6 = same person (dlib standard)
 SIMILARITY_THRESHOLD = 0.6
 
-# If old vs new embedding distance > this, photo changed significantly
-RECONFIRMATION_THRESHOLD = 0.4
+# If old vs new embedding distance > this, the face on file changed enough that
+# standing verifications should be re-confirmed. Sits just under the 0.6
+# same-person line: two photos of one person land anywhere in 0.3-0.5, so a
+# lower bar fires on beards, lighting and three years of age rather than on a
+# different face. What this threshold cannot answer — did the key holder do it —
+# is answered exactly by the signed upload (see `requires_reconfirmation`).
+RECONFIRMATION_THRESHOLD = 0.55
 
 
 # Below this face-to-image height ratio we issue a soft quality warning:
@@ -140,6 +145,43 @@ def is_significant_change(old_embedding: bytes, new_embedding: bytes) -> bool:
     """True if embeddings differ enough to require re-confirmation."""
     dist = embedding_distance(old_embedding, new_embedding)
     return dist > RECONFIRMATION_THRESHOLD
+
+
+def requires_reconfirmation(profile_id: str, old_embedding: bytes | None,
+                            new_embedding: bytes, owner_signed: bool = False) -> bool:
+    """Whether an uploaded photo opens a re-confirmation round for this profile.
+
+    Only profiles somebody already verified can need one — there is nothing to
+    re-confirm otherwise.
+
+    `owner_signed` — the upload carried a valid PGP signature from the profile's
+    own key. The round exists to catch a photo swapped in by someone who took
+    the profile over, and a signature settles that question outright, where the
+    embedding distance only guesses at it. So a signed swap costs the member
+    nothing, and it is the unsigned ones that face the community.
+
+    Unsigned, it comes down to whether we can still show that the face on file
+    is the face those verifications were made against. `old_embedding` missing
+    means we cannot: deleting the photo record and uploading a new one leaves
+    the verifications standing with nothing to compare against, so it counts as
+    a change rather than a clean slate (otherwise DELETE + re-upload would be a
+    two-call way around the check).
+    """
+    from identity.models import Verification
+
+    has_verifications = Verification.objects.filter(
+        verified_profile_id=profile_id, is_active=True
+    ).exists()
+    if not has_verifications:
+        return False
+
+    if owner_signed:
+        return False
+
+    if not old_embedding:
+        return True
+
+    return is_significant_change(old_embedding, new_embedding)
 
 
 def compute_photo_hash(image_bytes: bytes) -> str:

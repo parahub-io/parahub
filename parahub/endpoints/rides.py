@@ -452,11 +452,14 @@ async def search_by_route(request, body: RouteSearchBody):
     return await sync_to_async(_search_requests_along)(request.auth, body, route_line)
 
 
-@rides_router.post("/requests/{request_id}/offer/", response={200: dict, 400: dict, 404: dict}, auth=ProfileAuth())
+@rides_router.post("/requests/{request_id}/offer/", response={200: dict, 400: dict, 403: dict, 404: dict}, auth=ProfileAuth())
 @ratelimit(group='rides:offer', key=user_or_ip, rate='10/m', method='POST')
 def offer_ride(request, request_id: str, body: BookingOfferCreate):
-    """Driver offers to drive for a request."""
+    """Driver offers to drive for a request. Requires WoT 3+ verification."""
     profile = request.auth
+    if not profile.is_verified_wot:
+        raise HttpError(403, "WoT verification required to offer rides")
+
     ride_req = RideRequest.objects.filter(id=request_id).select_related('passenger').first()
     if not ride_req:
         raise HttpError(404, "Request not found")

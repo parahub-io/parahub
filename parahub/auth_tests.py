@@ -256,21 +256,24 @@ class AdditionalProfileCreationTest(SimpleTestCase):
 class EstablishmentPermissionTest(SimpleTestCase):
     """
     Invariant: Establishment actions are gated by membership role.
-    - POSTING_ROLES = {OWNER, ADMIN, MEMBER}
+    - POSTING_ROLES = {OWNER, ADMIN, EMPLOYEE}
     - SIGNING_ROLES = {OWNER, ADMIN}
     - TREASURER_MGMT_ROLES = {OWNER, ADMIN}
 
-    A MEMBER cannot sign or manage treasurers. A non-member gets 403.
+    A MEMBER cannot post, sign or manage treasurers — it is the entry role a
+    self-service join hands out, so it carries no authority to act for the
+    organization. A non-member gets 403.
     """
 
     def test_role_hierarchy_definitions(self):
         """Verify role sets are correctly defined."""
         from geo.permissions import POSTING_ROLES, SIGNING_ROLES, TREASURER_MGMT_ROLES
 
-        # POSTING is the widest role set
+        # POSTING is the widest role set, but still only granted roles
         self.assertIn('OWNER', POSTING_ROLES)
         self.assertIn('ADMIN', POSTING_ROLES)
-        self.assertIn('MEMBER', POSTING_ROLES)
+        self.assertIn('EMPLOYEE', POSTING_ROLES)
+        self.assertNotIn('MEMBER', POSTING_ROLES)
 
         # SIGNING is restricted to management
         self.assertIn('OWNER', SIGNING_ROLES)
@@ -314,6 +317,29 @@ class EstablishmentPermissionTest(SimpleTestCase):
 
             with self.assertRaises(HttpError) as ctx:
                 get_establishment_for_action('EST001', profile, POSTING_ROLES)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    @patch('geo.permissions.EstablishmentMembership')
+    @patch('geo.permissions.Establishment')
+    def test_member_cannot_post(self, mock_est_cls, mock_membership_cls):
+        """MEMBER role must be denied POSTING access.
+
+        MEMBER is what a self-service join creates, so it must not let a
+        stranger publish items/events/ads under the organization's name.
+        """
+        from geo.permissions import get_establishment_for_action, POSTING_ROLES
+
+        est = MagicMock()
+        est.owner_id = 'PROF_OTHER'
+        mock_est_cls.objects.get.return_value = est
+
+        membership = MagicMock()
+        membership.role = 'MEMBER'
+        mock_membership_cls.objects.get.return_value = membership
+
+        profile = _mock_profile(profile_id='PROF_MEMBER')
+        with self.assertRaises(HttpError) as ctx:
+            get_establishment_for_action('EST001', profile, POSTING_ROLES)
         self.assertEqual(ctx.exception.status_code, 403)
 
     @patch('geo.permissions.EstablishmentMembership')

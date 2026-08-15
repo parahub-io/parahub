@@ -44,7 +44,8 @@
       "no_results": "Nenhum resultado encontrado",
       "no_results_desc": "Tente ajustar a pesquisa ou os filtros.",
       "type_all": "Todos",
-      "refine_label": "Filtros"
+      "refine_label": "Filtros",
+      "test_profiles": "Perfis de Teste"
     },
     "people": {
       "type_filter_all": "Todos",
@@ -93,7 +94,13 @@
         "copied": "Copiado!",
         "regenerate_confirm": "Criar um novo link de convite? O antigo deixará de funcionar.",
         "invited_count_label": "Registados pelo seu link",
-        "qr_aria_label": "Código QR do link de convite"
+        "qr_aria_label": "Código QR do link de convite",
+        "explainer_them_title": "Para a outra pessoa",
+        "explainer_them_text": "uma conta num toque, sem email — e tornam-se logo parceiros, com conversa direta.",
+        "explainer_you_title": "Para si",
+        "explainer_you_text": "a pessoa aparece entre os seus parceiros e no seu contador de convites. Quando obtiver 3 verificações na rede de confiança, conta como enraizada.",
+        "wot_note": "O link abre a porta, não a confiança: o acesso completo continua a exigir 3 verificações de membros.",
+        "rooted_count_label": "Enraizados (3+ verificações)"
       },
       "notifications": {
         "auth_required": "Autenticação necessária",
@@ -240,7 +247,12 @@
       },
       "hours_open": "Aberto",
       "hours_closed": "Fechado",
-      "hours_advanced_note": "Algumas entradas usam um formato avançado e foram mantidas como estão."
+      "hours_advanced_note": "Algumas entradas usam um formato avançado e foram mantidas como estão.",
+      "membership_policy": "Adesão",
+      "membership_policy_open": "Qualquer pessoa pode aderir",
+      "membership_policy_invite": "Apenas por convite",
+      "membership_policy_hint": "As organizações só por convite atribuem a adesão elas próprias. Por pedido, qualquer pessoa candidata-se e um administrador decide.",
+      "membership_policy_request": "Por pedido"
     },
     "photos": {
       "title": "Fotos",
@@ -326,7 +338,67 @@
       "wot_required_title": "Verificação necessária",
       "wot_required": "Criar organizações requer nível Web-of-Trust 3+ (3 verificações) ou ser membro da fundação."
     },
-    "anon_hint": "Inicie sessão para procurar pessoas e adicionar parceiros."
+    "anon_hint": "Inicie sessão para procurar pessoas e adicionar parceiros.",
+    "members": {
+      "title": "Membros",
+      "list_title": "Membros",
+      "empty": "Ainda sem membros",
+      "no_access": "Não pode gerir membros aqui",
+      "no_access_hint": "Apenas o proprietário da organização e os seus administradores.",
+      "load_error": "Não foi possível carregar os membros",
+      "action_error": "A ação falhou",
+      "done": "Feito",
+      "joined": "entrou",
+      "role": "Função",
+      "position": "Cargo",
+      "position_placeholder": "p. ex. Despachante",
+      "role_owner": "Proprietário",
+      "role_admin": "Administrador",
+      "role_member": "Membro",
+      "role_employee": "Funcionário",
+      "role_contractor": "Prestador",
+      "role_changed": "Função atualizada",
+      "remove": "Remover",
+      "remove_confirm": "De certeza?",
+      "removed": "Membro removido",
+      "invite_title": "Convidar alguém",
+      "invite_by_name": "Por nome",
+      "invite_by_link": "Por link",
+      "invite_button": "Enviar convite",
+      "invite_sent": "Convite enviado",
+      "create_link": "Criar link",
+      "link_hint": "Cria um link de uso único. Quem o abrir entra com a função escolhida — envie-o apenas a uma pessoa.",
+      "link_created": "Link de convite",
+      "link_invite": "Link de convite",
+      "copy_link": "Copiar link",
+      "copied": "Copiado",
+      "search_placeholder": "Procurar por nome ou endereço",
+      "expires_in": "O convite expira em 14 dias.",
+      "expires": "expira",
+      "expired": "Expirado",
+      "pending_title": "Convites enviados",
+      "applications_title": "Pedidos de adesão",
+      "approve": "Aprovar",
+      "decline": "Recusar",
+      "revoke": "Revogar",
+      "request_join": "Pedir adesão",
+      "request_pending": "Pedido pendente"
+    },
+    "invite": {
+      "title": "Convite",
+      "invited_you": "Foi convidado para",
+      "from": "de",
+      "accept": "Aceitar",
+      "decline": "Recusar",
+      "accepted": "Já faz parte",
+      "declined": "Convite recusado",
+      "expired": "Este convite expirou",
+      "already_resolved": "Este convite já foi respondido",
+      "not_found": "Convite não encontrado",
+      "browse": "Ver organizações",
+      "sign_in": "Entrar para aceitar",
+      "sign_in_hint": "Aceitar exige um perfil — entre ou crie um e voltará a esta página."
+    }
   },
   "wot": {
     "status_title": "O Seu Estado de Verificação",
@@ -423,7 +495,6 @@
       "self_verification": "Não pode verificar-se a si próprio.",
       "no_verification_photo": "Este utilizador tem de carregar uma foto de verificação (com consentimento biométrico) antes de poder ser verificado.",
       "no_face_embedding": "A foto de verificação deste utilizador não tem rosto detetado. Peça-lhe que a carregue novamente.",
-      "reconfirmation_pending": "A foto deste utilizador foi alterada recentemente e aguarda reconfirmação (são precisas 3).",
       "face_duplicate": "Verificação bloqueada: este rosto corresponde a um perfil já verificado.",
       "already_verified": "Já verificou este utilizador.",
       "invalid_method": "Método de verificação inválido.",
@@ -435,6 +506,7 @@
       "invalid_signature": "Assinatura PGP inválida. Certifique-se de que assinou com a sua chave PGP registada.",
       "signature_error": "Não foi possível verificar a sua assinatura PGP. Tente novamente.",
       "internal_error": "Ocorreu um erro do nosso lado. Tente mais tarde."
-    }
+    },
+    "photo_reconfirmation_title": "Foto alterada"
   }
 }

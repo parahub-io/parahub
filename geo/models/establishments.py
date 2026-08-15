@@ -82,6 +82,11 @@ class Establishment(ULIDModel):
         MEMBERS_ONLY = 'MEMBERS_ONLY', 'Members only'
         PRIVATE = 'PRIVATE', 'Private'
 
+    class MembershipPolicy(models.TextChoices):
+        OPEN = 'OPEN', 'Open — anyone may join'
+        REQUEST = 'REQUEST', 'By request — an admin approves each applicant'
+        INVITE = 'INVITE', 'Invite only — membership is granted by the organization'
+
     # Ownership & linking
     owner = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True,
                               related_name="establishments",
@@ -109,6 +114,13 @@ class Establishment(ULIDModel):
     member_visibility = models.CharField(max_length=20, choices=MemberVisibility.choices,
                                          default=MemberVisibility.PUBLIC,
                                          help_text="Who can see members list")
+    # INVITE is the default because most establishments are imported (OSM, public
+    # bodies) or a private business: a stranger must not be able to write himself
+    # into their member list. OPEN is opt-in, for organizations that recruit
+    # publicly (the association).
+    membership_policy = models.CharField(max_length=10, choices=MembershipPolicy.choices,
+                                         default=MembershipPolicy.INVITE,
+                                         help_text="OPEN: anyone may join. REQUEST: applications are approved by an admin. INVITE: membership is granted by the organization")
     requires_terms_acceptance = models.BooleanField(default=False,
                                                      help_text="Members must accept terms before joining")
     terms_url = models.CharField(max_length=255, blank=True, help_text="URL to terms/estatutos page")
@@ -262,6 +274,93 @@ class EstablishmentMembership(models.Model):
 
     def __str__(self):
         return f"{self.profile.hna} → {self.establishment.name} ({self.role})"
+
+class EstablishmentInvite(ULIDModel):
+    """A membership awaiting the other side's consent.
+
+    One row shape for both directions, because they are the same fact seen from
+    two ends — a proposed membership that only one party has agreed to yet:
+
+      - ``INVITE``  — the organization proposes, the profile accepts;
+      - ``REQUEST`` — the profile applies (``membership_policy=REQUEST``), an
+        admin approves.
+
+    Pending rows deliberately live outside :class:`EstablishmentMembership`: a
+    membership row is authority (every capability check reads it), so a proposal
+    must not be one row-state away from being honoured. Rows are never deleted —
+    resolved ones are the record of who granted what to whom and when, which is
+    the only trace delegation leaves.
+    """
+
+    class Direction(models.TextChoices):
+        INVITE = 'INVITE', 'Organization invited a profile'
+        REQUEST = 'REQUEST', 'Profile asked to join'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        ACCEPTED = 'ACCEPTED', 'Accepted'
+        DECLINED = 'DECLINED', 'Declined'
+        WITHDRAWN = 'WITHDRAWN', 'Withdrawn by the sender'
+        # Someone can hold an invitation and an application at once (both
+        # directions are allowed to be pending). The moment the membership
+        # exists, the other row is neither accepted nor refused — it is simply
+        # overtaken, and saying so keeps the record honest.
+        SUPERSEDED = 'SUPERSEDED', 'Superseded — the membership already exists'
+
+    establishment = models.ForeignKey(Establishment, on_delete=models.CASCADE, related_name='invites')
+    direction = models.CharField(max_length=10, choices=Direction.choices, default=Direction.INVITE)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
+
+    role = models.CharField(max_length=20, choices=EstablishmentMembership.Role.choices,
+                            default=EstablishmentMembership.Role.MEMBER,
+                            help_text="Role granted on acceptance")
+    position_title = models.CharField(max_length=100, blank=True, default='')
+    membership_level = models.CharField(max_length=20, choices=EstablishmentMembership.MembershipLevel.choices,
+                                        blank=True, null=True)
+
+    # Null target = a link invite: whoever opens the token accepts it. That is how
+    # someone who has no account yet is brought in (register, then accept).
+    target_profile = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True,
+                                       related_name='establishment_invites')
+    created_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='sent_establishment_invites')
+    token = models.CharField(max_length=64, blank=True, default='', db_index=True,
+                             help_text="One-time secret for link invites")
+    message = models.TextField(blank=True, default='')
+
+    expires_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='resolved_establishment_invites')
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['establishment', 'status']),
+            models.Index(fields=['target_profile', 'status']),
+        ]
+        constraints = [
+            # One live proposal per person per direction — re-inviting someone
+            # who already has a pending invite updates it instead of stacking.
+            models.UniqueConstraint(
+                fields=['establishment', 'target_profile', 'direction'],
+                condition=models.Q(status='PENDING') & models.Q(target_profile__isnull=False),
+                name='unique_pending_establishment_invite',
+            ),
+            models.UniqueConstraint(
+                fields=['token'], condition=~models.Q(token=''),
+                name='unique_establishment_invite_token',
+            ),
+        ]
+
+    def __str__(self):
+        who = self.target_profile.hna if self.target_profile else 'link'
+        return f"{self.direction} {who} → {self.establishment.name} ({self.role}, {self.status})"
+
+    @property
+    def is_expired(self) -> bool:
+        from django.utils import timezone
+        return bool(self.expires_at and self.expires_at <= timezone.now())
+
 
 class EstablishmentReview(ULIDModel):
     """User review and star rating for an establishment."""

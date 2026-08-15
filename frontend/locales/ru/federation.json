@@ -2,6 +2,7 @@
   "federation": {
     "title": "Федерация",
     "page_title": "Федерация - Parahub",
+    "subtitle": "Реестр узлов, организаций и миграций профилей",
     "node": {
       "title": "Узел",
       "domain": "Домен",

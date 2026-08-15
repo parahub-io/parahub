@@ -32,6 +32,8 @@
       "history_empty_desc": "Los anuncios que veas aparecerán aquí",
       "viewed_on": "Visto el {date}",
       "payment_pending": "Pago pendiente",
+      "payment_failed_retry": "No se pudo enviar la recompensa: el anuncio sigue en tu feed, puedes reclamarlo más tarde",
+      "not_paid": "No pagado",
       "col_reward": "Recompensa",
       "col_title": "Anuncio",
       "sort_high_low": "Mayor primero",
@@ -40,14 +42,27 @@
       "earn": "Ganar",
       "earned": "Ganado",
       "sponsored": "Patrocinado",
-      "view_ad": "Ver anuncio"
+      "view_ad": "Ver anuncio",
+      "queued_title": "{sats} sats en cola para el pago",
+      "queued_desc": "El anunciante paga desde su propia billetera. Si está en línea, los sats llegan en segundos; si no, en su próxima visita. Puedes salir de esta página.",
+      "queued_short": "En cola",
+      "auto_translated": "Traducido automáticamente",
+      "show_original": "Mostrar original",
+      "show_translation": "Mostrar traducción",
+      "own_ad": "Su anuncio",
+      "own_preview_title": "Esta es su campaña",
+      "own_preview_desc": "La ve igual que su audiencia. No es posible reclamar recompensas por sus propios anuncios.",
+      "own_manage_campaigns": "Gestionar campañas"
     },
     "campaigns": {
       "my_campaigns": "Mis Campañas",
       "create_new": "Crear Campaña",
       "create_first": "Crear Primera Campaña",
       "empty": "Aún no hay campañas",
-      "empty_desc": "Crea tu primera campaña publicitaria para llegar a tu público objetivo"
+      "empty_desc": "Crea tu primera campaña publicitaria para llegar a tu público objetivo",
+      "tab_active": "Activas",
+      "tab_archived": "Archivo",
+      "archived_empty": "No hay campañas archivadas"
     },
     "profile": {
       "wallet_title": "Cartera Lightning",
@@ -83,6 +98,9 @@
       "advanced_config": "Configuración Avanzada de Cartera (Opcional)",
       "wallet_provider": "Proveedor de Cartera",
       "select_provider": "Seleccionar proveedor...",
+      "connection_uri": "Cadena de conexión",
+      "connection_uri_help": "Funciona con cualquier monedero compatible con Nostr Wallet Connect. Tus sats se quedan en tu monedero: solo tenemos permiso para enviar la recompensa.",
+      "nwc_uri_required": "Se necesita una cadena de conexión que empiece por nostr+walletconnect://",
       "api_url": "URL de API",
       "invoice_key": "Clave de Invoice",
       "invoice_key_placeholder": "Pega tu clave de invoice de LNbits",
@@ -117,7 +135,12 @@
       "lnbits_fields_required": "La URL de API y la clave de factura son obligatorias para LNbits",
       "alby_token_required": "El token de acceso es obligatorio para Alby",
       "configured": "configurado",
-      "provider_connected": "conectado"
+      "provider_connected": "conectado",
+      "provider_spark": "Billetera Parahub (paga desde tu navegador)",
+      "spark_help": "Las recompensas se pagan directamente desde tu billetera Lightning de Parahub, sin cuentas externas ni claves. Mientras haya una pestaña de Parahub abierta, las recompensas en cola se pagan automáticamente.",
+      "spark_offline_note": "Mientras estás desconectado, las solicitudes se acumulan y se pagan en tu próxima visita. Mantén suficientes sats en la billetera para cubrir los presupuestos de tus campañas.",
+      "fill_from_properties": "Rellenar desde mis propiedades",
+      "add_home_from": "Añadir «Casa» desde {name}"
     },
     "create_campaign": {
       "title": "Crear Campaña Publicitaria",
@@ -201,12 +224,14 @@
       "preview_section": "Vista previa",
       "search_establishments": "Buscar negocios...",
       "search_items": "Buscar tus artículos...",
-      "unlink": "Eliminar vínculo"
+      "unlink": "Eliminar vínculo",
+      "create_failed": "No se pudo crear la campaña",
+      "image_language_hint": "El texto de la imagen del banner no se traduce: los espectadores siempre lo ven tal como se subió."
     },
     "settings": {
       "about_you": "Sobre usted",
       "about_you_desc": "Proporcione sus datos para recibir anuncios relevantes",
-      "locations_desc": "Agregue sus ubicaciones para anuncios geolocalizados"
+      "locations_desc": "Lugares cerca de los cuales puede recibir anuncios geolocalizados: más lugares, más anuncios compatibles con los que ganar. Sus coordenadas nunca se muestran a nadie; la coincidencia se calcula en el servidor."
     },
     "campaign_detail": {
       "views": "Vistas",
@@ -217,7 +242,12 @@
       "resume": "Reanudar",
       "delete": "Eliminar",
       "reward": "Recompensa",
-      "budget": "Presupuesto"
+      "budget": "Presupuesto",
+      "delete_sure": "¿Seguro?",
+      "edit": "Editar",
+      "duplicate": "Duplicar",
+      "archive": "Archivar",
+      "unarchive": "Desarchivar"
     },
     "campaign": {
       "insufficient_balance": "Saldo insuficiente en la billetera para activar la campaña",
@@ -325,6 +355,16 @@
       "teen": "Adolescente (12-18 años)",
       "eighteen_plus": "18+",
       "no_children": "Sin hijos"
+    },
+    "payer": {
+      "paid_toast": "-{sats} sats · recompensa de anuncio por «{name}»"
+    },
+    "edit_campaign": {
+      "title": "Editar campaña",
+      "save": "Guardar cambios",
+      "immutable_hint": "La recompensa y el presupuesto se bloquean tras las primeras visualizaciones",
+      "load_failed": "No se pudo cargar la campaña",
+      "save_failed": "No se pudieron guardar los cambios"
     }
   }
 }

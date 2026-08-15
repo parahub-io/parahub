@@ -108,7 +108,7 @@
                         {{ $t(contract.creator_id === authStore.activeProfile?.id ? 'contracts.with' : 'contracts.from') }}
                       </div>
                       <NuxtLink
-                        :to="localePath(`/u/${contract.creator_id === authStore.activeProfile?.id ? (contract.partner_hna?.split('@')[0] || contract.partner_id) : (contract.creator_hna?.split('@')[0] || contract.creator_id)}`)"
+                        :to="localePath(`/@${contract.creator_id === authStore.activeProfile?.id ? (contract.partner_hna?.split('@')[0] || contract.partner_id) : (contract.creator_hna?.split('@')[0] || contract.creator_id)}`)"
                         class="text-link break-words"
                       >
                         {{ contract.creator_id === authStore.activeProfile?.id ? contract.partner_display_name : contract.creator_display_name }}
@@ -118,7 +118,7 @@
                       <div class="text-xs uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
                         {{ $t('contracts.arbiter') }}
                       </div>
-                      <NuxtLink :to="localePath(`/u/${contract.arbiter_hna?.split('@')[0] || contract.arbiter_id}`)" class="text-link break-words">
+                      <NuxtLink :to="localePath(`/@${contract.arbiter_hna?.split('@')[0] || contract.arbiter_id}`)" class="text-link break-words">
                         {{ contract.arbiter_display_name }}
                       </NuxtLink>
                       <NuxtLink :to="localePath(`/arbiters/${contract.arbiter_id}`)" class="text-link text-xs ml-1">
@@ -507,7 +507,7 @@
             <div v-if="isHashing" class="space-y-2">
               <div class="flex items-center justify-between text-sm">
                 <span class="text-neutral-600 dark:text-neutral-400">{{ $t('contracts.create.computing_hash') }}</span>
-                <span class="font-medium text-primary">{{ hashProgress }}%</span>
+                <span class="font-medium text-secondary dark:text-secondary-400">{{ hashProgress }}%</span>
               </div>
               <div class="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 overflow-hidden">
                 <div
@@ -678,7 +678,7 @@
                   type="button"
                   @click="reviewForm.rating = star"
                   class="text-2xl transition-colors"
-                  :class="star <= reviewForm.rating ? 'text-yellow-400' : 'text-neutral-300 dark:text-neutral-600'"
+                  :class="star <= reviewForm.rating ? 'star-on' : 'star-off'"
                 >
                   ★
                 </button>
@@ -738,7 +738,7 @@
                     <span v-if="ap.fee_amount" class="text-neutral-600 dark:text-neutral-400">
                       {{ $t('contracts.arbiter_profiles.fee') }}: {{ ap.fee_amount }} {{ ap.fee_currency }}
                     </span>
-                    <span v-if="ap.avg_rating" class="text-amber-600 dark:text-amber-400">
+                    <span v-if="ap.avg_rating" class="text-warning-600 dark:text-warning-400">
                       {{ $t('contracts.arbiter_profiles.rating') }}: {{ ap.avg_rating }}/5 ({{ ap.total_cases }} {{ $t('contracts.arbiter_profiles.cases') }})
                     </span>
                   </div>
@@ -844,6 +844,7 @@ import { useAuthStore } from '~/stores/auth'
 import { useToastStore } from '~/stores/toast'
 import { useWebSocket } from '~/composables/useWebSocket'
 import { usePGP } from '~/composables/usePGP'
+import { saveFile, saveText } from '~/utils/download'
 
 const authStore = useAuthStore()
 const toastStore = useToastStore()
@@ -1287,15 +1288,11 @@ async function createContract() {
 
     // If written inline, offer download of the contract file for records
     if (createMode.value === 'write' && contractTermsHtml.value) {
-      const blob = new Blob([contractTermsHtml.value], { type: 'text/html' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${newContract.value.title || 'contract'}.html`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      await saveText(
+        contractTermsHtml.value,
+        `${newContract.value.title || 'contract'}.html`,
+        'text/html'
+      )
     }
 
     toastStore.success($t('contracts.success.created'))
@@ -1777,15 +1774,7 @@ async function exportProof(contractId) {
       responseType: 'blob'
     })
 
-    // Create download link
-    const url = window.URL.createObjectURL(response)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `contract_${contractId}_proof.zip`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
+    await saveFile(response, `contract_${contractId}_proof.zip`)
 
     toastStore.success($t('contracts.toast.proof_exported'))
   } catch (error) {

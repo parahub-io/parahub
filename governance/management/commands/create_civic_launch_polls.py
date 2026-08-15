@@ -18,7 +18,7 @@ Idempotent: re-running matches an existing poll by its base (pt) title + launch 
 and refreshes the i18n maps in place — safe to run again after a translation edit.
 
 Usage:
-    python3 manage.py create_civic_launch_polls [--owner-email deploy@parahub.io]
+    python3 manage.py create_civic_launch_polls [--owner-email norn@parahub.io]
 """
 import json
 from pathlib import Path
@@ -44,7 +44,7 @@ class Command(BaseCommand):
     help = "Create/refresh real civic opinion polls (EU/country/local) with 6-language i18n"
 
     def add_arguments(self, parser):
-        parser.add_argument('--owner-email', default='deploy@parahub.io',
+        parser.add_argument('--owner-email', default='norn@parahub.io',
                             help='Email of the (non-test) account that owns the polls')
 
     def handle(self, *args, **opts):

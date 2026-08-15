@@ -18,6 +18,13 @@ import time
 from django.conf import settings
 from django.core.cache import cache
 
+from parahub.services.ai_pricing import cost_usd as ai_cost_usd, gemini_usage
+# Alias resolution lives with the prices (see ai_pricing) so the admin dropdown
+# can label each tier with what it actually bills; re-exported here because this
+# is where callers have always imported it from.
+from parahub.services.ai_pricing import (  # noqa: F401
+    GEMINI_DEFAULT_MODEL, GEMINI_MODEL_BY_ALIAS, gemini_model_for)
+
 logger = logging.getLogger(__name__)
 
 
@@ -339,8 +346,7 @@ class ClaudeVisionProvider(AIVisionProvider):
             if hasattr(message, 'usage'):
                 input_tokens = getattr(message.usage, 'input_tokens', 0)
                 output_tokens = getattr(message.usage, 'output_tokens', 0)
-                # Haiku 4.5 pricing (verified 2025-11-01): $1/1M input, $5/1M output
-                cost = (input_tokens * 1.0 / 1_000_000) + (output_tokens * 5.0 / 1_000_000)
+                cost = ai_cost_usd(self.model, input_tokens, output_tokens)
                 usage_info = {
                     'input_tokens': input_tokens,
                     'output_tokens': output_tokens,
@@ -423,7 +429,7 @@ class ClaudeVisionProvider(AIVisionProvider):
                 input_tokens = getattr(message.usage, 'input_tokens', 0)
                 output_tokens = getattr(message.usage, 'output_tokens', 0)
                 # Haiku 4.5 pricing
-                cost = (input_tokens * 1.0 / 1_000_000) + (output_tokens * 5.0 / 1_000_000)
+                cost = ai_cost_usd(self.model, input_tokens, output_tokens)
                 usage_info = {
                     'input_tokens': input_tokens,
                     'output_tokens': output_tokens,
@@ -515,14 +521,7 @@ class OpenAIVisionProvider(AIVisionProvider):
                 output_tokens = getattr(response.usage, 'completion_tokens', 0)
 
                 # Pricing based on model (verified 2025-11-01)
-                if self.model == 'gpt-5':
-                    cost = (input_tokens * 1.25 / 1_000_000) + (output_tokens * 10.0 / 1_000_000)
-                elif self.model == 'gpt-5-mini':
-                    cost = (input_tokens * 0.50 / 1_000_000) + (output_tokens * 5.0 / 1_000_000)
-                elif self.model == 'gpt-5-nano':
-                    cost = (input_tokens * 0.15 / 1_000_000) + (output_tokens * 1.50 / 1_000_000)
-                else:
-                    cost = (input_tokens * 1.25 / 1_000_000) + (output_tokens * 10.0 / 1_000_000)
+                cost = ai_cost_usd(self.model, input_tokens, output_tokens)
                 usage_info = {
                     'input_tokens': input_tokens,
                     'output_tokens': output_tokens,
@@ -612,14 +611,7 @@ class OpenAIVisionProvider(AIVisionProvider):
                 output_tokens = getattr(response.usage, 'completion_tokens', 0)
 
                 # Pricing based on model
-                if self.model == 'gpt-5':
-                    cost = (input_tokens * 1.25 / 1_000_000) + (output_tokens * 10.0 / 1_000_000)
-                elif self.model == 'gpt-5-mini':
-                    cost = (input_tokens * 0.50 / 1_000_000) + (output_tokens * 5.0 / 1_000_000)
-                elif self.model == 'gpt-5-nano':
-                    cost = (input_tokens * 0.15 / 1_000_000) + (output_tokens * 1.50 / 1_000_000)
-                else:
-                    cost = (input_tokens * 1.25 / 1_000_000) + (output_tokens * 10.0 / 1_000_000)
+                cost = ai_cost_usd(self.model, input_tokens, output_tokens)
 
                 usage_info = {
                     'input_tokens': input_tokens,
@@ -647,9 +639,10 @@ class OpenAIVisionProvider(AIVisionProvider):
 
 
 class GeminiFlashVisionProvider(AIVisionProvider):
-    """Google Gemini 2.5 Flash Vision API provider"""
+    """Google Gemini vision provider — tier chosen by the caller, see
+    `gemini_model_for()`."""
 
-    def __init__(self, api_key: str, model: str = 'gemini-3.1-flash-lite-preview'):
+    def __init__(self, api_key: str, model: str = GEMINI_DEFAULT_MODEL):
         self.client = genai.Client(api_key=api_key)
         self.model_name = model
 
@@ -709,20 +702,13 @@ class GeminiFlashVisionProvider(AIVisionProvider):
             # Extract usage info
             usage_info = None
             if hasattr(response, 'usage_metadata'):
-                input_tokens = response.usage_metadata.prompt_token_count
-                output_tokens = response.usage_metadata.candidates_token_count
-
-                # Pricing based on model (verified 2025-11-01)
-                if 'lite' in self.model_name.lower():
-                    # Flash-Lite: $0.10/$0.40
-                    cost = (input_tokens * 0.10 / 1_000_000) + (output_tokens * 0.40 / 1_000_000)
-                else:
-                    # Flash: $0.30/$2.50
-                    cost = (input_tokens * 0.30 / 1_000_000) + (output_tokens * 2.50 / 1_000_000)
+                # gemini_usage() counts thinking tokens, which are billed but do
+                # not appear in `candidates_token_count`.
+                usage = gemini_usage(self.model_name, response.usage_metadata)
                 usage_info = {
-                    'input_tokens': input_tokens,
-                    'output_tokens': output_tokens,
-                    'estimated_cost_usd': cost
+                    'input_tokens': usage.input_tokens,
+                    'output_tokens': usage.output_tokens,
+                    'estimated_cost_usd': usage.cost
                 }
 
             # Convert to standard format
@@ -762,14 +748,23 @@ class GeminiFlashVisionProvider(AIVisionProvider):
             from io import BytesIO
             img = PIL.Image.open(BytesIO(image_data))
 
-            response = self.model.generate_content(
-                [prompt, img],
-                generation_config={
-                    'temperature': 0.7,
-                    'max_output_tokens': 4096,  # High limit (one-request needs more)
-                    'response_mime_type': 'application/json'
-                }
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=[prompt, img],
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.7,
+                    max_output_tokens=4096,  # High limit (one-request needs more)
+                    response_mime_type='application/json'
+                )
             )
+
+            # Same block/finish-reason guard as the two-step path: a SAFETY stop
+            # returns no text, and the JSON parse below would mask it.
+            if response.candidates:
+                finish_reason = response.candidates[0].finish_reason
+                if finish_reason and finish_reason != genai_types.FinishReason.STOP:
+                    logger.error(f"Gemini blocked response: finish_reason={finish_reason.name}")
+                    raise ValueError(f"Gemini blocked response: {finish_reason.name}")
 
             response_text = response.text if hasattr(response, 'text') else None
             if not response_text:
@@ -795,13 +790,13 @@ class GeminiFlashVisionProvider(AIVisionProvider):
             # Extract usage info
             usage_info = None
             if hasattr(response, 'usage_metadata'):
-                input_tokens = response.usage_metadata.prompt_token_count
-                output_tokens = response.usage_metadata.candidates_token_count
-                cost = (input_tokens * 0.075 / 1_000_000) + (output_tokens * 0.30 / 1_000_000)
+                # gemini_usage() counts thinking tokens, which are billed but do
+                # not appear in `candidates_token_count`.
+                usage = gemini_usage(self.model_name, response.usage_metadata)
                 usage_info = {
-                    'input_tokens': input_tokens,
-                    'output_tokens': output_tokens,
-                    'estimated_cost_usd': cost
+                    'input_tokens': usage.input_tokens,
+                    'output_tokens': usage.output_tokens,
+                    'estimated_cost_usd': usage.cost
                 }
 
             return {
@@ -828,6 +823,8 @@ class HaikuCategorizationProvider(AICategorizationProvider):
 
     def __init__(self, api_key: str):
         self.client = anthropic.Anthropic(api_key=api_key)
+        # One source of truth: the id sent to the API is the id we price by.
+        self.model = "claude-haiku-4-5"
 
     def categorize_from_text(self, title: str, description: str, categories: List[Dict[str, str]], language: str = 'en') -> Dict[str, Any]:
         # Build compact category list (numbered)
@@ -854,7 +851,7 @@ Rules:
 
         try:
             message = self.client.messages.create(
-                model="claude-haiku-4-5",  # Updated to Haiku 4.5 (Oct 2025)
+                model=self.model,
                 max_tokens=1024,  # Higher limit for categorization
                 messages=[{
                     "role": "user",
@@ -877,8 +874,7 @@ Rules:
             if hasattr(message, 'usage'):
                 input_tokens = getattr(message.usage, 'input_tokens', 0)
                 output_tokens = getattr(message.usage, 'output_tokens', 0)
-                # Haiku 4.5 pricing (verified 2025-11-01): $1/1M input, $5/1M output
-                cost = (input_tokens * 1.0 / 1_000_000) + (output_tokens * 5.0 / 1_000_000)
+                cost = ai_cost_usd(self.model, input_tokens, output_tokens)
                 usage_info = {
                     'input_tokens': input_tokens,
                     'output_tokens': output_tokens,
@@ -954,8 +950,7 @@ Rules:
             if hasattr(response, 'usage'):
                 input_tokens = getattr(response.usage, 'prompt_tokens', 0)
                 output_tokens = getattr(response.usage, 'completion_tokens', 0)
-                # GPT-5 nano pricing (verified 2025-11-01): $0.15/1M input, $1.50/1M output
-                cost = (input_tokens * 0.15 / 1_000_000) + (output_tokens * 1.50 / 1_000_000)
+                cost = ai_cost_usd('gpt-5-nano', input_tokens, output_tokens)
                 usage_info = {
                     'input_tokens': input_tokens,
                     'output_tokens': output_tokens,
@@ -1030,8 +1025,7 @@ Rules:
             if hasattr(response, 'usage'):
                 input_tokens = getattr(response.usage, 'prompt_tokens', 0)
                 output_tokens = getattr(response.usage, 'completion_tokens', 0)
-                # GPT-5 mini pricing (verified 2025-11-01): $0.50/1M input, $5/1M output
-                cost = (input_tokens * 0.50 / 1_000_000) + (output_tokens * 5.0 / 1_000_000)
+                cost = ai_cost_usd('gpt-5-mini', input_tokens, output_tokens)
                 usage_info = {
                     'input_tokens': input_tokens,
                     'output_tokens': output_tokens,
@@ -1058,7 +1052,7 @@ Rules:
 class GeminiFlashCategorizationProvider(AICategorizationProvider):
     """Google Gemini Flash categorization (supports Flash and Flash-Lite)"""
 
-    def __init__(self, api_key: str, model: str = 'gemini-3.1-flash-lite-preview'):
+    def __init__(self, api_key: str, model: str = GEMINI_DEFAULT_MODEL):
         self.client = genai.Client(api_key=api_key)
         self.model_name = model
 
@@ -1117,20 +1111,13 @@ Rules:
             # Extract usage info
             usage_info = None
             if hasattr(response, 'usage_metadata'):
-                input_tokens = response.usage_metadata.prompt_token_count
-                output_tokens = response.usage_metadata.candidates_token_count
-
-                # Pricing based on model (verified 2025-11-01)
-                if 'lite' in self.model_name.lower():
-                    # Flash-Lite: $0.10/$0.40
-                    cost = (input_tokens * 0.10 / 1_000_000) + (output_tokens * 0.40 / 1_000_000)
-                else:
-                    # Flash: $0.30/$2.50
-                    cost = (input_tokens * 0.30 / 1_000_000) + (output_tokens * 2.50 / 1_000_000)
+                # gemini_usage() counts thinking tokens, which are billed but do
+                # not appear in `candidates_token_count`.
+                usage = gemini_usage(self.model_name, response.usage_metadata)
                 usage_info = {
-                    'input_tokens': input_tokens,
-                    'output_tokens': output_tokens,
-                    'estimated_cost_usd': cost
+                    'input_tokens': usage.input_tokens,
+                    'output_tokens': usage.output_tokens,
+                    'estimated_cost_usd': usage.cost
                 }
 
             # Convert category_index to category_id using mapping
@@ -1175,11 +1162,9 @@ class AIVisionService:
                 elif provider == 'gpt-5-nano' and ai_settings.openai_api_key:
                     return OpenAIVisionProvider(ai_settings.openai_api_key, model="gpt-5-nano")
 
-                elif provider == 'gemini-flash' and ai_settings.google_api_key:
-                    return GeminiFlashVisionProvider(ai_settings.google_api_key, model='gemini-3.1-flash-lite-preview')
-
-                elif provider == 'gemini-flash-lite' and ai_settings.google_api_key:
-                    return GeminiFlashVisionProvider(ai_settings.google_api_key, model='gemini-3.1-flash-lite-preview')
+                elif provider in GEMINI_MODEL_BY_ALIAS and ai_settings.google_api_key:
+                    return GeminiFlashVisionProvider(ai_settings.google_api_key,
+                                                     model=gemini_model_for(provider))
 
         except Exception as e:
             logger.warning(f"Could not load AI vision provider: {e}")
@@ -1211,15 +1196,11 @@ class AIVisionService:
                     if ai_settings.openai_api_key:
                         return GPT5MiniCategorizationProvider(ai_settings.openai_api_key)
 
-                elif cat_provider == 'gemini-flash':
-                    # Use Gemini Flash
+                elif cat_provider in GEMINI_MODEL_BY_ALIAS:
                     if ai_settings.google_api_key:
-                        return GeminiFlashCategorizationProvider(ai_settings.google_api_key, model='gemini-3.1-flash-lite-preview')
-
-                elif cat_provider == 'gemini-flash-lite':
-                    # Use Gemini Flash-Lite
-                    if ai_settings.google_api_key:
-                        return GeminiFlashCategorizationProvider(ai_settings.google_api_key, model='gemini-3.1-flash-lite-preview')
+                        return GeminiFlashCategorizationProvider(
+                            ai_settings.google_api_key,
+                            model=gemini_model_for(cat_provider))
 
                 elif cat_provider == 'same':
                     # Use same as vision provider (or cheaper variant)
@@ -1229,12 +1210,11 @@ class AIVisionService:
                     elif ai_settings.provider in ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'] and ai_settings.openai_api_key:
                         return GPT5NanoCategorizationProvider(ai_settings.openai_api_key)
 
-                    elif ai_settings.provider in ['gemini-flash', 'gemini-flash-lite'] and ai_settings.google_api_key:
-                        # Use same Gemini model for categorization
-                        if ai_settings.provider == 'gemini-flash':
-                            return GeminiFlashCategorizationProvider(ai_settings.google_api_key, model='gemini-3.1-flash-lite-preview')
-                        else:
-                            return GeminiFlashCategorizationProvider(ai_settings.google_api_key, model='gemini-3.1-flash-lite-preview')
+                    elif ai_settings.provider in GEMINI_MODEL_BY_ALIAS and ai_settings.google_api_key:
+                        # "same" means the vision tier, resolved once.
+                        return GeminiFlashCategorizationProvider(
+                            ai_settings.google_api_key,
+                            model=gemini_model_for(ai_settings.provider))
 
         except Exception as e:
             logger.warning(f"Could not load categorization provider: {e}")

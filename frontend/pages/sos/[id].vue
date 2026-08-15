@@ -225,7 +225,7 @@
                       </div>
                       <div class="text-xs text-neutral-500">
                         {{ $t(`parasos.member.${member.presence.toLowerCase()}`) }}
-                        <span v-if="member.role === 'ADMIN'" class="ml-1 text-primary-600 dark:text-primary-400">{{ $t('parasos.member.admin') }}</span>
+                        <span v-if="member.role === 'ADMIN'" class="ml-1 text-secondary dark:text-secondary-400">{{ $t('parasos.member.admin') }}</span>
                       </div>
                     </div>
                   </div>
@@ -331,7 +331,7 @@
 
         <!-- SOS Modal -->
         <Teleport to="body">
-          <div v-if="showSOSModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showSOSModal = false" @keydown="handleModalKeydown">
+          <div v-if="showSOSModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" @click.self="showSOSModal = false" @keydown="handleModalKeydown">
             <div ref="sosModalRef" role="dialog" aria-modal="true" aria-labelledby="sos-modal-title" class="bg-white dark:bg-neutral-900 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
               <h2 id="sos-modal-title" class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">
                 {{ $t('parasos.sos.select_level') }}
@@ -398,7 +398,7 @@
         <Teleport to="body">
           <div
             v-if="showEditModal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
             @click.self="showEditModal = false"
             @keydown.esc="showEditModal = false"
           >

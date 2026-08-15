@@ -19,3 +19,17 @@ class LocalizedHttpError(HttpError):
     def __init__(self, status_code: int, code: str, message: str) -> None:
         self.code = code
         super().__init__(status_code, message)
+
+
+class RateLimitedError(LocalizedHttpError):
+    """429 carrying the seconds left in the current window, so the client can
+    say "try again in 12 minutes" instead of a dead-end "try again later".
+
+    `detail` deliberately stays the bare slug `rate_limited`: call sites that
+    predate LocalizedHttpError map on `data.detail` (login.vue), and every 429
+    in the API goes through here.
+    """
+
+    def __init__(self, retry_after: int) -> None:
+        self.retry_after = retry_after
+        super().__init__(429, "rate_limited", "rate_limited")

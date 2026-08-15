@@ -48,6 +48,29 @@ class TransitDataSource(ULIDModel):
                   "feeds whose trips reference shape_id but omit shapes.txt (e.g. CP).",
     )
 
+    # Licence of the upstream data. We mirror these feeds verbatim on public relay
+    # endpoints, so the terms they arrive under have to travel with them.
+    license = models.CharField(
+        max_length=60, blank=True, default='',
+        help_text="Upstream licence identifier, SPDX where one exists (ODbL-1.0, CC-BY-4.0). "
+                  "Empty = publisher states none — treat redistribution as unsettled.",
+    )
+    license_url = models.TextField(
+        blank=True, default='',
+        help_text="Page stating the licence/terms, for the public credit line",
+    )
+    attribution = models.CharField(
+        max_length=255, blank=True, default='',
+        help_text="Credit line the licence requires, shown wherever this feed's data appears",
+    )
+    relay_allowed = models.BooleanField(
+        default=False,
+        help_text="Serve this feed on the public relay endpoints. Off unless the upstream "
+                  "terms permit redistribution — a licence that merely exists is not "
+                  "permission, and an unstated one is certainly not. Managed sources "
+                  "(the operator publishes their own data through us) are on by default.",
+    )
+
     def __str__(self):
         return self.name
 
@@ -306,6 +329,49 @@ class FeedHealthSample(models.Model):
 
     def __str__(self):
         return f"{self.data_source_id} {self.status} @ {self.time}"
+
+class WaitingSnapshot(models.Model):
+    """Minute-by-minute occupancy of waiting-passenger markers.
+
+    The live counts are ephemeral by design (Redis, lease-bounded) — what a
+    municipality or a small operator can actually act on is the accumulated
+    shape: "the outbound pole of line 13 at Praça holds 4-6 people between 18:00
+    and 19:00". That is not backfillable, so it is recorded from the day the
+    feature exists even while adoption is tiny.
+
+    One row per occupied (data source, route, direction, stop) per tick, written
+    by `snapshot_waiting`; nothing is written for an empty minute. `waiting` is
+    everyone still inside their lease, `active` the subset whose page was beating
+    at sample time — the honest split, since a pocketed phone stops beating while
+    its owner keeps standing there. A multi-line marker counts once per line it
+    is waiting for, which is what an operator asking "how many for MY route" means.
+
+    Plain indexed table like FeedHealthSample, not a hypertable: row volume is
+    bounded by simultaneously occupied triples. Convert if adoption ever makes
+    that a city-sized number. BigAutoField PK (time-series, not an API object).
+    """
+    time = models.DateTimeField(db_index=True)
+    data_source = models.ForeignKey(
+        TransitDataSource, on_delete=models.CASCADE,
+        related_name='waiting_snapshots', db_index=False,
+    )
+    route_source_id = models.CharField(max_length=100)
+    direction_id = models.SmallIntegerField(default=0)
+    stop_source_id = models.CharField(max_length=100)
+    waiting = models.PositiveSmallIntegerField(help_text="Markers within their lease")
+    active = models.PositiveSmallIntegerField(help_text="Subset whose page was beating")
+
+    class Meta:
+        db_table = 'geo_waitingsnapshot'
+        indexes = [
+            models.Index(fields=['data_source', 'stop_source_id', 'time'],
+                         name='waitsnap_ds_stop_time_idx'),
+            models.Index(fields=['data_source', 'route_source_id', 'time'],
+                         name='waitsnap_ds_route_time_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.route_source_id}/{self.direction_id} @ {self.stop_source_id}: {self.waiting}"
 
 class DriverShift(ULIDModel):
     """Driver-sourced GPS broadcasting shift.

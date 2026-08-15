@@ -281,6 +281,40 @@ body[data-gamepad-active] .agent-slot:focus-visible {
   @apply text-secondary dark:text-secondary-400 hover:underline;
 }
 
+/* Form controls — the design-system input: `border` + `ring-2 ring-primary` on
+   focus (never `focus:border-2`, which shifts layout). Global because a scoped
+   copy per page is how two of the three dispatch pages ended up rendering
+   unstyled browser-default inputs. */
+.form-label {
+  @apply block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1;
+}
+
+.form-input {
+  @apply px-3 py-2 text-sm rounded-lg border;
+  @apply border-neutral-300 dark:border-neutral-600;
+  @apply bg-white dark:bg-neutral-800;
+  @apply text-neutral-900 dark:text-neutral-100;
+  @apply placeholder:text-neutral-400;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+}
+
+/* Rating stars — the canonical gold. Every 1-5 star rating goes through these
+   two classes; call-sites never name a shade, which is what let seven files
+   drift apart (amber-400/500/600, yellow-400/500, warning, primary).
+   Values reuse the `warning` ramp rather than minting a duplicate hex: gold IS
+   amber, and a second source of truth for the same colour is the drift itself.
+   Measured on real surfaces: 4.57:1 on a light card, 8.92:1 on a dark one —
+   above the 4.5:1 text bar, not merely the 3:1 graphical one, because half the
+   call-sites render the star as a literal ★ glyph rather than an icon.
+   `fill-current` lets one class serve both the glyph and a lucide <Star>.
+   The reputation score is a DIFFERENT metric and keeps its indigo star. */
+.star-on {
+  @apply text-warning-600 dark:text-warning-400 fill-current;
+}
+.star-off {
+  @apply text-neutral-300 dark:text-neutral-600 fill-current;
+}
+
 /* Blog post: hide leading h1 in content (already in card header) */
 .blog-content > h1:first-child {
   display: none;
@@ -317,14 +351,58 @@ body[data-gamepad-active] .agent-slot:focus-visible {
    On Android both --safe-area-inset-* vars are injected by Capacitor 8's built-in
    SystemBars plugin (insetsHandling: 'css'); capacitor.client.ts only re-triggers
    its onDOMReady as a server-mode backup. On iOS, env() works natively. On web,
-   both fall back to 0px. Any fixed bottom-edge overlay must pad its content by
-   --safe-area-inset-bottom — the edge-to-edge WebView puts the Android gesture
-   bar on top of the viewport's bottom strip. */
-.safe-area-top {
-  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+   both fall back to 0px. The edge-to-edge WebView puts the Android gesture bar
+   on top of the viewport's bottom strip, so nothing may sit at a bare `bottom:
+   0` — consume the dock insets below instead, which fold the safe areas in. */
+
+/* ── Navigation dock insets ────────────────────────────────────────────────
+   AppNavigation docks to the thumb on phones (bottom) and to the top on
+   md+ (tablet/desktop pointer devices) — a form-factor rule, not a platform
+   one, so the Capacitor shell inherits it from the viewport width.
+
+   --nav-inset-top / --nav-inset-bottom are the ONLY numbers a surface needs:
+   each is the chrome band on that edge, safe-area included, whichever edge
+   the bar happens to occupy. Any viewport-fixed bottom-edge element anchors
+   at `bottom: var(--nav-inset-bottom)` instead of 0 — that is what keeps
+   map sheets, the update card and the drag readout clear of the bar without
+   any of them knowing where the bar is. Top-edge overlays mirror it and
+   anchor at `calc(<gap> + var(--nav-inset-top))` (toasts), so they clear the
+   status bar / cutout on phones and the dock at md+. Never hardcode the bar
+   height. */
+:root {
+  --nav-bar-height: 3.5rem; /* h-14 */
+  --nav-inset-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --nav-inset-bottom: calc(var(--nav-bar-height) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 }
-.safe-area-spacer-top {
-  margin-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+@media (min-width: 640px) {
+  :root { --nav-bar-height: 4rem; } /* sm:h-16 */
+}
+@media (min-width: 768px) {
+  :root {
+    --nav-bar-height: 5rem; /* md:h-20 */
+    --nav-inset-top: calc(var(--nav-bar-height) + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+    --nav-inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Virtual keyboard up: the bottom bar would eat a third of what is left, so
+   it slides out and gives the band back to the content (see useVirtualKeyboard).
+   No-op at md+, where the bar is on the top edge and never in the way — the
+   value it collapses to is already what md+ carries. */
+:root.kb-open {
+  --nav-inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
+
+/* The bar pads for whichever edge it is docked to, so its strip always bleeds
+   to the physical edge while its buttons clear the notch / gesture bar. */
+.nav-bar-safe {
+  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .nav-bar-safe {
+    padding-bottom: 0;
+    padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  }
 }
 
 /* Stop-hop arrival pulse — shared by the transit route + stop pages (driven by

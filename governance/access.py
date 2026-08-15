@@ -7,20 +7,15 @@ members alike — sees a clean feed. See PK/governance-polls-system.md.
 """
 
 
+from identity.visibility import exclude_test_authors, viewer_sees_test_content
+
+
 def viewer_is_privileged(request) -> bool:
     """True if the resolved viewer is a staff or test account.
 
-    Works with OptionalProfileAuth endpoints (``request.auth_profile``) and
-    falls back to Django session auth (``request.user``).
+    Thin alias over the platform-wide check in identity.visibility.
     """
-    profile = getattr(request, 'auth_profile', None)
-    if profile is not None:
-        acc = getattr(profile, 'account', None)
-        return bool(acc and (acc.is_staff or acc.is_test))
-    user = getattr(request, 'user', None)
-    if user is not None and getattr(user, 'is_authenticated', False):
-        return bool(getattr(user, 'is_staff', False) or getattr(user, 'is_test', False))
-    return False
+    return viewer_sees_test_content(request)
 
 
 def exclude_demo_polls(qs):
@@ -31,8 +26,7 @@ def exclude_demo_polls(qs):
     which would drop every row.
     """
     return (
-        qs.exclude(created_by__account__is_test=True)
-          .exclude(created_by__account__is_bot=True)
+        exclude_test_authors(qs, field='created_by')
           .exclude(attributes__contains={'demo': True})
           .exclude(attributes__has_key='__demo_seed')
     )

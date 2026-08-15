@@ -1,0 +1,108 @@
+{
+  "version": "v0.9.36",
+  "date": "2026-07-31",
+  "locales": {
+    "en": {
+      "title": "Updates that explain themselves",
+      "summary": "From this release on, every update arrives with its own notes — starting with this one: see who is waiting at a stop, onboard devices with a guided wizard, and keep your network pass by hosting a node.",
+      "highlights": [
+        { "icon": "gift", "title": "Release notes at update time", "body": "The update prompt now shows what the new version brings, in your language, and the full history lives on the new changelog page." },
+        { "icon": "users", "title": "See who is waiting at the stop", "body": "Passengers waiting for a line show up on the map, per line and direction — and a stranded stop can turn into a shared ride with one tap." },
+        { "icon": "bus", "title": "A sharper driver mode", "body": "Drivers get a route ladder and a built-in ticket scanner; a ticket scanned offline can no longer be scanned twice on the same device." },
+        { "icon": "home", "title": "Guided device onboarding", "body": "Adding a tracker, sensor or station now walks you through picking, setting up and live-verifying the device — one wizard for everything." },
+        { "icon": "wifi", "title": "Thanks for hosting the network", "body": "Keep a community node running and your full-speed pass stays active — the host chip on your devices page shows it." }
+      ],
+      "notes": [
+        "Transit routing keeps serving while its data is refreshed, with automatic rollback.",
+        "Live vehicles leave smooth comet trails on the map.",
+        "Shared map links now center on the place itself, not the camera position.",
+        "Security patches across the platform's dependencies."
+      ]
+    },
+    "ru": {
+      "title": "Обновления, которые рассказывают о себе",
+      "summary": "С этого релиза каждое обновление приходит со своими заметками — начиная с этого: на карте видно, кто ждёт на остановке, устройства подключаются пошаговым мастером, а хостинг узла сети сохраняет ваш абонемент.",
+      "highlights": [
+        { "icon": "gift", "title": "Заметки о релизе в момент обновления", "body": "Окно обновления теперь показывает, что приносит новая версия, на вашем языке, а вся история живёт на новой странице изменений." },
+        { "icon": "users", "title": "Видно, кто ждёт на остановке", "body": "Пассажиры, ожидающие маршрут, отображаются на карте — по линии и направлению, а остановка без транспорта одним нажатием превращается в совместную поездку." },
+        { "icon": "bus", "title": "Режим водителя стал точнее", "body": "У водителей — лестница маршрутов и встроенный сканер билетов; билет, отсканированный офлайн, больше нельзя отсканировать дважды на том же устройстве." },
+        { "icon": "home", "title": "Пошаговое подключение устройств", "body": "Добавление трекера, датчика или станции теперь ведёт по шагам: выбор, настройка, живая проверка — один мастер для всего." },
+        { "icon": "wifi", "title": "Спасибо, что держите сеть", "body": "Пока ваш узел сообщества в строю, скоростной абонемент остаётся активным — это видно по чипу хоста на странице устройств." }
+      ],
+      "notes": [
+        "Транспортная маршрутизация продолжает работать во время обновления данных, с автоматическим откатом.",
+        "Живой транспорт оставляет на карте плавные кометные шлейфы.",
+        "Ссылки на объекты карты теперь центрируются на самом объекте, а не на положении камеры.",
+        "Обновления безопасности в зависимостях платформы."
+      ]
+    },
+    "pt": {
+      "title": "Atualizações que se explicam a si próprias",
+      "summary": "A partir desta versão, cada atualização chega com as suas próprias notas — a começar por esta: veja quem espera na paragem, ligue dispositivos com um assistente guiado, e o seu passe mantém-se ativo enquanto alojar um nó da rede.",
+      "highlights": [
+        { "icon": "gift", "title": "Notas de lançamento no momento da atualização", "body": "O aviso de atualização mostra agora o que a nova versão traz, na sua língua, e o histórico completo vive na nova página de novidades." },
+        { "icon": "users", "title": "Veja quem espera na paragem", "body": "Os passageiros à espera de uma linha aparecem no mapa, por linha e sentido — e uma paragem sem transporte transforma-se numa boleia partilhada com um toque." },
+        { "icon": "bus", "title": "Modo condutor mais afinado", "body": "Os condutores ganham uma escada de linhas e um leitor de bilhetes integrado; um bilhete lido offline já não pode ser lido duas vezes no mesmo dispositivo." },
+        { "icon": "home", "title": "Ligação de dispositivos passo a passo", "body": "Adicionar um localizador, sensor ou estação guia-o agora pela escolha, configuração e verificação ao vivo — um único assistente para tudo." },
+        { "icon": "wifi", "title": "Obrigado por alojar a rede", "body": "Mantenha um nó comunitário a funcionar e o seu passe de velocidade continua ativo — o selo de anfitrião na página de dispositivos mostra-o." }
+      ],
+      "notes": [
+        "O planeamento de transportes continua a funcionar durante a atualização dos dados, com reversão automática.",
+        "Os veículos ao vivo deixam rastos suaves de cometa no mapa.",
+        "As ligações partilhadas do mapa centram-se agora no próprio local, não na posição da câmara.",
+        "Correções de segurança nas dependências da plataforma."
+      ]
+    },
+    "es": {
+      "title": "Actualizaciones que se explican solas",
+      "summary": "Desde esta versión, cada actualización llega con sus propias notas — empezando por esta: mira quién espera en la parada, conecta dispositivos con un asistente guiado, y tu pase sigue activo mientras alojes un nodo de la red.",
+      "highlights": [
+        { "icon": "gift", "title": "Notas de versión al actualizar", "body": "El aviso de actualización ahora muestra qué trae la nueva versión, en tu idioma, y el historial completo vive en la nueva página de novedades." },
+        { "icon": "users", "title": "Mira quién espera en la parada", "body": "Los pasajeros que esperan una línea aparecen en el mapa, por línea y sentido — y una parada sin transporte se convierte en un viaje compartido con un toque." },
+        { "icon": "bus", "title": "Modo conductor más afinado", "body": "Los conductores ganan una escalera de líneas y un lector de billetes integrado; un billete escaneado sin conexión ya no puede escanearse dos veces en el mismo dispositivo." },
+        { "icon": "home", "title": "Conexión de dispositivos paso a paso", "body": "Añadir un localizador, sensor o estación ahora te guía por la elección, la configuración y la verificación en vivo — un solo asistente para todo." },
+        { "icon": "wifi", "title": "Gracias por alojar la red", "body": "Mantén un nodo comunitario en marcha y tu pase de velocidad sigue activo — el distintivo de anfitrión en tu página de dispositivos lo muestra." }
+      ],
+      "notes": [
+        "La planificación de transporte sigue funcionando mientras se actualizan los datos, con reversión automática.",
+        "Los vehículos en vivo dejan estelas suaves de cometa en el mapa.",
+        "Los enlaces compartidos del mapa se centran ahora en el propio lugar, no en la posición de la cámara.",
+        "Parches de seguridad en las dependencias de la plataforma."
+      ]
+    },
+    "fr": {
+      "title": "Des mises à jour qui s'expliquent d'elles-mêmes",
+      "summary": "À partir de cette version, chaque mise à jour arrive avec ses propres notes — à commencer par celle-ci : voyez qui attend à l'arrêt, connectez vos appareils avec un assistant guidé, et votre forfait reste actif tant que vous hébergez un nœud du réseau.",
+      "highlights": [
+        { "icon": "gift", "title": "Les notes de version au moment de la mise à jour", "body": "L'invite de mise à jour montre désormais ce qu'apporte la nouvelle version, dans votre langue, et l'historique complet vit sur la nouvelle page des nouveautés." },
+        { "icon": "users", "title": "Voyez qui attend à l'arrêt", "body": "Les passagers qui attendent une ligne apparaissent sur la carte, par ligne et par sens — et un arrêt délaissé se transforme en trajet partagé d'un appui." },
+        { "icon": "bus", "title": "Un mode conducteur plus affûté", "body": "Les conducteurs gagnent une échelle de lignes et un lecteur de billets intégré ; un billet scanné hors ligne ne peut plus être scanné deux fois sur le même appareil." },
+        { "icon": "home", "title": "Des appareils connectés pas à pas", "body": "L'ajout d'un traceur, d'un capteur ou d'une station vous guide désormais du choix à la vérification en direct — un seul assistant pour tout." },
+        { "icon": "wifi", "title": "Merci d'héberger le réseau", "body": "Gardez un nœud communautaire en marche et votre forfait de vitesse reste actif — la pastille d'hôte sur votre page d'appareils en témoigne." }
+      ],
+      "notes": [
+        "Le calcul d'itinéraires continue de fonctionner pendant la mise à jour des données, avec retour arrière automatique.",
+        "Les véhicules en direct laissent des traînées de comète sur la carte.",
+        "Les liens partagés de la carte se centrent désormais sur le lieu lui-même, pas sur la position de la caméra.",
+        "Correctifs de sécurité dans les dépendances de la plateforme."
+      ]
+    },
+    "de": {
+      "title": "Updates, die sich selbst erklären",
+      "summary": "Ab dieser Version kommt jedes Update mit eigenen Notizen — angefangen mit diesem: Sehen Sie, wer an der Haltestelle wartet, verbinden Sie Geräte mit einem geführten Assistenten, und Ihr Pass bleibt aktiv, solange Sie einen Netzknoten beherbergen.",
+      "highlights": [
+        { "icon": "gift", "title": "Versionshinweise direkt beim Update", "body": "Der Update-Hinweis zeigt jetzt, was die neue Version bringt — in Ihrer Sprache; die vollständige Geschichte lebt auf der neuen Neuigkeiten-Seite." },
+        { "icon": "users", "title": "Sehen, wer an der Haltestelle wartet", "body": "Wartende Fahrgäste erscheinen auf der Karte, je Linie und Richtung — und eine gestrandete Haltestelle wird mit einem Tipp zur Mitfahrgelegenheit." },
+        { "icon": "bus", "title": "Ein geschärfter Fahrermodus", "body": "Fahrer erhalten eine Linienleiter und einen eingebauten Ticketscanner; ein offline gescanntes Ticket lässt sich auf demselben Gerät nicht zweimal scannen." },
+        { "icon": "home", "title": "Geräte Schritt für Schritt verbinden", "body": "Das Hinzufügen eines Trackers, Sensors oder einer Station führt Sie jetzt durch Auswahl, Einrichtung und Live-Prüfung — ein Assistent für alles." },
+        { "icon": "wifi", "title": "Danke fürs Beherbergen des Netzes", "body": "Halten Sie einen Gemeinschaftsknoten am Laufen, bleibt Ihr Geschwindigkeitspass aktiv — der Gastgeber-Chip auf Ihrer Geräteseite zeigt es." }
+      ],
+      "notes": [
+        "Die Verkehrsplanung läuft während der Datenaktualisierung weiter, mit automatischem Rollback.",
+        "Live-Fahrzeuge ziehen sanfte Kometenschweife auf der Karte.",
+        "Geteilte Kartenlinks zentrieren jetzt auf den Ort selbst, nicht auf die Kameraposition.",
+        "Sicherheitskorrekturen in den Abhängigkeiten der Plattform."
+      ]
+    }
+  }
+}

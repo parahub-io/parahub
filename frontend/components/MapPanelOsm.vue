@@ -77,7 +77,7 @@
                 <ShieldCheck v-if="selectedEstablishment.is_verified" :size="18" class="text-secondary-600" />
               </h3>
               <div v-if="selectedEstablishment.rating_count > 0" class="flex items-center gap-1 mt-0.5">
-                <span class="text-sm font-semibold text-neutral-800">★ {{ Number(selectedEstablishment.rating_avg).toFixed(1) }}</span>
+                <span class="text-sm font-semibold text-neutral-800"><span class="star-on">★</span> {{ Number(selectedEstablishment.rating_avg).toFixed(1) }}</span>
                 <span class="text-xs text-neutral-600">({{ selectedEstablishment.rating_count }})</span>
               </div>
             </div>
@@ -226,7 +226,7 @@
     <div v-else-if="showCreateForm" class="space-y-4">
       <button
         @click="cancelForm"
-        class="flex items-center gap-2 text-neutral-500 hover:text-primary transition text-sm font-medium"
+        class="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-secondary dark:hover:text-secondary-400 transition text-sm font-medium"
       >
         <ChevronRight :size="16" class="rotate-180" />
         {{ $t('map.panel.back_to_list') }}
@@ -245,7 +245,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ $t('map.panel.category') }}</label>
-          <CategorySelect v-model="formData.category_id" mode="leaf" domain="directory" :placeholder="$t('map.panel.category_placeholder')" />
+          <CategorySelect v-model="formData.category_id" mode="create" domain="directory" :placeholder="$t('map.panel.category_placeholder')" />
         </div>
         <div>
           <label for="est-description" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ $t('map.panel.description') }}</label>
@@ -373,7 +373,7 @@
       <ShieldCheck :size="12" />
       <i18n-t keypath="map.panel.owned_by" tag="span">
         <template #name>
-          <NuxtLink :to="localePath(`/u/${featureOwnerName}`)" class="text-link font-medium">{{ featureOwnerName }}</NuxtLink>
+          <NuxtLink :to="localePath(`/@${featureOwnerName}`)" class="text-link font-medium">{{ featureOwnerName }}</NuxtLink>
         </template>
       </i18n-t>
     </div>
@@ -394,6 +394,9 @@
               <span class="text-xs text-neutral-400">{{ formatCommentTime(c.created_at) }}</span>
               <button v-if="c.author_id === authStore.profile?.id" @click="deleteComment(c.id)" class="text-neutral-400 hover:text-red-500 transition ml-1">
                 <X :size="12" />
+              </button>
+              <button v-else-if="authStore.isAuthenticated" @click="reportedCommentId = c.id" class="text-neutral-400 hover:text-red-500 transition ml-1" :aria-label="t('moderation.report')">
+                <Flag :size="12" />
               </button>
             </div>
           </div>
@@ -441,12 +444,18 @@
     />
 
     </div> <!-- Close px-4 inner wrapper -->
+
+    <ReportModal
+      :model-value="!!reportedCommentId"
+      :object-id="reportedCommentId || ''"
+      @update:model-value="reportedCommentId = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { X, ChevronDown, ChevronRight, ChevronLeft, Phone, ShieldCheck, ExternalLink, Code, Plus, Edit, MessageSquare, Send, MapPin, Mail, Clock, FileText, Building2 } from 'lucide-vue-next'
+import { X, ChevronDown, ChevronRight, ChevronLeft, Phone, ShieldCheck, ExternalLink, Code, Plus, Edit, MessageSquare, Send, MapPin, Mail, Clock, FileText, Building2, Flag } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 import { useToastStore } from '~/stores/toast'
 import CategorySelect from '~/components/CategorySelect.vue'
@@ -516,6 +525,7 @@ const claimingObject = ref(false)
 // Comments
 const featureComments = ref<Array<{ id: string; object_id: string; text: string; author_id: string; author_name: string; created_at: string }>>([])
 const newCommentText = ref('')
+const reportedCommentId = ref<string | null>(null)
 
 // Contracts
 const featureContracts = ref<Array<{ id: string; title: string; status: string; creator_name: string; partner_name: string; created_at: string }>>([])

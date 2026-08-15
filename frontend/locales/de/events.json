@@ -77,7 +77,16 @@
       "max_participants_hint": "Leer lassen wenn keine Begrenzung",
       "cover_image": "Titelbild",
       "cover_image_drop": "Klicken oder Bild hierher ziehen",
-      "submit": "Event erstellen"
+      "submit": "Event erstellen",
+      "errors": {
+        "title_min": "Der Titel muss mindestens 3 Zeichen lang sein",
+        "description_min": "Die Beschreibung muss mindestens 10 Zeichen lang sein",
+        "starts_required": "Startdatum und -zeit angeben",
+        "location_required": "Für Offline- und Hybrid-Events ist ein Ort erforderlich",
+        "online_url_required": "Für Online- und Hybrid-Events ist ein Zugangslink erforderlich",
+        "image_too_large": "Das Bild muss kleiner als 10 MB sein",
+        "failed": "Event konnte nicht erstellt werden"
+      }
     },
     "landing_title": "Gemeinschaftsveranstaltungen",
     "landing_meta": "Organisieren und entdecken Sie Gemeinschaftsveranstaltungen mit integriertem verschlüsseltem Chat. Vor Ort, online oder hybrid. Kostenlos und Open-Source.",

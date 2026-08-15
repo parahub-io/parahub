@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.conf import settings
 
 from audit_log.models import AuditBatch, TimestampProof
 from audit_log.services import GitAuditService
@@ -32,17 +31,25 @@ class Command(BaseCommand):
             .order_by('created_at')[:options['limit']]
         )
 
-        if not pending:
-            self.stdout.write("No pending proofs.")
-            return
-
         if options['dry_run']:
+            if not pending:
+                self.stdout.write("No pending proofs.")
+                return
             self.stdout.write(f"Pending proofs ({len(pending)}):")
             for p in pending:
                 self.stdout.write(f"  {p.content_type.model} {p.object_id[:8]} ({p.created_at.date()})")
             return
 
         git_service = GitAuditService()
+        self._publish_stragglers(git_service)
+
+        if not pending:
+            self.stdout.write("No pending proofs.")
+            # Still push: keyring/registry commits (and straggler proofs) have
+            # no publisher of their own — this run is what delivers them.
+            git_service.push_public()
+            return
+
         batch_label = datetime.now(timezone.utc).strftime('%Y-%m-%d_%H%M%S')
 
         # 1. Write event files to events/{YYYY-MM-DD}/{model}_{id}.json
@@ -95,15 +102,39 @@ class Command(BaseCommand):
             ).update(batch=batch)
 
         # 7. Optional push to Gitea
-        remote = getattr(settings, 'AUDIT_LOG_PUBLIC_GIT_REMOTE', '')
-        if remote:
-            try:
-                git_service.repo.remotes.origin.push()
-                logger.info(f"Pushed audit batch {batch.id} to {remote}")
-            except Exception as e:
-                logger.warning(f"Git push to remote failed (non-fatal): {e}")
+        git_service.push_public()
 
         reg = f", registry {registry_commit[:8]}" if registry_commit else ""
         self.stdout.write(self.style.SUCCESS(
             f"Batch {batch.id}: {len(pending)} proofs stamped, events {commit_hash[:8]}{reg}, batch_label={batch_label}"
         ))
+
+    def _publish_stragglers(self, git_service) -> int:
+        """
+        Commit batch_commits/ files left behind by an earlier failed run:
+        untracked ones from a step-5 commit that failed AFTER the batch was
+        recorded in the DB, and modified ones from a verify_ots_batches proof
+        upgrade whose commit failed. Neither is retried anywhere else, so
+        without this sweep the files never reach the public repo.
+        """
+        untracked = [
+            p for p in git_service.repo.untracked_files
+            if p.startswith('batch_commits/')
+        ]
+        dirty = [
+            d.a_path for d in git_service.repo.index.diff(None)
+            if d.a_path.startswith('batch_commits/')
+        ]
+        stragglers = sorted(set(untracked + dirty))
+        if not stragglers:
+            return 0
+        try:
+            git_service.repo.index.add(stragglers)
+            git_service.repo.index.commit(
+                f"audit: publish {len(stragglers)} batch proof files left by failed runs"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to commit straggler batch proofs: {e}")
+            return 0
+        self.stdout.write(f"Published {len(stragglers)} straggler batch proof files.")
+        return len(stragglers)

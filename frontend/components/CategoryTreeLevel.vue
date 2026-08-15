@@ -28,8 +28,13 @@
               : 'hover:bg-primary hover:bg-opacity-10'
           ]"
         >
-          <span class="text-neutral-900 dark:text-neutral-100">{{ category.icon }} {{ category.name }}</span>
-          <Check v-if="selectedId === category.id" :class="levelStyles.check" class="text-primary" />
+          <!-- Colour lives on the span: a text colour on the button is overridden here -->
+          <span
+            :class="(mode === 'create' && category.children && category.children.length > 0)
+              ? 'text-neutral-400 dark:text-neutral-500'
+              : 'text-neutral-900 dark:text-neutral-100'"
+          >{{ category.icon }} {{ category.name }}</span>
+          <Check v-if="selectedId === category.id" :class="levelStyles.check" class="text-secondary dark:text-secondary-400" />
         </button>
       </div>
 

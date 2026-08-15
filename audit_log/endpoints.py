@@ -206,6 +206,9 @@ def anchoring_status(request):
     if latest:
         latest_data = {
             'git_commit_hash': latest.git_commit_hash,
+            # Published dual-root file path in the public registry repo —
+            # lets the frontend link the batch to its verifiable artifact.
+            'git_commit_file': latest.git_commit_file,
             'bitcoin_block': latest.bitcoin_block,
             'event_count': latest.event_count,
             'stamped_at': latest.stamped_at.isoformat() if latest.stamped_at else None,

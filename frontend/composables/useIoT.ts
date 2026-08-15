@@ -174,6 +174,21 @@ export const useIoT = () => {
     return HARDWARE_NAMES[slug] || slug
   }
 
+  // Failures of a call that reaches out to the router itself. The store tags
+  // them with a `code` (stores/iot.ts § deviceError) and the wording lives here,
+  // where i18n is available; anything else falls back to the raw message.
+  const DEVICE_ERROR_KEYS: Record<string, string> = {
+    offline: 'iot.err_offline',
+    timeout: 'iot.err_timeout',
+    timeout_setup: 'iot.err_timeout_setup',
+  }
+
+  const deviceErrorText = (error: any): string => {
+    const key = error?.code ? DEVICE_ERROR_KEYS[error.code] : undefined
+    if (key) return t(key)
+    return error?.data?.detail || error?.message || t('iot.error_loading')
+  }
+
   // Relative time formatting
   const formatRelativeTime = (dateString?: string): string => {
     if (!dateString) return ''
@@ -190,6 +205,16 @@ export const useIoT = () => {
     if (diffHours < 24) return t('iot.time_hours_ago', { n: diffHours })
 
     return formatDate(dateString)
+  }
+
+  // Same ladder, but days instead of a full timestamp past the 24 h mark: a
+  // readout cell is one short line, and the absolute date rides in its tooltip.
+  const formatRelativeShort = (dateString?: string): string => {
+    if (!dateString) return ''
+    const diffMs = Date.now() - new Date(dateString).getTime()
+    const diffDays = Math.floor(diffMs / 86400000)
+    if (diffMs < 0 || diffDays < 1) return formatRelativeTime(dateString)
+    return t('iot.time_days_ago', { n: diffDays })
   }
 
   return {
@@ -212,12 +237,14 @@ export const useIoT = () => {
     formatCoordinates,
     formatDate,
     formatRelativeTime,
+    formatRelativeShort,
     hasLocationData,
     getBatteryInfo,
     getSpeedInfo,
     formatUptime,
     fmtBps,
     getHardwareName,
+    deviceErrorText,
     filterDevicesByType,
     getActiveDevices,
 

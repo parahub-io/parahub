@@ -1,0 +1,108 @@
+{
+  "version": "v0.9.38",
+  "date": "2026-08-09",
+  "locales": {
+    "en": {
+      "title": "Chat in native apps and the map as your home",
+      "summary": "Connect your Parahub chat to native apps on your phone, land straight on the live map as the new home screen, and read your wallet history in human terms. Plus an easier energy-cell setup and a redesigned Para-ID card.",
+      "highlights": [
+        { "icon": "smartphone", "title": "Chat in the apps you like", "body": "Sign in to native chat apps — Element X or SchildiChat Next — with your regular parahub.io account, or link your phone by scanning a QR code from an existing session. A step-by-step guide is in the communication section of the docs." },
+        { "icon": "home", "title": "The map is your home now", "body": "Opening Parahub takes you straight to the live map — that's where life happens. The starter checklist is now a small panel on the map and asks for what really matters: your profile, your keys and your Web of Trust verification. Your partners moved to your profile page." },
+        { "icon": "wallet", "title": "A wallet history you can actually read", "body": "Transactions now say what they were: a tip to a person (with a link), a donation, a ticket, an ad reward. Tip-note batches collapse into one row with claimed and returned counts, a returned tip reads 'returned' — not 'failed' — and every operation wears a small illustrated emblem. An optional switch syncs your batches and notes across devices, encrypted so only your wallet can read them." },
+        { "icon": "zap", "title": "Energy cells made approachable", "body": "Creating a shared-energy cell is now a three-step wizard with a map location picker instead of a cramped form. Owners can edit a cell's name, location and radius, or delete an empty one — and freshly created cells show up on the map and in the list right away, waiting for their first producer." },
+        { "icon": "shield-check", "title": "Your identity: one photo, one card", "body": "The printable Para-ID card was redesigned as a proper document, with a Web of Trust seal stamped at real scale once three people verify you. The profile's identity section now leads with verification progress, and a single verification photo can drive both the card portrait and — if you like — an AI-painted watercolor avatar, applied only after you approve the preview." }
+      ],
+      "notes": [
+        "Ad rewards can't get lost anymore: if a payout fails, the ad returns to your feed for another try, and advertisers can pay rewards straight from the in-browser wallet or connect an external wallet of their choice.",
+        "The crypto-proofs page now links every counter to its public artifacts, and timestamps are verified against our own Bitcoin node.",
+        "Fixed: people appear in the directory on first load, storefront links from profiles show the owner's items, and profile counters only count active listings.",
+        "Pages load faster thanks to pre-compressed assets, tip-batch funding shows real progress, and the Android install icon got its yellow background."
+      ]
+    },
+    "ru": {
+      "title": "Чат в нативных приложениях и карта как главный экран",
+      "summary": "Подключите чат Parahub к нативным приложениям на телефоне, попадайте сразу на живую карту — новый главный экран — и читайте историю кошелька на человеческом языке. Плюс упрощённое создание энергоячеек и переработанная карта Para-ID.",
+      "highlights": [
+        { "icon": "smartphone", "title": "Чат в привычных приложениях", "body": "Входите в нативные чат-приложения — Element X или SchildiChat Next — со своим обычным аккаунтом parahub.io или подключите телефон, отсканировав QR-код из существующей сессии. Пошаговое руководство — в разделе документации о связи." },
+        { "icon": "home", "title": "Карта — теперь ваш дом", "body": "Открыв Parahub, вы попадаете прямо на живую карту — там и происходит жизнь. Стартовый список задач стал компактной панелью на карте и просит то, что действительно важно: профиль, ключи и подтверждение в сети доверия. Ваши партнёры переехали на страницу профиля." },
+        { "icon": "wallet", "title": "История кошелька, которую можно читать", "body": "Операции теперь говорят, чем они были: чаевые человеку (со ссылкой), пожертвование, билет, награда за рекламу. Пачки чаевых-записок сворачиваются в одну строку со счётчиками полученных и вернувшихся, вернувшиеся чаевые помечены как «возврат», а не «ошибка», и каждая операция носит небольшую рисованную эмблему. Необязательный переключатель синхронизирует пачки и подписи между устройствами — в зашифрованном виде, прочитать их может только ваш кошелёк." },
+        { "icon": "zap", "title": "Энергоячейки стали проще", "body": "Создание ячейки совместной энергии — теперь мастер из трёх шагов с выбором места на карте вместо тесной формы. Владельцы могут менять название, место и радиус ячейки или удалить пустую, а свежесозданные ячейки сразу видны на карте и в списке — в ожидании первого производителя." },
+        { "icon": "shield-check", "title": "Ваша личность: одно фото, одна карта", "body": "Печатная карта Para-ID переработана как настоящий документ — с печатью сети доверия в реальном масштабе, когда вас подтвердили три человека. Раздел личности в профиле начинается с прогресса подтверждения, а одно верификационное фото может дать и портрет для карты, и — по желанию — акварельный аватар, нарисованный ИИ и применяемый только после вашего одобрения." }
+      ],
+      "notes": [
+        "Награды за рекламу больше не теряются: если выплата не прошла, объявление возвращается в ленту для новой попытки, а рекламодатели могут платить прямо из кошелька в браузере или подключить внешний кошелёк на свой выбор.",
+        "Страница криптодоказательств ссылается на публичные артефакты за каждым счётчиком, а метки времени проверяются нашим собственным узлом Bitcoin.",
+        "Исправлено: люди в каталоге появляются с первой загрузки, ссылки на витрину из профиля показывают товары владельца, а счётчики профиля учитывают только активные объявления.",
+        "Страницы загружаются быстрее благодаря предварительному сжатию, финансирование пачки чаевых показывает реальный прогресс, а иконка установки на Android получила жёлтый фон."
+      ]
+    },
+    "pt": {
+      "title": "Chat nas aplicações nativas e o mapa como ecrã principal",
+      "summary": "Ligue o seu chat Parahub a aplicações nativas no telemóvel, chegue diretamente ao mapa ao vivo — o novo ecrã principal — e leia o histórico da carteira em termos humanos. Além disso: células de energia mais fáceis e um cartão Para-ID redesenhado.",
+      "highlights": [
+        { "icon": "smartphone", "title": "Chat nas aplicações que preferir", "body": "Inicie sessão em aplicações de chat nativas — Element X ou SchildiChat Next — com a sua conta habitual parahub.io, ou ligue o telemóvel lendo um código QR a partir de uma sessão existente. Há um guia passo a passo na secção de comunicação da documentação." },
+        { "icon": "home", "title": "O mapa é agora a sua casa", "body": "Ao abrir o Parahub chega diretamente ao mapa ao vivo — é lá que a vida acontece. A lista de primeiros passos passou a ser um pequeno painel no mapa e pede o que realmente importa: o seu perfil, as suas chaves e a verificação na rede de confiança. Os seus parceiros mudaram-se para a página de perfil." },
+        { "icon": "wallet", "title": "Um histórico de carteira que se lê", "body": "As transações dizem agora o que foram: uma gorjeta a uma pessoa (com ligação), um donativo, um bilhete, uma recompensa de anúncio. Os lotes de notas de gorjeta juntam-se numa só linha com contadores de levantadas e devolvidas, uma gorjeta devolvida aparece como «devolvida» — não «falhada» — e cada operação leva um pequeno emblema ilustrado. Um interruptor opcional sincroniza os seus lotes e anotações entre dispositivos, cifrados de forma a que só a sua carteira os consiga ler." },
+        { "icon": "zap", "title": "Células de energia mais acessíveis", "body": "Criar uma célula de energia partilhada é agora um assistente de três passos com escolha do local no mapa, em vez de um formulário apertado. Os donos podem editar o nome, o local e o raio da célula, ou apagar uma vazia — e as células recém-criadas aparecem logo no mapa e na lista, à espera do primeiro produtor." },
+        { "icon": "shield-check", "title": "A sua identidade: uma foto, um cartão", "body": "O cartão Para-ID imprimível foi redesenhado como um verdadeiro documento, com um selo da rede de confiança carimbado à escala real quando três pessoas o verificam. A secção de identidade do perfil começa agora pelo progresso da verificação, e uma única foto de verificação pode servir tanto para o retrato do cartão como — se quiser — para um avatar em aguarela pintado por IA, aplicado só depois de aprovar a pré-visualização." }
+      ],
+      "notes": [
+        "As recompensas de anúncios já não se perdem: se um pagamento falhar, o anúncio volta ao seu mural para nova tentativa, e os anunciantes podem pagar diretamente da carteira no navegador ou ligar uma carteira externa à sua escolha.",
+        "A página de provas criptográficas liga agora cada contador aos seus artefactos públicos, e os carimbos temporais são verificados pelo nosso próprio nó Bitcoin.",
+        "Corrigido: as pessoas aparecem no diretório à primeira, as ligações de montra a partir dos perfis mostram os artigos do dono, e os contadores do perfil só contam anúncios ativos.",
+        "As páginas carregam mais depressa graças à pré-compressão, o financiamento dos lotes de gorjetas mostra progresso real, e o ícone de instalação no Android ganhou o fundo amarelo."
+      ]
+    },
+    "es": {
+      "title": "Chat en aplicaciones nativas y el mapa como pantalla principal",
+      "summary": "Conecta tu chat de Parahub a aplicaciones nativas en el móvil, aterriza directamente en el mapa en vivo — la nueva pantalla principal — y lee el historial de tu cartera en términos humanos. Además: células de energía más fáciles y un carné Para-ID rediseñado.",
+      "highlights": [
+        { "icon": "smartphone", "title": "Chatea en las aplicaciones que prefieras", "body": "Inicia sesión en aplicaciones de chat nativas — Element X o SchildiChat Next — con tu cuenta habitual de parahub.io, o vincula tu móvil escaneando un código QR desde una sesión existente. Hay una guía paso a paso en la sección de comunicación de la documentación." },
+        { "icon": "home", "title": "El mapa ahora es tu casa", "body": "Al abrir Parahub llegas directo al mapa en vivo — ahí es donde pasa la vida. La lista de primeros pasos ahora es un pequeño panel sobre el mapa y pide lo que de verdad importa: tu perfil, tus claves y la verificación en la red de confianza. Tus socios se mudaron a la página de perfil." },
+        { "icon": "wallet", "title": "Un historial de cartera que se puede leer", "body": "Las transacciones ahora dicen qué fueron: una propina a una persona (con enlace), una donación, una entrada, una recompensa de anuncio. Los lotes de notas de propina se agrupan en una sola fila con contadores de cobradas y devueltas, una propina devuelta aparece como «devuelta» — no «fallida» — y cada operación lleva un pequeño emblema ilustrado. Un interruptor opcional sincroniza tus lotes y anotaciones entre dispositivos, cifrados para que solo tu cartera pueda leerlos." },
+        { "icon": "zap", "title": "Células de energía más accesibles", "body": "Crear una célula de energía compartida ahora es un asistente de tres pasos con selección del lugar en el mapa, en vez de un formulario estrecho. Los dueños pueden editar el nombre, el lugar y el radio de la célula, o borrar una vacía — y las células recién creadas aparecen enseguida en el mapa y en la lista, esperando a su primer productor." },
+        { "icon": "shield-check", "title": "Tu identidad: una foto, un carné", "body": "El carné Para-ID imprimible se rediseñó como un documento de verdad, con un sello de la red de confianza estampado a escala real cuando tres personas te verifican. La sección de identidad del perfil ahora empieza por el progreso de verificación, y una sola foto de verificación puede servir para el retrato del carné y — si quieres — para un avatar en acuarela pintado por IA, aplicado solo después de que apruebes la vista previa." }
+      ],
+      "notes": [
+        "Las recompensas de anuncios ya no se pierden: si un pago falla, el anuncio vuelve a tu tablón para otro intento, y los anunciantes pueden pagar directamente desde la cartera del navegador o conectar una cartera externa de su elección.",
+        "La página de pruebas criptográficas ahora enlaza cada contador con sus artefactos públicos, y los sellos de tiempo se verifican con nuestro propio nodo de Bitcoin.",
+        "Corregido: la gente aparece en el directorio a la primera, los enlaces de escaparate desde los perfiles muestran los artículos del dueño, y los contadores del perfil solo cuentan anuncios activos.",
+        "Las páginas cargan más rápido gracias a la precompresión, la financiación de lotes de propinas muestra progreso real, y el icono de instalación en Android estrenó fondo amarillo."
+      ]
+    },
+    "fr": {
+      "title": "Le chat dans des applications natives et la carte comme écran d'accueil",
+      "summary": "Connectez votre chat Parahub à des applications natives sur votre téléphone, arrivez directement sur la carte en direct — le nouvel écran d'accueil — et lisez l'historique de votre portefeuille en termes humains. En plus : des cellules d'énergie plus simples et une carte Para-ID repensée.",
+      "highlights": [
+        { "icon": "smartphone", "title": "Le chat dans vos applications préférées", "body": "Connectez-vous aux applications de chat natives — Element X ou SchildiChat Next — avec votre compte habituel parahub.io, ou liez votre téléphone en scannant un code QR depuis une session existante. Un guide pas à pas se trouve dans la section communication de la documentation." },
+        { "icon": "home", "title": "La carte est désormais votre maison", "body": "En ouvrant Parahub, vous arrivez directement sur la carte en direct — c'est là que la vie se passe. La liste des premiers pas devient un petit panneau sur la carte et demande ce qui compte vraiment : votre profil, vos clés et la vérification dans la toile de confiance. Vos partenaires ont déménagé sur la page de profil." },
+        { "icon": "wallet", "title": "Un historique de portefeuille enfin lisible", "body": "Les transactions disent désormais ce qu'elles étaient : un pourboire à une personne (avec lien), un don, un billet, une récompense publicitaire. Les lots de billets-pourboires se regroupent en une seule ligne avec les compteurs de retirés et de revenus, un pourboire revenu s'affiche « retourné » — pas « échoué » — et chaque opération porte un petit emblème illustré. Un interrupteur facultatif synchronise vos lots et annotations entre appareils, chiffrés de sorte que seul votre portefeuille puisse les lire." },
+        { "icon": "zap", "title": "Des cellules d'énergie plus abordables", "body": "Créer une cellule d'énergie partagée devient un assistant en trois étapes avec choix de l'emplacement sur la carte, au lieu d'un formulaire étriqué. Les propriétaires peuvent modifier le nom, l'emplacement et le rayon d'une cellule, ou supprimer une cellule vide — et les cellules fraîchement créées apparaissent aussitôt sur la carte et dans la liste, en attendant leur premier producteur." },
+        { "icon": "shield-check", "title": "Votre identité : une photo, une carte", "body": "La carte Para-ID imprimable a été repensée comme un vrai document, avec un sceau de la toile de confiance apposé à l'échelle réelle dès que trois personnes vous vérifient. La section identité du profil commence désormais par la progression de la vérification, et une seule photo de vérification peut servir au portrait de la carte et — si vous le souhaitez — à un avatar aquarelle peint par IA, appliqué seulement après votre validation de l'aperçu." }
+      ],
+      "notes": [
+        "Les récompenses publicitaires ne se perdent plus : si un paiement échoue, l'annonce revient dans votre fil pour un nouvel essai, et les annonceurs peuvent payer directement depuis le portefeuille du navigateur ou connecter un portefeuille externe de leur choix.",
+        "La page des preuves cryptographiques relie désormais chaque compteur à ses artefacts publics, et les horodatages sont vérifiés par notre propre nœud Bitcoin.",
+        "Corrigé : les personnes apparaissent dans l'annuaire du premier coup, les liens de vitrine depuis les profils montrent les articles du propriétaire, et les compteurs du profil ne comptent que les annonces actives.",
+        "Les pages se chargent plus vite grâce à la précompression, le financement des lots de pourboires affiche une vraie progression, et l'icône d'installation Android a gagné son fond jaune."
+      ]
+    },
+    "de": {
+      "title": "Chat in nativen Apps und die Karte als Startbildschirm",
+      "summary": "Verbinden Sie Ihren Parahub-Chat mit nativen Apps auf dem Telefon, landen Sie direkt auf der Live-Karte — dem neuen Startbildschirm — und lesen Sie Ihre Wallet-Historie in menschlicher Sprache. Dazu: einfachere Energiezellen und ein neu gestalteter Para-ID-Ausweis.",
+      "highlights": [
+        { "icon": "smartphone", "title": "Chat in Ihren Lieblings-Apps", "body": "Melden Sie sich in nativen Chat-Apps — Element X oder SchildiChat Next — mit Ihrem gewohnten parahub.io-Konto an, oder verbinden Sie Ihr Telefon per QR-Code aus einer bestehenden Sitzung. Eine Schritt-für-Schritt-Anleitung steht im Kommunikationsbereich der Dokumentation." },
+        { "icon": "home", "title": "Die Karte ist jetzt Ihr Zuhause", "body": "Beim Öffnen von Parahub landen Sie direkt auf der Live-Karte — dort spielt das Leben. Die Einstiegs-Checkliste ist jetzt ein kleines Panel auf der Karte und fragt nach dem, was wirklich zählt: Ihr Profil, Ihre Schlüssel und die Verifizierung im Vertrauensnetz. Ihre Partner sind auf die Profilseite umgezogen." },
+        { "icon": "wallet", "title": "Eine Wallet-Historie, die man lesen kann", "body": "Transaktionen sagen jetzt, was sie waren: ein Trinkgeld an eine Person (mit Link), eine Spende, ein Ticket, eine Anzeigen-Belohnung. Trinkgeld-Scheinbündel falten sich zu einer Zeile mit Zählern für eingelöst und zurückgekehrt, ein zurückgekehrtes Trinkgeld heißt „zurückgegeben“ — nicht „fehlgeschlagen“ — und jede Operation trägt ein kleines illustriertes Emblem. Ein optionaler Schalter synchronisiert Ihre Bündel und Notizen zwischen Geräten, verschlüsselt, sodass nur Ihre Wallet sie lesen kann." },
+        { "icon": "zap", "title": "Energiezellen, leichter gemacht", "body": "Eine geteilte Energiezelle anzulegen ist jetzt ein Assistent in drei Schritten mit Ortswahl auf der Karte statt eines engen Formulars. Besitzer können Name, Ort und Radius einer Zelle ändern oder eine leere löschen — und frisch angelegte Zellen erscheinen sofort auf der Karte und in der Liste, wartend auf ihren ersten Produzenten." },
+        { "icon": "shield-check", "title": "Ihre Identität: ein Foto, ein Ausweis", "body": "Der druckbare Para-ID-Ausweis wurde als echtes Dokument neu gestaltet, mit einem Vertrauensnetz-Siegel in realem Maßstab, sobald drei Menschen Sie verifizieren. Der Identitätsbereich des Profils beginnt jetzt mit dem Verifizierungsfortschritt, und ein einziges Verifizierungsfoto kann sowohl das Ausweisporträt liefern als auch — wenn Sie möchten — einen von KI gemalten Aquarell-Avatar, der erst nach Ihrer Freigabe der Vorschau übernommen wird." }
+      ],
+      "notes": [
+        "Anzeigen-Belohnungen gehen nicht mehr verloren: Schlägt eine Auszahlung fehl, kehrt die Anzeige für einen neuen Versuch in Ihren Feed zurück, und Werbetreibende können direkt aus der Browser-Wallet zahlen oder eine externe Wallet ihrer Wahl verbinden.",
+        "Die Seite der Krypto-Nachweise verlinkt jetzt jeden Zähler mit seinen öffentlichen Artefakten, und Zeitstempel werden von unserem eigenen Bitcoin-Knoten geprüft.",
+        "Behoben: Personen erscheinen im Verzeichnis beim ersten Laden, Schaufenster-Links aus Profilen zeigen die Artikel des Besitzers, und Profilzähler zählen nur aktive Anzeigen.",
+        "Seiten laden dank Vorkompression schneller, die Finanzierung von Trinkgeld-Bündeln zeigt echten Fortschritt, und das Android-Installationssymbol hat jetzt den gelben Hintergrund."
+      ]
+    }
+  }
+}

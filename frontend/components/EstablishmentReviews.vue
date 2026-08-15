@@ -6,14 +6,14 @@
         <div class="text-center">
           <div class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">{{ avgRating }}</div>
           <div class="flex items-center justify-center gap-0.5 my-1">
-            <span v-for="s in 5" :key="s" class="text-lg" :class="s <= Math.round(Number(avgRating)) ? 'text-primary' : 'text-neutral-300 dark:text-neutral-600'">★</span>
+            <span v-for="s in 5" :key="s" class="text-lg" :class="s <= Math.round(Number(avgRating)) ? 'star-on' : 'star-off'">★</span>
           </div>
           <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('map.panel.reviews_avg', { avg: avgRating }) }}</div>
         </div>
         <div class="flex-1 space-y-1">
           <div v-for="star in [5,4,3,2,1]" :key="star" class="flex items-center gap-2">
             <span class="text-xs text-neutral-500 dark:text-neutral-400 w-3">{{ star }}</span>
-            <span class="text-xs text-primary">★</span>
+            <span class="text-xs star-on">★</span>
             <div class="flex-1 bg-neutral-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
               <div
                 class="h-full bg-primary rounded-full transition-all"
@@ -46,7 +46,7 @@
               @mouseenter="hoverRating = s"
               @mouseleave="hoverRating = 0"
               class="text-2xl leading-none transition-colors"
-              :class="s <= (hoverRating || newRating) ? 'text-primary' : 'text-neutral-300 dark:text-neutral-600'"
+              :class="s <= (hoverRating || newRating) ? 'star-on' : 'star-off'"
             >★</button>
           </div>
         </div>
@@ -92,7 +92,7 @@
 
       <!-- Stars -->
       <div class="flex gap-0.5 mb-1.5">
-        <span v-for="s in 5" :key="s" class="text-base" :class="s <= review.rating ? 'text-primary' : 'text-neutral-200 dark:text-neutral-700'">★</span>
+        <span v-for="s in 5" :key="s" class="text-base" :class="s <= review.rating ? 'star-on' : 'star-off'">★</span>
       </div>
 
       <!-- Text -->
@@ -121,7 +121,7 @@
             type="button"
             @click="editRating = s"
             class="text-xl"
-            :class="s <= editRating ? 'text-primary' : 'text-neutral-300 dark:text-neutral-600'"
+            :class="s <= editRating ? 'star-on' : 'star-off'"
           >★</button>
         </div>
         <textarea

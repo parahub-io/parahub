@@ -8,7 +8,7 @@
 
       <div class="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-6 mb-8">
         <p class="text-neutral-700 dark:text-neutral-300 mb-0">
-          <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('privacy.version') }}:</strong> 1.1<br>
+          <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('privacy.version') }}:</strong> 1.3<br>
           <strong class="text-neutral-900 dark:text-neutral-100">{{ $t('privacy.effective_date') }}:</strong> {{ effectiveDate }}
         </p>
       </div>
@@ -50,6 +50,14 @@
         <li>{{ $t('privacy.sections.data_collected.not_collected.crypto') }}</li>
       </ul>
 
+      <h3 class="text-lg sm:text-xl font-semibold mt-6 sm:mt-8 mb-2 sm:mb-3">{{ $t('privacy.sections.data_collected.special.title') }}</h3>
+      <p class="mb-4">{{ $t('privacy.sections.data_collected.special.intro') }}</p>
+      <ul class="space-y-2 mb-6">
+        <li><strong>{{ $t('privacy.sections.data_collected.special.civic_label') }}:</strong> {{ $t('privacy.sections.data_collected.special.civic') }}</li>
+        <li><strong>{{ $t('privacy.sections.data_collected.special.psy_label') }}:</strong> {{ $t('privacy.sections.data_collected.special.psy') }}</li>
+        <li><strong>{{ $t('privacy.sections.data_collected.special.voice_label') }}:</strong> {{ $t('privacy.sections.data_collected.special.voice') }}</li>
+      </ul>
+
       <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">3. {{ $t('privacy.sections.mesh.title') }}</h2>
       <p class="mb-6">{{ $t('privacy.sections.mesh.intro') }}</p>
       <ul class="space-y-2 mb-4">
@@ -82,6 +90,9 @@
       <ul class="space-y-2 mb-6">
         <li><strong>{{ $t('privacy.sections.sharing.federation_label') }}:</strong> {{ $t('privacy.sections.sharing.federation') }}</li>
         <li><strong>Matrix:</strong> {{ $t('privacy.sections.sharing.matrix') }}</li>
+        <li><strong>{{ $t('privacy.sections.sharing.ai_label') }}:</strong> {{ $t('privacy.sections.sharing.ai') }}</li>
+        <li><strong>{{ $t('privacy.sections.sharing.push_label') }}:</strong> {{ $t('privacy.sections.sharing.push') }}</li>
+        <li><strong>{{ $t('privacy.sections.sharing.transfers_label') }}:</strong> {{ $t('privacy.sections.sharing.transfers') }}</li>
         <li><strong>{{ $t('privacy.sections.sharing.legal_label') }}:</strong> {{ $t('privacy.sections.sharing.legal') }}</li>
         <li><strong>{{ $t('privacy.sections.sharing.no_sale') }}</strong></li>
       </ul>
@@ -105,6 +116,7 @@
         <li><strong>{{ $t('privacy.sections.rights.withdraw_label') }}:</strong> {{ $t('privacy.sections.rights.withdraw') }}</li>
         <li><strong>{{ $t('privacy.sections.rights.complaint_label') }} (Art. 77 GDPR):</strong> {{ $t('privacy.sections.rights.complaint') }}</li>
       </ul>
+      <p class="mb-4">{{ $t('privacy.sections.rights.erasure_limits') }}</p>
       <p class="mb-8" v-html="rightsContact"></p>
 
       <h2 class="text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4">9. {{ $t('privacy.sections.cookies.title') }}</h2>
@@ -131,7 +143,7 @@ const { t, tm, locale } = useI18n()
 const localePath = useLocalePath()
 
 const effectiveDate = computed(() => {
-  const date = new Date('2026-07-27')
+  const date = new Date('2026-08-14')
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'long',

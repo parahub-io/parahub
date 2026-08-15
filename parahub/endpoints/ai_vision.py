@@ -479,7 +479,7 @@ Rules:
     try:
         client = genai.Client(api_key=ai_settings.google_api_key)
         response = client.models.generate_content(
-            model='gemini-3.1-flash-lite-preview',
+            model='gemini-3.5-flash-lite',
             contents=prompt,
             config=genai_types.GenerateContentConfig(
                 temperature=0.2,

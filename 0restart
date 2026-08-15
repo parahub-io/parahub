@@ -13,7 +13,10 @@ ERRORS=""
 
 echo "🔨 Building frontend..."
 rm -rf "$FRONTEND_DIR/.output-tmp"
-if ! BUILD_OUTPUT=$(cd "$FRONTEND_DIR" && NODE_OPTIONS="--max-old-space-size=8192" NUXT_OUTPUT_DIR=.output-tmp npm run build 2>&1); then
+# NUXT_COMPRESS_ASSETS=1: pre-compress public assets (brotli max quality + gzip).
+# Adds ~20s here and is deliberately NOT set in 0restart-dev — dev slots rebuild
+# often and nginx gzips their assets on the fly instead.
+if ! BUILD_OUTPUT=$(cd "$FRONTEND_DIR" && NODE_OPTIONS="--max-old-space-size=8192" NUXT_OUTPUT_DIR=.output-tmp NUXT_COMPRESS_ASSETS=1 npm run build 2>&1); then
     echo "✗ Frontend build failed"
     echo ""
     echo "$BUILD_OUTPUT"

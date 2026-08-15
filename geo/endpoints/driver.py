@@ -1,9 +1,12 @@
 """
 Driver Mode API: self-service GPS broadcasting for transit drivers.
 
-Drivers select a GTFS route and broadcast GPS from browser/tablet.
+Drivers select a route and broadcast GPS from browser/tablet.
 Positions flow through the same Redis transit pipeline as GTFS-RT.
-WoT 3+ required (or staff).
+
+A shift publishes into the route operator's public feed, so it is an operator
+function: staff, the agency owner (WoT 3+, the self-serve path), or a member of
+the organization that runs the agency (employment is the trust anchor there).
 """
 
 import logging
@@ -17,6 +20,7 @@ from ninja.errors import HttpError
 from parahub.auth import ProfileAuth
 from parahub.ratelimit import ratelimit, user_or_ip
 from geo.models import DriverShift, Route
+from geo.permissions import can_operate_agency
 
 logger = logging.getLogger(__name__)
 router = Router(tags=["Driver"])
@@ -46,6 +50,9 @@ class ShiftOut(Schema):
     ended_at: Optional[str] = None
     position_count: int
     place_slug: str = ""
+    # Route detail (both directions' stop lists, headsigns, geometry) is only
+    # addressable by place+route slug — the HUD route ladder needs both.
+    route_slug: str = ""
     heartbeat_alive: Optional[bool] = None
 
     @classmethod
@@ -66,6 +73,7 @@ class ShiftOut(Schema):
             ended_at=s.ended_at.isoformat() if s.ended_at else None,
             position_count=s.position_count,
             place_slug=s.route.place.slug if s.route.place else "",
+            route_slug=s.route.slug,
             heartbeat_alive=heartbeat_alive,
         )
 
@@ -78,6 +86,35 @@ def _check_wot(profile):
         return
     if not profile.is_verified_wot:
         raise HttpError(403, "WoT 3+ verification required for Driver Mode")
+
+
+def _check_route_operator(profile, route):
+    """
+    Only the route's operator may broadcast on it.
+
+    A shift injects a vehicle into `transit:vdata` under the route's data
+    source, which is what the public map and that source's GTFS-RT feed serve —
+    so an outsider starting a shift is a phantom bus on someone else's line.
+
+    Solo operator (`Agency.owner`) still passes the WoT gate: their vehicles
+    show up on the public map and the social graph is the only anchor they have.
+    An employee of the organization running the agency does not — the employment
+    relation is the anchor, and hired drivers will not have three in-person
+    verifications.
+    """
+    if profile.account.is_staff:
+        return
+
+    agency = route.agency
+
+    if agency.owner_id and agency.owner_id == profile.id:
+        _check_wot(profile)
+        return
+
+    if agency.establishment_id and can_operate_agency(profile, agency, 'transit.drive'):
+        return
+
+    raise HttpError(403, "Driver Mode is limited to routes of your own operator")
 
 
 def _is_heartbeat_alive(shift: DriverShift) -> bool:
@@ -96,12 +133,12 @@ def _is_heartbeat_alive(shift: DriverShift) -> bool:
 def start_shift(request, payload: ShiftStartIn):
     """Start a driver shift — begin GPS broadcasting on a route."""
     profile = request.auth_profile
-    _check_wot(profile)
 
     route = get_object_or_404(
         Route.objects.select_related('agency__data_source', 'place'),
         id=payload.route_id,
     )
+    _check_route_operator(profile, route)
 
     # Check no active shift already
     active_shift = (

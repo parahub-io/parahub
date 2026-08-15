@@ -770,6 +770,7 @@ class MembershipJoinTest(TestCase):
         self.establishment = _create_establishment(
             self.owner, name='Test Org', slug='test-org',
             organization_type='ASSOCIATION',
+            membership_policy='OPEN',
         )
         self.factory = RequestFactory()
 
@@ -828,14 +829,83 @@ class MembershipJoinTest(TestCase):
         response = join_establishment(request, self.establishment.id, data)
         self.assertEqual(response.role, 'MEMBER')
 
-    def test_join_with_membership_level(self):
-        """Join with specified membership level."""
+    def test_join_grants_entry_level_only(self):
+        """Self-service join always lands on the entry level."""
         from geo.endpoints.buildings import join_establishment, JoinEstablishmentRequest
 
-        data = JoinEstablishmentRequest(membership_level='efetivo')
+        data = JoinEstablishmentRequest()
         request = _make_auth_request(self.factory, self.user_acc, self.user, 'post')
         response = join_establishment(request, self.establishment.id, data)
-        self.assertEqual(response.membership_level, 'efetivo')
+        self.assertEqual(response.membership_level, 'apoiante')
+
+    def test_join_rejects_requested_membership_level(self):
+        """An applicant cannot pick their own level.
+
+        'fundador' in the governing association makes a profile a WoT seed
+        verifier (Profile.is_foundation_member) and any treasury-eligible level
+        grants a budget vote, so the request body must not decide it.
+        """
+        from geo.endpoints.buildings import join_establishment, JoinEstablishmentRequest
+
+        for level in ('fundador', 'efetivo'):
+            with self.subTest(level=level):
+                data = JoinEstablishmentRequest(terms_accepted=True, membership_level=level)
+                request = _make_auth_request(self.factory, self.user_acc, self.user, 'post')
+                with self.assertRaises(HttpError) as ctx:
+                    join_establishment(request, self.establishment.id, data)
+                self.assertEqual(ctx.exception.status_code, 400)
+                self.assertFalse(
+                    EstablishmentMembership.objects.filter(
+                        profile=self.user, establishment=self.establishment
+                    ).exists()
+                )
+
+    def test_join_denied_when_invite_only(self):
+        """INVITE organizations cannot be joined from outside.
+
+        The default for every establishment — imported public bodies, private
+        businesses, condominiums — so a stranger cannot write himself into
+        their member list.
+        """
+        from geo.endpoints.buildings import join_establishment, JoinEstablishmentRequest
+
+        self.establishment.membership_policy = 'INVITE'
+        self.establishment.save(update_fields=['membership_policy'])
+
+        data = JoinEstablishmentRequest(terms_accepted=True)
+        request = _make_auth_request(self.factory, self.user_acc, self.user, 'post')
+        with self.assertRaises(HttpError) as ctx:
+            join_establishment(request, self.establishment.id, data)
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertFalse(
+            EstablishmentMembership.objects.filter(
+                profile=self.user, establishment=self.establishment
+            ).exists()
+        )
+
+    def test_invite_only_is_the_default(self):
+        """A newly created establishment is not self-joinable."""
+        est = _create_establishment(self.owner, name='Fresh Org', slug='fresh-org')
+        self.assertEqual(est.membership_policy, 'INVITE')
+
+    def test_joined_member_cannot_post_as_organization(self):
+        """A self-service join grants no authority to speak for the org.
+
+        This is the whole point of the entry role: MEMBER is outside
+        POSTING_ROLES, so the join cannot be laundered into publishing items,
+        events or ads under the organization's name.
+        """
+        from geo.endpoints.buildings import join_establishment, JoinEstablishmentRequest
+        from geo.permissions import get_establishment_for_action, POSTING_ROLES
+
+        data = JoinEstablishmentRequest(terms_accepted=True)
+        request = _make_auth_request(self.factory, self.user_acc, self.user, 'post')
+        response = join_establishment(request, self.establishment.id, data)
+        self.assertEqual(response.role, 'MEMBER')
+
+        with self.assertRaises(HttpError) as ctx:
+            get_establishment_for_action(self.establishment.id, self.user, POSTING_ROLES)
+        self.assertEqual(ctx.exception.status_code, 403)
 
 
 class MembershipLeaveTest(TestCase):
@@ -1435,8 +1505,24 @@ class MyPostableTest(TestCase):
         self.assertEqual(response[0].name, est.name)
         self.assertEqual(response[0].role, 'OWNER')
 
-    def test_includes_member_establishments(self):
-        """Member establishments appear in postable list."""
+    def test_includes_employee_establishments(self):
+        """Establishments where the user holds a granted role appear in the list."""
+        from geo.endpoints.buildings import my_postable_establishments
+
+        other_acc = _create_account(self.instance, 'bob')
+        other = _create_profile(other_acc, self.instance, local_name='bob')
+        est = _create_establishment(other, slug='other-org')
+        EstablishmentMembership.objects.create(
+            profile=self.profile, establishment=est, role='EMPLOYEE',
+        )
+
+        request = _make_auth_request(self.factory, self.account, self.profile)
+        response = my_postable_establishments(request)
+        self.assertEqual(len(response), 1)
+        self.assertEqual(response[0].role, 'EMPLOYEE')
+
+    def test_excludes_plain_member_establishments(self):
+        """The entry MEMBER role never reaches the 'Post as' dropdown."""
         from geo.endpoints.buildings import my_postable_establishments
 
         other_acc = _create_account(self.instance, 'bob')
@@ -1448,8 +1534,7 @@ class MyPostableTest(TestCase):
 
         request = _make_auth_request(self.factory, self.account, self.profile)
         response = my_postable_establishments(request)
-        self.assertEqual(len(response), 1)
-        self.assertEqual(response[0].role, 'MEMBER')
+        self.assertEqual(len(response), 0)
 
     def test_excludes_inactive_establishments(self):
         """Inactive establishments not in postable list."""
@@ -1554,6 +1639,31 @@ class MyEstablishmentsTest(TestCase):
         response = self._call()
         self.assertEqual(len(response), 1)
         self.assertEqual(response[0].role, 'OWNER')
+
+    def test_own_coordinates_surfaced(self):
+        """Coordinates ride along so location pickers can offer fly-to shortcuts."""
+        _create_establishment(
+            self.profile, slug='placed', name='Placed',
+            location=Point(-8.3812, 42.0238, srid=4326),
+        )
+        response = self._call()
+        self.assertAlmostEqual(response[0].latitude, 42.0238, places=4)
+        self.assertAlmostEqual(response[0].longitude, -8.3812, places=4)
+
+    def test_falls_back_to_world_object_coordinates(self):
+        """An establishment without its own point inherits the linked object's."""
+        building = _create_building(location=Point(-9.1406, 38.7118, srid=4326))
+        _create_establishment(self.profile, building=building, slug='inbuilding', name='In Building')
+        response = self._call()
+        self.assertAlmostEqual(response[0].latitude, 38.7118, places=4)
+        self.assertAlmostEqual(response[0].longitude, -9.1406, places=4)
+
+    def test_coordinates_none_when_unplaced(self):
+        """An online-only establishment reports no coordinates, not (0, 0)."""
+        _create_establishment(self.profile, slug='online-only', name='Online Only')
+        response = self._call()
+        self.assertIsNone(response[0].latitude)
+        self.assertIsNone(response[0].longitude)
 
 
 # ===========================================================================
@@ -2075,6 +2185,102 @@ class EventCreateTest(TestCase):
         result = create_event(request, payload)
         self.assertEqual(result.max_participants, 10)
         self.assertFalse(result.is_full)
+
+    @patch('geo.endpoints.events._create_event_matrix_room', return_value=None)
+    def test_create_as_establishment_owner(self, mock_matrix):
+        """An owner posts on behalf of their establishment without a membership row."""
+        from geo.endpoints.events import create_event, EventInput
+        from geo.models import Event
+        from django.utils import timezone as tz
+
+        est = _create_establishment(self.profile, slug='alice-org')
+        payload = EventInput(
+            title='Org Event',
+            description='Posted on behalf of the organization.',
+            event_type='OFFLINE',
+            starts_at=tz.now() + tz.timedelta(days=7),
+            location_name='Org HQ',
+            establishment_id=est.id,
+        )
+        request = _make_auth_request(self.factory, self.account, self.profile, method='post')
+        result = create_event(request, payload)
+        self.assertEqual(result.establishment_id, est.id)
+        self.assertEqual(result.establishment_name, est.name)
+        self.assertEqual(Event.objects.get(id=result.id).establishment_id, est.id)
+        # Organizer stays the person — the establishment is attribution, not ownership.
+        self.assertEqual(Event.objects.get(id=result.id).organizer_id, self.profile.id)
+
+    @patch('geo.endpoints.events._create_event_matrix_room', return_value=None)
+    def test_create_as_establishment_employee(self, mock_matrix):
+        """An EMPLOYEE may also post on behalf of the establishment."""
+        from geo.endpoints.events import create_event, EventInput
+        from django.utils import timezone as tz
+
+        other_acc = _create_account(self.instance, 'bob')
+        other = _create_profile(other_acc, self.instance, local_name='bob')
+        est = _create_establishment(other, slug='bob-org')
+        EstablishmentMembership.objects.create(
+            profile=self.profile, establishment=est, role='EMPLOYEE',
+        )
+
+        payload = EventInput(
+            title='Employee Org Event',
+            description='Posted by staff of the organization.',
+            event_type='OFFLINE',
+            starts_at=tz.now() + tz.timedelta(days=7),
+            location_name='Org HQ',
+            establishment_id=est.id,
+        )
+        request = _make_auth_request(self.factory, self.account, self.profile, method='post')
+        result = create_event(request, payload)
+        self.assertEqual(result.establishment_id, est.id)
+
+    def test_create_as_establishment_plain_member_fails(self):
+        """The entry MEMBER role cannot attribute an event to the organization."""
+        from geo.endpoints.events import create_event, EventInput
+        from django.utils import timezone as tz
+
+        other_acc = _create_account(self.instance, 'bob')
+        other = _create_profile(other_acc, self.instance, local_name='bob')
+        est = _create_establishment(other, slug='bob-org')
+        EstablishmentMembership.objects.create(
+            profile=self.profile, establishment=est, role='MEMBER',
+        )
+
+        payload = EventInput(
+            title='Member Org Event',
+            description='Posted by a plain member of the organization.',
+            event_type='OFFLINE',
+            starts_at=tz.now() + tz.timedelta(days=7),
+            location_name='Org HQ',
+            establishment_id=est.id,
+        )
+        request = _make_auth_request(self.factory, self.account, self.profile, method='post')
+        with self.assertRaises(HttpError) as ctx:
+            create_event(request, payload)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_create_as_foreign_establishment_fails(self):
+        """No membership, no ownership — the act-as claim is rejected."""
+        from geo.endpoints.events import create_event, EventInput
+        from django.utils import timezone as tz
+
+        other_acc = _create_account(self.instance, 'carol')
+        other = _create_profile(other_acc, self.instance, local_name='carol')
+        est = _create_establishment(other, slug='carol-org')
+
+        payload = EventInput(
+            title='Impersonation Attempt',
+            description='Should be blocked: not a member of that org.',
+            event_type='OFFLINE',
+            starts_at=tz.now() + tz.timedelta(days=7),
+            location_name='Nowhere',
+            establishment_id=est.id,
+        )
+        request = _make_auth_request(self.factory, self.account, self.profile, method='post')
+        with self.assertRaises(HttpError) as ctx:
+            create_event(request, payload)
+        self.assertEqual(ctx.exception.status_code, 403)
 
 
 # ===========================================================================

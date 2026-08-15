@@ -101,6 +101,23 @@
               </div>
             </div>
 
+            <!-- View counter (unique viewers, deduped per 24h server-side) -->
+            <div
+              v-if="viewStats[item.id]"
+              class="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 mb-3"
+              :title="$t('market.my_items.views_title')"
+            >
+              <Eye class="w-3.5 h-3.5" aria-hidden="true" />
+              <span class="sr-only">{{ $t('market.my_items.views_title') }}:</span>
+              <span>{{ viewStats[item.id].total }}</span>
+              <span
+                v-if="viewStats[item.id].last24h > 0"
+                class="font-medium text-success dark:text-success-400"
+              >
+                {{ $t('market.my_items.views_24h', { count: viewStats[item.id].last24h }) }}
+              </span>
+            </div>
+
             <!-- Actions — wrap (never clip) so every label stays readable at any card width -->
             <div class="flex flex-wrap gap-2 mt-auto pt-3 border-t border-neutral-200 dark:border-neutral-700">
               <UiButton
@@ -318,6 +335,9 @@ const modeTabs = computed(() => [
 // State
 const items = ref([])
 const loading = ref(false)
+// Per-item view counters {item_id: {total, last24h}} — owner-only, Redis-backed.
+// Loaded once alongside the listings; cards render fine without it.
+const viewStats = ref({})
 // Sub-filter within the Listings tab — bookmarkable via ?status= (independent of ?tab=)
 const filterStatus = useTabSync(['all', 'active', 'inactive'], 'all', 'status')
 const statusTabs = computed(() => [
@@ -411,6 +431,20 @@ const deletingItem = ref(null)
 const deleting = ref(false)
 
 // Fetch user's items
+const fetchViewStats = async () => {
+  try {
+    await authStore.ensureToken()
+    if (!authStore.accessToken) return
+    const res = await $fetch('/api/v1/items/my/view-stats/', {
+      headers: { Authorization: `Bearer ${authStore.accessToken}` },
+      credentials: 'include'
+    })
+    viewStats.value = res?.stats || {}
+  } catch (error) {
+    // Non-critical: cards simply render without view counters
+  }
+}
+
 const fetchMyItems = async () => {
   loading.value = true
   try {
@@ -550,6 +584,7 @@ watch(mode, (m) => {
 
 onMounted(() => {
   fetchMyItems()
+  fetchViewStats()
   loadPendingCount()          // hydrate the Requests-tab badge
   if (mode.value !== 'listings') loadBookings()
 })

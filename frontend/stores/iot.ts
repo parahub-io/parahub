@@ -24,6 +24,8 @@ export interface IoTDevice {
   owner_name?: string | null
   // Owner attribution opt-in for the public map panel
   show_owner?: boolean
+  // This node's heartbeats keep the viewer's own mesh pass covered
+  keeps_host_pass?: boolean
   connection_info?: {
     yggdrasil_address?: string
     hostname?: string
@@ -100,6 +102,18 @@ export interface DeviceAccess {
   grants: AccessGrant[]
 }
 
+export interface DeviceActionEntry {
+  id: string
+  action: string
+  role: string
+  method: string
+  status: number
+  fields: string[]
+  actor_hna?: string | null
+  actor_name?: string | null
+  created_at: string
+}
+
 export interface ClaimPreview {
   name: string
   hardware_profile?: string | null
@@ -107,6 +121,21 @@ export interface ClaimPreview {
   online: boolean
   last_seen?: string | null
   first_seen?: string | null
+}
+
+/**
+ * Router-facing calls fail in two ways worth naming. The message stays English
+ * for logs; the view layer translates by `code` (`useIoT().deviceErrorText`).
+ */
+function deviceError(error: any, fallback: string, timeoutMessage?: string): Error {
+  const status = error.status || error.statusCode
+  if (status === 503) return Object.assign(new Error('Router is offline'), { code: 'offline' })
+  if (status === 504) {
+    return Object.assign(new Error(timeoutMessage || 'Connection timed out'), {
+      code: timeoutMessage ? 'timeout_setup' : 'timeout',
+    })
+  }
+  return new Error(error.data?.detail || error.message || fallback)
 }
 
 export const useIoTStore = defineStore('iot', {
@@ -288,10 +317,7 @@ export const useIoTStore = defineStore('iot', {
         })
         return data
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 503) throw new Error('Router is offline')
-        if (status === 504) throw new Error('Connection timed out')
-        throw new Error(error.data?.detail || 'Failed to get WiFi password')
+        throw deviceError(error, 'Failed to get WiFi password')
       }
     },
 
@@ -304,10 +330,7 @@ export const useIoTStore = defineStore('iot', {
         })
         return data
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 503) throw new Error('Router is offline')
-        if (status === 504) throw new Error('Connection timed out')
-        throw new Error(error.data?.detail || 'Failed to get root password')
+        throw deviceError(error, 'Failed to get root password')
       }
     },
 
@@ -335,10 +358,7 @@ export const useIoTStore = defineStore('iot', {
 
         return data
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 503) throw new Error('Router is offline')
-        if (status === 504) throw new Error('Connection timed out')
-        throw new Error(error.data?.detail || 'Failed to update WiFi config')
+        throw deviceError(error, 'Failed to update WiFi config')
       }
     },
 
@@ -357,10 +377,7 @@ export const useIoTStore = defineStore('iot', {
           headers,
         })
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 503) throw new Error('Router is offline')
-        if (status === 504) throw new Error('Connection timed out')
-        throw new Error(error.data?.detail || 'Failed to get Mullvad status')
+        throw deviceError(error, 'Failed to get Mullvad status')
       }
     },
 
@@ -379,9 +396,8 @@ export const useIoTStore = defineStore('iot', {
           body: { account_key: accountKey, country },
         })
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 504) throw new Error('Setup timed out — network restart may still be in progress')
-        throw new Error(error.data?.detail || 'Failed to setup Mullvad')
+        throw deviceError(error, 'Failed to setup Mullvad',
+          'Setup timed out — network restart may still be in progress')
       }
     },
 
@@ -394,9 +410,7 @@ export const useIoTStore = defineStore('iot', {
           headers,
         })
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 504) throw new Error('Remove timed out')
-        throw new Error(error.data?.detail || 'Failed to remove Mullvad')
+        throw deviceError(error, 'Failed to remove Mullvad')
       }
     },
 
@@ -408,10 +422,7 @@ export const useIoTStore = defineStore('iot', {
           headers,
         })
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 503) throw new Error('Router is offline')
-        if (status === 504) throw new Error('Connection timed out')
-        throw new Error(error.data?.detail || 'Failed to get speed limit status')
+        throw deviceError(error, 'Failed to get speed limit status')
       }
     },
 
@@ -425,9 +436,7 @@ export const useIoTStore = defineStore('iot', {
           body: { enabled },
         })
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 504) throw new Error('Toggle timed out')
-        throw new Error(error.data?.detail || 'Failed to toggle speed limit')
+        throw deviceError(error, 'Failed to toggle speed limit')
       }
     },
 
@@ -465,10 +474,7 @@ export const useIoTStore = defineStore('iot', {
           headers,
         })
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 503) throw new Error('Router is offline')
-        if (status === 504) throw new Error('Connection timed out')
-        throw new Error(error.data?.detail || 'Failed to get LAN VPN status')
+        throw deviceError(error, 'Failed to get LAN VPN status')
       }
     },
 
@@ -482,9 +488,7 @@ export const useIoTStore = defineStore('iot', {
           body: { enabled },
         })
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 504) throw new Error('Toggle timed out')
-        throw new Error(error.data?.detail || 'Failed to toggle LAN VPN')
+        throw deviceError(error, 'Failed to toggle LAN VPN')
       }
     },
 
@@ -496,10 +500,7 @@ export const useIoTStore = defineStore('iot', {
           headers,
         })
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 503) throw new Error('Router is offline')
-        if (status === 504) throw new Error('Connection timed out')
-        throw new Error(error.data?.detail || 'Failed to get wired mesh status')
+        throw deviceError(error, 'Failed to get wired mesh status')
       }
     },
 
@@ -513,9 +514,7 @@ export const useIoTStore = defineStore('iot', {
           body: { enabled },
         })
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 504) throw new Error('Toggle timed out')
-        throw new Error(error.data?.detail || 'Failed to toggle wired mesh')
+        throw deviceError(error, 'Failed to toggle wired mesh')
       }
     },
 
@@ -555,10 +554,7 @@ export const useIoTStore = defineStore('iot', {
           { credentials: 'include', headers },
         )
       } catch (error: any) {
-        const status = error.status || error.statusCode
-        if (status === 503) throw new Error('Router is offline')
-        if (status === 504) throw new Error('Connection timed out')
-        throw new Error(error.data?.detail || 'Failed to get diagnostics')
+        throw deviceError(error, 'Failed to get diagnostics')
       }
     },
 
@@ -649,6 +645,15 @@ export const useIoTStore = defineStore('iot', {
       return await $fetch<DeviceAccess>(`/api/v1/iot/devices/${deviceId}/access`, {
         credentials: 'include',
         headers,
+      })
+    },
+
+    async getDeviceActivity(deviceId: string, limit = 50) {
+      const headers = await this.getAuthHeaders()
+      return await $fetch<DeviceActionEntry[]>(`/api/v1/iot/devices/${deviceId}/activity`, {
+        credentials: 'include',
+        headers,
+        query: { limit },
       })
     },
 

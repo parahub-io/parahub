@@ -1,9 +1,20 @@
 /**
  * Custom MapLibre geolocation control with long-press stop, click recenter,
- * watchPosition with pulsing marker.
+ * watchPosition with a course-aware self marker.
  *
- * Extracted from MapView.vue lines 2067-2264.
+ * Marker = avatar-class circle per the map-marker grammar (hexes are devices,
+ * squares are places — people are circles): indigo dot with the 1px dark rest
+ * stroke, an indigo course pointer at the rim while moving (GPS heading, same
+ * cue as moving tracker hexes), and an accuracy disc that reflects the real
+ * fix radius instead of a decorative pulse.
  */
+
+// Same 3 km/h moving cut as tracker hexes (PK/design-system.md § Map Markers)
+const MOVING_SPEED_MS = 3 / 3.6
+// The accuracy disc renders only when the fix is coarse enough to matter on
+// screen: worse than 30 m AND wider than the dot at the current zoom.
+const ACCURACY_MIN_M = 30
+const ACCURACY_MIN_PX = 16
 
 export function createGeolocationControl(
   mapStore: ReturnType<typeof useMapStore>,
@@ -18,6 +29,9 @@ export function createGeolocationControl(
     _watchId: number | null = null
     _userMarker: any = null
     _isFirstPosition: boolean = true
+    _accuracyEl: HTMLElement | null = null
+    _lastFix: { lng: number; lat: number; accuracy: number } | null = null
+    _onZoom: (() => void) | null = null
 
     onAdd(map: any) {
       this._map = map
@@ -86,12 +100,46 @@ export function createGeolocationControl(
         navigator.geolocation.clearWatch(this._watchId)
         this._watchId = null
       }
+      this._removeMarker()
+      this._container.parentNode?.removeChild(this._container)
+      this._map = undefined
+    }
+
+    _removeMarker() {
+      if (this._onZoom && this._map) {
+        this._map.off('zoom', this._onZoom)
+      }
+      this._onZoom = null
+      this._accuracyEl = null
+      this._lastFix = null
       if (this._userMarker) {
         this._userMarker.remove()
         this._userMarker = null
       }
-      this._container.parentNode?.removeChild(this._container)
-      this._map = undefined
+    }
+
+    /** Size the accuracy disc to the fix radius in screen pixels at the
+     *  current zoom; hide it while the fix is good (or the disc would sit
+     *  under the dot). */
+    _resizeAccuracy() {
+      if (!this._accuracyEl || !this._lastFix || !this._map) return
+      const { lng, lat, accuracy } = this._lastFix
+      let radiusPx = 0
+      if (accuracy > ACCURACY_MIN_M) {
+        const metersPerDegLng = 111320 * Math.cos(lat * Math.PI / 180)
+        if (metersPerDegLng > 1) {
+          const p1 = this._map.project([lng, lat])
+          const p2 = this._map.project([lng + accuracy / metersPerDegLng, lat])
+          radiusPx = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+        }
+      }
+      if (radiusPx > ACCURACY_MIN_PX) {
+        this._accuracyEl.style.width = `${radiusPx * 2}px`
+        this._accuracyEl.style.height = `${radiusPx * 2}px`
+        this._accuracyEl.style.display = ''
+      } else {
+        this._accuracyEl.style.display = 'none'
+      }
     }
 
     _toggleTracking() {
@@ -140,22 +188,44 @@ export function createGeolocationControl(
             const el = document.createElement('div')
             el.className = 'user-location-marker'
             el.innerHTML = `
+              <div class="user-marker-accuracy"></div>
+              <div class="user-marker-heading"></div>
               <div class="user-marker-dot"></div>
-              <div class="user-marker-pulse"></div>
             `
+            this._accuracyEl = el.querySelector('.user-marker-accuracy')
 
             const maplibreModule = await import('maplibre-gl')
             const maplibregl = maplibreModule.default || maplibreModule
 
             this._userMarker = new maplibregl.Marker({
               element: el,
-              anchor: 'center'
+              anchor: 'center',
+              // Course pointer rotates against map north; the marker itself
+              // stays a screen-space billboard
+              rotationAlignment: 'map',
+              pitchAlignment: 'viewport'
             })
               .setLngLat([lng, lat])
               .addTo(this._map)
+
+            this._onZoom = () => this._resizeAccuracy()
+            this._map.on('zoom', this._onZoom)
           } else {
             this._userMarker.setLngLat([lng, lat])
           }
+
+          // Course pointer: GPS heading is only meaningful while moving
+          const speed = position.coords.speed
+          const heading = position.coords.heading
+          const moving = speed != null && speed >= MOVING_SPEED_MS
+            && heading != null && Number.isFinite(heading)
+          this._userMarker.getElement().classList.toggle('user-marker-moving', moving)
+          if (moving && heading != null) {
+            this._userMarker.setRotation(heading)
+          }
+
+          this._lastFix = { lng, lat, accuracy: position.coords.accuracy }
+          this._resizeAccuracy()
 
           // Update map store
           mapStore.updateUserLocation([lng, lat])
@@ -199,10 +269,7 @@ export function createGeolocationControl(
         navigator.geolocation.clearWatch(this._watchId)
         this._watchId = null
       }
-      if (this._userMarker) {
-        this._userMarker.remove()
-        this._userMarker = null
-      }
+      this._removeMarker()
       this._isTracking = false
       this._button.classList.remove('maplibregl-ctrl-geolocate-active')
       this._button.title = t('map.geolocate.find')

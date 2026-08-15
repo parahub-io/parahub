@@ -5,40 +5,36 @@
     </Head>
 
     <!-- Access denied -->
-    <div v-if="!isStaff" class="text-center py-20">
+    <div v-if="!canDispatch" class="text-center py-12">
       <ShieldAlert class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-      <p class="text-neutral-500">{{ $t('dispatch.staff_only') }}</p>
+      <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ $t('dispatch.no_operator') }}</h3>
+      <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">{{ $t('dispatch.no_operator_hint') }}</p>
     </div>
 
-    <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-      <!-- Header row -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <div class="dispatch-icon">
-            <Radio class="w-5 h-5" />
-          </div>
-          <div>
-            <h1 class="text-xl font-bold text-neutral-900 dark:text-neutral-100">{{ $t('dispatch.title') }}</h1>
-            <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('dispatch.subtitle') }}</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
+    <div v-else class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+      <PageHeader
+        :title="$t('dispatch.title')"
+        :subtitle="$t('dispatch.subtitle')"
+        :create-label="$t('dispatch.assign')"
+        class="!mb-0"
+        @create="showCreate = true"
+      >
+        <template #actions>
           <input
             v-model="store.selectedDate"
             type="date"
             class="dispatch-date-input"
             @change="reload"
           />
-          <UiButton variant="primary" size="sm" :icon="Plus" @click="showCreate = true">
-            {{ $t('dispatch.assign') }}
-          </UiButton>
-        </div>
-      </div>
+        </template>
+      </PageHeader>
+
+      <UiRouteTabs :tabs="dispatchTabs" />
 
       <!-- Stats bar -->
       <div class="dispatch-stats">
         <div class="stat-item">
-          <span class="stat-value text-green-500">{{ activeCount }}</span>
+          <span class="stat-value text-success dark:text-success-400">{{ activeCount }}</span>
           <span class="stat-label">{{ $t('dispatch.stats_active') }}</span>
         </div>
         <div class="stat-sep" />
@@ -58,12 +54,13 @@
         </div>
       </div>
 
-      <!-- Filter tabs -->
-      <UiTabs v-model="tab" :tabs="tabItems">
+      <!-- Filter tabs — pills: subordinate to the route strip above -->
+      <UiTabs v-model="tab" :tabs="tabItems" variant="pills" class="space-y-4">
 
       <!-- Loading -->
-      <div v-if="store.loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" />
+      <div v-if="store.loading" class="flex justify-center py-12" role="status">
+        <div class="animate-spin rounded-full h-12 w-12 border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-white" />
+        <span class="sr-only">Loading</span>
       </div>
 
       <!-- Error -->
@@ -87,7 +84,7 @@
         <div
           v-for="a in filtered"
           :key="a.id"
-          class="assignment-card"
+          class="card flex items-center overflow-hidden"
           :class="{ 'opacity-50': ['COMPLETED', 'CANCELLED'].includes(a.status) }"
         >
           <!-- Route color stripe -->
@@ -114,7 +111,7 @@
                 type="soft"
                 size="sm"
               >
-                {{ a.status }}
+                {{ $t('dispatch.status.' + a.status) }}
               </UiBadge>
               <span v-if="a.display_vehicle_id" class="text-xs font-mono text-neutral-500 dark:text-neutral-400 ml-auto hidden sm:inline">
                 #{{ a.display_vehicle_id }}
@@ -130,7 +127,7 @@
               <span v-if="a.latitude" class="font-mono text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">
                 {{ a.latitude.toFixed(5) }}, {{ a.longitude?.toFixed(5) }}
               </span>
-              <span v-if="a.speed != null && a.speed > 0" class="text-xs text-blue-500 dark:text-blue-400 font-medium tabular-nums">
+              <span v-if="a.speed != null && a.speed > 0" class="text-xs text-secondary dark:text-secondary-400 font-medium tabular-nums">
                 {{ Math.round(a.speed) }} km/h
               </span>
               <span v-if="!a.latitude && ['ASSIGNED', 'ACTIVE'].includes(a.status)" class="text-xs text-neutral-400 italic">
@@ -143,21 +140,18 @@
           </div>
 
           <!-- Actions -->
-          <div v-if="['ASSIGNED', 'ACTIVE'].includes(a.status)" class="flex items-center gap-1 pr-3 shrink-0">
-            <button
-              class="action-btn text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30"
-              :title="$t('dispatch.complete')"
-              @click="completeAssignment(a.id)"
+          <div v-if="['ASSIGNED', 'ACTIVE'].includes(a.status)" class="flex items-center gap-1.5 pr-3 shrink-0">
+            <UiButton variant="ghost" size="sm" :icon="CheckCircle" @click="completeAssignment(a.id)">
+              {{ $t('dispatch.complete') }}
+            </UiButton>
+            <UiButton
+              :variant="cancelPending === a.id ? 'error' : 'outline-error'"
+              size="sm"
+              :icon="XCircle"
+              @click="handleCancel(a.id)"
             >
-              <CheckCircle class="w-4 h-4" />
-            </button>
-            <button
-              class="action-btn text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-              :title="$t('dispatch.cancel')"
-              @click="cancelAssignment(a.id)"
-            >
-              <XCircle class="w-4 h-4" />
-            </button>
+              {{ cancelPending === a.id ? $t('dispatch.cancel_sure') : $t('dispatch.cancel') }}
+            </UiButton>
           </div>
         </div>
       </TransitionGroup>
@@ -264,7 +258,7 @@
 
 <script setup lang="ts">
 import {
-  ShieldAlert, Radio, Plus, Bus, Smartphone,
+  ShieldAlert, Plus, Smartphone,
   CheckCircle, XCircle, X,
 } from 'lucide-vue-next'
 
@@ -278,6 +272,11 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 const store = useDispatchStore()
 const isStaff = computed(() => authStore.user?.is_staff ?? false)
+// Dispatch is not a staff feature any more — it belongs to whoever runs an
+// operator. The API answers 403 when that is nobody, which is the only signal
+// available until the session payload carries capabilities.
+const canDispatch = computed(() => isStaff.value || !store.forbidden)
+const dispatchTabs = useDispatchTabs()
 
 // --- Tab filter ---
 const tab = useTabSync(['active', 'completed', 'all'])
@@ -309,19 +308,22 @@ const reload = async () => {
 }
 
 onMounted(async () => {
-  if (isStaff.value) await reload()
+  await reload()
 })
 
 // Auto-refresh every 30s for live positions
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
   refreshTimer = setInterval(() => {
-    if (isStaff.value && store.activeAssignments.length > 0) {
+    if (canDispatch.value && store.activeAssignments.length > 0) {
       store.fetchAssignments()
     }
   }, 30_000)
 })
-onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+  if (cancelResetTimer) clearTimeout(cancelResetTimer)
+})
 
 // --- Create assignment ---
 const showCreate = ref(false)
@@ -397,7 +399,19 @@ const completeAssignment = async (id: string) => {
   }
 }
 
-const cancelAssignment = async (id: string) => {
+// Two-tap confirmation: first tap arms, second tap within 3s executes
+const cancelPending = ref<string | null>(null)
+let cancelResetTimer: ReturnType<typeof setTimeout> | null = null
+
+const handleCancel = async (id: string) => {
+  if (cancelPending.value !== id) {
+    cancelPending.value = id
+    if (cancelResetTimer) clearTimeout(cancelResetTimer)
+    cancelResetTimer = setTimeout(() => { cancelPending.value = null }, 3000)
+    return
+  }
+  if (cancelResetTimer) clearTimeout(cancelResetTimer)
+  cancelPending.value = null
   try {
     await store.updateAssignment(id, { status: 'CANCELLED' })
     await store.fetchRoutes()
@@ -424,11 +438,6 @@ const getContrastColor = (hex: string) => {
 </script>
 
 <style scoped>
-.dispatch-icon {
-  @apply w-10 h-10 rounded-lg flex items-center justify-center;
-  @apply bg-primary/10 text-primary;
-}
-
 .dispatch-stats {
   @apply flex items-center gap-3 px-4 py-2.5 rounded-lg;
   @apply bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700;
@@ -455,14 +464,7 @@ const getContrastColor = (hex: string) => {
   @apply border-neutral-300 dark:border-neutral-600;
   @apply bg-white dark:bg-neutral-800;
   @apply text-neutral-900 dark:text-neutral-100;
-  @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary;
-}
-
-.assignment-card {
-  @apply flex items-center rounded-lg overflow-hidden transition-all;
-  @apply bg-white dark:bg-neutral-800;
-  @apply border border-neutral-200 dark:border-neutral-700;
-  @apply hover:border-neutral-300 dark:hover:border-neutral-600;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
 }
 
 .route-stripe {
@@ -473,23 +475,6 @@ const getContrastColor = (hex: string) => {
   @apply inline-block px-2.5 py-0.5 rounded text-xs font-bold;
 }
 
-.action-btn {
-  @apply p-2 rounded-lg transition-colors;
-}
-
-.form-label {
-  @apply block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1;
-}
-
-.form-input {
-  @apply px-3 py-2 text-sm rounded-lg border;
-  @apply border-neutral-300 dark:border-neutral-600;
-  @apply bg-white dark:bg-neutral-800;
-  @apply text-neutral-900 dark:text-neutral-100;
-  @apply placeholder:text-neutral-400;
-  @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary;
-}
-
 .route-dropdown {
   @apply absolute z-20 left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-lg;
   @apply bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-lg;
@@ -497,13 +482,13 @@ const getContrastColor = (hex: string) => {
 
 .route-option {
   @apply w-full flex items-center px-3 py-2 text-left;
-  @apply hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors;
+  @apply hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors;
 }
 
 /* Card list transitions */
 .card-list-enter-active,
 .card-list-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .card-list-enter-from {

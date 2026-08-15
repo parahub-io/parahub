@@ -16,10 +16,12 @@ Operators (establishment owners/admins or staff) create ticket types linked to e
 6. Optionally, user PGP-signs the QR token for cryptographic proof of ownership
 
 ### Validation
-Operators scan QR codes via camera (`/tickets/scan`). Server verifies QR token and marks ticket USED. Only the ticket type operator or staff can validate.
+Operators scan QR codes via camera -- on the `/tickets/scan` page, or in the scanner embedded in the Driver Mode HUD, so a driver validates without ending the shift. Server verifies QR token and marks ticket USED. Only the ticket type operator or staff can validate.
 
 ### Offline Validation
 Tickets carry a cryptographically signed QR. An operator can validate one with no connectivity -- the signature proves the ticket is genuine without a live server round-trip; the used-state syncs when back online.
+
+The scanner also remembers what it has already seen during the shift: a single-use ticket scanned a second time on the same device is refused on the spot, and a time-limited ticket past its validity window is refused as ended. Refusals render in red, clearly distinct from the amber "authentic, queued for sync" advisory, so an inspector can tell "let them on" from "turn them away" at arm's length. The server remains the final authority once the queue syncs.
 
 ### Fares and Validity
 Concession fares (student, senior, child) and validity windows -- single-use or time-limited. Network-wide agency tickets are valid across every route of a transit operator, not just one line. Prices can be set in EUR and shown with a live conversion to sats at the moment of purchase.
@@ -41,11 +43,11 @@ Establishment owners/admins act as operators (not only platform staff): they sel
 - **TicketBuyModal** -- payment flow with Breez SDK integration
 - **TicketCard** -- ticket display in wallet "My Tickets" tab
 - **TicketQRModal** -- full-screen QR code for validation
-- **Scanner** -- `/tickets/scan` page with camera QR reading (qr-scanner)
+- **Scanner** -- `components/tickets/TicketScanner.vue` with camera QR reading (qr-scanner); hosted by the `/tickets/scan` page and as an overlay in the Driver Mode HUD
 
 ## Technical Details
 
 - **Models**: `tickets/models.py` -- TicketType (event FK xor route FK), Ticket (PENDING/ACTIVE/USED, qr_token, ln_payment_hash, ln_preimage, pgp_signature)
 - **API**: `tickets/api.py` -- CRUD for types, purchase, confirm, validate, sign, my tickets
-- **Frontend**: `components/tickets/`, `pages/tickets/scan.vue`
+- **Frontend**: `components/tickets/` (incl. `TicketScanner.vue`), `pages/tickets/scan.vue`, scanner overlay in `pages/driver.vue`
 - **Seed**: `python3 manage.py seed_test_tickets [--reset]`

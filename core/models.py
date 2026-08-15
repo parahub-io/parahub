@@ -153,7 +153,7 @@ class ProfileMigration(ULIDModel):
         'identity.Profile', on_delete=models.CASCADE,
         related_name='migrations',
     )
-    from_hna = models.CharField(max_length=255, help_text="Source HNA (e.g. deploy@parahub.io)")
+    from_hna = models.CharField(max_length=255, help_text="Source HNA (e.g. norn@parahub.io)")
     to_hna = models.CharField(max_length=255, blank=True, help_text="Destination HNA (e.g. andrey@para.sh)")
     from_node = models.CharField(max_length=255)
     to_node = models.CharField(max_length=255, blank=True)
@@ -298,6 +298,42 @@ class OwnershipLog(ULIDModel):
 
     def __str__(self):
         return f"{self.action} {self.object_id} by {self.actor_id}"
+
+
+class ObjectActionLog(ULIDModel):
+    """Universal journal of what an actor DID to a shared entity, and as what role.
+
+    The third leg next to ``ObjectAccess`` (who may) and ``OwnershipLog`` (who
+    owns): access that leaves no trace is not defensible after the fact, and an
+    owner who lends administration deserves to see what was changed on their
+    hardware. Written by middleware, never by hand, so a new endpoint is covered
+    the day it ships (``iot/middleware.py``; first and only consumer so far is
+    the device console).
+
+    Deliberately NOT in the attachment fan-out (``core/signals.py``): deleting
+    the host must not erase the record of what was done to it — the deletion is
+    itself the last entry.
+    """
+
+    object_id = models.CharField(max_length=26, db_index=True,
+                                  help_text="ULID of the entity acted upon")
+    actor = models.ForeignKey('identity.Profile', null=True, blank=True,
+                               on_delete=models.SET_NULL, related_name='object_actions')
+    role = models.CharField(max_length=10, blank=True,
+                             help_text="Actor's effective role at the time (OWNER/MANAGER/VIEWER)")
+    action = models.CharField(max_length=64,
+                               help_text="Path-derived slug, e.g. 'wifi-config' or 'root-password:read'")
+    detail = models.JSONField(default=dict, blank=True,
+                               help_text="method, status, and endpoint-specific context")
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['object_id', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.action} on {self.object_id} by {self.actor_id}"
 
 
 class ObjectFile(ULIDModel):
@@ -494,6 +530,71 @@ class DistributionLine(ULIDModel):
 
     def __str__(self):
         return f"{self.profile_id} {self.amount} {self.distribution.currency} ({self.status})"
+
+
+class ContentReport(ULIDModel):
+    """Universal abuse report for any ULID-identified object (Play UGC policy).
+
+    Reportable targets are curated in ``core.services.reports.REPORTABLE_TYPES``
+    (items, profiles, establishments, events, posts, comments, photos, videos).
+    ``reported_profile`` and ``excerpt`` are resolved server-side at creation
+    time so moderation keeps context even after the author deletes the content.
+    """
+
+    class Reason(models.TextChoices):
+        SPAM = 'SPAM', 'Spam or misleading'
+        FRAUD = 'FRAUD', 'Scam or fraud'
+        HARASSMENT = 'HARASSMENT', 'Harassment or hate'
+        SEXUAL = 'SEXUAL', 'Sexual or explicit content'
+        VIOLENCE = 'VIOLENCE', 'Violence or dangerous acts'
+        ILLEGAL = 'ILLEGAL', 'Illegal goods or activity'
+        OTHER = 'OTHER', 'Other'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending review'
+        ACTIONED = 'ACTIONED', 'Action taken'
+        DISMISSED = 'DISMISSED', 'Dismissed'
+
+    object_id = models.CharField(max_length=26, db_index=True,
+                                  help_text="ULID of the reported object")
+    object_type = models.CharField(max_length=30,
+                                    help_text="Type of the reported object: item, profile, object_comment, ...")
+    reporter = models.ForeignKey('identity.Profile', on_delete=models.CASCADE,
+                                  related_name='reports_made')
+    reported_profile = models.ForeignKey('identity.Profile', null=True, blank=True,
+                                          on_delete=models.SET_NULL,
+                                          related_name='reports_against',
+                                          help_text="Author of the reported content, resolved at report time")
+    reason = models.CharField(max_length=15, choices=Reason.choices)
+    details = models.TextField(max_length=2000, blank=True,
+                                help_text="Free-text explanation from the reporter")
+    excerpt = models.CharField(max_length=500, blank=True,
+                                help_text="Server-side snapshot of the content at report time")
+    context_url = models.CharField(max_length=500, blank=True,
+                                    help_text="Page path the reporter was on")
+    status = models.CharField(max_length=10, choices=Status.choices,
+                               default=Status.PENDING, db_index=True)
+    reviewed_by = models.ForeignKey('identity.Account', null=True, blank=True,
+                                     on_delete=models.SET_NULL, related_name='+')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    resolution_note = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['reporter', 'object_id'],
+                condition=models.Q(status='PENDING'),
+                name='unique_pending_report_per_object',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['reported_profile', 'status']),
+        ]
+
+    def __str__(self):
+        return f"Report {self.reason} on {self.object_type}:{self.object_id} ({self.status})"
 
 
 class ObjectAccess(ULIDModel):

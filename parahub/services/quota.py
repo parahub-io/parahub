@@ -43,8 +43,12 @@ class QuotaService:
     # Default limits (can be overridden per account in future)
     DEFAULT_LIMITS = {
         'ai_analysis': 30,  # 30 AI analyses per day
+        'avatar_stylize': 2,  # avatar restyles per ISO week ($0.046/image, Nano Banana 2)
         # Future: 'api_calls': 1000, 'storage_mb': 100, etc.
     }
+
+    # Resources counted over an ISO calendar week (Mon-Sun, UTC); everything else is daily
+    WEEKLY_RESOURCES = frozenset({'avatar_stylize'})
 
     @staticmethod
     def _get_redis_key(account_id: str, resource_type: str, date: datetime.date) -> str:
@@ -52,9 +56,22 @@ class QuotaService:
         return f"quota:daily:{resource_type}:{account_id}:{date.isoformat()}"
 
     @staticmethod
-    def _get_end_of_day(date: datetime.date) -> datetime:
-        """Get end of day (23:59:59) in UTC"""
-        return datetime.combine(date, datetime.max.time()).replace(tzinfo=timezone.utc)
+    def _current_window(account_id: str, resource_type: str) -> tuple:
+        """Resolve the resource's active quota window.
+
+        Returns (redis_key, reset_at) where reset_at is the UTC midnight that
+        starts the next window (next day for daily, next Monday for weekly).
+        """
+        today = datetime.now(timezone.utc).date()
+        if resource_type in QuotaService.WEEKLY_RESOURCES:
+            iso_year, iso_week, iso_weekday = today.isocalendar()
+            redis_key = f"quota:weekly:{resource_type}:{account_id}:{iso_year}-W{iso_week:02d}"
+            next_monday = today + timedelta(days=8 - iso_weekday)
+            reset_at = datetime.combine(next_monday, datetime.min.time()).replace(tzinfo=timezone.utc)
+        else:
+            redis_key = QuotaService._get_redis_key(account_id, resource_type, today)
+            reset_at = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
+        return redis_key, reset_at
 
     @staticmethod
     def check_quota(
@@ -81,17 +98,12 @@ class QuotaService:
         if limit is None:
             limit = QuotaService.DEFAULT_LIMITS.get(resource_type, 0)
 
-        today = datetime.now(timezone.utc).date()
-        redis_key = QuotaService._get_redis_key(account_id, resource_type, today)
+        redis_key, reset_at = QuotaService._current_window(account_id, resource_type)
 
         # Get current usage from Redis
         used = cache.get(redis_key)
         if used is None:
             used = 0
-
-        # Calculate reset time (tomorrow midnight UTC)
-        tomorrow = today + timedelta(days=1)
-        reset_at = datetime.combine(tomorrow, datetime.min.time()).replace(tzinfo=timezone.utc)
 
         return {
             'remaining': max(0, limit - int(used)),
@@ -135,16 +147,13 @@ class QuotaService:
                 reset_at=quota_info['reset_at']
             )
 
-        today = datetime.now(timezone.utc).date()
-        redis_key = QuotaService._get_redis_key(account_id, resource_type, today)
+        redis_key, reset_at = QuotaService._current_window(account_id, resource_type)
 
-        # Increment Redis counter with TTL (expire at end of day)
+        # Increment Redis counter with TTL (expire when the window resets)
         current_value = cache.get(redis_key) or 0
         new_value = int(current_value) + amount
 
-        # Set expiry to end of day (ensure key auto-deletes tomorrow)
-        end_of_day = QuotaService._get_end_of_day(today)
-        ttl_seconds = int((end_of_day - datetime.now(timezone.utc)).total_seconds())
+        ttl_seconds = int((reset_at - datetime.now(timezone.utc)).total_seconds())
 
         cache.set(redis_key, new_value, timeout=ttl_seconds)
 
@@ -177,8 +186,7 @@ class QuotaService:
             account_id: Account ULID
             resource_type: 'ai_analysis', etc.
         """
-        today = datetime.now(timezone.utc).date()
-        redis_key = QuotaService._get_redis_key(account_id, resource_type, today)
+        redis_key, _ = QuotaService._current_window(account_id, resource_type)
         cache.delete(redis_key)
         logger.info(f"Quota reset: {account_id} - {resource_type}")
 

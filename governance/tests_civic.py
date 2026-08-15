@@ -72,8 +72,18 @@ class CivicPollTestCase(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self._redis_polls = []
+        self._purge_resident_cache()
         self.alice = self._citizen('alice', self.parish_a)
         self.bob = self._citizen('bob', self.parish_a)
+
+    def _purge_resident_cache(self):
+        """Resident counts are cached in Redis, which survives the DB rollback —
+        a stale count would carry a threshold from a previous test."""
+        civic._redis().delete(*[
+            f"civic:residents:{t.id}"
+            for t in (self.pt, self.region, self.muni_a, self.muni_b,
+                      self.parish_a, self.parish_b)
+        ])
 
     def tearDown(self):
         r = civic._redis()
@@ -756,9 +766,9 @@ class StandingDelegationTestCase(CivicPollTestCase):
             poll=poll, voter_token=civic.voter_token(self.alice.id, poll.id)).exists())
 
 
-@override_settings(CIVIC_VOTE_SECRET=TEST_SECRET, CIVIC_IDEA_SUPPORT_THRESHOLD=3)
+@override_settings(CIVIC_VOTE_SECRET=TEST_SECRET)
 class CivicIdeaTestCase(CivicPollTestCase):
-    """Ideas pipeline (Phase 3): support threshold → review → promote/reject."""
+    """Ideas pipeline: support threshold → automatic poll, staff takedown after."""
 
     def _req(self, profile, method='post'):
         request = getattr(self.factory, method)('/fake/')
@@ -788,20 +798,90 @@ class CivicIdeaTestCase(CivicPollTestCase):
                 body='I do not even live here but have opinions.'))
         self.assertEqual(ctx.exception.status_code, 403)
 
-    def test_threshold_moves_to_review(self):
-        from governance.civic_api import support_idea
+    def test_threshold_promotes_to_live_poll(self):
+        """The floor for a parish is 3 supporters — reaching it mints the poll
+        with no staff step, on the fixed neutral ballot."""
+        from governance.civic_api import support_idea, unsupport_idea
         from governance.models import CivicIdea
-        out = self._idea(self.alice)
+        out = self._idea(self.alice, self.parish_a)
+        self.assertEqual(out['threshold'], 3)
         support_idea(self._req(self.bob), out['id'])
         third = self._citizen('ines', self.parish_a)
         result = support_idea(self._req(third), out['id'])
+
         self.assertEqual(result['support_count'], 3)
-        self.assertEqual(result['status'], 'review')
-        # unsupport below threshold does NOT reopen (review is sticky for staff)
-        from governance.civic_api import unsupport_idea
-        result = unsupport_idea(self._req(third), out['id'])
+        self.assertEqual(result['status'], 'promoted')
+        poll = Poll.objects.get(id=result['promoted_poll_id'])
+        self.assertEqual(poll.status, Poll.Status.ACTIVE)
+        self.assertEqual(poll.poll_class, Poll.PollClass.OPINION)
+        self.assertEqual(poll.ballot_mode, Poll.BallotMode.ANONYMOUS)
+        self.assertEqual(poll.context.context_id, self.parish_a.id)
+        self.assertEqual(poll.title, out['title'])
+        self.assertTrue(poll.attributes.get('citizen_authored'))
+        self.assertTrue(poll.civic_destination)
+        self.assertEqual(len(poll.civic_destination_i18n), 6)  # curated, all project locales
+        self.assertEqual([o.text for o in poll.options.order_by('order')],
+                         ['Yes', 'No', 'Abstain'])
+        self.assertEqual(poll.options.first().text_i18n['pt'], 'Sim')
+        # the poll is votable right away by a resident of the scope
+        civic.check_can_opinion_vote(poll, self.bob)
+        # withdrawing support afterwards does not unmake a live poll
+        unsupport_idea(self._req(third), out['id'])
+        self.assertEqual(CivicIdea.objects.get(id=out['id']).status, 'promoted')
+        self.assertEqual(Poll.objects.get(id=poll.id).status, Poll.Status.ACTIVE)
+
+    def test_threshold_scales_with_population(self):
+        """Floors differ per scope, and the percentage rule takes over once a
+        territory has residents — a flat constant fits neither end."""
+        self.assertEqual(civic.idea_support_threshold(self.parish_a), 3)
+        self.assertEqual(civic.idea_support_threshold(self.muni_a), 5)
+        self.assertEqual(civic.idea_support_threshold(self.region), 10)
+        self.assertEqual(civic.idea_support_threshold(self.pt), 25)
+
+        for i in range(6):
+            self._citizen(f'resident{i}', self.parish_a)
+        self._purge_resident_cache()
+        with override_settings(CIVIC_IDEA_SUPPORT_PERCENT=100):
+            # alice + bob + 6 = 8 residents, all of them needed at 100%
+            self.assertEqual(civic.idea_support_threshold(self.parish_a), 8)
+        with override_settings(CIVIC_IDEA_SUPPORT_PERCENT=25):
+            self._purge_resident_cache()
+            self.assertEqual(civic.idea_support_threshold(self.parish_a), 3)  # ceil(2) < floor
+
+    def test_one_support_per_account_not_per_profile(self):
+        """An account carries up to six pseudonymous profiles besides its primary
+        one — counting profiles would let two humans mint a poll."""
+        from governance.civic_api import support_idea
+        from governance.models import CivicIdea, CivicIdeaSupport
+        out = self._idea(self.alice, self.parish_a)
+        support_idea(self._req(self.bob), out['id'])
+
+        pseudo = Profile.objects.create(
+            account=self.bob.account, instance=self.instance, local_name='bob_pseudo',
+            display_name='Someone', is_primary=False,
+            profile_type=Profile.ProfileType.PERSONAL,
+            residency_territory=self.parish_a, civic_opinion_consent=True,
+            civic_opinion_consent_at=timezone.now(),
+        )
+        result = support_idea(self._req(pseudo), out['id'])
         self.assertEqual(result['support_count'], 2)
-        self.assertEqual(CivicIdea.objects.get(id=out['id']).status, 'review')
+        self.assertEqual(result['status'], 'open')  # threshold 3 NOT reached
+        self.assertEqual(CivicIdeaSupport.objects.filter(idea_id=out['id']).count(), 2)
+        self.assertIsNone(CivicIdea.objects.get(id=out['id']).promoted_poll_id)
+
+    def test_staff_takedown_cancels_the_promoted_poll(self):
+        """Staff lost the veto and kept the takedown: rejecting an idea that is
+        already live must take its poll down too."""
+        from governance.civic_api import support_idea, reject_idea, IdeaRejectRequest
+        out = self._idea(self.alice, self.parish_a)
+        support_idea(self._req(self.bob), out['id'])
+        result = support_idea(self._req(self._citizen('ivo', self.parish_a)), out['id'])
+        poll_id = result['promoted_poll_id']
+
+        self.bob.account.is_staff = True
+        self.bob.account.save(update_fields=['is_staff'])
+        reject_idea(self._req(self.bob), out['id'], IdeaRejectRequest(note='spam'))
+        self.assertEqual(Poll.objects.get(id=poll_id).status, Poll.Status.CANCELLED)
 
     def test_supporters_never_exposed(self):
         from governance.civic_api import list_ideas, support_idea
@@ -853,6 +933,36 @@ class CivicIdeaTestCase(CivicPollTestCase):
         self._idea(outsider, territory=self.muni_b)
         mine = list_ideas(self._req(self.alice, 'get'))
         self.assertTrue(all(i['territory_id'] != self.muni_b.id for i in mine))
+
+    def test_test_and_bot_ideas_hidden_from_real_users(self):
+        from governance.civic_api import list_ideas
+        out = self._idea(self.alice)
+        self.alice.account.is_test = True
+        self.alice.account.save(update_fields=['is_test'])
+        bot = self._citizen('botina', self.parish_a)
+        bot.account.is_bot = True
+        bot.account.save(update_fields=['is_bot'])
+        bot_out = self._idea(bot)
+
+        def ids_for(viewer):
+            return {i['id'] for i in list_ideas(self._req(viewer, 'get'))}
+
+        # A real user sees neither, but their own ideas are unaffected
+        real = self._citizen('rui', self.parish_a)
+        own = self._idea(real)
+        visible = ids_for(real)
+        self.assertNotIn(out['id'], visible)
+        self.assertNotIn(bot_out['id'], visible)
+        self.assertIn(own['id'], visible)
+
+        # Test-account and staff viewers see everything
+        self.bob.account.is_test = True
+        self.bob.account.save(update_fields=['is_test'])
+        self.assertLessEqual({out['id'], bot_out['id'], own['id']}, ids_for(self.bob))
+        staff = self._citizen('ana', self.parish_a)
+        staff.account.is_staff = True
+        staff.account.save(update_fields=['is_staff'])
+        self.assertLessEqual({out['id'], bot_out['id'], own['id']}, ids_for(staff))
 
 
 @override_settings(CIVIC_VOTE_SECRET=TEST_SECRET)

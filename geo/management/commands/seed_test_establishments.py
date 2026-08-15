@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.contrib.gis.geos import Point
+from audit_log.signals import suspend_registry_registration
 from geo.models import WorldObject, Establishment
 from identity.models import Profile
 from taxonomy.models import Category
@@ -53,15 +54,18 @@ class Command(BaseCommand):
                 count = Establishment.objects.filter(name__in=krsk_names).delete()[0]
                 self.stdout.write(self.style.WARNING(f'Deleted {count} Krasnoyarsk establishments'))
 
-        # Seed Lisbon
-        if location in ['lisbon', 'all']:
-            lisbon_count = self._seed_lisbon(owner, category)
-            self.stdout.write(self.style.SUCCESS(f'✅ Lisbon: {lisbon_count} establishments'))
+        # Seed establishments are catalog demo content, not creator-registered
+        # organizations — keep them out of the public federation registry
+        with suspend_registry_registration():
+            # Seed Lisbon
+            if location in ['lisbon', 'all']:
+                lisbon_count = self._seed_lisbon(owner, category)
+                self.stdout.write(self.style.SUCCESS(f'✅ Lisbon: {lisbon_count} establishments'))
 
-        # Seed Krasnoyarsk
-        if location in ['krasnoyarsk', 'all']:
-            krsk_count = self._seed_krasnoyarsk(owner, category)
-            self.stdout.write(self.style.SUCCESS(f'✅ Krasnoyarsk: {krsk_count} establishments'))
+            # Seed Krasnoyarsk
+            if location in ['krasnoyarsk', 'all']:
+                krsk_count = self._seed_krasnoyarsk(owner, category)
+                self.stdout.write(self.style.SUCCESS(f'✅ Krasnoyarsk: {krsk_count} establishments'))
 
         self.stdout.write(self.style.SUCCESS('\n🎉 Done!'))
 

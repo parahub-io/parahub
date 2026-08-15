@@ -20,6 +20,24 @@
         <p class="text-sm text-neutral-600 dark:text-neutral-400">{{ $t('about.communicationSystem.callout.text') }}</p>
       </div>
 
+      <!-- Native Matrix apps -->
+      <section class="space-y-4">
+        <h2 class="text-xl font-bold text-neutral-900 dark:text-white">{{ $t('about.communicationSystem.nativeApps.title') }}</h2>
+        <p class="prose-section">{{ $t('about.communicationSystem.nativeApps.intro') }}</p>
+        <ol class="list-decimal list-inside space-y-2.5 text-neutral-700 dark:text-neutral-300">
+          <li>{{ $t('about.communicationSystem.nativeApps.step1') }}</li>
+          <li>{{ $t('about.communicationSystem.nativeApps.step2') }}</li>
+          <li>{{ $t('about.communicationSystem.nativeApps.step3') }}</li>
+        </ol>
+        <UiAlert variant="info" :title="$t('about.communicationSystem.nativeApps.noPassword.title')">
+          {{ $t('about.communicationSystem.nativeApps.noPassword.text') }}
+        </UiAlert>
+        <div class="p-4 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg">
+          <h3 class="font-semibold text-neutral-900 dark:text-white mb-2">{{ $t('about.communicationSystem.nativeApps.qr.title') }}</h3>
+          <p class="text-sm text-neutral-600 dark:text-neutral-400">{{ $t('about.communicationSystem.nativeApps.qr.text') }}</p>
+        </div>
+      </section>
+
       <DocsPrevNext />
     </div>
   </div>

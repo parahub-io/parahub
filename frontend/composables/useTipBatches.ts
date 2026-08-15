@@ -9,6 +9,10 @@
  *
  * Losing this store does NOT lose the money: unclaimed notes come back to the
  * sender when their HTLC expires. It only loses the ability to reprint.
+ *
+ * Cross-device: users who opted into wallet sync (advanced preferences) carry
+ * this store between devices as a seed-encrypted blob — see useWalletSync.
+ * The server never sees plaintext; for everyone else the store stays local.
  */
 export interface TipBatchNote {
   code: string
@@ -22,6 +26,8 @@ export interface TipBatchNote {
 export interface TipBatch {
   id: string
   createdAt: number
+  /** Last local edit (labels) — lets sync merge pick the newer copy of a batch. */
+  updatedAt?: number
   sats: number
   expirySecs: number
   message: string
@@ -32,8 +38,27 @@ export interface TipBatch {
 }
 
 const STORAGE_KEY = 'parahub_tip_batches'
+const DELETED_KEY = 'parahub_tip_deleted'
+// Batch ids are minted once and never reused, so a tombstone can live forever;
+// the cap only bounds the sync payload.
+const MAX_TOMBSTONES = 200
 
-const read = (): TipBatch[] => {
+/** Ids of locally deleted batches — tombstones so sync-merge cannot resurrect them. */
+export const readTipTombstones = (): string[] => {
+  if (!process.client) return []
+  try {
+    return JSON.parse(localStorage.getItem(DELETED_KEY) || '[]') as string[]
+  } catch {
+    return []
+  }
+}
+
+export const writeTipTombstones = (ids: string[]) => {
+  if (!process.client) return
+  localStorage.setItem(DELETED_KEY, JSON.stringify(ids.slice(-MAX_TOMBSTONES)))
+}
+
+export const readTipBatches = (): TipBatch[] => {
   if (!process.client) return []
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -43,7 +68,7 @@ const read = (): TipBatch[] => {
   }
 }
 
-const write = (batches: TipBatch[]) => {
+export const writeTipBatches = (batches: TipBatch[]) => {
   if (!process.client) return
   localStorage.setItem(STORAGE_KEY, JSON.stringify(batches))
 }
@@ -51,24 +76,28 @@ const write = (batches: TipBatch[]) => {
 export const useTipBatches = () => {
   const batches = useState<TipBatch[]>('tip-batches', () => [])
 
-  const load = () => { batches.value = read() }
+  const load = () => { batches.value = readTipBatches() }
 
   const get = (id: string): TipBatch | undefined =>
-    (batches.value.length ? batches.value : read()).find(b => b.id === id)
+    (batches.value.length ? batches.value : readTipBatches()).find(b => b.id === id)
 
   const save = (batch: TipBatch) => {
-    const all = read()
+    batch.updatedAt = Date.now()
+    const all = readTipBatches()
     const i = all.findIndex(b => b.id === batch.id)
     if (i >= 0) all[i] = batch
     else all.unshift(batch)
-    write(all)
+    writeTipBatches(all)
     batches.value = all
+    useWalletSync().scheduleUpload()
   }
 
   const remove = (id: string) => {
-    const all = read().filter(b => b.id !== id)
-    write(all)
+    const all = readTipBatches().filter(b => b.id !== id)
+    writeTipBatches(all)
+    writeTipTombstones([...readTipTombstones(), id])
     batches.value = all
+    useWalletSync().scheduleUpload()
   }
 
   return { batches, load, get, save, remove }

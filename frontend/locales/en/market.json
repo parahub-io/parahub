@@ -1,5 +1,10 @@
 {
   "market": {
+    "translation": {
+      "auto_translated": "Automatically translated",
+      "show_original": "Show original",
+      "show_translation": "Show translation"
+    },
     "title": "Market",
     "meta_description": "P2P marketplace for goods, services and barter exchange",
     "search_placeholder": "Search items...",
@@ -106,6 +111,8 @@
       "converted_from": "from {currency}",
       "sale": "Sale",
       "rent": "Rent",
+      "budget": "Budget",
+      "budget_rent": "Rental budget",
       "unit_none": "No unit",
       "unit_custom": "Other…",
       "unit_custom_placeholder": "Unit (e.g. kg, hour, pcs)",
@@ -328,7 +335,9 @@
       "status_hidden": "Hidden",
       "empty_title": "No listings yet",
       "empty_description": "Create your first marketplace listing",
-      "tab_barter": "Barter"
+      "tab_barter": "Barter",
+      "views_title": "Views",
+      "views_24h": "+{count} in 24 h"
     },
     "error_codes": {
       "item_delete_forbidden": "You don't have permission to delete this item",

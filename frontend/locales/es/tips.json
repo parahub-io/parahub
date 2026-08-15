@@ -51,6 +51,8 @@
       "submit": "Crear y cargar",
       "funding": "Cargando el cupón {n} de {total}",
       "fundingHint": "No cierres esta pestaña: cada cupón se carga por separado.",
+      "elapsed": "{time} transcurrido",
+      "remaining": "quedan ≈ {time}",
       "walletNeeded": "Abre primero el monedero: el lote se carga desde él.",
       "insufficient": "No hay saldo suficiente para {sats} sats."
     },
@@ -97,6 +99,11 @@
       "remembered": "Rellenado con la dirección de tu último cobro.",
       "forget": "Borrar",
       "tooSmall": "Este billete es demasiado pequeño para enviarlo por Lightning: la comisión cuesta más de lo que contiene. Prueba con una dirección Spark."
+    },
+    "sync": {
+      "offHint": "¿Emitiste un lote en otro dispositivo? Los lotes se quedan donde se crearon mientras la sincronización de la cartera esté desactivada.",
+      "settingsLink": "Actívala en los ajustes del perfil",
+      "keyMismatch": "La sincronización está activada, pero la cartera de este dispositivo es distinta de la que sincronizó. Restaura la misma semilla de 12 palabras para ver lotes de otros dispositivos."
     }
   }
 }

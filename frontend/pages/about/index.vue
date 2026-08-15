@@ -33,9 +33,6 @@
           <UiButton v-if="authStore.user?.is_staff" variant="secondary" size="sm" :to="localePath('/about/support')" :icon="Headphones">
             {{ $t('support_voice.title') }}
           </UiButton>
-          <UiButton variant="secondary" size="sm" tag="a" href="/parahub.apk" download :icon="Smartphone">
-            {{ $t('about.android_app') }}
-          </UiButton>
         </div>
       </div>
     </div>
@@ -91,30 +88,41 @@
         </div>
       </section>
 
-      <!-- Platform Services -->
-      <section class="card p-6">
-        <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
-          <Server class="w-5 h-5 text-neutral-400" />
-          {{ $t('about.services.title') }}
+      <!-- App availability — the one page that states it for every platform, so
+           unlike the menu row this is not gated: "no iOS build yet" is the answer
+           an iPhone visitor came for. -->
+      <section id="app" class="card p-6">
+        <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2 flex items-center gap-2">
+          <Smartphone class="w-5 h-5 text-neutral-400" />
+          {{ $t('about.app.title') }}
         </h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <a
-            v-for="svc in platformServices"
-            :key="svc.url"
-            :href="svc.url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="flex items-center gap-3 p-3 rounded-lg border border-neutral-300 dark:border-neutral-600 hover:border-primary transition-colors group"
-          >
-            <component :is="svc.icon" class="w-5 h-5 text-neutral-400 group-hover:text-secondary shrink-0" />
+        <p class="text-sm text-neutral-700 dark:text-neutral-300 mb-4">{{ $t('about.app.intro') }}</p>
+
+        <div class="space-y-2 text-sm">
+          <div class="flex gap-3 items-baseline">
+            <span class="text-neutral-500 dark:text-neutral-400 w-28 flex-shrink-0">{{ $t('about.app.android') }}</span>
             <div class="min-w-0">
-              <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100 flex items-center gap-1">
-                {{ svc.name }}
-                <ExternalLink class="w-3 h-3 opacity-40" />
-              </div>
-              <div class="text-xs text-neutral-500 dark:text-neutral-400 truncate">{{ svc.desc }}</div>
+              <a href="/parahub.apk" download class="text-link inline-flex items-center gap-1">
+                <Download class="w-3.5 h-3.5" />
+                {{ $t('about.app.android_action') }}
+              </a>
+              <span class="text-neutral-500 dark:text-neutral-400"> — {{ $t('about.app.android_note') }}</span>
             </div>
-          </a>
+          </div>
+          <div class="flex gap-3 items-baseline">
+            <span class="text-neutral-500 dark:text-neutral-400 w-28 flex-shrink-0">{{ $t('about.app.play') }}</span>
+            <div class="min-w-0">
+              <a href="https://play.google.com/store/apps/details?id=io.parahub.app" target="_blank" rel="noopener" class="text-link inline-flex items-center gap-1">
+                <ExternalLink class="w-3.5 h-3.5" />
+                {{ $t('about.app.play_action') }}
+              </a>
+              <span class="text-neutral-500 dark:text-neutral-400"> — {{ $t('about.app.play_note') }}</span>
+            </div>
+          </div>
+          <div class="flex gap-3 items-baseline">
+            <span class="text-neutral-500 dark:text-neutral-400 w-28 flex-shrink-0">{{ $t('about.app.ios') }}</span>
+            <span class="text-neutral-500 dark:text-neutral-400">{{ $t('about.app.status_planned') }}</span>
+          </div>
         </div>
       </section>
 
@@ -125,15 +133,9 @@
           {{ $t('about.cryptoProofs.title') }}
         </h2>
         <p class="text-sm text-neutral-700 dark:text-neutral-300 mb-4">{{ $t('about.cryptoProofs.short') }}</p>
-        <div class="flex flex-wrap items-center gap-4">
-          <UiButton variant="secondary" size="sm" :to="localePath('/docs/crypto')" :icon="ShieldCheck">
-            {{ $t('about.cryptoProofs.verify.title') }}
-          </UiButton>
-          <a href="https://git.parahub.io/audit/parahub-registry" target="_blank" rel="noopener" class="text-link text-sm font-mono inline-flex items-center gap-1">
-            {{ $t('about.cryptoProofs.repo.cta') }}
-            <ExternalLink class="w-3.5 h-3.5 opacity-50" />
-          </a>
-        </div>
+        <UiButton variant="secondary" size="sm" :to="localePath('/docs/crypto')" :icon="ShieldCheck">
+          {{ $t('about.cryptoProofs.aboutCta') }}
+        </UiButton>
       </section>
 
       <!-- Legal links -->
@@ -155,16 +157,31 @@
             <ChevronRight class="w-4 h-4" />
             {{ $t('data_rights.title') }}
           </NuxtLink>
+          <NuxtLink :to="localePath('/about/sources')" class="text-link text-sm flex items-center gap-2">
+            <ChevronRight class="w-4 h-4" />
+            {{ $t('sources.title') }}
+          </NuxtLink>
           <NuxtLink :to="localePath('/about/code-of-conduct')" class="text-link text-sm flex items-center gap-2">
             <ChevronRight class="w-4 h-4" />
             {{ $t('codeOfConduct.title') }}
+          </NuxtLink>
+          <NuxtLink :to="localePath('/about/child-safety')" class="text-link text-sm flex items-center gap-2">
+            <ChevronRight class="w-4 h-4" />
+            {{ $t('childsafety.title') }}
           </NuxtLink>
         </div>
       </section>
 
       <!-- Footer -->
       <p class="text-xs text-neutral-400 dark:text-neutral-600 font-mono">
-        Parahub {{ version }} &middot; {{ buildDate }}
+        <NuxtLink :to="localePath('/changelog')" class="hover:text-secondary hover:underline dark:hover:text-secondary-400">
+          Parahub {{ version }}
+        </NuxtLink>
+        &middot; {{ buildDate }}
+        &middot;
+        <a href="https://status.parahub.io" target="_blank" rel="noopener noreferrer" class="hover:text-secondary hover:underline dark:hover:text-secondary-400">
+          {{ $t('about.services.status') }}
+        </a>
       </p>
     </div>
   </div>
@@ -173,7 +190,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
-import { BookOpen, Smartphone, Headphones, FileText, LogIn, Mail, Scale, ChevronRight, Server, ExternalLink, Video, Activity, ShieldCheck } from 'lucide-vue-next'
+import { BookOpen, Headphones, FileText, LogIn, Mail, Scale, ChevronRight, ShieldCheck, Smartphone, Download, ExternalLink } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
@@ -190,11 +207,6 @@ useSeoMeta({
   ogTitle: computed(() => t('about.title')),
   ogDescription: computed(() => t('about.meta.description')),
 })
-
-const platformServices = computed(() => [
-  { name: t('about.services.video'), url: 'https://video.parahub.io', icon: Video, desc: t('about.services.video_desc') },
-  { name: t('about.services.status'), url: 'https://status.parahub.io', icon: Activity, desc: t('about.services.status_desc') },
-])
 
 const config = useRuntimeConfig()
 const version = computed(() => config.public.appVersion)

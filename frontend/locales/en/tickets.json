@@ -36,7 +36,8 @@
     "event_ticket": "Event ticket",
     "transit_ticket": "Transit ticket",
     "camera_permission": "Camera access required for scanning",
-    "camera_denied": "Camera access was denied",
+    "camera_denied": "Camera access denied — allow camera for Parahub in system settings",
+    "camera_unavailable": "Camera is not available",
     "staff_only": "Staff / operators only",
     "error_purchase": "Purchase failed",
     "error_confirm": "Payment confirmation failed",
@@ -90,6 +91,8 @@
     "offline_unverified": "No connection — scan queued, could not verify",
     "offline_bad_signature": "Invalid QR signature",
     "offline_foreign_type": "Authentic, but not your ticket type",
+    "offline_already_scanned": "Already scanned on this device at {time}",
+    "offline_window_ended": "Validity window ended at {time}",
     "scan_result_offline": "Offline"
   }
 }

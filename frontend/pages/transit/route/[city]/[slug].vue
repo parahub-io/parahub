@@ -161,6 +161,26 @@
                 <span class="min-w-0">{{ s.name }}</span>
                 <TransitInterchangeBadge v-if="s.interchange_modes?.length" :modes="s.interchange_modes" :exclude="routeData.route_type" class="ml-auto flex-shrink-0" />
               </button>
+              <!-- "I'm waiting here, for THIS line, in THIS direction" — the tap
+                   is the direction signal, since the two poles of a stop are ten
+                   metres apart and nothing can tell them apart for the user.
+                   With nobody waiting this stays a bare ghost affordance: a "0
+                   waiting" label on every row of every stop would advertise an
+                   empty city instead of offering an action. -->
+              <button
+                type="button"
+                @click.stop="toggleWaiting(s.source_id, view.direction_id)"
+                class="flex-shrink-0 mr-2 h-8 min-w-[2rem] px-1.5 flex items-center justify-center gap-1 rounded-md transition-colors"
+                :class="waitingBtnClass(s.source_id, view.direction_id)"
+                :title="waitingTitle(s.source_id, view.direction_id)"
+                :aria-label="waitingTitle(s.source_id, view.direction_id)"
+                :aria-pressed="isWaitingHere(s.source_id, view.direction_id)"
+              >
+                <PersonStanding class="w-4 h-4" />
+                <span v-if="waitingAt(s.source_id, view.direction_id)?.n" class="text-xs font-bold font-mono">
+                  {{ waitingAt(s.source_id, view.direction_id).n }}
+                </span>
+              </button>
             </div>
           </div>
         </div>
@@ -178,7 +198,12 @@
           :title="$t('transit.show_on_map')"
           class="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 px-2.5 h-9 rounded-lg bg-white/90 dark:bg-neutral-800/90 backdrop-blur border border-neutral-200 dark:border-neutral-700 text-sm font-medium text-neutral-700 dark:text-neutral-300 shadow-sm hover:bg-white dark:hover:bg-neutral-800 hover:border-secondary-300 dark:hover:border-secondary-600 transition-colors"
         >
-          <Maximize2 class="w-4 h-4" />
+          <span
+            v-if="mapNavPending"
+            class="w-4 h-4 rounded-full border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100 animate-spin"
+            aria-hidden="true"
+          />
+          <Maximize2 v-else class="w-4 h-4" />
           <span class="hidden sm:inline">{{ $t('transit.show_on_map') }}</span>
         </button>
       </div>
@@ -214,7 +239,7 @@
 
       <!-- ETA Detail Modal -->
       <Teleport to="body">
-        <div v-if="etaDetail" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" @click.self="etaDetail = null">
+        <div v-if="etaDetail" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" @click.self="etaDetail = null">
           <div class="fixed inset-0 bg-black/50" @click="etaDetail = null"></div>
           <div class="relative bg-white dark:bg-neutral-900 w-full sm:max-w-lg sm:rounded-xl rounded-t-xl max-h-[85vh] overflow-y-auto shadow-xl">
             <div class="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
@@ -261,6 +286,7 @@
                   <div>spd: <span class="text-neutral-800 dark:text-neutral-200">{{ v.live.speed ?? '?' }} km/h</span></div>
                   <div v-if="v.live.headsign">hs: <span class="text-neutral-800 dark:text-neutral-200">{{ v.live.headsign }}</span></div>
                   <div v-if="v.live.zombie" class="text-amber-600">ZOMBIE</div>
+                  <div v-if="v.live.stale" class="text-red-600 dark:text-red-400">STALE ({{ v.live.age_s }}s)</div>
                 </div>
 
                 <!-- ETA breakdown -->
@@ -303,7 +329,7 @@
       </Teleport>
       <!-- Vehicle Detail Modal -->
       <Teleport to="body">
-        <div v-if="vehicleDetail" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" @click.self="vehicleDetail = null">
+        <div v-if="vehicleDetail" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" @click.self="vehicleDetail = null">
           <div class="fixed inset-0 bg-black/50" @click="vehicleDetail = null"></div>
           <div class="relative bg-white dark:bg-neutral-900 w-full sm:max-w-lg sm:rounded-xl rounded-t-xl max-h-[85vh] overflow-y-auto shadow-xl">
             <div class="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
@@ -382,7 +408,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
-import { ArrowLeft, ArrowRight, ArrowLeftRight, CalendarDays, CalendarOff, Check, ChevronDown, Maximize2, Moon, X } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, ArrowLeftRight, CalendarDays, CalendarOff, Check, ChevronDown, Maximize2, Moon, PersonStanding, X } from 'lucide-vue-next'
 import { createVehicleAnimator } from '~/utils/vehicleAnimator'
 
 const { t } = useI18n()
@@ -659,10 +685,58 @@ function startScheduleRefresh() {
   }, 60_000)
 }
 
-// Route-wide ETA predictions: both directions from WS
-// allEtas: {0: {stop_src: seconds}, 1: {stop_src: seconds}}
-const allEtas = ref<Record<number, Record<string, number>>>({})
-const etasFor = (dirId: number) => allEtas.value[dirId] ?? {}
+// Live vehicles + route-wide ETA predictions (both directions) over the shared
+// transit WS. Each push also drives the stop-hop pulse reconciler defined below.
+const {
+  liveVehicles, etasFor, vehicleAtStop, waitingAt,
+  connect: openLiveWs, disconnect: closeLiveWs, reviveIfDropped: reviveLiveWs,
+} = useTransitRouteLive({ onUpdate: () => reconcileVehiclePulses(liveVehicles.value) })
+
+// Waiting-passenger markers. The stop row is the natural place for the gesture:
+// the page already shows both directions side by side, which is the one thing
+// no sensor can resolve for the user.
+const {
+  isMine: isMyWaitingMarker, toggle: toggleWaitingMarker,
+  restore: restoreWaitingMarker,
+} = useWaitingMarker()
+
+function isWaitingHere(stopSourceId: string, dirId: number): boolean {
+  return isMyWaitingMarker(
+    routeData.value?.data_source_id || '', stopSourceId,
+    routeData.value?.source_id || '', dirId,
+  )
+}
+
+async function toggleWaiting(stopSourceId: string, dirId: number) {
+  const dsId = routeData.value?.data_source_id
+  const routeSourceId = routeData.value?.source_id
+  if (!dsId || !routeSourceId) return
+  await toggleWaitingMarker(dsId, stopSourceId, { route: routeSourceId, direction: dirId })
+}
+
+function waitingBtnClass(stopSourceId: string, dirId: number): string {
+  if (isWaitingHere(stopSourceId, dirId)) {
+    return 'bg-primary text-neutral-900 hover:bg-primary/80'
+  }
+  const cell = waitingAt(stopSourceId, dirId)
+  if (cell?.n) {
+    // Nobody beating means every phone here is pocketed — still people, shown
+    // faded rather than silently counted as live.
+    const dimmed = cell.active === 0 ? ' opacity-50' : ''
+    return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700' + dimmed
+  }
+  return 'text-neutral-300 dark:text-neutral-600 hover:text-neutral-500 dark:hover:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+}
+
+function waitingTitle(stopSourceId: string, dirId: number): string {
+  if (isWaitingHere(stopSourceId, dirId)) return t('transit.waiting.im_here_cancel')
+  const cell = waitingAt(stopSourceId, dirId)
+  return cell?.n ? t('transit.waiting.count', { n: cell.n }) : t('transit.waiting.im_here')
+}
+
+function connectLiveWS() {
+  openLiveWs(routeData.value?.data_source_id, routeData.value?.source_id)
+}
 
 // Render a clock label (HH:MM) in the STOP's timezone, not the viewer's browser
 // zone — else a cross-timezone viewer sees live ETA/now in their local clock,
@@ -721,11 +795,6 @@ async function openVehicleDetail(v: any) {
   vehicleDetailLoading.value = false
 }
 
-// Live vehicle positions + ETAs via WebSocket
-const liveStopIds = ref<string[]>([])
-const liveVehicles = ref<any[]>([])
-let liveWs: WebSocket | null = null
-
 // ── Stop-hop pulse ──────────────────────────────────────────────────────────
 // When a vehicle moves to a new stop (its `sid` changed between WS pushes) the
 // list icon pulses on arrival — a route-colored ring expands + the icon pops —
@@ -749,83 +818,11 @@ const pulseCasingCss = computed(() =>
   colorMode.value === 'dark' ? 'rgba(241, 245, 249, 0.55)' : 'rgba(30, 41, 59, 0.45)'
 )
 
-function vehicleAtStop(stopSourceId: string, dirId: number) {
-  // A vehicle with a confirmed direction is placed only in its own column.
-  // A vehicle whose STT direction is still unresolved (d=null — dual state at a
-  // shared terminus, or freshly-appeared with no track yet) has a known snapped
-  // stop (sid) but no direction: place it in whichever rendered column contains
-  // that stop. This is only ever called with stops of the current column, so
-  // `v.sid === stopSourceId` already proves the sid belongs to this direction;
-  // a sid shared by both columns (terminus) shows the bus in both — the genuine
-  // ambiguity while it turns around, never hidden. Keeps the list in step with
-  // the mini-map, which plots every live vehicle regardless of direction.
-  return liveVehicles.value.find(
-    v => v.sid === stopSourceId && (v.d === dirId || v.d == null)
-  ) || null
-}
-
-let liveWsIntentionalClose = false
-let liveWsReconnectTimer: ReturnType<typeof setTimeout> | null = null
-
-function connectLiveWS() {
-  if (!import.meta.client) return
-  if (liveWs) return  // already open/connecting (nulled on close and deactivate)
-  const dsId = routeData.value?.data_source_id
-  const sourceId = routeData.value?.source_id
-  if (!dsId || !sourceId) return
-
-  liveWsIntentionalClose = false
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  const ws = new WebSocket(`${proto}://${location.host}/ws/v1/transit/`)
-  liveWs = ws
-
-  ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'subscribe_route', ds_id: dsId, route_source_id: sourceId }))
-  }
-
-  ws.onmessage = (e) => {
-    try {
-      const msg = JSON.parse(e.data)
-      if (msg.type === 'route_vehicles' || msg.type === 'route_live') {
-        liveStopIds.value = msg.stop_ids || []
-        liveVehicles.value = msg.vehicles || []
-        reconcileVehiclePulses(liveVehicles.value)
-        if (msg.etas) {
-          // Convert string keys to numbers: {"0": {...}} → {0: {...}}
-          const parsed: Record<number, Record<string, number>> = {}
-          for (const [k, v] of Object.entries(msg.etas)) {
-            parsed[Number(k)] = v as Record<string, number>
-          }
-          allEtas.value = parsed
-        }
-      }
-    } catch {}
-  }
-
-  ws.onclose = () => {
-    liveWs = null
-    if (!liveWsIntentionalClose) {
-      scheduleLiveWsReconnect()
-    }
-  }
-}
-
-function scheduleLiveWsReconnect(delayMs = 3000) {
-  if (liveWsReconnectTimer) clearTimeout(liveWsReconnectTimer)
-  if (liveWsIntentionalClose) return
-  liveWsReconnectTimer = setTimeout(() => {
-    liveWsReconnectTimer = null
-    if (!liveWsIntentionalClose) connectLiveWS()
-  }, delayMs)
-}
-
 function onLiveWsVisibilityChange() {
   if (document.visibilityState !== 'visible') return
   // Schedule data aged in the background (refresh timer is visibility-gated)
   loadSchedule()
-  if (!liveWs || liveWs.readyState === WebSocket.CLOSED || liveWs.readyState === WebSocket.CLOSING) {
-    scheduleLiveWsReconnect(0)
-  }
+  reviveLiveWs()
 }
 
 // All pages are KeepAlive-cached (app.vue), so navigating away does NOT
@@ -858,12 +855,16 @@ function resumeLive() {
 onMounted(() => {
   isMounted.value = true
   resumeLive()
+  restoreWaitingMarker()
 
   // Lazy mini-map: create when container enters viewport
   if (miniMapEl.value) {
     miniMapObserver = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !miniMapCreated) createMiniMap()
+        if (entries[0].isIntersecting && !miniMapCreated) {
+          createMiniMap()
+          warmMapPage()
+        }
       },
       { rootMargin: '200px' }
     )
@@ -871,17 +872,17 @@ onMounted(() => {
   }
 })
 
-onActivated(() => { resumeLive() })
+onActivated(() => {
+  mapNavPending.value = false  // re-entry via the map's back button
+  resumeLive()
+})
 
 onDeactivated(() => {
   document.removeEventListener('visibilitychange', onLiveWsVisibilityChange)
   document.removeEventListener('click', onVariantsDocClick)
   document.removeEventListener('keydown', onVariantsDocKey)
-  liveWsIntentionalClose = true
   if (scheduleRefreshTimer) { clearInterval(scheduleRefreshTimer); scheduleRefreshTimer = null }
-  if (liveWsReconnectTimer) { clearTimeout(liveWsReconnectTimer); liveWsReconnectTimer = null }
-  liveWs?.close()
-  liveWs = null
+  closeLiveWs()
   // Halt the mini-map glide rAF; the reconnect's first WS tick re-engages it
   // (setTarget restarts the loop, vehicles appear in place).
   miniVehicleAnimator?.stop()
@@ -891,11 +892,8 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', onLiveWsVisibilityChange)
   document.removeEventListener('click', onVariantsDocClick)
   document.removeEventListener('keydown', onVariantsDocKey)
-  liveWsIntentionalClose = true
   if (scheduleRefreshTimer) clearInterval(scheduleRefreshTimer)
-  if (liveWsReconnectTimer) clearTimeout(liveWsReconnectTimer)
-  liveWs?.close()
-  liveWs = null
+  closeLiveWs()
   miniMapObserver?.disconnect()
   miniMapObserver = null
   miniVehicleAnimator?.stop()
@@ -935,11 +933,36 @@ function onPurchased() {
 
 watch(() => routeData.value, () => loadTicketTypes(), { immediate: true })
 
+const mapNavPending = ref(false)
+
 function showRouteOnMap() {
-  if (!routeData.value) return
+  if (!routeData.value || mapNavPending.value) return
+  mapNavPending.value = true
   ;(window as any)._transitRouteData = routeData.value
   const c = routeCenter.value
   router.push(localePath(`/map?lat=${c.lat}&lng=${c.lon}&zoom=13&transit=1&routeCity=${city}&routeSlug=${slug}&returnTo=${encodeURIComponent(route.fullPath)}`))
+    .catch(() => { mapNavPending.value = false })
+}
+
+// The /map page graph is ~600KB gzip beyond what the mini-map already pulls
+// (MapView + composables, deck.gl overlays) — parsed during the "show on map"
+// navigation it reads as a multi-second freeze. Warm it in idle time once the
+// mini-map (and thus the button) is on screen, so the click lands on cached,
+// already-parsed modules.
+let mapPageWarmed = false
+function warmMapPage() {
+  if (mapPageWarmed) return
+  mapPageWarmed = true
+  const warm = () => {
+    try { preloadRouteComponents(localePath('/map')) } catch {}
+    // deck.gl loads lazily inside the map's vehicle/trail overlays — warm the
+    // same chunks so the transit layer doesn't stall right after mount
+    import('@deck.gl/mapbox').catch(() => {})
+    import('@deck.gl/layers').catch(() => {})
+    import('@deck.gl/geo-layers').catch(() => {})
+  }
+  if ('requestIdleCallback' in window) requestIdleCallback(warm, { timeout: 4000 })
+  else setTimeout(warm, 1500)
 }
 
 // ── Mini-Map ──

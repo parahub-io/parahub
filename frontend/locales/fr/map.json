@@ -659,7 +659,8 @@
       "history": "Historique",
       "range_24h": "24h",
       "range_7d": "7j",
-      "export_csv": "Télécharger CSV (données brutes, 30 jours)"
+      "export_csv": "Télécharger CSV (données brutes, 30 jours)",
+      "calm": "calme"
     }
   }
 }

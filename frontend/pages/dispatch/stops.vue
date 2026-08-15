@@ -4,42 +4,23 @@
       <Title>{{ $t('transit_manage.stops_title') }}</Title>
     </Head>
 
-    <div v-if="!isStaff" class="text-center py-20">
+    <!-- Access check: stops belong to the operator that runs them -->
+    <div v-if="checked && !canManage" class="text-center py-20">
       <ShieldAlert class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-      <p class="text-neutral-500">{{ $t('dispatch.staff_only') }}</p>
+      <p class="text-neutral-500">{{ $t('dispatch.no_operator') }}</p>
+      <p class="mt-1 text-sm text-neutral-400 max-w-md mx-auto">{{ $t('dispatch.no_operator_hint') }}</p>
     </div>
 
-    <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-      <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <div class="dispatch-icon" style="background: rgba(16,185,129,0.15); color: #10b981;">
-            <MapPin class="w-5 h-5" />
-          </div>
-          <div>
-            <h1 class="text-xl font-bold text-neutral-900 dark:text-neutral-100">{{ $t('transit_manage.stops_heading') }}</h1>
-            <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ $t('transit_manage.stops_subtitle') }}</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <NuxtLink :to="localePath('/dispatch/routes')" class="btn-sm btn-outline">
-            <RouteIcon class="w-3.5 h-3.5" /> {{ $t('transit_manage.routes') }}
-          </NuxtLink>
-          <UiButton variant="primary" size="sm" :icon="Plus" @click="showCreate = true">
-            {{ $t('transit_manage.new_stop') }}
-          </UiButton>
-        </div>
-      </div>
+    <div v-else class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+      <PageHeader
+        :title="$t('dispatch.title')"
+        :subtitle="$t('transit_manage.stops_subtitle')"
+        :create-label="store.selectedAgency ? $t('transit_manage.new_stop') : undefined"
+        class="!mb-0"
+        @create="showCreate = true"
+      />
 
-      <!-- Sub-nav -->
-      <div class="flex gap-2 border-b border-neutral-200 dark:border-neutral-700 pb-2">
-        <NuxtLink :to="localePath('/dispatch/routes')" class="tab-inactive text-sm px-3 py-1.5 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">
-          <RouteIcon class="w-3.5 h-3.5 inline mr-1" /> {{ $t('transit_manage.routes') }}
-        </NuxtLink>
-        <NuxtLink :to="localePath('/dispatch/stops')" class="tab-active text-sm font-medium px-3 py-1.5">
-          <MapPin class="w-3.5 h-3.5 inline mr-1" /> {{ $t('transit_manage.stops') }} ({{ store.stops.length }})
-        </NuxtLink>
-      </div>
+      <UiRouteTabs :tabs="dispatchTabs" />
 
       <!-- Search -->
       <input
@@ -51,21 +32,25 @@
       />
 
       <!-- Stops list -->
-      <div v-if="store.loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-neutral-100" />
+      <div v-if="store.loading" class="flex justify-center py-12" role="status">
+        <div class="animate-spin rounded-full h-12 w-12 border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-600 dark:border-t-white" />
+        <span class="sr-only">{{ $t('common.loading') }}</span>
       </div>
 
-      <div v-else-if="filteredStops.length" class="space-y-1">
+      <div
+        v-else-if="filteredStops.length"
+        class="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-700"
+      >
         <div
           v-for="s in filteredStops"
           :key="s.id"
-          class="card p-3 flex items-center gap-3 hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
+          class="p-3 flex items-center gap-3 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
         >
-          <MapPin class="w-4 h-4 text-emerald-500 shrink-0" />
+          <MapPin class="w-4 h-4 text-success shrink-0" />
           <div class="flex-1 min-w-0">
             <div v-if="editingStopId === s.id" class="flex items-center gap-2">
               <input v-model="editStopName" type="text" class="form-input flex-1 text-sm" @keyup.enter="saveStopEdit(s)" />
-              <button :aria-label="$t('transit_manage.save_edit')" class="text-green-500 p-1" @click="saveStopEdit(s)"><Check class="w-4 h-4" /></button>
+              <button :aria-label="$t('transit_manage.save_edit')" class="text-success p-1" @click="saveStopEdit(s)"><Check class="w-4 h-4" /></button>
               <button :aria-label="$t('transit_manage.cancel_edit')" class="text-neutral-400 p-1" @click="editingStopId = ''"><X class="w-4 h-4" /></button>
             </div>
             <template v-else>
@@ -80,7 +65,7 @@
             <button
               :aria-label="pendingDeleteStopId === s.id ? $t('common.confirm') : $t('transit_manage.delete_stop')"
               class="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors"
-              :class="pendingDeleteStopId === s.id ? 'text-white bg-error rounded' : 'text-red-400 hover:text-red-600'"
+              :class="pendingDeleteStopId === s.id ? 'text-white bg-error rounded' : 'text-error hover:text-error-600'"
               @click="handleDeleteStop(s.id)"
             >
               <component :is="pendingDeleteStopId === s.id ? Check : Trash2" class="w-4 h-4" />
@@ -90,8 +75,8 @@
       </div>
 
       <div v-else class="text-center py-12">
-        <MapPin class="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
-        <p class="text-neutral-500 text-sm">{{ $t('transit_manage.no_stops') }}</p>
+        <img src="/images/para/searching.webp" alt="Para" class="mx-auto h-32 w-auto mb-3">
+        <p class="text-neutral-500 dark:text-neutral-400 text-sm">{{ $t('transit_manage.no_stops') }}</p>
       </div>
     </div>
 
@@ -127,16 +112,22 @@
 
 <script setup lang="ts">
 import {
-  ShieldAlert, Plus, MapPin, RouteIcon, Pencil, Trash2, Check, X,
+  ShieldAlert, MapPin, Pencil, Trash2, Check, X,
 } from 'lucide-vue-next'
 import { useTransitManageStore, type ManagedStop } from '~/stores/transitManage'
 
-const { t } = useI18n()
-const localePath = useLocalePath()
+definePageMeta({
+  middleware: 'auth',
+})
+
 const colorMode = useColorMode()
 const store = useTransitManageStore()
 const authStore = useAuthStore()
 const isStaff = computed(() => authStore.user?.is_staff)
+// The agency list is the access answer — see dispatch/routes.vue
+const checked = ref(false)
+const canManage = computed(() => isStaff.value || store.agencies.length > 0)
+const dispatchTabs = useDispatchTabs()
 
 const showCreate = ref(false)
 const creating = ref(false)
@@ -282,18 +273,9 @@ async function handleDeleteStop(id: string) {
 
 onMounted(async () => {
   await store.fetchAgencies()
+  checked.value = true
   if (store.selectedAgency) {
     await store.fetchStops(store.selectedAgency.id)
   }
 })
 </script>
-
-<style scoped>
-.dispatch-icon {
-  @apply w-10 h-10 rounded-lg flex items-center justify-center;
-}
-
-.tab-active {
-  @apply border-b-2 border-primary text-neutral-900 dark:text-neutral-100;
-}
-</style>

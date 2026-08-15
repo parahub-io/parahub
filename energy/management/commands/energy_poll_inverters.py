@@ -56,8 +56,12 @@ class Command(BaseCommand):
             self._poll_all(r)
 
     def _poll_all(self, r):
-        """Poll all cells with active producers that have API URLs."""
-        cells = EnergyCell.objects.exclude(status=EnergyCell.Status.OFFLINE)
+        """Poll all cells with active producers that have API URLs.
+
+        OFFLINE cells are included: a fresh cell starts OFFLINE and leaves that
+        state via its first successful poll after a producer joins.
+        """
+        cells = EnergyCell.objects.all()
         for cell in cells:
             producers = cell.producers.filter(is_active=True).exclude(inverter_api_url='')
             if not producers.exists():

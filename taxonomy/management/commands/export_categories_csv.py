@@ -81,7 +81,10 @@ class Command(BaseCommand):
                     translation_count += 1
 
                 # Other languages from JSONFields
-                for lang in ['ru', 'pt', 'es']:
+                # Every project locale except English (which lives in the
+                # name/description fields) — a language missing here is
+                # silently dropped from the CSV on the next export.
+                for lang in ['ru', 'pt', 'es', 'fr', 'de']:
                     name = cat.name_i18n.get(lang, '')
                     desc = cat.description_i18n.get(lang, '')
 

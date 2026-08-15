@@ -13,7 +13,7 @@ path actually ran (the raw path silently falls back to ORM on exceptions).
 
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import orjson
 from django.contrib.gis.geos import Point
@@ -201,6 +201,23 @@ class ItemListParityTest(TestCase):
         self.assertEqual(opt['converted_from'], 'EUR')
         self.assertEqual(opt['currency'], 'USD')
         self.assertEqual(Decimal(str(opt['amount'])), Decimal('11.50'))
+
+    def test_parity_translation(self):
+        """translate_to must produce identical MT fields on both paths.
+        The raw path runs first and warms mt_cache; the deterministic fake
+        provider makes fresh-vs-cached results identical anyway."""
+        provider = MagicMock()
+        provider.translate.side_effect = (
+            lambda text, source_lang, target_lang, html=False: f'[{target_lang}] {text}')
+        with patch('parahub.services.translation.TranslationService.get_provider',
+                   return_value=provider):
+            raw, orm = self._both_paths(translate_to='ru')
+        self.assertParity(raw, orm)
+        main = self._main(raw)  # the only fixture with a detected language
+        self.assertEqual(main['translated_title'], f'[ru] {MARKER} main')
+        self.assertTrue(main['is_translated'])
+        # List policy: descriptions are cache-only — nothing cached yet.
+        self.assertIsNone(main['translated_description'])
 
     def test_parity_filters(self):
         """WHERE-clause parity for the common filter combinations."""

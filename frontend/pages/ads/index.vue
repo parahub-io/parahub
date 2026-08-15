@@ -6,7 +6,7 @@
       <NuxtLink
         v-if="totalEarned > 0"
         :to="localePath('/ads/settings')"
-        class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-primary transition-colors"
+        class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
         :title="$t('ads.profile.total_earned')"
       >
         <Zap class="w-3.5 h-3.5 text-primary" />
@@ -18,7 +18,7 @@
     <UiAlert v-if="!showHistory && !walletConfigured" variant="warning" :title="$t('ads.feed.wallet_not_configured')" class="mb-6">
       <p>{{ $t('ads.feed.wallet_not_configured_desc') }}</p>
       <NuxtLink
-        :to="localePath('/profile') + '#lightning'"
+        :to="localePath('/profile/advanced')"
         class="mt-2 inline-block text-sm font-medium underline"
       >
         {{ $t('ads.feed.configure_wallet') }} →
@@ -48,18 +48,8 @@
       </div>
       <div v-else></div>
 
-      <!-- Right: history toggle -->
-      <button
-        @click="toggleHistory"
-        class="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-        :class="showHistory
-          ? 'bg-primary text-neutral-900'
-          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'"
-      >
-        <History v-if="!showHistory" class="w-3.5 h-3.5" />
-        <Sparkles v-else class="w-3.5 h-3.5" />
-        {{ showHistory ? $t('ads.feed.tab_new') : $t('ads.feed.tab_history') }}
-      </button>
+      <!-- Right: feed/history toggle -->
+      <UiTabs v-model="activeTab" :tabs="viewTabs" variant="pills" />
     </div>
 
     <!-- Loading -->
@@ -82,20 +72,15 @@
 
       <!-- Load more -->
       <div v-if="hasMore" class="text-center pt-4">
-        <button
-          @click="loadMore"
-          :disabled="loadingMore"
-          class="px-4 py-2 text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 disabled:opacity-50"
-        >
-          <Loader2 v-if="loadingMore" class="w-4 h-4 animate-spin inline mr-1" />
+        <UiButton variant="ghost" size="sm" :loading="loadingMore" @click="loadMore">
           {{ $t('ads.feed.load_more') }}
-        </button>
+        </UiButton>
       </div>
 
       <!-- Empty state -->
       <div v-if="ads.length === 0" class="text-center py-12">
-        <img src="/images/para/shrug.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
-        <p class="text-neutral-500 dark:text-neutral-400 font-medium">{{ $t('ads.feed.empty') }}</p>
+        <img src="/images/para/shrug.webp" alt="" aria-hidden="true" class="mx-auto h-32 w-auto mb-4" />
+        <h3 class="text-neutral-500 dark:text-neutral-400 font-medium">{{ $t('ads.feed.empty') }}</h3>
         <p class="text-sm text-neutral-400 dark:text-neutral-500 mt-2 max-w-sm mx-auto">{{ $t('ads.feed.empty_desc') }}</p>
       </div>
     </template>
@@ -113,7 +98,7 @@
             v-for="item in historyItems"
             :key="item.id"
             :to="localePath(`/ads/${item.campaign_id}`) + '?history=1'"
-            class="block bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden hover:border-primary/30 hover:shadow-md transition-all"
+            class="block bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden hover:border-primary transition-colors"
           >
             <div class="flex">
               <!-- Thumbnail -->
@@ -126,11 +111,14 @@
               <!-- Content -->
               <div class="flex-1 p-3 min-w-0">
                 <div class="flex items-center justify-between gap-3">
-                  <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">{{ item.post_title }}</h3>
-                  <span class="flex-shrink-0 text-xs font-medium flex items-center gap-1" :class="item.payment_sent ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'">
+                  <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">{{ item.translated_post_title || item.post_title }}</h3>
+                  <span class="flex-shrink-0 text-xs font-medium flex items-center gap-1" :class="item.payment_sent ? 'text-success dark:text-success-400' : 'text-warning dark:text-warning-400'">
                     <CheckCircle v-if="item.payment_sent" class="w-3.5 h-3.5" />
+                    <AlertTriangle v-else-if="item.payment_status === 'failed'" class="w-3.5 h-3.5" />
                     <Clock v-else class="w-3.5 h-3.5" />
-                    +{{ item.earned_sats }} sat
+                    <template v-if="item.payment_status === 'failed'">{{ $t('ads.feed.not_paid') }}</template>
+                    <template v-else-if="item.payment_status === 'queued'">{{ $t('ads.feed.queued_short') }}</template>
+                    <template v-else>+{{ item.earned_sats }} sat</template>
                   </span>
                 </div>
                 <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
@@ -142,23 +130,16 @@
 
           <!-- Load more history -->
           <div v-if="historyHasMore" class="text-center pt-2">
-            <button
-              @click="loadMoreHistory"
-              :disabled="historyLoadingMore"
-              class="px-4 py-2 text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 disabled:opacity-50"
-            >
-              <Loader2 v-if="historyLoadingMore" class="w-4 h-4 animate-spin inline mr-1" />
+            <UiButton variant="ghost" size="sm" :loading="historyLoadingMore" @click="loadMoreHistory">
               {{ $t('ads.feed.load_more') }}
-            </button>
+            </UiButton>
           </div>
         </div>
 
         <!-- History empty -->
         <div v-else class="text-center py-12">
-          <div class="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-4">
-            <History class="w-10 h-10 text-neutral-300 dark:text-neutral-600" />
-          </div>
-          <p class="text-neutral-500 dark:text-neutral-400 font-medium">{{ $t('ads.feed.history_empty') }}</p>
+          <img src="/images/para/reading.webp" alt="" aria-hidden="true" class="mx-auto h-32 w-auto mb-4" />
+          <h3 class="text-neutral-500 dark:text-neutral-400 font-medium">{{ $t('ads.feed.history_empty') }}</h3>
           <p class="text-sm text-neutral-400 dark:text-neutral-500 mt-2">{{ $t('ads.feed.history_empty_desc') }}</p>
         </div>
       </template>
@@ -168,8 +149,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onActivated, onDeactivated, onUnmounted } from 'vue'
-import { Inbox, Zap, CheckCircle, Loader2, ArrowUpDown, History, Search, Clock, Sparkles } from 'lucide-vue-next'
+import { Zap, CheckCircle, Loader2, ArrowUpDown, History, Search, Clock, Sparkles, AlertTriangle } from 'lucide-vue-next'
 
+const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const localePath = useLocalePath()
 const { walletConfigured, totalEarned, feedItems, feedViewedIds, feedEarnedMap, loadHistory } = useAdsState()
@@ -196,7 +178,12 @@ function toggleSort() {
 }
 
 // ── History state ──
-const showHistory = ref(false)
+const activeTab = useTabSync(['feed', 'history'])
+const showHistory = computed(() => activeTab.value === 'history')
+const viewTabs = computed(() => [
+  { id: 'feed', label: t('ads.feed.tab_new'), icon: Sparkles },
+  { id: 'history', label: t('ads.feed.tab_history'), icon: History },
+])
 const historyItems = ref<any[]>([])
 const historyLoading = ref(false)
 const historyLoadingMore = ref(false)
@@ -224,15 +211,14 @@ async function fetchHistory(pageNum = 1, append = false) {
   historyPage.value = pageNum
 }
 
-async function toggleHistory() {
-  showHistory.value = !showHistory.value
-  if (showHistory.value && !historyLoaded) {
+watch(showHistory, async (v) => {
+  if (v && !historyLoaded) {
     historyLoading.value = true
     await fetchHistory(1)
     historyLoading.value = false
     historyLoaded = true
   }
-}
+}, { immediate: true })
 
 async function loadMoreHistory() {
   historyLoadingMore.value = true
@@ -260,7 +246,7 @@ async function prependNewAds() {
     const response = await $fetch<any>('/api/v1/ads/feed/', {
       credentials: 'include',
       headers: { 'Authorization': `Bearer ${authStore.token}` },
-      params: { page: 1 }
+      params: { page: 1, translate_to: locale.value }
     })
     const incoming = response.items || []
     const existingIds = new Set(ads.value.map((a: any) => a.campaign_id))
@@ -284,7 +270,7 @@ async function loadFeed(pageNum = 1) {
     const response = await $fetch<any>('/api/v1/ads/feed/', {
       credentials: 'include',
       headers: { 'Authorization': `Bearer ${authStore.token}` },
-      params: { page: pageNum }
+      params: { page: pageNum, translate_to: locale.value }
     })
     const items = response.items || []
     if (pageNum === 1) {

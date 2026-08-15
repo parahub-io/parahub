@@ -39,17 +39,31 @@
               {{ c.author_display_name || c.author_name }}
             </span>
             <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ formatDate(c.created_at) }}</span>
+            <button
+              v-if="authStore.isAuthenticated && authStore.activeProfile?.id !== c.author_id"
+              @click="reportedCommentId = c.id"
+              class="ml-auto inline-flex items-center px-1.5 py-0.5 rounded text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              :aria-label="$t('moderation.report')"
+            >
+              <Flag class="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
           </div>
           <p class="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-line break-words">{{ c.text }}</p>
         </div>
       </div>
     </div>
+
+    <ReportModal
+      :model-value="!!reportedCommentId"
+      :object-id="reportedCommentId || ''"
+      @update:model-value="reportedCommentId = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { MessageSquare, User } from 'lucide-vue-next'
+import { MessageSquare, User, Flag } from 'lucide-vue-next'
 import { useAuthStore } from '~/stores/auth'
 
 const props = defineProps<{ objectId: string }>()
@@ -60,6 +74,7 @@ const authStore = useAuthStore()
 const comments = ref<any[]>([])
 const draft = ref('')
 const posting = ref(false)
+const reportedCommentId = ref<string | null>(null)
 
 async function loadComments() {
   try {

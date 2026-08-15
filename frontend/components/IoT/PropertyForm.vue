@@ -11,7 +11,7 @@
           {{ $t('property.name') }}
         </label>
         <input v-model="form.name" type="text" required maxlength="100"
-               class="input-base w-full"
+               class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                :placeholder="$t('property.name_placeholder')" />
       </div>
 
@@ -63,7 +63,7 @@
           {{ $t('property.address') }}
         </label>
         <input v-model="form.address" type="text" maxlength="500"
-               class="input-base w-full"
+               class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                :placeholder="$t('property.address_placeholder')" />
       </div>
 
@@ -85,9 +85,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Loader2, House, Building, Landmark, Trees, Warehouse, MapPin, Home } from 'lucide-vue-next'
 import type { Property } from '~/stores/property'
+import { PROPERTY_TYPE_GLYPHS } from '~/composables/useMapToggleableLayer'
+import { createPlaceSquareElement } from '~/utils/pickerMarker'
 
 const colorMode = useColorMode()
 const propertyStore = usePropertyStore()
@@ -143,17 +145,32 @@ let map: any = null
 let marker: any = null
 let maplibregl: any = null
 
+// The picker places the property's rounded place square (indigo, type glyph)
+// exactly as PropertyCard snapshots render it.
+const propertyMarker = () => new maplibregl.Marker({
+  element: createPlaceSquareElement('#4E4EC8', PROPERTY_TYPE_GLYPHS[form.propertyType] || PROPERTY_TYPE_GLYPHS.land),
+  anchor: 'center',
+})
+
 const placeMarker = (lat: number, lng: number) => {
   form.latitude = Math.round(lat * 1e6) / 1e6
   form.longitude = Math.round(lng * 1e6) / 1e6
   if (marker) {
     marker.setLngLat([lng, lat])
   } else if (map && maplibregl) {
-    marker = new maplibregl.Marker({ color: '#FFE216' })
+    marker = propertyMarker()
       .setLngLat([lng, lat])
       .addTo(map)
   }
 }
+
+// Keep the marker glyph honest when the user switches property type.
+watch(() => form.propertyType, () => {
+  if (!marker || !map) return
+  const pos = marker.getLngLat()
+  marker.remove()
+  marker = propertyMarker().setLngLat(pos).addTo(map)
+})
 
 const getStyleUrl = () =>
   colorMode.value === 'dark'
@@ -186,7 +203,7 @@ onMounted(async () => {
   map.once('load', () => map.resize())
 
   if (hasCoords) {
-    marker = new maplibregl.Marker({ color: '#FFE216' })
+    marker = propertyMarker()
       .setLngLat([form.longitude!, form.latitude!])
       .addTo(map)
   }

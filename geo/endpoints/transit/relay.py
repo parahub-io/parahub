@@ -18,11 +18,28 @@ from .base import router
 
 logger = logging.getLogger(__name__)
 
+
+def _relayable_source(slug: str) -> TransitDataSource:
+    """Resolve a feed we are actually allowed to hand out.
+
+    These endpoints republish upstream data verbatim, so redistribution has to be
+    permitted before we serve a byte of it: `relay_allowed` is off unless the
+    licence says yes, or the feed is an operator's own managed data. Refusing is a
+    403 rather than a 404 — the feed exists, the permission does not.
+    """
+    ds = get_object_or_404(TransitDataSource, slug=slug, is_active=True)
+    if not ds.relay_allowed:
+        raise HttpError(403, "Upstream terms do not permit redistribution of this feed")
+    return ds
+
+
 @router.get("/transit/gtfs/feeds/", auth=None)
 @ratelimit(group='transit:gtfs_feeds', key='ip', rate='120/m')
 def gtfs_relay_feeds(request):
-    """List available GTFS feeds with relay URLs."""
-    feeds = TransitDataSource.objects.filter(is_active=True).exclude(slug='')
+    """List the feeds we are permitted to relay, with their URLs and terms."""
+    feeds = TransitDataSource.objects.filter(
+        is_active=True, relay_allowed=True,
+    ).exclude(slug='')
     return [
         {
             "slug": ds.slug,
@@ -30,6 +47,11 @@ def gtfs_relay_feeds(request):
             "gtfs_static_url": f"/api/v1/geo/transit/gtfs/static/{ds.slug}/",
             "gtfs_rt_url": f"/api/v1/geo/transit/gtfs-rt/vehicle-positions/{ds.slug}/",
             **({"gtfs_rt_alerts_url": f"/api/v1/geo/transit/gtfs-rt/service-alerts/{ds.slug}/"} if ds.rt_alerts_url else {}),
+            # Terms travel with the data — an empty licence is the honest answer for a
+            # publisher that states none, not a field to leave out
+            "license": ds.license,
+            "license_url": ds.license_url,
+            "attribution": ds.attribution,
             "last_imported_at": ds.last_imported_at.isoformat() if ds.last_imported_at else None,
         }
         for ds in feeds
@@ -42,7 +64,7 @@ def gtfs_static_download(request, slug: str):
     import os
     from django.http import FileResponse
 
-    ds = get_object_or_404(TransitDataSource, slug=slug, is_active=True)
+    ds = _relayable_source(slug)
     cache_path = os.path.join(settings.BASE_DIR, 'gtfs_cache', f'{ds.id}.zip')
 
     if not os.path.exists(cache_path):
@@ -63,7 +85,7 @@ def gtfs_rt_vehicle_positions(request, slug: str):
     from django.http import HttpResponse
     from google.transit import gtfs_realtime_pb2
 
-    ds = get_object_or_404(TransitDataSource, slug=slug, is_active=True)
+    ds = _relayable_source(slug)
     ds_id = str(ds.id)
 
     # Check for cached protobuf (15s TTL)
@@ -124,7 +146,7 @@ def gtfs_rt_vehicle_positions(request, slug: str):
 def gtfs_rt_vehicle_positions_json(request, slug: str):
     """GTFS-RT vehicle positions as JSON (convenience endpoint)."""
 
-    ds = get_object_or_404(TransitDataSource, slug=slug, is_active=True)
+    ds = _relayable_source(slug)
     ds_id = str(ds.id)
 
     r = get_redis()
@@ -150,7 +172,7 @@ def gtfs_rt_service_alerts(request, slug: str):
     from django.http import HttpResponse
     from google.transit import gtfs_realtime_pb2
 
-    ds = get_object_or_404(TransitDataSource, slug=slug, is_active=True)
+    ds = _relayable_source(slug)
     ds_id = str(ds.id)
 
     r = get_redis(decode_responses=False)
@@ -173,7 +195,7 @@ def gtfs_rt_service_alerts(request, slug: str):
 def gtfs_rt_service_alerts_json(request, slug: str):
     """GTFS-RT service alerts as JSON."""
 
-    ds = get_object_or_404(TransitDataSource, slug=slug, is_active=True)
+    ds = _relayable_source(slug)
     ds_id = str(ds.id)
 
     r = get_redis()

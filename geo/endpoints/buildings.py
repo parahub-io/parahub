@@ -5,7 +5,7 @@ Building, Establishment, Membership, and Review endpoints.
 from ninja import Router, UploadedFile
 from ninja.errors import HttpError
 from ninja.pagination import paginate, PageNumberPagination
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Literal, Optional, List
 from pydantic import BaseModel, Field
 import logging
 from django.db import connection, transaction
@@ -19,6 +19,7 @@ import orjson
 from datetime import datetime
 
 from parahub.auth import ProfileAuth, OptionalProfileAuth
+from identity.visibility import viewer_sees_test_content
 from parahub.endpoints.ai_vision import _is_valid_image_magic
 from parahub.ratelimit import ratelimit, user_or_ip
 
@@ -105,6 +106,9 @@ class EstablishmentInput(BaseModel):
     requires_terms_acceptance: bool = False
     terms_url: Optional[str] = None
     member_visibility: str = "PUBLIC"
+    # Optional so a client that doesn't know the field can't reset an OPEN
+    # organization back to INVITE through this full-replace PUT.
+    membership_policy: Optional[Literal["OPEN", "REQUEST", "INVITE"]] = None
 
 
 class EstablishmentPhotoResponse(BaseModel):
@@ -127,6 +131,7 @@ class EstablishmentResponse(BaseModel):
     organization_type: Optional[str] = None
     legal_entity_id: Optional[str] = None
     member_visibility: str = "PUBLIC"
+    membership_policy: str = "INVITE"
     requires_terms_acceptance: bool = False
     terms_url: Optional[str] = None
     matrix_room_id: Optional[str] = None
@@ -158,6 +163,7 @@ class EstablishmentResponse(BaseModel):
     rentable_count: int = 0  # active bookable items → drives the "Rental" entry button
     is_member: bool = False
     user_membership_level: Optional[str] = None
+    user_request_pending: bool = False  # REQUEST-policy orgs: applied, awaiting approval
     treasury_enabled: bool = False
     is_hub: bool = False
     hub_capacity: Optional[int] = None
@@ -208,6 +214,11 @@ class MembershipResponse(BaseModel):
     is_auditor: bool = False
 
 
+#: The only level a profile can give itself by joining — everything above it
+#: (efetivo, fundador) is a decision of the organization's board.
+SELF_JOIN_LEVEL = 'apoiante'
+
+
 class JoinEstablishmentRequest(BaseModel):
     terms_accepted: bool = False
     membership_level: Optional[str] = None
@@ -236,6 +247,10 @@ class MyEstablishment(BaseModel):
     is_auditor: bool = False
     is_verified: bool = False
     member_count: int = 0
+    # Own coordinates if set, else the linked world object's — lets location
+    # pickers offer "my places" fly-to shortcuts (PK/design-system § Minimap).
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class TreasurerResponse(BaseModel):
@@ -288,7 +303,7 @@ class ReviewResponse(BaseModel):
 
 def _format_establishment_response(establishment, request=None) -> EstablishmentResponse:
     """Helper to format Establishment model to response"""
-    from geo.models import EstablishmentMembership
+    from geo.models import Establishment, EstablishmentMembership
     from core.models import ObjectPhoto
     from market.visibility import visible_items_q  # rentable_count must respect item visibility
 
@@ -301,6 +316,7 @@ def _format_establishment_response(establishment, request=None) -> Establishment
     # Membership info for current user
     is_member = False
     user_membership_level = None
+    user_request_pending = False
     if request and hasattr(request, 'auth_profile') and request.auth_profile:
         try:
             membership = EstablishmentMembership.objects.get(
@@ -308,7 +324,15 @@ def _format_establishment_response(establishment, request=None) -> Establishment
             is_member = True
             user_membership_level = membership.membership_level
         except EstablishmentMembership.DoesNotExist:
-            pass
+            # Only REQUEST orgs can have one pending, so the extra query stays off
+            # the list endpoints of every other organization.
+            if establishment.membership_policy == Establishment.MembershipPolicy.REQUEST:
+                from geo.models import EstablishmentInvite
+                user_request_pending = EstablishmentInvite.objects.filter(
+                    establishment=establishment, target_profile=request.auth_profile,
+                    direction=EstablishmentInvite.Direction.REQUEST,
+                    status=EstablishmentInvite.Status.PENDING,
+                ).exists()
 
     # Uploaded photos
     uploaded_photos_data = [
@@ -332,6 +356,7 @@ def _format_establishment_response(establishment, request=None) -> Establishment
         organization_type=establishment.organization_type or None,
         legal_entity_id=establishment.legal_entity_id or None,
         member_visibility=establishment.member_visibility,
+        membership_policy=establishment.membership_policy,
         requires_terms_acceptance=establishment.requires_terms_acceptance,
         terms_url=establishment.terms_url or None,
         matrix_room_id=establishment.matrix_room_id or None,
@@ -365,6 +390,7 @@ def _format_establishment_response(establishment, request=None) -> Establishment
         ).filter(visible_items_q(request)).count(),
         is_member=is_member,
         user_membership_level=user_membership_level,
+        user_request_pending=user_request_pending,
         treasury_enabled=establishment.treasury_enabled,
         is_hub=establishment.is_hub,
         hub_capacity=establishment.hub_capacity,
@@ -567,6 +593,7 @@ def create_establishment(request, payload: EstablishmentInput):
             requires_terms_acceptance=payload.requires_terms_acceptance,
             terms_url=payload.terms_url or "",
             member_visibility=payload.member_visibility,
+            membership_policy=payload.membership_policy or Establishment.MembershipPolicy.INVITE,
         )
 
         # Update world object counter
@@ -672,12 +699,14 @@ def my_establishments(request):
     ests = Establishment.objects.filter(
         id__in=by_est.keys(), is_active=True
     ).annotate(mc=Count('memberships')).values(
-        'id', 'name', 'slug', 'logo_url', 'organization_type', 'is_verified', 'mc'
+        'id', 'name', 'slug', 'logo_url', 'organization_type', 'is_verified', 'mc',
+        'location', 'world_object__location',
     )
 
     result = []
     for e in ests:
         m = by_est[e['id']]
+        point = e['location'] or e['world_object__location']
         result.append(MyEstablishment(
             id=e['id'],
             name=e['name'],
@@ -690,6 +719,8 @@ def my_establishments(request):
             is_auditor=m['is_auditor'],
             is_verified=e['is_verified'],
             member_count=e['mc'],
+            latitude=point.y if point else None,
+            longitude=point.x if point else None,
         ))
 
     result.sort(key=lambda r: (_MY_ORG_ROLE_ORDER.get(r.role, 9), r.name.lower()))
@@ -724,7 +755,8 @@ def government_map(request):
                        LEFT JOIN taxonomy_category c ON e.category_id = c.id
                        WHERE e.organization_type = 'GOVERNMENT'
                          AND e.is_active = true
-                         AND e.location IS NOT NULL""")
+                         AND e.location IS NOT NULL
+                         AND COALESCE(e.attributes->>'parish_status', '') != 'former'""")
         rows = cur.fetchall()
 
     result = [
@@ -827,6 +859,7 @@ def list_establishments(
     is_online: Optional[bool] = None,
     my_memberships: Optional[bool] = None,
     owned_only: Optional[bool] = None,
+    my: Optional[bool] = None,
     page: int = 1,
 ):
     """
@@ -839,11 +872,8 @@ def list_establishments(
     conditions = ["e.is_active = true"]
     params = []
 
-    # Hide test/bot accounts for non-staff users
-    user = getattr(request, 'user', None)
-    is_privileged = (user and getattr(user, 'is_authenticated', False)
-                     and (getattr(user, 'is_staff', False) or getattr(user, 'is_test', False)))
-    if not is_privileged:
+    # Hide test/bot-owned establishments unless the viewer is exempt
+    if not viewer_sees_test_content(request):
         conditions.append(
             "NOT EXISTS (SELECT 1 FROM identity_profile ip "
             "JOIN identity_account ia ON ip.account_id = ia.id "
@@ -872,6 +902,13 @@ def list_establishments(
             "WHERE em.establishment_id = e.id AND em.profile_id = %s)"
         )
         params.append(request.auth_profile.id)
+    if my:
+        # Establishments owned by the requesting profile; empty for anonymous.
+        profile = getattr(request, 'auth_profile', None)
+        if not profile:
+            return HttpResponse(orjson.dumps({'items': [], 'count': 0}), content_type='application/json')
+        conditions.append("e.owner_id = %s")
+        params.append(profile.id)
     if search:
         conditions.append("(e.name ILIKE %s OR e.description ILIKE %s)")
         params.extend([f'%{search}%', f'%{search}%'])
@@ -1056,6 +1093,8 @@ def update_establishment(request, establishment_id: str, payload: EstablishmentI
         establishment.requires_terms_acceptance = payload.requires_terms_acceptance
         establishment.terms_url = payload.terms_url or establishment.terms_url
         establishment.member_visibility = payload.member_visibility
+        if payload.membership_policy:
+            establishment.membership_policy = payload.membership_policy
 
         if payload.parent_id:
             establishment.parent_id = payload.parent_id
@@ -1091,14 +1130,29 @@ def delete_establishment(request, establishment_id: str):
 
 # ===== Establishment Membership Endpoints =====
 
-@router.post("/establishments/{establishment_id}/join/", auth=ProfileAuth(), response={200: MembershipResponse, 400: dict, 404: dict})
+@router.post("/establishments/{establishment_id}/join/", auth=ProfileAuth(), response={200: MembershipResponse, 202: dict, 400: dict, 403: dict, 404: dict})
 @ratelimit(group='directory:join', key=user_or_ip, rate='30/m', method='POST')
 def join_establishment(request, establishment_id: str, data: JoinEstablishmentRequest):
-    """Join an establishment/organization as a member."""
-    from geo.models import Establishment, EstablishmentMembership
+    """
+    Join an organization (membership_policy=OPEN) or apply to it (=REQUEST).
+
+    Returns 202 and a pending application for REQUEST — the membership row is
+    only written once a manager approves, so nothing grants access in between.
+    """
+    from geo.models import Establishment, EstablishmentInvite, EstablishmentMembership
 
     profile = request.auth_profile
     establishment = _resolve_establishment(establishment_id, is_active=True)
+
+    # Most establishments are imported (OSM buildings, public bodies) or private
+    # businesses that never recruit through this endpoint. Self-service join is
+    # opt-in per organization; everywhere else membership is granted.
+    # Allow-list, not a deny-list: a policy value added later must land on the
+    # closed side by default, not silently open self-service joining.
+    if establishment.membership_policy not in (
+        Establishment.MembershipPolicy.OPEN, Establishment.MembershipPolicy.REQUEST,
+    ):
+        raise HttpError(403, "This organization grants membership by invitation")
 
     if EstablishmentMembership.objects.filter(profile=profile, establishment=establishment).exists():
         raise HttpError(400, "Already a member")
@@ -1106,12 +1160,52 @@ def join_establishment(request, establishment_id: str, data: JoinEstablishmentRe
     if establishment.requires_terms_acceptance and not data.terms_accepted:
         raise HttpError(400, "Must accept terms to join")
 
+    if establishment.membership_policy == Establishment.MembershipPolicy.REQUEST:
+        from geo.endpoints.members import _notify_managers
+
+        if data.membership_level and data.membership_level != SELF_JOIN_LEVEL:
+            raise HttpError(400, "Membership level is granted by the organization, not chosen on join")
+
+        invite, created = EstablishmentInvite.objects.get_or_create(
+            establishment=establishment, target_profile=profile,
+            direction=EstablishmentInvite.Direction.REQUEST,
+            status=EstablishmentInvite.Status.PENDING,
+            defaults={
+                'role': EstablishmentMembership.Role.MEMBER,
+                'membership_level': SELF_JOIN_LEVEL,
+                'created_by': profile,
+            },
+        )
+        if created:
+            _notify_managers(
+                establishment, exclude_profile_id=profile.id,
+                type='org_join_request',
+                title=establishment.name,
+                body=f"{profile.display_name or profile.hna} asked to join",
+                url=f"/org/{establishment.slug or establishment.id}/members",
+                data={'establishment_id': establishment.id, 'invite_id': invite.id},
+            )
+        return 202, {
+            'status': 'pending',
+            'invite_id': invite.id,
+            'establishment_id': establishment.id,
+            'message': 'Your request is waiting for approval',
+        }
+
+    # Self-service join grants the entry level and nothing more. Higher levels are
+    # granted by the organization, never claimed by the applicant: 'fundador' in the
+    # governing association makes a profile a WoT seed verifier (Profile.
+    # is_foundation_member) and unlocks treasury voting, so an unvalidated
+    # membership_level in the request body is a privilege escalation.
+    if data.membership_level and data.membership_level != SELF_JOIN_LEVEL:
+        raise HttpError(400, "Membership level is granted by the organization, not chosen on join")
+
     membership = EstablishmentMembership.objects.create(
         profile=profile,
         establishment=establishment,
         role=EstablishmentMembership.Role.MEMBER,
         terms_accepted_at=datetime.now() if establishment.requires_terms_acceptance else None,
-        membership_level=data.membership_level or 'apoiante',
+        membership_level=SELF_JOIN_LEVEL,
     )
 
     return MembershipResponse(

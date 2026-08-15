@@ -1,5 +1,7 @@
 <template>
-  <div class="py-6">
+  <!-- No top padding: the toolbar below is sticky, so any gap above it would be
+       dead space that collapses on the first scroll. It docks flush instead. -->
+  <div class="pb-6">
     <h1 class="sr-only">{{ $t('market.title') }}</h1>
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Sticky Header: search toolbar (all sizes) + desktop quick-filter bar (Row 2) -->
@@ -198,213 +200,215 @@
       <MarketBarterBanner />
 
       <!-- Filters Bottom Sheet (mobile only; desktop uses the bar + secondary popover above) -->
-      <Transition
-        :enter-active-class="animationEnabled ? 'transition-all duration-75 ease-out' : ''"
-        :enter-from-class="animationEnabled ? 'opacity-0 translate-y-full' : ''"
-        :enter-to-class="animationEnabled ? 'opacity-100 translate-y-0' : ''"
-        :leave-active-class="animationEnabled ? 'transition-all duration-[50ms] ease-in' : ''"
-        :leave-from-class="animationEnabled ? 'opacity-100 translate-y-0' : ''"
-        :leave-to-class="animationEnabled ? 'opacity-0 translate-y-full' : ''"
-      >
-        <div v-if="showFiltersSheet" class="md:hidden fixed inset-0 z-50 flex items-end">
-          <!-- Backdrop (invisible, closes on click) -->
-          <div
-            @click="showFiltersSheet = false"
-            class="absolute inset-0 bg-transparent"
-          ></div>
+      <Teleport to="body">
+        <Transition
+          :enter-active-class="animationEnabled ? 'transition-all duration-75 ease-out' : ''"
+          :enter-from-class="animationEnabled ? 'opacity-0 translate-y-full' : ''"
+          :enter-to-class="animationEnabled ? 'opacity-100 translate-y-0' : ''"
+          :leave-active-class="animationEnabled ? 'transition-all duration-[50ms] ease-in' : ''"
+          :leave-from-class="animationEnabled ? 'opacity-100 translate-y-0' : ''"
+          :leave-to-class="animationEnabled ? 'opacity-0 translate-y-full' : ''"
+        >
+          <div v-if="showFiltersSheet" class="md:hidden fixed inset-0 z-[60] flex items-end">
+            <!-- Backdrop (invisible, closes on click) -->
+            <div
+              @click="showFiltersSheet = false"
+              class="absolute inset-0 bg-transparent"
+            ></div>
 
-          <!-- Filters Panel -->
-          <div class="relative w-full bg-white dark:bg-neutral-800 rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
-            <!-- Header -->
-            <div class="sticky top-0 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
-              <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('market.filters.title') }}</h3>
-              <button @click="showFiltersSheet = false" class="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded">
-                <X class="w-5 h-5" />
-              </button>
-            </div>
-
-            <!-- Filters Content -->
-            <div class="p-4 space-y-4">
-              <!-- "For rent" quick filter — surfaced at the top for discoverability -->
-              <button
-                @click="toggleRentFilter"
-                :aria-pressed="isRentFilterActive"
-                class="w-full px-3 py-2.5 border rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
-                :class="isRentFilterActive
-                  ? 'border-primary bg-primary-100 dark:bg-primary-900/40 text-neutral-900 dark:text-neutral-100'
-                  : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-primary hover:bg-primary-100 dark:hover:bg-primary-900/40'"
-              >
-                <KeyRound class="w-4 h-4" />
-                {{ $t('market.filters.offers_rent') }}
-              </button>
-
-              <!-- Active owner_id filter badge -->
-              <div v-if="filters.owner_id && ownerDisplayName" class="flex items-center justify-between p-3 bg-primary/10 border border-primary/30 rounded-lg">
-                <div class="flex items-center gap-2">
-                  <span class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                    {{ $t('market.filters.filtered_by_user') }}: {{ ownerDisplayName }}
-                  </span>
-                </div>
-                <button
-                  @click="clearOwnerFilter"
-                  class="p-1 hover:bg-primary/20 rounded-full transition-colors"
-                  :title="$t('market.filters.clear_user_filter')"
-                >
-                  <X class="w-4 h-4 text-neutral-700 dark:text-neutral-300" />
+            <!-- Filters Panel -->
+            <div class="relative w-full bg-white dark:bg-neutral-800 rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
+              <!-- Header -->
+              <div class="sticky top-0 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('market.filters.title') }}</h3>
+                <button @click="showFiltersSheet = false" class="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded">
+                  <X class="w-5 h-5" />
                 </button>
               </div>
 
-              <!-- Sort -->
-              <div>
-                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  {{ $t('market.sort.label') }}
-                </label>
-                <select
-                  v-model="sortBy"
-                  @change="onSortChange"
-                  class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              <!-- Filters Content -->
+              <div class="p-4 space-y-4">
+                <!-- "For rent" quick filter — surfaced at the top for discoverability -->
+                <button
+                  @click="toggleRentFilter"
+                  :aria-pressed="isRentFilterActive"
+                  class="w-full px-3 py-2.5 border rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                  :class="isRentFilterActive
+                    ? 'border-primary bg-primary-100 dark:bg-primary-900/40 text-neutral-900 dark:text-neutral-100'
+                    : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-primary hover:bg-primary-100 dark:hover:bg-primary-900/40'"
                 >
-                  <option value="-created_at">{{ $t('market.sort.newest') }}</option>
-                  <option value="created_at">{{ $t('market.sort.oldest') }}</option>
-                  <option value="min_price">{{ $t('market.sort.price_low') }}</option>
-                  <option value="-min_price">{{ $t('market.sort.price_high') }}</option>
-                  <option value="distance">{{ $t('market.sort.nearest') }}</option>
-                </select>
-              </div>
+                  <KeyRound class="w-4 h-4" />
+                  {{ $t('market.filters.offers_rent') }}
+                </button>
 
-              <!-- Language Filter -->
-              <div>
-                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  {{ $t('market.filters.language_label') }}
-                </label>
-                <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
-                  <input
-                    type="checkbox"
-                    v-model="showAllLanguages"
-                    @change="languageAutoExpanded = false; resetScroll(); fetchItems()"
-                    class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary"
-                  >
-                  <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.show_all_languages') }}</span>
-                </label>
-              </div>
-
-              <!-- Type Filter -->
-              <div>
-                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  {{ $t('market.filters.type_label') }}
-                </label>
-                <select
-                  v-model="filters.typeAndPricing"
-                  @change="onTypeFilterChange"
-                  class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
-                  <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                </select>
-              </div>
-
-              <!-- Category Filter -->
-              <div>
-                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  {{ $t('market.filters.category_label') }}
-                </label>
-                <div class="flex gap-2">
-                  <button
-                    @click="showCategoryFilter = !showCategoryFilter"
-                    class="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-neutral-800 text-sm text-left flex items-center justify-between transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    :class="filters.category ? 'border-primary' : 'border-neutral-300 dark:border-neutral-600'"
-                  >
-                    <span v-if="selectedFilterCategory">
-                      {{ selectedFilterCategory.icon }} {{ selectedFilterCategory.name }}
+                <!-- Active owner_id filter badge -->
+                <div v-if="filters.owner_id && ownerDisplayName" class="flex items-center justify-between p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      {{ $t('market.filters.filtered_by_user') }}: {{ ownerDisplayName }}
                     </span>
-                    <span v-else class="text-neutral-500 dark:text-neutral-400">
-                      {{ $t('market.filters.all_categories') }}
-                    </span>
-                    <ChevronDown class="w-4 h-4" :class="{ 'rotate-180': showCategoryFilter }" />
-                  </button>
+                  </div>
                   <button
-                    v-if="filters.category"
-                    @click="resetCategoryFilter"
-                    class="px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                    :title="$t('market.filters.reset_category_title')"
+                    @click="clearOwnerFilter"
+                    class="p-1 hover:bg-primary/20 rounded-full transition-colors"
+                    :title="$t('market.filters.clear_user_filter')"
                   >
-                    <X class="w-4 h-4" />
+                    <X class="w-4 h-4 text-neutral-700 dark:text-neutral-300" />
                   </button>
                 </div>
 
-                <!-- Category Dropdown -->
-                <div v-if="showCategoryFilter" class="mt-2 p-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-neutral-50 dark:bg-neutral-900">
-                  <CategorySelect
-                    v-model="selectedCategoryId"
-                    :placeholder="$t('market.filters.all_categories')"
-                    domain="market"
-                    @change="onFilterCategoryChange"
-                  />
+                <!-- Sort -->
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    {{ $t('market.sort.label') }}
+                  </label>
+                  <select
+                    v-model="sortBy"
+                    @change="onSortChange"
+                    class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="-created_at">{{ $t('market.sort.newest') }}</option>
+                    <option value="created_at">{{ $t('market.sort.oldest') }}</option>
+                    <option value="min_price">{{ $t('market.sort.price_low') }}</option>
+                    <option value="-min_price">{{ $t('market.sort.price_high') }}</option>
+                    <option value="distance">{{ $t('market.sort.nearest') }}</option>
+                  </select>
                 </div>
-              </div>
 
-              <!-- Price Range Filter -->
-              <div>
-                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                  {{ $t('market.filters.price_range') }}
-                </label>
-                <div class="flex items-center gap-2">
-                  <input
-                    v-model.number="minPrice"
-                    type="number"
-                    min="0"
-                    step="1"
-                    :placeholder="$t('market.filters.min_price')"
-                    @input="debouncedPriceFilter"
-                    class="flex-1 px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                  <span class="text-neutral-400">–</span>
-                  <input
-                    v-model.number="maxPrice"
-                    type="number"
-                    min="0"
-                    step="1"
-                    :placeholder="$t('market.filters.max_price')"
-                    @input="debouncedPriceFilter"
-                    class="flex-1 px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
+                <!-- Language Filter -->
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    {{ $t('market.filters.language_label') }}
+                  </label>
+                  <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
+                    <input
+                      type="checkbox"
+                      v-model="showAllLanguages"
+                      @change="languageAutoExpanded = false; resetScroll(); fetchItems()"
+                      class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary"
+                    >
+                    <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.show_all_languages') }}</span>
+                  </label>
                 </div>
-                <label class="flex items-center gap-3 cursor-pointer p-2 mt-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
-                  <input
-                    type="checkbox"
-                    v-model="includeBarter"
-                    @change="onPriceFilterChange"
-                    class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary"
-                  />
-                  <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.include_barter') }}</span>
-                </label>
-              </div>
 
-              <!-- Made-by-hand filter: producers, not resellers ("своими руками") -->
-              <div class="border-t border-neutral-200 dark:border-neutral-700 pt-4">
-                <label class="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
-                  <input
-                    type="checkbox"
-                    v-model="selfMadeOnly"
-                    @change="onSelfMadeFilterChange"
-                    class="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary shrink-0"
-                  />
-                  <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.self_made_only') }}</span>
-                </label>
-              </div>
+                <!-- Type Filter -->
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    {{ $t('market.filters.type_label') }}
+                  </label>
+                  <select
+                    v-model="filters.typeAndPricing"
+                    @change="onTypeFilterChange"
+                    class="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                  </select>
+                </div>
 
-              <!-- Action Buttons -->
-              <div class="flex gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
-                <UiButton variant="outline" class="flex-1" @click="resetAllFilters">
-                  {{ $t('market.filters.reset') }}
-                </UiButton>
-                <UiButton class="flex-1" @click="showFiltersSheet = false">
-                  {{ $t('market.filters.apply') }}
-                </UiButton>
+                <!-- Category Filter -->
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    {{ $t('market.filters.category_label') }}
+                  </label>
+                  <div class="flex gap-2">
+                    <button
+                      @click="showCategoryFilter = !showCategoryFilter"
+                      class="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-neutral-800 text-sm text-left flex items-center justify-between transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      :class="filters.category ? 'border-primary' : 'border-neutral-300 dark:border-neutral-600'"
+                    >
+                      <span v-if="selectedFilterCategory">
+                        {{ selectedFilterCategory.icon }} {{ selectedFilterCategory.name }}
+                      </span>
+                      <span v-else class="text-neutral-500 dark:text-neutral-400">
+                        {{ $t('market.filters.all_categories') }}
+                      </span>
+                      <ChevronDown class="w-4 h-4" :class="{ 'rotate-180': showCategoryFilter }" />
+                    </button>
+                    <button
+                      v-if="filters.category"
+                      @click="resetCategoryFilter"
+                      class="px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                      :title="$t('market.filters.reset_category_title')"
+                    >
+                      <X class="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <!-- Category Dropdown -->
+                  <div v-if="showCategoryFilter" class="mt-2 p-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-neutral-50 dark:bg-neutral-900">
+                    <CategorySelect
+                      v-model="selectedCategoryId"
+                      :placeholder="$t('market.filters.all_categories')"
+                      domain="market"
+                      @change="onFilterCategoryChange"
+                    />
+                  </div>
+                </div>
+
+                <!-- Price Range Filter -->
+                <div>
+                  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    {{ $t('market.filters.price_range') }}
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <input
+                      v-model.number="minPrice"
+                      type="number"
+                      min="0"
+                      step="1"
+                      :placeholder="$t('market.filters.min_price')"
+                      @input="debouncedPriceFilter"
+                      class="flex-1 px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                    <span class="text-neutral-400">–</span>
+                    <input
+                      v-model.number="maxPrice"
+                      type="number"
+                      min="0"
+                      step="1"
+                      :placeholder="$t('market.filters.max_price')"
+                      @input="debouncedPriceFilter"
+                      class="flex-1 px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <label class="flex items-center gap-3 cursor-pointer p-2 mt-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
+                    <input
+                      type="checkbox"
+                      v-model="includeBarter"
+                      @change="onPriceFilterChange"
+                      class="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary"
+                    />
+                    <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.include_barter') }}</span>
+                  </label>
+                </div>
+
+                <!-- Made-by-hand filter: producers, not resellers ("своими руками") -->
+                <div class="border-t border-neutral-200 dark:border-neutral-700 pt-4">
+                  <label class="flex items-start gap-3 cursor-pointer p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
+                    <input
+                      type="checkbox"
+                      v-model="selfMadeOnly"
+                      @change="onSelfMadeFilterChange"
+                      class="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-neutral-600 text-primary focus:ring-primary shrink-0"
+                    />
+                    <span class="text-sm text-neutral-700 dark:text-neutral-300">{{ $t('market.filters.self_made_only') }}</span>
+                  </label>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                  <UiButton variant="outline" class="flex-1" @click="resetAllFilters">
+                    {{ $t('market.filters.reset') }}
+                  </UiButton>
+                  <UiButton class="flex-1" @click="showFiltersSheet = false">
+                    {{ $t('market.filters.apply') }}
+                  </UiButton>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </Transition>
+        </Transition>
+      </Teleport>
 
       <!-- Active Filters Pills -->
       <MarketFiltersPills
@@ -455,13 +459,14 @@
           :my-item-categories="myItemCategories"
           :category-map="categoryMap"
           @filter-category="onCardCategoryFilter"
+          @filter-type="onCardTypeFilter"
         />
       </div>
 
       <!-- Empty state -->
       <div v-else class="text-center py-12">
         <!-- Language hint: shown when language filter may be hiding items -->
-        <UiAlert v-if="!showAllLanguages" variant="warning" class="max-w-md mx-auto mb-8 text-left">
+        <UiAlert v-if="!showAllLanguages && !ownerStorefront" variant="warning" class="max-w-md mx-auto mb-8 text-left">
           <p class="text-sm mb-3">{{ $t('market.empty.language_hint') }}</p>
           <UiButton size="sm" @click="showAllLanguages = true; resetScroll(); fetchItems()">
             {{ $t('market.empty.show_all_languages') }}
@@ -627,7 +632,11 @@ const { data: initialData, pending, refresh: refreshAsyncData } = await useAsync
 // State - initialized from SSR data
 const items = ref(initialData.value?.items || [])
 const totalPages = ref(initialData.value?.totalPages || 1)
-const hasMoreItems = ref(true)
+// Starts false and only a fetch response may set it: SSR item loading is skipped,
+// so the infinite-scroll sentinel is on screen before page 1 has loaded — armed
+// early, the observer fires loadMore() and the very first request goes out as
+// page=2 (empty result for any single-page filter, e.g. an owner storefront).
+const hasMoreItems = ref(false)
 const totalCount = ref(0)
 const rootCategories = ref(initialData.value?.categories || [])
 
@@ -734,6 +743,11 @@ const hasActiveFilters = computed(() => {
   )
 })
 
+// Owner storefront (deep-link from a profile chip or "only mine"): the viewer asked
+// for THIS person's listings, so the locale-based language filter must not apply —
+// otherwise a ru-locale visitor opening a pt seller's storefront gets an empty page.
+const ownerStorefront = computed(() => !!(filters.value.owner_id || filters.value.onlyMine))
+
 const activeFiltersCount = computed(() => {
   let count = 0
   if (filters.value.typeAndPricing) count++
@@ -771,6 +785,10 @@ const typeOptions = computed(() => {
 
 // AbortController for search/filter fetches (not infinite scroll)
 let fetchSearchController = null
+// Monotonic id: only the newest fetchItems call may clear `loading` — a superseded
+// (aborted) call unwinding through its finally must not drop the flag while the
+// winning request is still in flight (that gap let the scroll observer fire).
+let fetchGeneration = 0
 
 // Fetch items from API
 const fetchItems = async (append = false, savedScrollPosition = null) => {
@@ -786,6 +804,7 @@ const fetchItems = async (append = false, savedScrollPosition = null) => {
     fetchSearchController = new AbortController()
   }
 
+  const gen = ++fetchGeneration
   loading.value = true
   try {
     await authStore.ensureToken()
@@ -818,9 +837,17 @@ const fetchItems = async (append = false, savedScrollPosition = null) => {
     if (includeBarter.value) params.append('include_barter', 'true')
     if (selfMadeOnly.value) params.append('self_made', 'true')
 
-    // Language filter: send locale when not showing all languages
-    if (!showAllLanguages.value && locale.value) {
+    // Language filter: send locale when not showing all languages.
+    // Skipped for an owner storefront — see ownerStorefront.
+    if (!showAllLanguages.value && locale.value && !ownerStorefront.value) {
       params.append('language', locale.value)
+    }
+
+    // Viewer-language machine translation for foreign listings — always on:
+    // the backend skips same-language rows, so this only affects items the
+    // viewer couldn't read anyway (incl. show-all-languages and storefronts).
+    if (locale.value) {
+      params.append('translate_to', locale.value)
     }
 
     // Sorting
@@ -924,7 +951,7 @@ const fetchItems = async (append = false, savedScrollPosition = null) => {
     console.error('Failed to fetch items:', error)
     showError($t('market.notifications.load_error'))
   } finally {
-    loading.value = false
+    if (gen === fetchGeneration) loading.value = false
   }
 }
 
@@ -1084,6 +1111,18 @@ const onCardCategoryFilter = (slug) => {
   filters.value.category = slug
   resetScroll()
   fetchItems()
+}
+
+// Handle direction filter (offer/want) from the card's eyebrow. Clicking the
+// direction that is already active clears it, so the eyebrow toggles. Goes
+// through typeAndPricing + onTypeFilterChange so the dropdown and the active
+// filter pills stay in sync.
+const onCardTypeFilter = (type) => {
+  const next = filters.value.type === type ? '' : type
+  filters.value.typeAndPricing = next && filters.value.pricing_type
+    ? `${next}:${filters.value.pricing_type}`
+    : next
+  onTypeFilterChange()
 }
 
 // Clear owner filter
@@ -1515,9 +1554,10 @@ onActivated(async () => {
     }
   }
 
-  // Always reset pagination and refetch from page 1 to prevent stale page cache
+  // Always reset pagination and refetch from page 1 to prevent stale page cache.
+  // hasMoreItems is NOT pre-set here — the fetch response computes it; forcing it
+  // true before the fetch re-arms the sentinel race (see hasMoreItems init).
   currentPage.value = 1
-  hasMoreItems.value = true
   await fetchItems()
 })
 </script>

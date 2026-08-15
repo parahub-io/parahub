@@ -54,9 +54,11 @@ PK/credentials.md
 PK/matrix-admin-credentials.md
 oidc_rsa_key.pem
 traccar/traccar.xml
+mas/config.yaml
 synapse/config/homeserver.yaml
 synapse/data/homeserver.yaml
 synapse/data/parahub.io.signing.key
+livekit/livekit.yaml
 imposm/openmaptiles/.env
 
 # GeoIP database (binary, updated monthly, download separately)
@@ -102,8 +104,6 @@ frontend/*.sw?
 frontend/.DS_Store
 frontend/Thumbs.db
 .test_users_password
-.test_wallet
-.uptime_kuma_password
 
 # Capacitor native projects (generated, not tracked)
 # frontend/android/ — tracked (custom Java: MainActivity, SOS alarm)

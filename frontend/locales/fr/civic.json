@@ -32,7 +32,8 @@
       "hideVoted": "Masquer les sondages votés",
       "showVoted": "Afficher les sondages votés",
       "showAll": "Tout afficher ({n})",
-      "history": "Terminés"
+      "history": "Terminés",
+      "allPolls": "Tous les votes"
     },
     "destination": "Où va le résultat",
     "outcome": "Résultat final",
@@ -169,10 +170,10 @@
     },
     "ideas": {
       "title": "Idées",
-      "hint": "Proposez un sondage pour votre zone. À {threshold} soutiens, l'idée part en revue de formulation neutre et devient un sondage.",
+      "hint": "Proposez quelque chose pour votre zone. Dès que suffisamment de voisins la soutiennent, l'idée devient un sondage d'elle-même — personne n'a à l'approuver.",
       "create": "Proposer une idée",
       "formTitle": "Titre de l'idée",
-      "formBody": "Quoi et pourquoi (la formulation sera neutralisée à la revue)",
+      "formBody": "Quoi et pourquoi",
       "submit": "Envoyer l'idée",
       "support": "Soutenir",
       "supported": "Soutenue",
@@ -185,7 +186,20 @@
       "reject": "Rejeter",
       "rejectSure": "Sûr ?",
       "empty": "Pas encore d'idées — proposez la première",
-      "report": "Signaler"
+      "report": "Signaler",
+      "badge": "Idée",
+      "sectionTitle": "Idées des voisins",
+      "ctaTitle": "Votre question manque à l'appel ?",
+      "ctaHint": "Proposez-la : avec assez de voisins derrière elle, elle devient un sondage."
+    },
+    "translation": {
+      "auto_translated": "Traduit automatiquement",
+      "show_original": "Afficher l’original",
+      "show_translation": "Afficher la traduction"
+    },
+    "citizen": {
+      "badge": "Proposé par un habitant",
+      "ballotQuestion": "Soutenez-vous cette proposition ?"
     }
   }
 }

@@ -15,20 +15,24 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from decimal import Decimal
 from datetime import datetime
+import hashlib
 import logging
 import orjson
 
 from parahub.auth import ProfileAuth, OptionalProfileAuth
 from parahub.errors import LocalizedHttpError
-from parahub.ratelimit import ratelimit, user_or_ip
+from parahub.ratelimit import ratelimit, user_or_ip, get_ip
+from parahub.services import item_views
 from parahub.endpoints.ai_vision import _is_valid_image_magic
 from market.models import Item
 from market.visibility import visible_items_q, can_view_item, visible_items_sql
+from identity.visibility import exclude_test_authors, test_authors_sql
 from identity.models import Profile
 from core.models import ObjectPhoto
 from taxonomy.models import Category, Tag
 from currency.models import ExchangeRate
 from geo.utils import detect_content_language, get_country_code_from_coords, get_country_code_from_request
+from parahub.services.translation import MT_PER_REQUEST_CAP
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +155,11 @@ class ItemResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     distance_meters: Optional[float] = None  # Distance from user location (when ordering by distance)
+    # Viewer-language machine translation (translate_to param). Market has no
+    # authoritative human translation layer, so any translated content is MT.
+    translated_title: Optional[str] = None
+    translated_description: Optional[str] = None
+    is_translated: bool = False
     # Act as establishment
     establishment_id: Optional[str] = None
     establishment_name: Optional[str] = None
@@ -162,6 +171,21 @@ class ItemResponse(BaseModel):
     demand_count: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class ItemTranslationResponse(BaseModel):
+    """Viewer-language text for one listing, served by its own endpoint.
+
+    Deliberately a separate call from the detail response: filling a cache miss
+    costs a provider round-trip per field, and the page render must not wait on
+    it. The page paints the seller's original text and swaps this in on arrival.
+    """
+    id: str
+    object_type: str = "item"
+    language: str = ''  # Source language the translation came from
+    translated_title: Optional[str] = None
+    translated_description: Optional[str] = None
+    is_translated: bool = False
+
 
 class ItemDetailResponse(ItemResponse):
     """Detailed view with additional information"""
@@ -274,6 +298,70 @@ def demand_count_for(item_type, category_id, owner_id, demand_total, demand_by_o
             - demand_by_owner.get((category_id, opposite, owner_id), 0)) or None
 
 
+def _resolve_item_translation(*, item_id, title, description, source_lang,
+                              mt_cache, translate_to, mt_budget,
+                              fresh_description=False, truncate_description=True):
+    """Viewer-language text for one item: mt_cache -> fresh MT (budget
+    permitting, cached on the row) -> None (viewer sees the original).
+
+    Source language is the auto-detected Item.language; empty = unknown, skip.
+
+    The two description flags are independent and must stay that way:
+
+    * ``fresh_description`` — may this call spend a provider round-trip on the
+      description? Only the dedicated translation endpoint says yes. Lists say
+      no because their description is already truncated and caching a truncated
+      translation would poison the detail view; the detail response says no
+      because a page render must not block on a ~0.6s provider call.
+    * ``truncate_description`` — is the caller rendering a list row (200 chars)
+      or the full text? Detail paths serve the cached translation in full.
+
+    Returns (translated_title, translated_description, is_translated).
+    mt_budget is a single-element list shared across one request's items.
+    """
+    from parahub.services.translation import PROJECT_LANGS, TranslationService
+
+    if not translate_to or translate_to not in PROJECT_LANGS \
+            or not source_lang or source_lang == translate_to:
+        return None, None, False
+
+    cached = (mt_cache or {}).get(translate_to) or {}
+    tr_title = cached.get('title')
+    tr_description = cached.get('description')
+
+    fresh_entry = {}
+    if tr_title is None and mt_budget[0] > 0:
+        mt_budget[0] -= 1
+        t = TranslationService.translate(
+            title, source_lang, translate_to,
+            context={'object_type': 'item', 'object_id': item_id, 'field_name': 'title'})
+        if t:
+            fresh_entry['title'] = tr_title = t
+    if tr_description is None and fresh_description and description \
+            and mt_budget[0] > 0:
+        mt_budget[0] -= 1
+        d = TranslationService.translate(
+            description, source_lang, translate_to,
+            context={'object_type': 'item', 'object_id': item_id, 'field_name': 'description'})
+        if d:
+            fresh_entry['description'] = tr_description = d
+
+    if fresh_entry:
+        # Read-modify-write on a fresh row copy — same policy as the ads
+        # resolver: a concurrent writer for a sibling language loses at worst
+        # its cache entry (re-translated later).
+        row_cache = Item.objects.filter(pk=item_id) \
+            .values_list('mt_cache', flat=True).first() or {}
+        row_cache[translate_to] = {**(row_cache.get(translate_to) or {}), **fresh_entry}
+        Item.objects.filter(pk=item_id).update(mt_cache=row_cache)
+
+    if tr_description is not None and truncate_description:
+        # List rows carry a truncated description — truncate its translation too.
+        tr_description = _truncate(tr_description, 200)
+
+    return tr_title, tr_description, bool(tr_title or tr_description)
+
+
 def assemble_item_dict(
     *,
     item_id, slug, title, description, item_type,
@@ -286,6 +374,7 @@ def assemble_item_dict(
     owner_id, owner_account_id, owner_hna, owner_display_name, owner_name_public,
     establishment_id, establishment_name, establishment_slug, establishment_logo_url,
     viewer=None, target_currency=None, demand_count=None, distance_meters=None,
+    translated_title=None, translated_description=None, is_translated=False,
 ) -> dict:
     """Single source of truth for the public Item JSON shape.
 
@@ -342,6 +431,9 @@ def assemble_item_dict(
         'establishment_logo_url': establishment_logo_url,
         'is_demo': bool(attributes.get('__demo_seed') or attributes.get('demo')),
         'demand_count': demand_count,
+        'translated_title': translated_title,
+        'translated_description': translated_description,
+        'is_translated': is_translated,
     }
 
 
@@ -396,7 +488,8 @@ def _model_assemble_kwargs(item: Item, request, target_currency=None, demand_cou
     )
 
 
-def build_item_response(item: Item, request=None, target_currency: str = None, include_distance: bool = False, demand_count: int = None, photos_map: dict = None) -> ItemResponse:
+def build_item_response(item: Item, request=None, target_currency: str = None, include_distance: bool = False, demand_count: int = None, photos_map: dict = None,
+                        translate_to: str = None, mt_budget: list = None) -> ItemResponse:
     """Build ItemResponse from an Item instance via the shared assembly core.
 
     Args:
@@ -405,18 +498,29 @@ def build_item_response(item: Item, request=None, target_currency: str = None, i
         target_currency: Optional target currency for price conversion
         include_distance: Whether to include distance_meters from annotation
         photos_map: Pre-fetched {object_id: [ObjectPhoto, ...]} to avoid N+1
+        translate_to: Viewer language for MT (list policy: title fresh, description cache-only)
+        mt_budget: Shared single-element fresh-call budget; required with translate_to
     """
     kwargs = _model_assemble_kwargs(item, request, target_currency, demand_count, photos_map)
     kwargs['description'] = _truncate(kwargs['description'], 200)
     if include_distance and hasattr(item, 'distance_meters'):
         kwargs['distance_meters'] = float(item.distance_meters.m) if item.distance_meters else None
+    if translate_to and mt_budget is not None:
+        tr_title, tr_description, is_translated = _resolve_item_translation(
+            item_id=item.id, title=item.title, description=item.description,
+            source_lang=item.language, mt_cache=item.mt_cache,
+            translate_to=translate_to, mt_budget=mt_budget)
+        kwargs.update(translated_title=tr_title,
+                      translated_description=tr_description,
+                      is_translated=is_translated)
     return ItemResponse(**assemble_item_dict(**kwargs))
 
 
 def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
                     is_active, min_price, max_price, include_barter,
                     owner_id, target_currency, language, ordering,
-                    page, page_size, is_staff_or_test, self_made=None):
+                    page, page_size, self_made=None,
+                    translate_to=None):
     """Raw SQL fast path for items list — bypasses ORM/Pydantic overhead."""
     conditions = ["TRUE"]
     params = []
@@ -424,9 +528,18 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
     if self_made:
         conditions.append("i.self_made = TRUE")
 
-    # Hide test/bot items for non-staff
-    if not is_staff_or_test:
-        conditions.append("a.is_test = FALSE AND a.is_bot = FALSE")
+    # Hide test/bot items unless the viewer is exempt (staff/test)
+    test_pred, test_params = test_authors_sql(request, alias='a')
+    conditions.append(test_pred)
+    params.extend(test_params)
+
+    # Hide items from profiles the viewer blocked
+    from identity.services.blocks import blocked_ids_for_request
+    blocked_ids = blocked_ids_for_request(request)
+    if blocked_ids:
+        placeholders = ','.join(['%s'] * len(blocked_ids))
+        conditions.append(f"i.owner_id NOT IN ({placeholders})")
+        params.extend(blocked_ids)
 
     # Visibility: anonymous viewers see PUBLIC only; authed users see all tiers.
     vis_pred, vis_params = visible_items_sql(request)
@@ -548,7 +661,7 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
                 c5.id, c5.name, c5.slug,
                 -- establishment
                 est.name, est.slug, est.logo_url,
-                i.self_made, i.visibility
+                i.self_made, i.visibility, i.mt_cache
             {base_from}
             WHERE {where}
             ORDER BY {order_clause}
@@ -604,6 +717,7 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
     # gating and pricing conversion as the ORM path (orjson serializes the
     # datetime objects the cursor returns).
     viewer = getattr(request, 'auth_profile', None)
+    mt_budget = [MT_PER_REQUEST_CAP]
     items = []
     for r in rows:
         (item_id, slug, title, desc, itype,
@@ -618,13 +732,21 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
          c3_id, c3_name, c3_slug,
          c4_id, c4_name, c4_slug,
          c5_id, c5_name, c5_slug,
-         est_name, est_slug, est_logo, self_made, visibility) = r
+         est_name, est_slug, est_logo, self_made, visibility, mt_cache_raw) = r
 
         # Parse JSONB fields (cursor returns str for jsonb)
         spec = orjson.loads(spec_data) if isinstance(spec_data, str) else (spec_data or {})
         pricing_opts = orjson.loads(pricing_opts_raw) if isinstance(pricing_opts_raw, str) else (pricing_opts_raw or [])
         pay_methods = orjson.loads(payment_methods) if isinstance(payment_methods, str) else (payment_methods or [])
         attrs_parsed = orjson.loads(attrs) if isinstance(attrs, str) else (attrs or {})
+        mt_cache = orjson.loads(mt_cache_raw) if isinstance(mt_cache_raw, str) else (mt_cache_raw or {})
+
+        # Title from the row is full; description is SQL-truncated, which is
+        # exactly the list policy (cache-only for descriptions, see resolver).
+        tr_title, tr_description, is_translated = _resolve_item_translation(
+            item_id=item_id, title=title, description=None,
+            source_lang=lang, mt_cache=mt_cache,
+            translate_to=translate_to, mt_budget=mt_budget)
 
         # Category path (walk up to 5 levels, root first — same shape as Category.get_path)
         cat_path = None
@@ -657,6 +779,8 @@ def _list_items_raw(request, item_type, pricing_type, category_id_resolved,
             establishment_slug=est_slug, establishment_logo_url=est_logo,
             viewer=viewer, target_currency=target_currency,
             demand_count=demand_count_for(itype, cat_id, owner_id, demand_total, demand_by_owner),
+            translated_title=tr_title, translated_description=tr_description,
+            is_translated=is_translated,
         ))
 
     body = orjson.dumps({
@@ -687,6 +811,7 @@ def list_items(request,
                match_type: Optional[str] = None,
                language: Optional[str] = None,
                self_made: Optional[bool] = None,
+               translate_to: Optional[str] = None,
                page: int = 1,
                page_size: int = 20):
     """
@@ -743,16 +868,12 @@ def list_items(request,
                     })
                     return HttpResponse(body, content_type='application/json')
 
-            user = getattr(request, 'user', None)
-            is_staff_or_test = False
-            if user and getattr(user, 'is_authenticated', False):
-                is_staff_or_test = getattr(user, 'is_staff', False) or getattr(user, 'is_test', False)
-
             return _list_items_raw(
                 request, item_type, pricing_type, category_id_resolved,
                 is_active, min_price, max_price, include_barter,
                 owner_id, target_currency, language, ordering,
-                page, page_size, is_staff_or_test, self_made=self_made,
+                page, page_size, self_made=self_made,
+                translate_to=translate_to,
             )
         except Exception:
             logger.exception("Raw SQL items list failed, falling back to ORM")
@@ -761,13 +882,14 @@ def list_items(request,
     try:
         queryset = Item.objects.all()
 
-        # Hide items from test/bot accounts for non-staff/non-test users
-        user = getattr(request, 'user', None)
-        if user and getattr(user, 'is_authenticated', False):
-            if not getattr(user, 'is_staff', False) and not getattr(user, 'is_test', False):
-                queryset = queryset.exclude(owner__account__is_test=True).exclude(owner__account__is_bot=True)
-        else:
-            queryset = queryset.exclude(owner__account__is_test=True).exclude(owner__account__is_bot=True)
+        # Hide items from test/bot accounts unless the viewer is exempt
+        queryset = exclude_test_authors(queryset, request, field='owner')
+
+        # Hide items from profiles the viewer blocked
+        from identity.services.blocks import blocked_ids_for_request
+        blocked_ids = blocked_ids_for_request(request)
+        if blocked_ids:
+            queryset = queryset.exclude(owner_id__in=blocked_ids)
 
         # Visibility: anonymous viewers see PUBLIC only; authed users see all tiers.
         queryset = queryset.filter(visible_items_q(request))
@@ -970,10 +1092,12 @@ def list_items(request,
         # Build response for each item
         # Include distance when ordering by distance
         include_distance = (ordering == 'distance' and lat is not None and lng is not None)
+        mt_budget = [MT_PER_REQUEST_CAP]
         items = []
         for item in paginated_items:
             dc = demand_count_for(item.type, item.category_id, item.owner_id, demand_total, demand_by_owner)
-            items.append(build_item_response(item, request, target_currency, include_distance, demand_count=dc, photos_map=photos_map))
+            items.append(build_item_response(item, request, target_currency, include_distance, demand_count=dc, photos_map=photos_map,
+                                             translate_to=translate_to, mt_budget=mt_budget))
 
         # Return paginated response
         return {
@@ -1113,7 +1237,8 @@ def create_item(request, data: ItemCreateRequest):
 
 @item_router.get("/{id}/", response={200: ItemDetailResponse, 404: dict}, auth=OptionalProfileAuth())
 @ratelimit(group='items:detail', key='ip', rate='60/m')
-def get_item(request, id: str, target_currency: Optional[str] = None):
+def get_item(request, id: str, target_currency: Optional[str] = None,
+             translate_to: Optional[str] = None):
     """
     Get detailed item information by ULID or slug.
 
@@ -1127,12 +1252,11 @@ def get_item(request, id: str, target_currency: Optional[str] = None):
     try:
         item = _resolve_item(id)
         viewer = getattr(request, 'auth_profile', None)
+        is_owner = viewer is not None and viewer.id == item.owner_id
 
         # Hidden items are private — owner only, 404 for anyone else.
-        if not item.is_active:
-            is_owner = viewer is not None and viewer.id == item.owner_id
-            if not is_owner:
-                raise Http404("Item not found")
+        if not item.is_active and not is_owner:
+            raise Http404("Item not found")
 
         # Visibility: a REGISTERED item is 404 for anonymous viewers (any
         # signed-in user may see it; enforced here so the direct URL can't leak it).
@@ -1143,12 +1267,29 @@ def get_item(request, id: str, target_currency: Optional[str] = None):
         demand_total, demand_by_owner = batch_demand_maps([item.category_id], request)
         demand_count = demand_count_for(item.type, item.category_id, item.owner_id, demand_total, demand_by_owner)
 
-        # Exact location: currently not exposed (Deal model removed)
-        show_exact_location = False
+        # Exact location: the owner only. They are the sole profile PUT accepts
+        # for this item, and the edit form round-trips whatever it loads back into
+        # the payload — serving them the ~100m privacy-grid snap would move the
+        # item by up to half a cell every time they touch any other field.
+        show_exact_location = is_owner
 
         # Same assembly core as the list paths; detail keeps the FULL description
         # and adds the owner_* detail fields on top.
         data = assemble_item_dict(**_model_assemble_kwargs(item, request, target_currency, demand_count))
+        if translate_to:
+            # Cache-only, and the full description rather than a list-row
+            # truncation. Nothing here may call the provider: this response is
+            # awaited by the page render, and a cache miss would freeze the
+            # navigation for the length of a provider round-trip. The client
+            # fills the gaps afterwards via GET /{id}/translation/.
+            tr_title, tr_description, is_translated = _resolve_item_translation(
+                item_id=item.id, title=item.title, description=item.description,
+                source_lang=item.language, mt_cache=item.mt_cache,
+                translate_to=translate_to, mt_budget=[0],
+                fresh_description=False, truncate_description=False)
+            data.update(translated_title=tr_title,
+                        translated_description=tr_description,
+                        is_translated=is_translated)
         return ItemDetailResponse(
             **data,
             owner_reputation=item.owner.reputation_score,
@@ -1168,6 +1309,55 @@ def get_item(request, id: str, target_currency: Optional[str] = None):
         raise
     except Exception as e:
         logger.error(f"Error retrieving item {id}: {e}")
+        raise Http404("Item not found")
+
+
+@item_router.get("/{id}/translation/", response={200: ItemTranslationResponse, 404: dict},
+                 auth=OptionalProfileAuth())
+@ratelimit(group='items:translation', key='ip', rate='30/m')
+def get_item_translation(request, id: str, lang: str):
+    """Viewer-language text for one listing, translating whatever the cache misses.
+
+    This is the only read path allowed to call the provider, and it exists so
+    that the detail response never does: a cold listing costs ~0.6s per field,
+    which is invisible as a late text swap and painful as a frozen navigation.
+    The result lands in the row's mt_cache, so it is paid once per
+    (listing, language, field) no matter how many viewers follow.
+
+    Same visibility rules as the detail endpoint — a listing you cannot see
+    cannot be translated either.
+    """
+    try:
+        item = _resolve_item(id)
+        viewer = getattr(request, 'auth_profile', None)
+
+        if not item.is_active:
+            is_owner = viewer is not None and viewer.id == item.owner_id
+            if not is_owner:
+                raise Http404("Item not found")
+        if not can_view_item(item, request):
+            raise Http404("Item not found")
+
+        tr_title, tr_description, is_translated = _resolve_item_translation(
+            item_id=item.id, title=item.title, description=item.description,
+            source_lang=item.language, mt_cache=item.mt_cache,
+            translate_to=lang, mt_budget=[2],
+            fresh_description=True, truncate_description=False)
+
+        return ItemTranslationResponse(
+            id=item.id,
+            language=item.language or '',
+            translated_title=tr_title,
+            translated_description=tr_description,
+            is_translated=is_translated,
+        )
+
+    except Item.DoesNotExist:
+        raise Http404("Item not found")
+    except Http404:
+        raise
+    except Exception as e:
+        logger.error(f"Error translating item {id}: {e}")
         raise Http404("Item not found")
 
 
@@ -1192,6 +1382,14 @@ def update_item(request, id: str, data: ItemUpdateRequest):
             return 409, {"error": "Item has been modified by another user. Please refresh and try again."}
         
         with transaction.atomic():
+            # Real text change detection — a full-form PUT resending unchanged
+            # text must NOT wipe the warm MT cache (compared before assignment).
+            text_changed = (
+                (data.title is not None and data.title != item.title)
+                or (data.description is not None and data.description != item.description)
+            )
+            old_language = item.language
+
             # Update fields if provided
             if data.title is not None:
                 item.title = data.title
@@ -1212,6 +1410,12 @@ def update_item(request, id: str, data: ItemUpdateRequest):
                 item.country_code = get_country_code_from_coords(
                     data.location.latitude, data.location.longitude
                 )
+
+            # Machine translations of the old text are stale the moment the
+            # source text (or its detected language) really changes. Wipe ONLY
+            # the machine cache — there is no authoritative layer on Item.
+            if (text_changed or item.language != old_language) and item.mt_cache:
+                item.mt_cache = {}
             if data.pricing_options is not None:
                 # Convert Decimal to float for JSON serialization
                 pricing_opts_data = []
@@ -1313,6 +1517,57 @@ def delete_item(request, id: str):
     except Exception as e:
         logger.error(f"Error deleting item: {e}")
         raise LocalizedHttpError(500, "item_delete_failed", "Failed to delete item")
+
+
+@item_router.post("/{id}/view/", response={200: dict, 404: dict}, auth=OptionalProfileAuth())
+@ratelimit(group='items:view-beacon', key='ip', rate='60/m', method='POST')
+def record_item_view(request, id: str):
+    """
+    Client-side view beacon: count one view of a publicly visible item.
+
+    Deduplicated server-side to one view per viewer per 24h, so the counter
+    reads as unique daily visitors. Owner views are never counted. Crawlers
+    are naturally excluded — they don't fire JS beacons.
+    """
+    item = _resolve_item(id)
+    viewer = getattr(request, 'auth_profile', None)
+
+    # Count only what a regular visitor can actually see (same gates as get_item).
+    if not item.is_active or not can_view_item(item, request):
+        return 200, {'counted': False}
+    if viewer is not None and viewer.id == item.owner_id:
+        return 200, {'counted': False}
+
+    if viewer is not None:
+        viewer_key = f'p:{viewer.id}'
+    else:
+        session_key = getattr(getattr(request, 'session', None), 'session_key', None)
+        if session_key:
+            viewer_key = f's:{session_key}'
+        else:
+            # Anonymous without a session: pseudonymous short-lived key
+            # (the seen-marker expires in 24h, nothing durable is stored).
+            raw = f"{get_ip(request)}|{request.META.get('HTTP_USER_AGENT', '')}"
+            viewer_key = 'a:' + hashlib.sha256(raw.encode()).hexdigest()[:20]
+
+    return 200, {'counted': item_views.record_view(item.id, viewer_key)}
+
+
+@item_router.get("/my/view-stats/", response={200: dict}, auth=ProfileAuth())
+@ratelimit(group='items:view-stats', key=user_or_ip, rate='30/m')
+def my_item_view_stats(request):
+    """
+    View counters for ALL of the signed-in profile's listings:
+    {'stats': {item_id: {'total': N, 'last24h': N}}}.
+
+    Separate from the list endpoint on purpose — the hot list path stays
+    untouched and these numbers are owner-only by construction.
+    """
+    rows = dict(
+        Item.objects.filter(owner=request.auth_profile)
+        .values_list('id', 'views_total')
+    )
+    return 200, {'stats': item_views.get_stats(rows.keys(), db_totals=rows)}
 
 
 @item_router.post("/{id}/deactivate/", response={200: ItemResponse, 403: dict, 404: dict}, auth=ProfileAuth())

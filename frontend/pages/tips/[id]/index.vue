@@ -1,12 +1,26 @@
 <template>
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <NuxtLink :to="localePath('/tips')" class="text-sm text-neutral-500 hover:text-primary">
+    <NuxtLink :to="localePath('/tips')" class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-secondary dark:hover:text-secondary-400">
       ← {{ $t('tips.title') }}
     </NuxtLink>
 
     <div v-if="!batch" class="py-12 text-center">
+      <img src="/images/para/searching.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
       <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{{ $t('tips.batch.missing') }}</h3>
       <p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">{{ $t('tips.batch.missingHint') }}</p>
+      <!-- The likely cause is device-locality — surface the opt-in sync toggle / a key mismatch. -->
+      <p v-if="syncError === 'key-mismatch'" class="mt-2 text-sm text-amber-600 dark:text-amber-400 max-w-md mx-auto">
+        {{ $t('tips.sync.keyMismatch') }}
+      </p>
+      <p v-else-if="syncError === 'no-seed'" class="mt-2 text-sm text-amber-600 dark:text-amber-400 max-w-md mx-auto">
+        {{ $t('profile.preferences.wallet_sync_needs_wallet') }}
+      </p>
+      <p v-else-if="syncEnabled === false" class="mt-2 text-sm text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
+        {{ $t('tips.sync.offHint') }}
+        <NuxtLink :to="localePath('/profile') + '#wallet-sync'" class="text-link">
+          {{ $t('tips.sync.settingsLink') }}
+        </NuxtLink>
+      </p>
     </div>
 
     <template v-else>
@@ -33,13 +47,18 @@
         <template v-if="fiatNow"> · {{ $t('tips.batch.rateNow', { fiat: fiatNow }) }}</template>
       </p>
 
-      <UiAlert variant="info" :title="$t('tips.batch.linkTitle')" class="mb-4">
-        {{ $t('tips.batch.linkText') }}
-      </UiAlert>
+      <div class="flex items-center gap-4 mb-6">
+        <div class="flex-1 min-w-0 space-y-3">
+          <UiAlert variant="info" :title="$t('tips.batch.linkTitle')">
+            {{ $t('tips.batch.linkText') }}
+          </UiAlert>
 
-      <UiAlert variant="warning" :title="$t('tips.batch.reprintTitle')" class="mb-6">
-        {{ $t('tips.batch.reprintText') }}
-      </UiAlert>
+          <UiAlert variant="warning" :title="$t('tips.batch.reprintTitle')">
+            {{ $t('tips.batch.reprintText') }}
+          </UiAlert>
+        </div>
+        <img src="/images/tips/link.webp" alt="" class="hidden sm:block h-32 w-auto object-contain flex-shrink-0" loading="lazy" />
+      </div>
 
       <div class="border border-neutral-300 dark:border-neutral-600 rounded-lg overflow-hidden divide-y divide-neutral-300 dark:divide-neutral-600">
         <div v-for="(note, i) in batch.notes" :key="note.code" class="p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
@@ -93,6 +112,7 @@ const localePath = useLocalePath()
 const route = useRoute()
 const { t } = useI18n()
 const { get, save } = useTipBatches()
+const { enabled: syncEnabled, lastError: syncError, pull } = useWalletSync()
 const { initSdk, sdkState, getPayment, syncAndRefresh } = useLightning()
 const { satsToFiat, formatFiat, fetchBtcPrice } = useBtcPrice()
 const toastStore = useToastStore()
@@ -179,6 +199,12 @@ const refreshStatuses = async () => {
 onMounted(async () => {
   batch.value = get(String(route.params.id))
   canShare.value = typeof navigator !== 'undefined' && !!navigator.share
+  // Opt-in cross-device sync: a batch minted on another device (or a label
+  // edited there) arrives via the merged blob — re-read after the pull.
+  pull().then(() => {
+    const fresh = get(String(route.params.id))
+    if (fresh) batch.value = fresh
+  })
   fetchBtcPrice()
   await initSdk()
   await refreshStatuses()

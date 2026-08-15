@@ -4,6 +4,7 @@ Audit Log services for cryptographic proof generation and management.
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -14,6 +15,7 @@ import git
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 
+from .git_lock import clear_stale_index_lock
 from .models import AuditBatch, PGPKeyPublication, TimestampProof
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,7 @@ class PGPKeyringService:
     def __init__(self):
         self.repo_path = Path(settings.AUDIT_LOG_GIT_PATH) / 'public-git'
         self.keyring_path = self.repo_path / 'pgp-keyring'
+        clear_stale_index_lock(self.repo_path)
         self.repo = git.Repo(self.repo_path)
 
     def publish_key(self, profile) -> Optional[PGPKeyPublication]:
@@ -158,6 +161,7 @@ class GitAuditService:
         self.repo_path = base / 'public-git'
         self.batch_commits_path = self.repo_path / 'batch_commits'
         self.batch_commits_path.mkdir(parents=True, exist_ok=True)
+        clear_stale_index_lock(self.repo_path)
         self.repo = git.Repo(self.repo_path)
 
         # LOCAL-ONLY repo for per-event JSON snapshots (contract/debt/verification
@@ -168,6 +172,7 @@ class GitAuditService:
         self.events_repo_path = base / 'events-local'
         self.events_path = self.events_repo_path / 'events'
         self.events_path.mkdir(parents=True, exist_ok=True)
+        clear_stale_index_lock(self.events_repo_path)
         self.events_repo = self._ensure_events_repo()
 
     def _ensure_events_repo(self) -> 'git.Repo':
@@ -284,6 +289,82 @@ class GitAuditService:
         self.repo.index.add(files_to_add)
         self.repo.index.commit(f"audit: OTS proof for batch {batch_label}")
 
+    def push_public(self):
+        """Push public-git to Gitea if a remote is configured (non-fatal)."""
+        if not getattr(settings, 'AUDIT_LOG_PUBLIC_GIT_REMOTE', ''):
+            return
+        try:
+            self.repo.remotes.origin.push()
+        except Exception as e:
+            logger.warning(f"Git push to remote failed (non-fatal): {e}")
+
+    OTS_ATTESTATION_RE = re.compile(r'BitcoinBlockHeaderAttestation\((\d+)\)')
+
+    def upgrade_batch_proof(self, batch: AuditBatch) -> 'tuple[Optional[int], Optional[str]]':
+        """
+        Complete the batch's OTS proof via calendar servers (`ots upgrade`) and
+        read the earliest attested Bitcoin block height from the completed
+        proof's BitcoinBlockHeaderAttestation — requires no local Bitcoin node.
+
+        Upgrading the PUBLISHED .ots also makes it self-contained: a pending
+        proof is only completable while the calendar servers are alive, a
+        completed one verifies forever. The height read here is what the proof
+        itself attests; independent header verification stays with `ots verify`
+        against a real node (see verify_batch).
+
+        Returns (attested_height | None, changed_repo_relpath | None) and
+        updates batch.ots_proof to the upgraded bytes.
+        """
+        def _upgrade_and_parse(ots_path: Path) -> Optional[int]:
+            subprocess.run(
+                [self.OTS_BIN, 'upgrade', str(ots_path)],
+                capture_output=True, text=True, timeout=60,
+            )
+            # `ots upgrade` leaves a .bak safety copy — never let it near the repo
+            bak = Path(str(ots_path) + '.bak')
+            if bak.exists():
+                bak.unlink()
+            info = subprocess.run(
+                [self.OTS_BIN, 'info', str(ots_path)],
+                capture_output=True, text=True, timeout=30,
+            )
+            heights = self.OTS_ATTESTATION_RE.findall(info.stdout + info.stderr)
+            return min(int(h) for h in heights) if heights else None
+
+        try:
+            published = None
+            if batch.git_commit_file:
+                candidate = self.repo_path / (batch.git_commit_file + '.ots')
+                if candidate.exists():
+                    published = candidate
+
+            if published:
+                before = published.read_bytes()
+                height = _upgrade_and_parse(published)
+                after = published.read_bytes()
+                changed = None
+                if after != before:
+                    batch.ots_proof = after
+                    batch.save(update_fields=['ots_proof'])
+                    changed = str(published.relative_to(self.repo_path))
+                return height, changed
+
+            # Legacy batch without a published file: upgrade a temp copy of the blob
+            if not batch.ots_proof:
+                return None, None
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmp = Path(tmpdir) / 'proof.ots'
+                tmp.write_bytes(bytes(batch.ots_proof))
+                height = _upgrade_and_parse(tmp)
+                upgraded = tmp.read_bytes()
+                if upgraded != bytes(batch.ots_proof):
+                    batch.ots_proof = upgraded
+                    batch.save(update_fields=['ots_proof'])
+            return height, None
+        except Exception as e:
+            logger.warning(f"OTS upgrade failed for batch {batch.id}: {e}")
+            return None, None
+
     def verify_batch(self, batch: AuditBatch) -> bool:
         """
         Verify a batch's OTS proof against Bitcoin. Verifies the ACTUAL published
@@ -316,7 +397,6 @@ class GitAuditService:
                 # A pending stamp prints "Pending confirmation in Bitcoin
                 # blockchain" — the bare substring "Bitcoin block" matches that
                 # ("block"+"chain"), so we must require "Bitcoin block <digits>".
-                import re
                 m = re.search(r'Bitcoin block (\d+)', output)
                 if m:
                     batch.bitcoin_block = int(m.group(1))

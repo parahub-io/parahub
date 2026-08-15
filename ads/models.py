@@ -75,6 +75,13 @@ class AdsProfileSkill(ULIDModel):
         return f"{self.profile} - {self.skill}: {self.level}/5"
 
 
+def default_ln_wallet_config():
+    """Every account has a Parahub wallet in the browser, so the browser-paid
+    'spark' rail works with zero setup — it is the default funding provider.
+    External providers (NWC/LNbits/Alby) are an explicit opt-in."""
+    return {'provider': 'spark'}
+
+
 class AdsProfile(ULIDModel):
     """User's advertising profile for targeting and earning statistics."""
 
@@ -126,9 +133,10 @@ class AdsProfile(ULIDModel):
 
     # Lightning wallet configuration (ln_address lives on Profile)
     ln_wallet_config = models.JSONField(
-        default=dict,
+        default=default_ln_wallet_config,
         blank=True,
-        help_text="Encrypted wallet credentials (admin keys for paying, invoice keys for receiving)"
+        help_text="Encrypted wallet credentials (admin keys for paying, invoice keys for receiving). "
+                  "Defaults to the credential-less browser-paid Parahub wallet."
     )
 
     # Earnings statistics
@@ -167,6 +175,9 @@ class AdCampaign(ULIDModel):
         ACTIVE = 'active', 'Active'
         PAUSED = 'paused', 'Paused'
         COMPLETED = 'completed', 'Completed'
+        # Terminal hide for campaigns with views: AdView rows are the payout
+        # audit trail, so viewed campaigns can never be hard-deleted
+        ARCHIVED = 'archived', 'Archived'
 
     class TargetGender(models.TextChoices):
         ANY = 'any', 'Any'
@@ -189,6 +200,26 @@ class AdCampaign(ULIDModel):
     post_title = models.CharField(max_length=200)
     post_content = models.TextField()
     link = models.URLField(blank=True, max_length=500)
+
+    # i18n: two-layer translation scheme (PK/ads-system.md § i18n).
+    # Authoritative maps are advertiser-written and survive edits of the base
+    # text; mt_cache is machine-filled and wiped whenever the base text changes.
+    source_lang = models.CharField(
+        max_length=5, default='en',
+        help_text="Language the advertiser wrote the ad in"
+    )
+    post_title_i18n = models.JSONField(
+        default=dict, blank=True,
+        help_text="Advertiser-provided translations {lang: title}; never machine-written"
+    )
+    post_content_i18n = models.JSONField(
+        default=dict, blank=True,
+        help_text="Advertiser-provided translations {lang: html}; never machine-written"
+    )
+    mt_cache = models.JSONField(
+        default=dict, blank=True,
+        help_text="Machine translation cache {lang: {post_title, post_content}}"
+    )
 
     # Banner image
     image = models.ImageField(upload_to='ads/%Y/%m/%d/', blank=True, null=True)
@@ -299,6 +330,13 @@ class AdCampaign(ULIDModel):
 class AdView(ULIDModel):
     """Track individual ad views and payments."""
 
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('queued', 'Queued'),
+        ('sent', 'Sent'),
+        ('failed', 'Failed'),
+    ]
+
     user = models.ForeignKey(
         Profile,
         on_delete=models.CASCADE,
@@ -324,12 +362,35 @@ class AdView(ULIDModel):
 
     # Payment tracking
     payment_sent = models.BooleanField(default=False)
+    payment_status = models.CharField(
+        max_length=10,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='pending',
+        db_index=True,
+        help_text="Payout state. 'failed' views stay claimable: the ad returns "
+                  "to the feed and never counts towards spent/earned totals. "
+                  "'queued' waits for the advertiser's own browser wallet to "
+                  "pay it — it never goes stale and keeps reserving budget"
+    )
     payment_amount_sats = models.IntegerField(default=0)
     payment_invoice = models.CharField(
         max_length=2000,
         blank=True,
         help_text="Lightning invoice used for payment"
     )
+    payment_error = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Last payout failure reason, kept for support"
+    )
+    payment_proof = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Proof the payout happened: BOLT11 preimage (verified against "
+                  "the invoice's payment hash) or the Spark payment id reported "
+                  "by the paying wallet"
+    )
+    payment_attempts = models.IntegerField(default=0)
     payment_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

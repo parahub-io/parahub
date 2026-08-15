@@ -72,7 +72,7 @@
         <!-- Owner attribution (owner opt-in via show_owner) -->
         <div v-if="iotDeviceData.owner_cri" class="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
           <span class="text-neutral-500 dark:text-neutral-400">{{ t('map.panel.owner') }}</span>
-          <NuxtLink :to="localePath(`/u/${iotDeviceData.owner_cri}`)" class="text-link font-medium truncate">{{ iotDeviceData.owner_name }}</NuxtLink>
+          <NuxtLink :to="localePath(`/@${iotDeviceData.owner_cri}`)" class="text-link font-medium truncate">{{ iotDeviceData.owner_name }}</NuxtLink>
         </div>
       </div>
 

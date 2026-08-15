@@ -112,6 +112,9 @@ class Command(BaseCommand):
                     terms_url='/org/parahub-associacao/estatutos',
                     terms_content=terms_content,
                     member_visibility=Establishment.MemberVisibility.PUBLIC,
+                    # The governing association recruits publicly — the only
+                    # organization that ships with self-service join enabled.
+                    membership_policy=Establishment.MembershipPolicy.OPEN,
                     is_active=True,
                     is_verified=True,
                 )

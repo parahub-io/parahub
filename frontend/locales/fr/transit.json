@@ -45,8 +45,6 @@
     "data_source": "Source de données",
     "schedule_date": "Date de l'horaire",
     "view_route": "Voir la ligne",
-    "rideshare": "Covoiturage",
-    "rideshare_desc": "Trouvez ou proposez des trajets aux arrêts",
     "cities": {
       "all_countries": "Tous",
       "stops": "{n} arrêts",
@@ -77,7 +75,11 @@
       "stops": "Arrêts",
       "trips": "Trajets",
       "imported": "Importé",
-      "show_error": "Voir l'erreur"
+      "show_error": "Voir l'erreur",
+      "license": "Licence",
+      "license_missing": "L'éditeur n'indique aucune licence",
+      "realtime": "En direct",
+      "summary": "Flux : {feeds} · Opérateurs : {agencies}"
     },
     "route_types": {
       "0": "Tramway",
@@ -133,8 +135,27 @@
       "positions_sent": "envoyés",
       "confirm_end": "Terminer le service en cours ?",
       "shift_ended": "Service terminé",
-      "tts_label": "Annonces d'arrêt"
+      "tts_label": "Annonces d'arrêt",
+      "scan_tickets": "Valider les billets",
+      "route_ladder": "Schéma de la ligne",
+      "your_vehicle": "Votre véhicule",
+      "vehicles_on_route": "Véhicules dans ce sens",
+      "waiting_ahead": "{n} attendent votre ligne à cet arrêt"
     },
-    "timetable_no_service": "Pas de service ce jour-là"
+    "timetable_no_service": "Pas de service ce jour-là",
+    "waiting": {
+      "title": "En attente ici",
+      "hint": "Touchez la ligne que vous attendez — les autres passagers et la conductrice ou le conducteur le voient. Cela disparaît tout seul à l'arrivée de votre bus.",
+      "im_here": "J'attends cette ligne ici",
+      "im_here_cancel": "Je n'attends plus ici",
+      "count": "{n} attendent cette ligne ici",
+      "dimmed_hint": "Marqué plus tôt, écran éteint depuis",
+      "error_throttled": "Trop rapide — patientez un instant avant de déplacer votre marque",
+      "error_ip_cap": "Trop de marques anonymes depuis cette connexion",
+      "error_failed": "Impossible de mettre à jour votre marque d'attente",
+      "stranded_title": "Aucun bus n'arrive",
+      "stranded_desc": "Vous attendez depuis {min} min et rien ne circule sur votre ligne.",
+      "stranded_company": "Autres personnes bloquées ici : {n}."
+    }
   }
 }

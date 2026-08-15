@@ -137,11 +137,28 @@ def log_foundation_member_added(sender, instance, created, **kwargs):
         )
 
 
+def _sync_verification_photo_state(profile):
+    """Recompute the photo re-confirmation state after a verification changed.
+
+    Kept on the signal rather than in the verify endpoint so every path that
+    creates, re-signs, revokes or deletes a verification feeds the same count —
+    a revoke has to be able to put a profile back into pending.
+    """
+    from identity.models import ProfileVerificationPhoto
+    try:
+        photo = profile.verification_photo
+    except ProfileVerificationPhoto.DoesNotExist:
+        return
+    photo.refresh_reconfirmation()
+
+
 @receiver(post_save, sender=Verification)
 def sync_wot_status_on_verification_save(sender, instance, **kwargs):
     """Auto-update is_verified_wot when a Verification is created or modified."""
     try:
-        instance.verified_profile.update_wot_status()
+        profile = instance.verified_profile
+        profile.update_wot_status()
+        _sync_verification_photo_state(profile)
     except Exception as e:
         logger.error(f"Failed to sync WoT status on verification save: {e}")
 
@@ -152,7 +169,9 @@ def sync_wot_status_on_verification_delete(sender, instance, **kwargs):
     try:
         # Profile may have been cascade-deleted too
         if Profile.objects.filter(pk=instance.verified_profile_id).exists():
-            instance.verified_profile.update_wot_status()
+            profile = instance.verified_profile
+            profile.update_wot_status()
+            _sync_verification_photo_state(profile)
     except Exception as e:
         logger.error(f"Failed to sync WoT status on verification delete: {e}")
 
@@ -217,9 +236,55 @@ def _recalc_reputation(profile_id):
         logger.error(f"Reputation recalc failed for {profile_id}: {e}")
 
 
-def _schedule_recalc(profile_id):
+def _schedule_recalc(*profile_ids):
     """Schedule reputation recalc after current transaction commits."""
-    transaction.on_commit(lambda: _recalc_reputation(profile_id))
+    for profile_id in {pid for pid in profile_ids if pid}:
+        transaction.on_commit(lambda pid=profile_id: _recalc_reputation(pid))
+
+
+@receiver(post_save, sender=Verification)
+@receiver(post_delete, sender=Verification)
+def recalc_reputation_on_verification(sender, instance, **kwargs):
+    """Identity for the verified profile, contribution for the verifier."""
+    _schedule_recalc(instance.verified_profile_id, instance.verifier_id)
+
+
+@receiver(post_save, sender='market.Item')
+@receiver(post_delete, sender='market.Item')
+def recalc_reputation_on_item(sender, instance, **kwargs):
+    _schedule_recalc(instance.owner_id)
+
+
+@receiver(post_save, sender='barter.Exchange')
+def recalc_reputation_on_exchange(sender, instance, **kwargs):
+    """Only completed cycles score, and every participant in the chain earns."""
+    if instance.status != instance.Status.COMPLETED:
+        return
+    _schedule_recalc(*instance.participants)
+
+
+@receiver(post_save, sender='governance.CivicIdea')
+@receiver(post_delete, sender='governance.CivicIdea')
+def recalc_reputation_on_civic_idea(sender, instance, **kwargs):
+    _schedule_recalc(instance.author_id)
+
+
+@receiver(post_save, sender='governance.CivicIdeaSupport')
+@receiver(post_delete, sender='governance.CivicIdeaSupport')
+def recalc_reputation_on_civic_support(sender, instance, **kwargs):
+    _schedule_recalc(instance.profile_id)
+
+
+@receiver(post_save, sender='governance.StandingDelegation')
+@receiver(post_delete, sender='governance.StandingDelegation')
+def recalc_reputation_on_standing_delegation(sender, instance, **kwargs):
+    _schedule_recalc(instance.delegate_id)
+
+
+@receiver(post_save, sender='treasury.BudgetAllocation')
+@receiver(post_delete, sender='treasury.BudgetAllocation')
+def recalc_reputation_on_budget_allocation(sender, instance, **kwargs):
+    _schedule_recalc(instance.profile_id)
 
 
 @receiver(post_save, sender='contracts.ContractReview')
@@ -253,11 +318,12 @@ def recalc_reputation_on_delegation(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender='contracts.Contract')
+@receiver(post_delete, sender='contracts.Contract')
 def recalc_reputation_on_contract(sender, instance, **kwargs):
-    _schedule_recalc(instance.creator_id)
-    _schedule_recalc(instance.partner_id)
+    _schedule_recalc(instance.creator_id, instance.partner_id)
 
 
 @receiver(post_save, sender='debts.Debt')
+@receiver(post_delete, sender='debts.Debt')
 def recalc_reputation_on_debt(sender, instance, **kwargs):
     _schedule_recalc(instance.debtor_id)

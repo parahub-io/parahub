@@ -6,13 +6,16 @@
     </Head>
 
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <PageHeader
-        :title="$t('iot.hub_title')"
-        :create-label="createLabel"
-        @create="onCreate"
-      />
+      <!-- Tabs name the content and the top nav names the page — the visible
+           title is redundant, so it goes sr-only (same pattern as transit) -->
+      <h1 class="sr-only">{{ $t('iot.hub_title') }}</h1>
 
-      <UiTabs v-model="activeTab" :tabs="tabs" class="mb-6" />
+      <div class="flex items-center gap-3 mb-6">
+        <UiTabs v-model="activeTab" :tabs="tabs" class="flex-1 min-w-0" />
+        <UiButton v-if="createTo" variant="primary" size="sm" :icon="Plus" :to="createTo">
+          {{ $t('iot.add') }}
+        </UiButton>
+      </div>
 
       <!-- ═══ Trackers tab: GPS trackers ═══ -->
       <div v-if="activeTab === 'trackers'" class="space-y-4">
@@ -22,8 +25,6 @@
             :device="device"
             :property-id="device.property_id"
             :property-name="propertyName(device.property_id)"
-            @delete="handleDeleteDevice"
-            @refresh="loadAll"
           />
         </div>
 
@@ -43,8 +44,6 @@
             :device="device"
             :property-id="device.property_id"
             :property-name="propertyName(device.property_id)"
-            @delete="handleDeleteDevice"
-            @refresh="loadAll"
           />
         </div>
 
@@ -55,11 +54,10 @@
           <p class="text-sm mt-1">{{ $t('iot.no_devices_hint') }}</p>
         </div>
 
-        <!-- Claim a pre-provisioned router by its sticker MAC -->
-        <button
-          type="button"
+        <!-- Claim a pre-provisioned router by its sticker MAC (wizard branch) -->
+        <NuxtLink
+          :to="localePath('/iot/add?type=network&variant=claim')"
           class="w-full text-left flex items-center gap-3 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 hover:border-primary transition-colors group"
-          @click="showClaimModal = true"
         >
           <KeyRound class="w-5 h-5 text-primary flex-shrink-0" />
           <div class="flex-1 min-w-0">
@@ -69,7 +67,7 @@
             </p>
           </div>
           <ChevronRight class="w-4 h-4 text-neutral-400 group-hover:text-secondary transition-colors flex-shrink-0" />
-        </button>
+        </NuxtLink>
 
         <!-- Mesh firmware — provision a new mesh router -->
         <NuxtLink
@@ -85,6 +83,23 @@
           </div>
           <ChevronRight class="w-4 h-4 text-neutral-400 group-hover:text-secondary transition-colors flex-shrink-0" />
         </NuxtLink>
+
+        <!-- Paper companion for whoever physically installs the node -->
+        <a
+          href="/print/mesh.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-3 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 hover:border-primary transition-colors group"
+        >
+          <Printer class="w-5 h-5 text-primary flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ $t('mesh.print_sheet') }}</span>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
+              {{ $t('mesh.print_sheet_desc') }}
+            </p>
+          </div>
+          <ExternalLink class="w-4 h-4 text-neutral-400 group-hover:text-secondary transition-colors flex-shrink-0" />
+        </a>
       </div>
 
       <!-- ═══ Sensors tab: sensor/actuator devices + environmental stations ═══ -->
@@ -96,8 +111,6 @@
             :device="device"
             :property-id="device.property_id"
             :property-name="propertyName(device.property_id)"
-            @delete="handleDeleteDevice"
-            @refresh="loadAll"
           />
           <IoTEnvStationCard
             v-for="st in envStore.stations" :key="st.id"
@@ -116,9 +129,6 @@
 
       <!-- ═══ Objects tab: properties ═══ -->
       <div v-else-if="activeTab === 'objects'" class="space-y-4">
-        <!-- Add form -->
-        <IoTPropertyForm v-if="showPropertyForm" @submit="showPropertyForm = false" @cancel="showPropertyForm = false" />
-
         <!-- Property cards — click to navigate to detail -->
         <div v-if="propertyStore.properties.length > 0" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <IoTPropertyCard
@@ -128,7 +138,7 @@
         </div>
 
         <!-- Empty state -->
-        <div v-if="!propertyStore.loading && propertyStore.properties.length === 0 && !showPropertyForm"
+        <div v-if="!propertyStore.loading && propertyStore.properties.length === 0"
              class="text-center py-12 text-neutral-500 dark:text-neutral-400">
           <img src="/images/para/searching.webp" alt="Para" class="mx-auto h-32 w-auto mb-4" />
           <p>{{ $t('property.no_properties') }}</p>
@@ -137,34 +147,14 @@
       </div>
 
       <!-- ═══ Infrastructure tab (admin only) ═══ -->
-      <div v-else-if="activeTab === 'infra' && isStaff" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <IoTHiveCard />
-        <IoTServerCard />
+      <div v-else-if="activeTab === 'infra' && canSeeInfra" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <IoTHiveCard v-if="isStaff" />
+        <IoTServerCard v-if="can('infra.operate')" />
+        <IoTFederationCard v-if="can('federation.admin')" />
+        <IoTStaffToolsCard v-if="isStaff || isOwner || can('moderation.review')" />
       </div>
     </div>
 
-    <!-- Add device modal (device created here is unassigned; assign via property detail) -->
-    <IoTDeviceForm
-      v-if="showDeviceForm"
-      :is-open="showDeviceForm"
-      :default-type="deviceFormType"
-      @close="showDeviceForm = false"
-      @created="onDeviceCreated"
-    />
-
-    <!-- Add environmental station modal -->
-    <IoTEnvStationForm
-      v-if="showStationForm"
-      @close="showStationForm = false"
-      @created="onStationCreated"
-    />
-
-    <!-- Claim router modal (unclaimed pool, MAC from the sticker) -->
-    <IoTClaimDeviceModal
-      v-if="showClaimModal"
-      @close="showClaimModal = false"
-      @claimed="showClaimModal = false"
-    />
   </div>
 </template>
 
@@ -173,7 +163,7 @@ import { ref, computed, onActivated, onDeactivated } from 'vue'
 import type { IoTDevice } from '~/stores/iot'
 import {
   House as HouseIcon, ChevronRight, Navigation, Router as RouterIcon, Gauge,
-  KeyRound, Radio, Server, WifiOff,
+  KeyRound, Radio, Server, WifiOff, Printer, ExternalLink, Plus,
 } from 'lucide-vue-next'
 
 definePageMeta({
@@ -190,13 +180,15 @@ const { t: $t } = useI18n()
 const authStore = useAuthStore()
 const { getDeviceStatus } = useIoT()
 
-const showPropertyForm = ref(false)
-const showDeviceForm = ref(false)
-const showStationForm = ref(false)
-const showClaimModal = ref(false)
-const deviceFormType = ref('')  // preset the device-form type per originating tab
-
 const isStaff = computed(() => authStore.user?.is_staff)
+
+// The Infrastructure tab is a set of separate surfaces, so each card asks for
+// its own key (parahub/capabilities.py) and the tab opens for anyone holding
+// one of them. The hive card stays on is_staff: the mesh API has no capability
+// of its own yet.
+const { can, isOwner } = useCapabilities()
+const canSeeInfra = computed(() => !!isStaff.value || isOwner.value
+  || can('infra.operate') || can('federation.admin') || can('moderation.review'))
 
 const activeTab = useTabSync(['trackers', 'network', 'sensors', 'objects', 'infra'])
 
@@ -266,23 +258,14 @@ const tabs = computed(() => {
     },
     { id: 'objects', label: $t('iot.tab_objects'), icon: HouseIcon, badge: propertyStore.properties.length || undefined },
   ]
-  if (isStaff.value) list.push({ id: 'infra', label: 'Infrastructure', icon: Server, badge: undefined })
+  if (canSeeInfra.value) list.push({ id: 'infra', label: 'Infrastructure', icon: Server, badge: undefined })
   return list
 })
 
-const createLabel = computed(() => {
-  if (activeTab.value === 'trackers' || activeTab.value === 'network') return $t('iot.add_device')
-  if (activeTab.value === 'sensors') return $t('map.env.add_station')
-  if (activeTab.value === 'objects' && !showPropertyForm.value) return $t('property.add_property')
-  return undefined
-})
-
-function onCreate() {
-  if (activeTab.value === 'trackers') { deviceFormType.value = 'TRACKER'; showDeviceForm.value = true }
-  else if (activeTab.value === 'network') { deviceFormType.value = ''; showDeviceForm.value = true }
-  else if (activeTab.value === 'sensors') showStationForm.value = true
-  else if (activeTab.value === 'objects') showPropertyForm.value = true
-}
+// One entry point: the universal "Add" button always opens the wizard's
+// illustrated picker — choosing what to add happens there, not via tabs
+const createTo = computed(() =>
+  activeTab.value === 'infra' ? undefined : localePath('/iot/add'))
 
 function propertyName(propertyId?: string | null) {
   if (!propertyId) return undefined
@@ -295,20 +278,6 @@ async function loadAll() {
     iotStore.fetchDevices(),
     envStore.fetchStations(),
   ])
-}
-
-function handleDeleteDevice(deviceId: string) {
-  iotStore.deleteDevice(deviceId)
-}
-
-function onDeviceCreated() {
-  showDeviceForm.value = false
-  iotStore.fetchDevices()
-}
-
-function onStationCreated() {
-  showStationForm.value = false
-  envStore.fetchStations()
 }
 
 // Client-side fetch behind Suspense (token-authed → no SSR): on client-side

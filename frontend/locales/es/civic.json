@@ -32,7 +32,8 @@
       "hideVoted": "Ocultar ya votadas",
       "showVoted": "Mostrar ya votadas",
       "showAll": "Mostrar todas ({n})",
-      "history": "Finalizadas"
+      "history": "Finalizadas",
+      "allPolls": "Todas las votaciones"
     },
     "destination": "Adónde va el resultado",
     "outcome": "Resultado final",
@@ -169,10 +170,10 @@
     },
     "ideas": {
       "title": "Ideas",
-      "hint": "Propón una encuesta para tu zona. Con {threshold} apoyos pasa a revisión de formulación neutral y se convierte en encuesta.",
+      "hint": "Propón algo para tu zona. Cuando reúna suficiente apoyo de tus vecinos, la idea se convierte en una encuesta por sí sola: nadie tiene que aprobarla.",
       "create": "Proponer una idea",
       "formTitle": "Título de la idea",
-      "formBody": "Qué y por qué (la redacción se neutralizará en la revisión)",
+      "formBody": "Qué y por qué",
       "submit": "Enviar idea",
       "support": "Apoyar",
       "supported": "Apoyada",
@@ -185,7 +186,20 @@
       "reject": "Rechazar",
       "rejectSure": "¿Seguro?",
       "empty": "Aún no hay ideas — propón la primera",
-      "report": "Denunciar"
+      "report": "Denunciar",
+      "badge": "Idea",
+      "sectionTitle": "Ideas de los vecinos",
+      "ctaTitle": "¿Falta la pregunta que te importa?",
+      "ctaHint": "Proponla tú mismo: con suficiente apoyo de tus vecinos se convierte en encuesta."
+    },
+    "translation": {
+      "auto_translated": "Traducido automáticamente",
+      "show_original": "Mostrar original",
+      "show_translation": "Mostrar traducción"
+    },
+    "citizen": {
+      "badge": "Propuesto por un residente",
+      "ballotQuestion": "¿Apoyas esta propuesta?"
     }
   }
 }

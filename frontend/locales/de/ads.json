@@ -32,6 +32,8 @@
       "history_empty_desc": "Anzeigen, die Sie ansehen, erscheinen hier",
       "viewed_on": "Gesehen am {date}",
       "payment_pending": "Zahlung ausstehend",
+      "payment_failed_retry": "Die Belohnung konnte nicht gesendet werden — die Anzeige bleibt in Ihrem Feed und kann später eingelöst werden",
+      "not_paid": "Nicht ausgezahlt",
       "col_reward": "Belohnung",
       "col_title": "Anzeige",
       "sort_high_low": "Höchste zuerst",
@@ -40,14 +42,27 @@
       "earn": "Verdienen",
       "earned": "Verdient",
       "sponsored": "Gesponsert",
-      "view_ad": "Anzeige ansehen"
+      "view_ad": "Anzeige ansehen",
+      "queued_title": "{sats} Sats in der Auszahlungswarteschlange",
+      "queued_desc": "Der Werbende zahlt aus der eigenen Wallet. Ist er online, kommen die Sats in Sekunden an — sonst bei seinem nächsten Besuch. Sie können diese Seite verlassen.",
+      "queued_short": "In Warteschlange",
+      "auto_translated": "Automatisch übersetzt",
+      "show_original": "Original anzeigen",
+      "show_translation": "Übersetzung anzeigen",
+      "own_ad": "Ihre Anzeige",
+      "own_preview_title": "Das ist Ihre Kampagne",
+      "own_preview_desc": "Sie sehen sie genau wie Ihr Publikum. Für eigene Anzeigen können keine Belohnungen beansprucht werden.",
+      "own_manage_campaigns": "Kampagnen verwalten"
     },
     "campaigns": {
       "my_campaigns": "Meine Kampagnen",
       "create_new": "Kampagne erstellen",
       "create_first": "Erste Kampagne erstellen",
       "empty": "Noch keine Kampagnen",
-      "empty_desc": "Erstellen Sie Ihre erste Werbekampagne, um Ihre Zielgruppe zu erreichen"
+      "empty_desc": "Erstellen Sie Ihre erste Werbekampagne, um Ihre Zielgruppe zu erreichen",
+      "tab_active": "Aktiv",
+      "tab_archived": "Archiv",
+      "archived_empty": "Keine archivierten Kampagnen"
     },
     "profile": {
       "wallet_title": "Lightning-Wallet",
@@ -83,6 +98,9 @@
       "advanced_config": "Erweiterte Wallet-Konfiguration (Optional)",
       "wallet_provider": "Wallet-Anbieter",
       "select_provider": "Anbieter auswählen...",
+      "connection_uri": "Verbindungsstring",
+      "connection_uri_help": "Funktioniert mit jeder Wallet, die Nostr Wallet Connect spricht. Ihre Sats bleiben in Ihrer eigenen Wallet — wir haben nur die Erlaubnis, die Belohnung zu senden.",
+      "nwc_uri_required": "Ein Verbindungsstring, der mit nostr+walletconnect:// beginnt, ist erforderlich",
       "api_url": "API-URL",
       "invoice_key": "Rechnungs-/Leseschlüssel",
       "invoice_key_placeholder": "Fügen Sie Ihren LNbits-Rechnungsschlüssel ein",
@@ -117,7 +135,12 @@
       "lnbits_fields_required": "API-URL und Rechnungsschlüssel sind für LNbits erforderlich",
       "alby_token_required": "Zugriffstoken ist für Alby erforderlich",
       "configured": "konfiguriert",
-      "provider_connected": "verbunden"
+      "provider_connected": "verbunden",
+      "provider_spark": "Parahub-Wallet (zahlt aus Ihrem Browser)",
+      "spark_help": "Belohnungen werden direkt aus Ihrer Parahub-Lightning-Wallet gezahlt — kein externes Konto, keine Schlüssel. Solange ein Parahub-Tab offen ist, werden wartende Belohnungen automatisch ausgezahlt.",
+      "spark_offline_note": "Solange Sie offline sind, sammeln sich Anfragen und werden bei Ihrem nächsten Besuch bezahlt. Halten Sie genug Sats in der Wallet für Ihre Kampagnenbudgets.",
+      "fill_from_properties": "Aus meinen Objekten übernehmen",
+      "add_home_from": "„Zuhause“ aus {name} hinzufügen"
     },
     "create_campaign": {
       "title": "Werbekampagne erstellen",
@@ -201,12 +224,14 @@
       "preview_section": "Vorschau",
       "search_establishments": "Geschäfte suchen...",
       "search_items": "Ihre Artikel suchen...",
-      "unlink": "Verknüpfung entfernen"
+      "unlink": "Verknüpfung entfernen",
+      "create_failed": "Kampagne konnte nicht erstellt werden",
+      "image_language_hint": "Text im Bannerbild wird nicht übersetzt — Betrachter sehen ihn immer genau so, wie er hochgeladen wurde."
     },
     "settings": {
       "about_you": "Über Sie",
       "about_you_desc": "Geben Sie Ihre Daten an, um relevante Werbung zu erhalten",
-      "locations_desc": "Fügen Sie Ihre Standorte für standortbezogene Werbung hinzu"
+      "locations_desc": "Orte, in deren Nähe Ihnen geo-zielgerichtete Werbung angezeigt werden kann: mehr Orte — mehr passende Anzeigen und Verdienst. Ihre Koordinaten sind für niemanden sichtbar; der Abgleich erfolgt auf dem Server."
     },
     "campaign_detail": {
       "views": "Aufrufe",
@@ -217,7 +242,12 @@
       "resume": "Fortsetzen",
       "delete": "Löschen",
       "reward": "Belohnung",
-      "budget": "Budget"
+      "budget": "Budget",
+      "delete_sure": "Sicher?",
+      "edit": "Bearbeiten",
+      "duplicate": "Duplizieren",
+      "archive": "Archivieren",
+      "unarchive": "Wiederherstellen"
     },
     "campaign": {
       "insufficient_balance": "Unzureichendes Wallet-Guthaben zur Aktivierung der Kampagne",
@@ -325,6 +355,16 @@
       "teen": "Teenager (12-18 Jahre)",
       "eighteen_plus": "18+",
       "no_children": "Keine Kinder"
+    },
+    "payer": {
+      "paid_toast": "-{sats} Sats · Werbe-Belohnung für „{name}“"
+    },
+    "edit_campaign": {
+      "title": "Kampagne bearbeiten",
+      "save": "Änderungen speichern",
+      "immutable_hint": "Belohnung und Budget werden nach den ersten Aufrufen gesperrt",
+      "load_failed": "Kampagne konnte nicht geladen werden",
+      "save_failed": "Änderungen konnten nicht gespeichert werden"
     }
   }
 }

@@ -633,6 +633,13 @@ class OfferRideTest(CarpoolTestBase):
         self.assertEqual(result['driver_note'], 'I can pick you up')
         self.assertEqual(result['available_seats'], 4)
 
+    def test_offer_wot_required(self):
+        """Unverified user cannot offer a ride."""
+        req = _create_ride_request(self.passenger, self.origin, self.destination)
+        with self.assertRaises(HttpError) as ctx:
+            self._call(self.unverified, self.unverified_account, req.id)
+        self.assertEqual(ctx.exception.status_code, 403)
+
     def test_offer_defaults(self):
         """Default driver_note='' and available_seats=3."""
         req = _create_ride_request(self.passenger, self.origin, self.destination)

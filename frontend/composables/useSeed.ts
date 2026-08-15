@@ -121,6 +121,8 @@ export const useSeed = () => {
     localStorage.removeItem(STORAGE_KEY_SEED_VERSION)
     // Also clear legacy key
     localStorage.removeItem('parahub_encrypted_seed')
+    // Owner stamp is meaningless without the seed it describes
+    localStorage.removeItem('parahub_seed_owner')
   }
 
   /**
