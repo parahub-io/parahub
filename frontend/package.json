@@ -72,7 +72,7 @@
     "jdenticon": "^3.3.0",
     "jschannel": "^1.0.2",
     "lucide-vue-next": "^0.575.0",
-    "maplibre-gl": "^5.21.1",
+    "maplibre-gl": "^6.4.1",
     "marked": "^17.0.4",
     "mediabunny": "^1.49.0",
     "openpgp": "^6.3.0",
